@@ -2,16 +2,16 @@ import { useCallback, useState } from 'react';
 import Toast from 'react-native-toast-message';
 import srp from 'secure-remote-password/client';
 
+import type { EncryptionKeyDerivationParams } from '@/utils/dist/shared/models/metadata';
+import type { PasswordChangeInitiateResponse, Vault, VaultPasswordChangeRequest } from '@/utils/dist/shared/models/webapi';
+import EncryptionUtility from '@/utils/EncryptionUtility';
+
 import { useVaultSync } from '@/hooks/useVaultSync';
+
 import { useAuth } from '@/context/AuthContext';
 import { useDb } from '@/context/DbContext';
 import { useWebApi } from '@/context/WebApiContext';
 import NativeVaultManager from '@/specs/NativeVaultManager';
-import { Vault } from '@/utils/types/webapi/Vault';
-import EncryptionUtility from '@/utils/EncryptionUtility';
-import { PasswordChangeInitiateResponse } from '@/utils/types/webapi/PasswordChangeInitiateResponse';
-import { VaultPasswordChangeRequest } from '@/utils/types/webapi/VaultPasswordChangeRequest';
-import { EncryptionKeyDerivationParams } from '@/utils/types/messaging/EncryptionKeyDerivationParams';
 
 type VaultPostResponse = {
   status: number;

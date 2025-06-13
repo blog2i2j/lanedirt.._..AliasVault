@@ -1,16 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { storage } from 'wxt/utils/storage';
+
+import type { Vault, VaultResponse, VaultPostResponse } from '@/utils/dist/shared/models/webapi';
 import { EncryptionUtility } from '@/utils/EncryptionUtility';
 import { SqliteClient } from '@/utils/SqliteClient';
-import { WebApiService } from '@/utils/WebApiService';
-import { Vault } from '@/utils/types/webapi/Vault';
-import { VaultResponse } from '@/utils/types/webapi/VaultResponse';
-import { VaultPostResponse } from '@/utils/types/webapi/VaultPostResponse';
 import { BoolResponse as messageBoolResponse } from '@/utils/types/messaging/BoolResponse';
-import { VaultResponse as messageVaultResponse } from '@/utils/types/messaging/VaultResponse';
 import { CredentialsResponse as messageCredentialsResponse } from '@/utils/types/messaging/CredentialsResponse';
-import { StringResponse as stringResponse } from '@/utils/types/messaging/StringResponse';
 import { PasswordSettingsResponse as messagePasswordSettingsResponse } from '@/utils/types/messaging/PasswordSettingsResponse';
+import { StoreVaultRequest } from '@/utils/types/messaging/StoreVaultRequest';
+import { StringResponse as stringResponse } from '@/utils/types/messaging/StringResponse';
+import { VaultResponse as messageVaultResponse } from '@/utils/types/messaging/VaultResponse';
+import { VaultUploadResponse as messageVaultUploadResponse } from '@/utils/types/messaging/VaultUploadResponse';
+import { WebApiService } from '@/utils/WebApiService';
 
 /**
  * Check if the user is logged in and if the vault is locked.
@@ -36,17 +37,32 @@ export async function handleStoreVault(
   message: any,
 ) : Promise<messageBoolResponse> {
   try {
-    const vaultResponse = message.vaultResponse as VaultResponse;
-    const encryptedVaultBlob = vaultResponse.vault.blob;
+    const vaultRequest = message as StoreVaultRequest;
 
-    // Store encrypted vault and derived key in session storage.
-    await storage.setItems([
-      { key: 'session:encryptedVault', value: encryptedVaultBlob },
-      { key: 'session:derivedKey', value: message.derivedKey },
-      { key: 'session:publicEmailDomains', value: vaultResponse.vault.publicEmailDomainList },
-      { key: 'session:privateEmailDomains', value: vaultResponse.vault.privateEmailDomainList },
-      { key: 'session:vaultRevisionNumber', value: vaultResponse.vault.currentRevisionNumber }
-    ]);
+    // Store new encrypted vault in session storage.
+    await storage.setItem('session:encryptedVault', vaultRequest.vaultBlob);
+
+    /*
+     * For all other values, check if they have a value and store them in session storage if they do.
+     * Some updates, e.g. when mutating local database, these values will not be set.
+     */
+
+    // Store derived key in session storage (if it has a value)
+    if (vaultRequest.derivedKey) {
+      await storage.setItem('session:derivedKey', vaultRequest.derivedKey);
+    }
+
+    if (vaultRequest.publicEmailDomainList) {
+      await storage.setItem('session:publicEmailDomains', vaultRequest.publicEmailDomainList);
+    }
+
+    if (vaultRequest.privateEmailDomainList) {
+      await storage.setItem('session:privateEmailDomains', vaultRequest.privateEmailDomainList);
+    }
+
+    if (vaultRequest.vaultRevisionNumber) {
+      await storage.setItem('session:vaultRevisionNumber', vaultRequest.vaultRevisionNumber);
+    }
 
     return { success: true };
   } catch (error) {
@@ -210,48 +226,16 @@ export async function getEmailAddressesForVault(
 /**
  * Get default email domain for a vault.
  */
-export function handleGetDefaultEmailDomain(
-) : Promise<stringResponse> {
-  return (async () : Promise<stringResponse> => {
+export function handleGetDefaultEmailDomain(): Promise<stringResponse> {
+  return (async (): Promise<stringResponse> => {
     try {
       const privateEmailDomains = await storage.getItem('session:privateEmailDomains') as string[];
       const publicEmailDomains = await storage.getItem('session:publicEmailDomains') as string[];
 
       const sqliteClient = await createVaultSqliteClient();
-      const defaultEmailDomain = sqliteClient.getDefaultEmailDomain();
+      const defaultEmailDomain = sqliteClient.getDefaultEmailDomain(privateEmailDomains, publicEmailDomains);
 
-      /**
-       * Check if a domain is valid.
-       */
-      const isValidDomain = (domain: string) : boolean => {
-        const isValid = (domain &&
-                    domain !== 'DISABLED.TLD' &&
-                    (privateEmailDomains.includes(domain) || publicEmailDomains.includes(domain))) as boolean;
-
-        return isValid;
-      };
-
-      // First check if the default domain that is configured in the vault is still valid.
-      if (defaultEmailDomain && isValidDomain(defaultEmailDomain)) {
-        return { success: true, value: defaultEmailDomain };
-      }
-
-      // If default domain is not valid, fall back to first available private domain.
-      const firstPrivate = privateEmailDomains.find(isValidDomain);
-
-      if (firstPrivate) {
-        return { success: true, value: firstPrivate };
-      }
-
-      // Return first valid public domain if no private domains are available.
-      const firstPublic = publicEmailDomains.find(isValidDomain);
-
-      if (firstPublic) {
-        return { success: true, value: firstPublic };
-      }
-
-      // Return null if no valid domains are found
-      return { success: true };
+      return { success: true, value: defaultEmailDomain ?? undefined };
     } catch (error) {
       console.error('Error getting default email domain:', error);
       return { success: false, error: 'Failed to get default email domain' };
@@ -301,9 +285,31 @@ export async function handleGetDerivedKey(
 }
 
 /**
+ * Upload the vault to the server.
+ */
+export async function handleUploadVault(
+  message: any
+) : Promise<messageVaultUploadResponse> {
+  try {
+    // Store the new vault blob in session storage.
+    await storage.setItem('session:encryptedVault', message.vaultBlob);
+
+    // Create new sqlite client which will use the new vault blob.
+    const sqliteClient = await createVaultSqliteClient();
+
+    // Upload the new vault to the server.
+    const response = await uploadNewVaultToServer(sqliteClient);
+    return { success: true, status: response.status, newRevisionNumber: response.newRevisionNumber };
+  } catch (error) {
+    console.error('Failed to upload vault:', error);
+    return { success: false, error: 'Failed to upload vault' };
+  }
+}
+
+/**
  * Upload a new version of the vault to the server using the provided sqlite client.
  */
-async function uploadNewVaultToServer(sqliteClient: SqliteClient) : Promise<void> {
+async function uploadNewVaultToServer(sqliteClient: SqliteClient) : Promise<VaultPostResponse> {
   const updatedVaultData = sqliteClient.exportToBase64();
   const derivedKey = await storage.getItem('session:derivedKey') as string;
 
@@ -347,6 +353,8 @@ async function uploadNewVaultToServer(sqliteClient: SqliteClient) : Promise<void
   } else {
     throw new Error('Failed to upload new vault to server');
   }
+
+  return response;
 }
 
 /**
@@ -355,7 +363,6 @@ async function uploadNewVaultToServer(sqliteClient: SqliteClient) : Promise<void
 async function createVaultSqliteClient() : Promise<SqliteClient> {
   const encryptedVault = await storage.getItem('session:encryptedVault') as string;
   const derivedKey = await storage.getItem('session:derivedKey') as string;
-
   if (!encryptedVault || !derivedKey) {
     throw new Error('No vault or derived key found');
   }

@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { useDb } from '@/entrypoints/popup/context/DbContext';
-import { TotpCode } from '@/utils/types/TotpCode';
 import  * as OTPAuth from 'otpauth';
+import React, { useState, useEffect } from 'react';
+
+import { useDb } from '@/entrypoints/popup/context/DbContext';
+
+import type { TotpCode } from '@/utils/dist/shared/models/vault';
 
 type TotpBlockProps = {
   credentialId: string;

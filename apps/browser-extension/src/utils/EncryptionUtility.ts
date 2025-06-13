@@ -1,8 +1,9 @@
-import argon2 from 'argon2-browser/dist/argon2-bundled.min.js';
-import { Email } from './types/webapi/Email';
-import { EncryptionKey } from './types/EncryptionKey';
-import { MailboxEmail } from './types/webapi/MailboxEmail';
 import { Buffer } from 'buffer';
+
+import argon2 from 'argon2-browser/dist/argon2-bundled.min.js';
+
+import type { EncryptionKey } from '@/utils/dist/shared/models/vault';
+import type { Email, MailboxEmail } from '@/utils/dist/shared/models/webapi';
 
 /**
  * Utility class for encryption operations including:
@@ -116,6 +117,37 @@ export class EncryptionUtility {
 
     const decoder = new TextDecoder();
     return decoder.decode(decrypted);
+  }
+
+  /**
+   * Decrypts data using AES-GCM symmetric encryption with raw bytes input/output
+   */
+  public static async symmetricDecryptBytes(encryptedBytes: Uint8Array, base64Key: string): Promise<Uint8Array> {
+    if (!encryptedBytes || encryptedBytes.length === 0) {
+      return encryptedBytes;
+    }
+
+    const key = await crypto.subtle.importKey(
+      "raw",
+      Uint8Array.from(atob(base64Key), c => c.charCodeAt(0)),
+      {
+        name: "AES-GCM",
+        length: 256,
+      },
+      false,
+      ["decrypt"]
+    );
+
+    const iv = encryptedBytes.slice(0, 12);
+    const ciphertext = encryptedBytes.slice(12);
+
+    const decrypted = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv },
+      key,
+      ciphertext
+    );
+
+    return new Uint8Array(decrypted);
   }
 
   /**
@@ -292,9 +324,13 @@ export class EncryptionUtility {
   }
 
   /**
-   * Decrypts an attachment based on the provided public/private key pairs and returns the decrypted bytes as a base64 string.
+   * Decrypts an attachment and returns the decrypted content as Uint8Array (raw bytes).
    */
-  public static async decryptAttachment(base64EncryptedAttachment: string, email: Email, encryptionKeys: EncryptionKey[]): Promise<string> {
+  public static async decryptAttachment(
+    encryptedBytes: Uint8Array,
+    email: Email,
+    encryptionKeys: EncryptionKey[]
+  ): Promise<Uint8Array> {
     try {
       const encryptionKey = encryptionKeys.find(key => key.PublicKey === email.encryptionKey);
 
@@ -302,15 +338,17 @@ export class EncryptionUtility {
         throw new Error('Encryption key not found');
       }
 
-      // Decrypt symmetric key with asymmetric private key
+      // Decrypt the symmetric key using private key (returns raw bytes)
       const symmetricKey = await EncryptionUtility.decryptWithPrivateKey(
         email.encryptedSymmetricKey,
         encryptionKey.PrivateKey
       );
+
+      // Convert symmetric key to base64 string if symmetricDecrypt expects it
       const symmetricKeyBase64 = Buffer.from(symmetricKey).toString('base64');
 
-      const encryptedBytesString = await EncryptionUtility.symmetricDecrypt(base64EncryptedAttachment, symmetricKeyBase64);
-      return encryptedBytesString;
+      // Decrypt the attachment using raw bytes
+      return await EncryptionUtility.symmetricDecryptBytes(encryptedBytes, symmetricKeyBase64);
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'Failed to decrypt attachment');
     }

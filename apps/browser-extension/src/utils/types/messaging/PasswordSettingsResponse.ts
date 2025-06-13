@@ -1,4 +1,4 @@
-import { PasswordSettings } from "@/utils/types/PasswordSettings";
+import type { PasswordSettings } from "@/utils/dist/shared/models/vault";
 
 export type PasswordSettingsResponse = {
     success: boolean,

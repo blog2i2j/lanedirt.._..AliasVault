@@ -1,14 +1,12 @@
 import ReactDOM from 'react-dom/client';
+
 import App from '@/entrypoints/popup/App';
 import { AuthProvider } from '@/entrypoints/popup/context/AuthContext';
-import { WebApiProvider } from '@/entrypoints/popup/context/WebApiContext';
 import { DbProvider } from '@/entrypoints/popup/context/DbContext';
+import { HeaderButtonsProvider } from '@/entrypoints/popup/context/HeaderButtonsContext';
 import { LoadingProvider } from '@/entrypoints/popup/context/LoadingContext';
 import { ThemeProvider } from '@/entrypoints/popup/context/ThemeContext';
-import { setupExpandedMode } from '@/utils/ExpandedMode';
-
-// Run before React initializes to ensure the popup is always a fixed width except for when explicitly expanded.
-setupExpandedMode();
+import { WebApiProvider } from '@/entrypoints/popup/context/WebApiContext';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 root.render(
@@ -16,9 +14,11 @@ root.render(
     <AuthProvider>
       <WebApiProvider>
         <LoadingProvider>
-          <ThemeProvider>
-            <App />
-          </ThemeProvider>
+          <HeaderButtonsProvider>
+            <ThemeProvider>
+              <App />
+            </ThemeProvider>
+          </HeaderButtonsProvider>
         </LoadingProvider>
       </WebApiProvider>
     </AuthProvider>
