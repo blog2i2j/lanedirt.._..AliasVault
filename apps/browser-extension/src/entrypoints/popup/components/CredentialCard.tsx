@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Credential } from '@/utils/types/Credential';
+
+import type { Credential } from '@/utils/dist/shared/models/vault';
 import SqliteClient from '@/utils/SqliteClient';
 
 type CredentialCardProps = {

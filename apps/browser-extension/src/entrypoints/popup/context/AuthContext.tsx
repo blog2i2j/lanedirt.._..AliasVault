@@ -1,13 +1,17 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { storage } from '#imports';
 import { sendMessage } from 'webext-bridge/popup';
+
 import { useDb } from '@/entrypoints/popup/context/DbContext';
+
 import { VAULT_LOCKED_DISMISS_UNTIL_KEY } from '@/utils/Constants';
+
+import { storage } from '#imports';
 
 type AuthContextType = {
   isLoggedIn: boolean;
   isInitialized: boolean;
   username: string | null;
+  initializeAuth: () => Promise<{ isLoggedIn: boolean }>;
   setAuthTokens: (username: string, accessToken: string, refreshToken: string) => Promise<void>;
   login: () => Promise<void>;
   logout: (errorMessage?: string) => Promise<void>;
@@ -31,25 +35,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const dbContext = useDb();
 
   /**
-   * Check for tokens in browser local storage on initial load.
+   * Initialize the authentication state.
+   *
+   * @returns object containing whether the user is logged in.
+   */
+  const initializeAuth = useCallback(async () : Promise<{ isLoggedIn: boolean }> => {
+    const accessToken = await storage.getItem('local:accessToken') as string;
+    const refreshToken = await storage.getItem('local:refreshToken') as string;
+    const username = await storage.getItem('local:username') as string;
+    if (accessToken && refreshToken && username) {
+      setUsername(username);
+      setIsLoggedIn(true);
+    }
+    setIsInitialized(true);
+
+    return { isLoggedIn };
+  }, [setUsername, setIsLoggedIn, isLoggedIn]);
+
+  /**
+   * Check for tokens in browser local storage on initial load when this context is mounted.
    */
   useEffect(() => {
-    /**
-     * Initialize the authentication state.
-     */
-    const initializeAuth = async () : Promise<void> => {
-      const accessToken = await storage.getItem('local:accessToken') as string;
-      const refreshToken = await storage.getItem('local:refreshToken') as string;
-      const username = await storage.getItem('local:username') as string;
-      if (accessToken && refreshToken && username) {
-        setUsername(username);
-        setIsLoggedIn(true);
-      }
-      setIsInitialized(true);
-    };
-
     initializeAuth();
-  }, []);
+  }, [initializeAuth]);
 
   /**
    * Set auth tokens in browser local storage as part of the login process. After db is initialized, the login method should be called as well.
@@ -100,12 +108,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoggedIn,
     isInitialized,
     username,
+    initializeAuth,
     setAuthTokens,
     login,
     logout,
     globalMessage,
     clearGlobalMessage,
-  }), [isLoggedIn, isInitialized, username, globalMessage, setAuthTokens, login, logout, clearGlobalMessage]);
+  }), [isLoggedIn, isInitialized, username, initializeAuth, globalMessage, setAuthTokens, login, logout, clearGlobalMessage]);
 
   return (
     <AuthContext.Provider value={contextValue}>

@@ -1,20 +1,22 @@
-import { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, View, TextInput, TouchableOpacity, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, Dimensions, TouchableWithoutFeedback, Keyboard, Text } from 'react-native';
-import { router } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+import { useState, useEffect, useCallback } from 'react';
+import { StyleSheet, View, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView, Dimensions, TouchableWithoutFeedback, Keyboard, Text } from 'react-native';
 
+import EncryptionUtility from '@/utils/EncryptionUtility';
+
+import { useColors } from '@/hooks/useColorScheme';
+
+import Logo from '@/assets/images/logo.svg';
+import LoadingIndicator from '@/components/LoadingIndicator';
+import { ThemedText } from '@/components/themed/ThemedText';
+import { ThemedView } from '@/components/themed/ThemedView';
+import { Avatar } from '@/components/ui/Avatar';
 import { useAuth } from '@/context/AuthContext';
 import { useDb } from '@/context/DbContext';
-import { ThemedView } from '@/components/themed/ThemedView';
-import { ThemedText } from '@/components/themed/ThemedText';
-import LoadingIndicator from '@/components/LoadingIndicator';
-import { useColors } from '@/hooks/useColorScheme';
-import EncryptionUtility from '@/utils/EncryptionUtility';
 import { useWebApi } from '@/context/WebApiContext';
-import avatarImage from '@/assets/images/avatar.webp';
 import NativeVaultManager from '@/specs/NativeVaultManager';
-import Logo from '@/assets/images/logo.svg';
 
 /**
  * Unlock screen.
@@ -136,12 +138,6 @@ export default function UnlockScreen() : React.ReactNode {
       fontSize: 32,
       fontWeight: 'bold',
       textAlign: 'center',
-    },
-    avatar: {
-      borderRadius: 20,
-      height: 40,
-      marginRight: 12,
-      width: 40,
     },
     avatarContainer: {
       alignItems: 'center',
@@ -290,10 +286,7 @@ export default function UnlockScreen() : React.ReactNode {
                 </View>
                 <View style={styles.content}>
                   <View style={styles.avatarContainer}>
-                    <Image
-                      source={avatarImage}
-                      style={styles.avatar}
-                    />
+                    <Avatar />
                     <ThemedText style={styles.username}>{username}</ThemedText>
                   </View>
                   <ThemedText style={styles.subtitle}>Enter your password to unlock your vault</ThemedText>

@@ -1,11 +1,13 @@
-import { FormDetector } from '@/utils/formDetector/FormDetector';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { it, expect, vi } from 'vitest';
+
 import { JSDOM, DOMWindow } from 'jsdom';
+import { it, expect, vi } from 'vitest';
+
+import { Gender } from '@/utils/dist/shared/identity-generator';
+import type { Credential } from '@/utils/dist/shared/models/vault';
+import { FormDetector } from '@/utils/formDetector/FormDetector';
 import { FormFields } from '@/utils/formDetector/types/FormFields';
-import { Credential } from '@/utils/types/Credential';
-import { Gender } from '@/utils/shared/identity-generator';
 
 export enum FormField {
   Username = 'username',

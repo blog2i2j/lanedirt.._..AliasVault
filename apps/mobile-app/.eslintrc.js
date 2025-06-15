@@ -1,6 +1,6 @@
 module.exports = {
   root: true,
-  ignorePatterns: ["dist/**", "node_modules/**", "utils/shared/**", "expo-env.d.ts", "*.js"],
+  ignorePatterns: ["dist/**", "node_modules/**", "utils/dist/shared/**", "expo-env.d.ts", "*.js"],
   parser: "@typescript-eslint/parser",
   parserOptions: {
     ecmaFeatures: { jsx: true },
@@ -94,8 +94,44 @@ module.exports = {
 
     // Import
     "import/no-unresolved": "error",
-    "import/order": ["error", { "newlines-between": "always" }],
-
+    "import/order": [
+      "error",
+      {
+        "groups": [
+          "builtin",    // Node "fs", "path", etc.
+          "external",   // "react", "lodash", etc.
+          "internal",   // Aliased paths like "@/utils"
+          "parent",     // "../"
+          "sibling",    // "./"
+          "index",      // "./index"
+          "object",     // import 'foo'
+          "type"        // import type ...
+        ],
+        "pathGroups": [
+          {
+            pattern: "@/entrypoints/**",
+            group: "internal",
+            position: "before"
+          },
+          {
+            pattern: "@/utils/**",
+            group: "internal",
+            position: "before"
+          },
+          {
+            pattern: "@/hooks/**",
+            group: "internal",
+            position: "before"
+          }
+        ],
+        "pathGroupsExcludedImportTypes": ["builtin"],
+        "newlines-between": "always",
+        "alphabetize": {
+          order: "asc",
+          caseInsensitive: true
+        }
+      }
+    ],
     // JSDoc
     "jsdoc/require-jsdoc": [
       "error",

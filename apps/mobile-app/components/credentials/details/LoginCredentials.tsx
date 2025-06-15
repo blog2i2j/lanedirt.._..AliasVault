@@ -1,7 +1,8 @@
+import type { Credential } from '@/utils/dist/shared/models/vault';
+
+import FormInputCopyToClipboard from '@/components/form/FormInputCopyToClipboard';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedView } from '@/components/themed/ThemedView';
-import { Credential } from '@/utils/types/Credential';
-import FormInputCopyToClipboard from '@/components/form/FormInputCopyToClipboard';
 
 type LoginCredentialsProps = {
   credential: Credential;

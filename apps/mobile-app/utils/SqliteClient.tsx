@@ -1,9 +1,6 @@
-import { TotpCode } from '@/utils/types/TotpCode';
-import { PasswordSettings } from '@/utils/types/PasswordSettings';
-import { VaultMetadata } from '@/utils/types/messaging/VaultMetadata';
-import { Credential } from '@/utils/types/Credential';
-import { EncryptionKey } from '@/utils/types/EncryptionKey';
-import { EncryptionKeyDerivationParams } from '@/utils/types/messaging/EncryptionKeyDerivationParams';
+import type { EncryptionKeyDerivationParams, VaultMetadata } from '@/utils/dist/shared/models/metadata';
+import type { Credential, EncryptionKey, PasswordSettings, TotpCode } from '@/utils/dist/shared/models/vault';
+
 import NativeVaultManager from '@/specs/NativeVaultManager';
 
 type SQLiteBindValue = string | number | null | Uint8Array;
