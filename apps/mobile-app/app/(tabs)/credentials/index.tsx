@@ -1,31 +1,33 @@
-import { StyleSheet, Text, FlatList, TouchableOpacity, TextInput, RefreshControl, Platform, Animated, Alert } from 'react-native';
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import Toast from 'react-native-toast-message';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { StyleSheet, Text, FlatList, TouchableOpacity, TextInput, RefreshControl, Platform, Animated, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
 
-import { ThemedText } from '@/components/themed/ThemedText';
-import { ThemedView } from '@/components/themed/ThemedView';
-import { useDb } from '@/context/DbContext';
-import { useAuth } from '@/context/AuthContext';
-import { Credential } from '@/utils/types/Credential';
-import { useVaultSync } from '@/hooks/useVaultSync';
-import { useColors } from '@/hooks/useColorScheme';
-import { CredentialCard } from '@/components/credentials/CredentialCard';
-import { TitleContainer } from '@/components/ui/TitleContainer';
-import { CollapsibleHeader } from '@/components/ui/CollapsibleHeader';
-import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
-import { AndroidHeader } from '@/components/ui/AndroidHeader';
+import type { Credential } from '@/utils/dist/shared/models/vault';
 import emitter from '@/utils/EventEmitter';
+
+import { useColors } from '@/hooks/useColorScheme';
 import { useMinDurationLoading } from '@/hooks/useMinDurationLoading';
-import { useWebApi } from '@/context/WebApiContext';
-import { ThemedContainer } from '@/components/themed/ThemedContainer';
+import { useVaultMutate } from '@/hooks/useVaultMutate';
+import { useVaultSync } from '@/hooks/useVaultSync';
+
+import { CredentialCard } from '@/components/credentials/CredentialCard';
 import { ServiceUrlNotice } from '@/components/credentials/ServiceUrlNotice';
 import LoadingOverlay from '@/components/LoadingOverlay';
-import { useVaultMutate } from '@/hooks/useVaultMutate';
+import { ThemedContainer } from '@/components/themed/ThemedContainer';
+import { ThemedText } from '@/components/themed/ThemedText';
+import { ThemedView } from '@/components/themed/ThemedView';
+import { AndroidHeader } from '@/components/ui/AndroidHeader';
+import { CollapsibleHeader } from '@/components/ui/CollapsibleHeader';
+import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
+import { TitleContainer } from '@/components/ui/TitleContainer';
+import { useAuth } from '@/context/AuthContext';
+import { useDb } from '@/context/DbContext';
+import { useWebApi } from '@/context/WebApiContext';
 
 /**
  * Credentials screen.
@@ -73,15 +75,6 @@ export default function CredentialsScreen() : React.ReactNode {
       setIsLoadingCredentials(false);
     }
   }, [dbContext.sqliteClient, setIsLoadingCredentials]);
-
-  const headerButtons = useMemo(() => [{
-    icon: 'add' as const,
-    position: 'right' as const,
-    /**
-     * Add credential.
-     */
-    onPress: () : void => router.push('/(tabs)/credentials/add-edit')
-  }], [router]);
 
   useEffect(() => {
     const unsubscribeFocus = navigation.addListener('focus', () => {
@@ -241,6 +234,30 @@ export default function CredentialsScreen() : React.ReactNode {
       opacity: 0.7,
       textAlign: 'center',
     },
+    fab: {
+      alignItems: 'center',
+      backgroundColor: colors.primary,
+      borderRadius: 28,
+      bottom: Platform.OS === 'ios' ? insets.bottom + 60 : 16,
+      elevation: 4,
+      height: 56,
+      justifyContent: 'center',
+      position: 'absolute',
+      right: 16,
+      shadowColor: colors.black,
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      width: 56,
+      zIndex: 1000,
+    },
+    fabIcon: {
+      color: colors.primarySurfaceText,
+      fontSize: 24,
+    },
     searchContainer: {
       position: 'relative',
     },
@@ -274,9 +291,9 @@ export default function CredentialsScreen() : React.ReactNode {
        * Define custom header which is shown on Android. iOS displays the custom CollapsibleHeader component instead.
        * @returns
        */
-      headerTitle: (): React.ReactNode => Platform.OS === 'android' ? <AndroidHeader title="Credentials" headerButtons={headerButtons} /> : <Text>Credentials</Text>,
+      headerTitle: (): React.ReactNode => Platform.OS === 'android' ? <AndroidHeader title="Credentials" /> : <Text>Credentials</Text>,
     });
-  }, [navigation, headerButtons]);
+  }, [navigation]);
 
   /**
    * Delete a credential.
@@ -313,8 +330,17 @@ export default function CredentialsScreen() : React.ReactNode {
         scrollY={scrollY}
         showNavigationHeader={true}
         alwaysVisible={true}
-        headerButtons={headerButtons}
       />
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => {
+          router.push('/(tabs)/credentials/add-edit');
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }}
+        activeOpacity={0.8}
+      >
+        <MaterialIcons name="add" style={styles.fabIcon} />
+      </TouchableOpacity>
       <ThemedView style={styles.stepContainer}>
         <Animated.FlatList
           ref={flatListRef}

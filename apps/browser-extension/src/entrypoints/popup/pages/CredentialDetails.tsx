@@ -1,8 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useDb } from '@/entrypoints/popup/context/DbContext';
-import { Credential } from '@/utils/types/Credential';
-import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
+
 import {
   HeaderBlock,
   EmailBlock,
@@ -11,16 +9,24 @@ import {
   AliasBlock,
   NotesBlock
 } from '@/entrypoints/popup/components/CredentialDetails';
+import HeaderButton from '@/entrypoints/popup/components/HeaderButton';
+import { HeaderIconType } from '@/entrypoints/popup/components/Icons/HeaderIcons';
+import { useDb } from '@/entrypoints/popup/context/DbContext';
+import { useHeaderButtons } from '@/entrypoints/popup/context/HeaderButtonsContext';
+import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
+
+import type { Credential } from '@/utils/dist/shared/models/vault';
 
 /**
  * Credential details page.
  */
-const CredentialDetails: React.FC = () => {
+const CredentialDetails: React.FC = (): React.ReactElement => {
   const { id } = useParams();
   const navigate = useNavigate();
   const dbContext = useDb();
   const [credential, setCredential] = useState<Credential | null>(null);
   const { setIsInitialLoading } = useLoading();
+  const { setHeaderButtons } = useHeaderButtons();
 
   /**
    * Check if the current page is an expanded popup.
@@ -33,9 +39,9 @@ const CredentialDetails: React.FC = () => {
   /**
    * Open the credential details in a new expanded popup.
    */
-  const openInNewPopup = (): void => {
-    const width = 380;
-    const height = 600;
+  const openInNewPopup = useCallback((): void => {
+    const width = 800;
+    const height = 1000;
     const left = window.screen.width / 2 - width / 2;
     const top = window.screen.height / 2 - height / 2;
 
@@ -46,24 +52,14 @@ const CredentialDetails: React.FC = () => {
     );
 
     window.close();
-  };
+  }, [id]);
 
   /**
-   * Check if the email domain is supported.
+   * Navigate to the edit page for this credential.
    */
-  const isEmailDomainSupported = (email: string): boolean => {
-    const domain = email.split('@')[1]?.toLowerCase();
-    if (!domain) {
-      return false;
-    }
-
-    const publicDomains = dbContext.publicEmailDomains ?? [];
-    const privateDomains = dbContext.privateEmailDomains ?? [];
-
-    return [...publicDomains, ...privateDomains].some(supportedDomain =>
-      domain === supportedDomain || domain.endsWith(`.${supportedDomain}`)
-    );
-  };
+  const handleEdit = useCallback((): void => {
+    navigate(`/credentials/${id}/edit`);
+  }, [id, navigate]);
 
   useEffect(() => {
     if (isPopup()) {
@@ -89,23 +85,49 @@ const CredentialDetails: React.FC = () => {
     }
   }, [dbContext.sqliteClient, id, navigate, setIsInitialLoading]);
 
+  // Set header buttons on mount and clear on unmount
+  useEffect((): (() => void) => {
+    const headerButtonsJSX = (
+      <div className="flex items-center gap-2">
+        <HeaderButton
+          onClick={openInNewPopup}
+          title="Open in new window"
+          iconType={HeaderIconType.EXPAND}
+        />
+        <HeaderButton
+          onClick={handleEdit}
+          title="Edit credential"
+          iconType={HeaderIconType.EDIT}
+        />
+      </div>
+    );
+    setHeaderButtons(headerButtonsJSX);
+    return () => {};
+  }, [setHeaderButtons, handleEdit, openInNewPopup]);
+
+  // Clear header buttons on unmount
+  useEffect((): (() => void) => {
+    return () => setHeaderButtons(null);
+  }, [setHeaderButtons]);
+
   if (!credential) {
     return <div>Loading...</div>;
   }
 
   return (
     <div className="space-y-4">
-      <HeaderBlock credential={credential} onOpenNewPopup={openInNewPopup} />
+      <div className="flex justify-between items-center">
+        <HeaderBlock credential={credential} />
+      </div>
       {credential.Alias?.Email && (
         <EmailBlock
           email={credential.Alias.Email}
-          isSupported={isEmailDomainSupported(credential.Alias.Email)}
         />
       )}
-      <NotesBlock notes={credential.Notes} />
       <TotpBlock credentialId={credential.Id} />
       <LoginCredentialsBlock credential={credential} />
       <AliasBlock credential={credential} />
+      <NotesBlock notes={credential.Notes} />
     </div>
   );
 };

@@ -109,6 +109,7 @@ public class EmailDecryptionTests : ClientPlaywrightTest
         await WaitForUrlAsync("credentials/**", "Subject");
 
         // Check if the email is visible on the page now.
+        await WaitForUrlAsync("*", textSubject);
         var emailContent = await Page.TextContentAsync("body");
         Assert.That(emailContent, Does.Contain(textSubject), "Email not (correctly) decrypted and displayed on the credential page. Check email decryption logic.");
 
@@ -222,6 +223,8 @@ public class EmailDecryptionTests : ClientPlaywrightTest
         await WaitForUrlAsync("credentials/**", "Subject");
 
         // Check if the email is visible on the page now.
+        await WaitForUrlAsync("*", textSubject);
+
         var emailContent = await Page.TextContentAsync("body");
         Assert.That(emailContent, Does.Contain(textSubject), "Email not (correctly) decrypted and displayed on the credential page. Check email decryption logic.");
 
@@ -339,8 +342,7 @@ public class EmailDecryptionTests : ClientPlaywrightTest
             "More than one claim for email address found in database while only one should exist. Check if claim creation domain check is working correctly.");
 
         // Assert that error is displayed on the page.
-        var pageContent = await Page.TextContentAsync("body");
-        Assert.That(pageContent, Does.Contain("The current chosen email address is already in use"), "Error message not displayed on page when trying to claim email address already claimed by another user.");
+        await WaitForUrlAsync("*", "The current chosen email address is already in use");
     }
 
     /// <summary>
@@ -396,6 +398,17 @@ public class EmailDecryptionTests : ClientPlaywrightTest
             Assert.That(claim1.Disabled, Is.True, "Claim for deleted alias is not marked as disabled after deletion.");
             Assert.That(claim2.Disabled, Is.False, "Claim for existing email address is marked disabled after deleting another claim.");
         });
+
+        // Create a new credential with the same email as the one that was disabled.
+        await CreateCredentialEntry(new Dictionary<string, string>
+        {
+            { "service-name", serviceName1 },
+            { "email", email1 },
+        });
+
+        // Assert that the first email claim is enabled again.
+        claim1 = await ApiDbContext.UserEmailClaims.AsNoTracking().FirstAsync(x => x.Address == email1);
+        Assert.That(claim1.Disabled, Is.False, "Claim is not marked as (re)enabled when user re-claims it after having previously deleted it.");
     }
 
     /// <summary>

@@ -1,9 +1,12 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { FormFiller } from '../FormFiller';
 import { JSDOM } from 'jsdom';
-import { setupTestDOM, createMockFormFields, createMockCredential, wasTriggerCalledFor, createDateSelects } from './TestUtils';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+import type { Credential } from '@/utils/dist/shared/models/vault';
+
+import { FormFiller } from '../FormFiller';
 import { FormFields } from '../types/FormFields';
-import { Credential } from '../../types/Credential';
+
+import { setupTestDOM, createMockFormFields, createMockCredential, wasTriggerCalledFor, createDateSelects } from './TestUtils';
 
 const { window } = new JSDOM('<!DOCTYPE html>');
 global.HTMLSelectElement = window.HTMLSelectElement;

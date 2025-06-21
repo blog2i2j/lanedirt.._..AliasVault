@@ -1,14 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { sendMessage } from 'webext-bridge/popup';
+import { useNavigate } from 'react-router-dom';
+
+import CredentialCard from '@/entrypoints/popup/components/CredentialCard';
+import HeaderButton from '@/entrypoints/popup/components/HeaderButton';
+import { HeaderIconType } from '@/entrypoints/popup/components/Icons/HeaderIcons';
+import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
+import ReloadButton from '@/entrypoints/popup/components/ReloadButton';
 import { useDb } from '@/entrypoints/popup/context/DbContext';
-import { Credential } from '@/utils/types/Credential';
+import { useHeaderButtons } from '@/entrypoints/popup/context/HeaderButtonsContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 import { useWebApi } from '@/entrypoints/popup/context/WebApiContext';
-import { VaultResponse } from '@/utils/types/webapi/VaultResponse';
-import ReloadButton from '@/entrypoints/popup/components/ReloadButton';
-import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
+import { useVaultSync } from '@/entrypoints/popup/hooks/useVaultSync';
+
+import type { Credential } from '@/utils/dist/shared/models/vault';
+
 import { useMinDurationLoading } from '@/hooks/useMinDurationLoading';
-import CredentialCard from '@/entrypoints/popup/components/CredentialCard';
 
 /**
  * Credentials list page.
@@ -16,14 +22,24 @@ import CredentialCard from '@/entrypoints/popup/components/CredentialCard';
 const CredentialsList: React.FC = () => {
   const dbContext = useDb();
   const webApi = useWebApi();
+  const navigate = useNavigate();
+  const { syncVault } = useVaultSync();
+  const { setHeaderButtons } = useHeaderButtons();
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const { showLoading, hideLoading, setIsInitialLoading } = useLoading();
+  const { setIsInitialLoading } = useLoading();
 
   /**
    * Loading state with minimum duration for more fluid UX.
    */
   const [isLoading, setIsLoading] = useMinDurationLoading(true, 100);
+
+  /**
+   * Handle add new credential.
+   */
+  const handleAddCredential = useCallback(() : void => {
+    navigate('/credentials/add');
+  }, [navigate]);
 
   /**
    * Retrieve latest vault and refresh the credentials list.
@@ -33,83 +49,84 @@ const CredentialsList: React.FC = () => {
       return;
     }
 
-    // Do status check first to ensure the extension is (still) supported.
-    const statusResponse = await webApi.getStatus();
-    const statusError = webApi.validateStatusResponse(statusResponse);
-    if (statusError !== null) {
-      await webApi.logout(statusError);
-      return;
-    }
-
     try {
-      // If the vault revision is the same or lower, (re)load existing credentials.
-      if (statusResponse.vaultRevision <= dbContext.vaultRevision) {
-        const results = dbContext.sqliteClient.getAllCredentials();
-        setCredentials(results);
-        return;
-      }
-
-      /**
-       * If the vault revision is higher, fetch the latest vault and initialize the SQLite context again.
-       * This will trigger a new credentials list refresh.
-       */
-      const vaultResponseJson = await webApi.get<VaultResponse>('Vault');
-
-      const vaultError = webApi.validateVaultResponse(vaultResponseJson);
-      if (vaultError) {
-        await webApi.logout(vaultError);
-        hideLoading();
-        return;
-      }
-
-      // Get derived key from background worker
-      const passwordHashBase64 = await sendMessage('GET_DERIVED_KEY', {}, 'background') as string;
-
-      // Initialize the SQLite context again with the newly retrieved decrypted blob)
-      try {
-        await dbContext.initializeDatabase(vaultResponseJson, passwordHashBase64);
-      } catch {
+      // Sync vault and load credentials
+      await syncVault({
         /**
-         * If error occurs during database initialization, it most likely has to do with decryption that
-         * failed. This is most likely due to the user changing their password.
-         * So we logout the user here to force them to re-authenticate.
+         * On success.
          */
-        await webApi.logout('Vault could not be decrypted, please re-authenticate.');
-      }
+        onSuccess: async (_hasNewVault) => {
+          // Credentials list is refreshed automatically when the (new) sqlite client is available via useEffect hook below.
+        },
+        /**
+         * On offline.
+         */
+        _onOffline: () => {
+          // Not implemented for browser extension yet.
+        },
+        /**
+         * On error.
+         */
+        onError: async (error) => {
+          console.error('Error syncing vault:', error);
+          await webApi.logout('Error while syncing vault, please re-authenticate.');
+        },
+      });
     } catch (err) {
-      console.error('Refresh error:', err);
+      console.error('Error refreshing credentials:', err);
+      await webApi.logout('Error while syncing vault, please re-authenticate.');
     }
-  }, [dbContext, webApi, hideLoading]);
+  }, [dbContext, webApi, syncVault]);
 
   /**
-   * Manually refresh the credentials list.
+   * Get latest vault from server and refresh the credentials list.
    */
-  const onManualRefresh = async (): Promise<void> => {
-    showLoading();
+  const syncVaultAndRefresh = useCallback(async () : Promise<void> => {
+    setIsLoading(true);
     await onRefresh();
-    hideLoading();
-  };
+    setIsLoading(false);
+    setIsInitialLoading(false);
+  }, [onRefresh, setIsLoading, setIsInitialLoading]);
+
+  // Set header buttons on mount and clear on unmount
+  useEffect((): (() => void) => {
+    const headerButtonsJSX = (
+      <div className="flex items-center gap-2">
+        <HeaderButton
+          onClick={handleAddCredential}
+          title="Add new credential"
+          iconType={HeaderIconType.PLUS}
+        />
+      </div>
+    );
+
+    setHeaderButtons(headerButtonsJSX);
+    return () => setHeaderButtons(null);
+  }, [setHeaderButtons, handleAddCredential]);
 
   /**
    * Load credentials list on mount and on sqlite client change.
    */
   useEffect(() => {
     /**
-     * Refresh credentials list when sqlite client is available.
+     * Refresh credentials list when a (new) sqlite client is available.
      */
     const refreshCredentials = async () : Promise<void> => {
       if (dbContext?.sqliteClient) {
         setIsLoading(true);
-        await onRefresh();
+        const results = dbContext.sqliteClient?.getAllCredentials() ?? [];
+        setCredentials(results);
         setIsLoading(false);
-
-        // Hide the global app initial loading state after the credentials list is loaded.
-        setIsInitialLoading(false);
       }
     };
 
     refreshCredentials();
-  }, [dbContext?.sqliteClient, onRefresh, setIsLoading, setIsInitialLoading]);
+  }, [dbContext?.sqliteClient, setIsLoading]);
+
+  // Call syncVaultAndRefresh when the page first mounts
+  useEffect(() => {
+    syncVaultAndRefresh();
+  }, [syncVaultAndRefresh]);
 
   // Add this function to filter credentials
   const filteredCredentials = credentials.filter(cred => {
@@ -135,7 +152,7 @@ const CredentialsList: React.FC = () => {
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-gray-900 dark:text-white text-xl">Credentials</h2>
-        <ReloadButton onClick={onManualRefresh} />
+        <ReloadButton onClick={syncVaultAndRefresh} />
       </div>
 
       {credentials.length > 0 ? (

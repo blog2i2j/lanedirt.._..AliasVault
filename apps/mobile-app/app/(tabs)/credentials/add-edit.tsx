@@ -1,30 +1,32 @@
-import { StyleSheet, View, TouchableOpacity, Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import Toast from 'react-native-toast-message';
-import { Resolver, useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import * as Haptics from 'expo-haptics';
+import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Resolver, useForm } from 'react-hook-form';
+import { StyleSheet, View, TouchableOpacity, Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import Toast from 'react-native-toast-message';
 
-import { ThemedText } from '@/components/themed/ThemedText';
+import { CreateIdentityGenerator, IdentityHelperUtils, IdentityGenerator } from '@/utils/dist/shared/identity-generator';
+import type { Credential } from '@/utils/dist/shared/models/vault';
+import type { FaviconExtractModel } from '@/utils/dist/shared/models/webapi';
+import { CreatePasswordGenerator, PasswordGenerator } from '@/utils/dist/shared/password-generator';
+import emitter from '@/utils/EventEmitter';
+import { extractServiceNameFromUrl } from '@/utils/UrlUtility';
+import { credentialSchema } from '@/utils/ValidationSchema';
+
 import { useColors } from '@/hooks/useColorScheme';
+import { useVaultMutate } from '@/hooks/useVaultMutate';
+
+import { ValidatedFormField, ValidatedFormFieldRef } from '@/components/form/ValidatedFormField';
+import LoadingOverlay from '@/components/LoadingOverlay';
+import { ThemedContainer } from '@/components/themed/ThemedContainer';
+import { ThemedText } from '@/components/themed/ThemedText';
+import { AliasVaultToast } from '@/components/Toast';
+import { useAuth } from '@/context/AuthContext';
 import { useDb } from '@/context/DbContext';
 import { useWebApi } from '@/context/WebApiContext';
-import { Credential } from '@/utils/types/Credential';
-import emitter from '@/utils/EventEmitter';
-import { FaviconExtractModel } from '@/utils/types/webapi/FaviconExtractModel';
-import { AliasVaultToast } from '@/components/Toast';
-import { useVaultMutate } from '@/hooks/useVaultMutate';
-import { CreateIdentityGenerator, IdentityHelperUtils, IIdentityGenerator } from '@/utils/shared/identity-generator';
-import { CreatePasswordGenerator, PasswordGenerator } from '@/utils/shared/password-generator';
-import { ValidatedFormField, ValidatedFormFieldRef } from '@/components/form/ValidatedFormField';
-import { credentialSchema } from '@/utils/ValidationSchema';
-import LoadingOverlay from '@/components/LoadingOverlay';
-import { useAuth } from '@/context/AuthContext';
-import { ThemedContainer } from '@/components/themed/ThemedContainer';
-import { extractServiceNameFromUrl } from '@/utils/UrlUtility';
 
 type CredentialMode = 'random' | 'manual';
 
@@ -133,9 +135,9 @@ export default function AddEditCredentialScreen() : React.ReactNode {
 
   /**
    * Initialize the identity and password generators with settings from user's vault.
-   * @returns {identityGenerator: IIdentityGenerator, passwordGenerator: PasswordGenerator}
+   * @returns {identityGenerator: IdentityGenerator, passwordGenerator: PasswordGenerator}
    */
-  const initializeGenerators = useCallback(async () : Promise<{ identityGenerator: IIdentityGenerator, passwordGenerator: PasswordGenerator }> => {
+  const initializeGenerators = useCallback(async () : Promise<{ identityGenerator: IdentityGenerator, passwordGenerator: PasswordGenerator }> => {
     // Get default identity language from database
     const identityLanguage = await dbContext.sqliteClient!.getDefaultIdentityLanguage();
 
@@ -456,6 +458,9 @@ export default function AddEditCredentialScreen() : React.ReactNode {
       alignItems: 'center',
       borderRadius: 6,
       flex: 1,
+      flexDirection: 'row',
+      gap: 6,
+      justifyContent: 'center',
       padding: 8,
     },
     modeButtonActive: {
@@ -561,6 +566,11 @@ export default function AddEditCredentialScreen() : React.ReactNode {
                   style={[styles.modeButton, mode === 'random' && styles.modeButtonActive]}
                   onPress={() => setMode('random')}
                 >
+                  <MaterialIcons
+                    name="auto-fix-high"
+                    size={20}
+                    color={mode === 'random' ? colors.primarySurfaceText : colors.text}
+                  />
                   <ThemedText style={[styles.modeButtonText, mode === 'random' && styles.modeButtonTextActive]}>
                     Random Alias
                   </ThemedText>
@@ -569,6 +579,11 @@ export default function AddEditCredentialScreen() : React.ReactNode {
                   style={[styles.modeButton, mode === 'manual' && styles.modeButtonActive]}
                   onPress={() => setMode('manual')}
                 >
+                  <MaterialIcons
+                    name="person"
+                    size={20}
+                    color={mode === 'manual' ? colors.primarySurfaceText : colors.text}
+                  />
                   <ThemedText style={[styles.modeButtonText, mode === 'manual' && styles.modeButtonTextActive]}>
                     Manual
                   </ThemedText>

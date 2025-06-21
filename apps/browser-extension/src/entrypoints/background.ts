@@ -1,10 +1,12 @@
-import { defineBackground } from '#imports';
 import { onMessage, sendMessage } from "webext-bridge/background";
+
 import { setupContextMenus } from '@/entrypoints/background/ContextMenu';
-import { handleCheckAuthStatus, handleClearVault, handleCreateIdentity, handleGetCredentials, handleGetDefaultEmailDomain, handleGetDefaultIdentityLanguage, handleGetDerivedKey, handleGetPasswordSettings, handleGetVault, handleStoreVault, handleSyncVault } from '@/entrypoints/background/VaultMessageHandler';
 import { handleOpenPopup, handlePopupWithCredential, handleToggleContextMenu } from '@/entrypoints/background/PopupMessageHandler';
-import { storage, browser } from '#imports';
+import { handleCheckAuthStatus, handleClearPersistedFormValues, handleClearVault, handleCreateIdentity, handleGetCredentials, handleGetDefaultEmailDomain, handleGetDefaultIdentityLanguage, handleGetDerivedKey, handleGetPasswordSettings, handleGetPersistedFormValues, handleGetVault, handlePersistFormValues, handleStoreVault, handleSyncVault, handleUploadVault } from '@/entrypoints/background/VaultMessageHandler';
+
 import { GLOBAL_CONTEXT_MENU_ENABLED_KEY } from '@/utils/Constants';
+
+import { defineBackground, storage, browser } from '#imports';
 
 export default defineBackground({
   /**
@@ -14,6 +16,7 @@ export default defineBackground({
     // Listen for messages using webext-bridge
     onMessage('CHECK_AUTH_STATUS', () => handleCheckAuthStatus());
     onMessage('STORE_VAULT', ({ data }) => handleStoreVault(data));
+    onMessage('UPLOAD_VAULT', ({ data }) => handleUploadVault(data));
     onMessage('SYNC_VAULT', () => handleSyncVault());
     onMessage('GET_VAULT', () => handleGetVault());
     onMessage('CLEAR_VAULT', () => handleClearVault());
@@ -27,12 +30,16 @@ export default defineBackground({
     onMessage('OPEN_POPUP_WITH_CREDENTIAL', ({ data }) => handlePopupWithCredential(data));
     onMessage('TOGGLE_CONTEXT_MENU', ({ data }) => handleToggleContextMenu(data));
 
+    onMessage('PERSIST_FORM_VALUES', ({ data }) => handlePersistFormValues(data));
+    onMessage('GET_PERSISTED_FORM_VALUES', () => handleGetPersistedFormValues());
+    onMessage('CLEAR_PERSISTED_FORM_VALUES', () => handleClearPersistedFormValues());
+
     // Setup context menus
     const isContextMenuEnabled = await storage.getItem(GLOBAL_CONTEXT_MENU_ENABLED_KEY) ?? true;
     if (isContextMenuEnabled) {
       setupContextMenus();
     }
-    
+
     // Listen for custom commands
     try {
       browser.commands.onCommand.addListener(async (command) => {

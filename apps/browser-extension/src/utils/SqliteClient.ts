@@ -1,8 +1,6 @@
 import initSqlJs, { Database } from 'sql.js';
-import { Credential } from './types/Credential';
-import { EncryptionKey } from './types/EncryptionKey';
-import { TotpCode } from './types/TotpCode';
-import { PasswordSettings } from './types/PasswordSettings';
+
+import type { Credential, EncryptionKey, PasswordSettings, TotpCode } from '@/utils/dist/shared/models/vault';
 
 /**
  * Placeholder base64 image for credentials without a logo.
@@ -14,6 +12,7 @@ const placeholderBase64 = 'UklGRjoEAABXRUJQVlA4IC4EAAAwFwCdASqAAIAAPpFCm0olo6Ihp
  */
 export class SqliteClient {
   private db: Database | null = null;
+  private isInTransaction: boolean = false;
 
   /**
    * Initialize the SQLite database from a base64 string
@@ -41,6 +40,69 @@ export class SqliteClient {
       this.db = new SQL.Database(bytes);
     } catch (error) {
       console.error('Error initializing SQLite database:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Begin a new transaction
+   */
+  public beginTransaction(): void {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    if (this.isInTransaction) {
+      throw new Error('Transaction already in progress');
+    }
+
+    try {
+      this.db.run('BEGIN TRANSACTION');
+      this.isInTransaction = true;
+    } catch (error) {
+      console.error('Error beginning transaction:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Commit the current transaction and persist changes to the vault
+   */
+  public async commitTransaction(): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    if (!this.isInTransaction) {
+      throw new Error('No transaction in progress');
+    }
+
+    try {
+      this.db.run('COMMIT');
+      this.isInTransaction = false;
+    } catch (error) {
+      console.error('Error committing transaction:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Rollback the current transaction
+   */
+  public rollbackTransaction(): void {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    if (!this.isInTransaction) {
+      throw new Error('No transaction in progress');
+    }
+
+    try {
+      this.db.run('ROLLBACK');
+      this.isInTransaction = false;
+    } catch (error) {
+      console.error('Error rolling back transaction:', error);
       throw error;
     }
   }
@@ -279,9 +341,41 @@ export class SqliteClient {
 
   /**
    * Get the default email domain from the database.
+   * @param privateEmailDomains - Array of private email domains
+   * @param publicEmailDomains - Array of public email domains
+   * @returns The default email domain or null if no valid domain is found
    */
-  public getDefaultEmailDomain(): string {
-    return this.getSetting('DefaultEmailDomain');
+  public getDefaultEmailDomain(privateEmailDomains: string[], publicEmailDomains: string[]): string | null {
+    const defaultEmailDomain = this.getSetting('DefaultEmailDomain');
+
+    /**
+     * Check if a domain is valid.
+     */
+    const isValidDomain = (domain: string): boolean => {
+      return Boolean(domain &&
+        domain !== 'DISABLED.TLD' &&
+        (privateEmailDomains.includes(domain) || publicEmailDomains.includes(domain)));
+    };
+
+    // First check if the default domain that is configured in the vault is still valid.
+    if (defaultEmailDomain && isValidDomain(defaultEmailDomain)) {
+      return defaultEmailDomain;
+    }
+
+    // If default domain is not valid, fall back to first available private domain.
+    const firstPrivate = privateEmailDomains.find(isValidDomain);
+    if (firstPrivate) {
+      return firstPrivate;
+    }
+
+    // Return first valid public domain if no private domains are available.
+    const firstPublic = publicEmailDomains.find(isValidDomain);
+    if (firstPublic) {
+      return firstPublic;
+    }
+
+    // Return null if no valid domains are found
+    return null;
   }
 
   /**
@@ -321,15 +415,15 @@ export class SqliteClient {
   /**
    * Create a new credential with associated entities
    * @param credential The credential object to insert
-   * @returns The number of rows modified
+   * @returns The ID of the created credential
    */
-  public createCredential(credential: Credential): number {
+  public async createCredential(credential: Credential): Promise<string> {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
 
     try {
-      this.db.run('BEGIN TRANSACTION');
+      this.beginTransaction();
 
       // 1. Insert Service
       let logoData = null;
@@ -417,11 +511,11 @@ export class SqliteClient {
         ]);
       }
 
-      this.db.run('COMMIT');
-      return 1;
+      await this.commitTransaction();
+      return credentialId;
 
     } catch (error) {
-      this.db.run('ROLLBACK');
+      this.rollbackTransaction();
       console.error('Error creating credential:', error);
       throw error;
     }
@@ -499,6 +593,225 @@ export class SqliteClient {
       console.error('Error getting TOTP codes:', error);
       // Return empty array instead of throwing to be robust
       return [];
+    }
+  }
+
+  /**
+   * Delete a credential by ID
+   * @param credentialId - The ID of the credential to delete
+   * @returns The number of rows deleted
+   */
+  public async deleteCredentialById(credentialId: string): Promise<number> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      this.beginTransaction();
+
+      const currentDateTime = new Date().toISOString()
+        .replace('T', ' ')
+        .replace('Z', '')
+        .substring(0, 23);
+
+      // Update the credential, alias, and service to be deleted
+      const query = `
+        UPDATE Credentials
+        SET IsDeleted = 1,
+            UpdatedAt = ?
+        WHERE Id = ?`;
+
+      const aliasQuery = `
+        UPDATE Aliases
+        SET IsDeleted = 1,
+            UpdatedAt = ?
+        WHERE Id = (
+          SELECT AliasId
+          FROM Credentials
+          WHERE Id = ?
+        )`;
+
+      const serviceQuery = `
+        UPDATE Services
+        SET IsDeleted = 1,
+            UpdatedAt = ?
+        WHERE Id = (
+          SELECT ServiceId
+          FROM Credentials
+          WHERE Id = ?
+        )`;
+
+      const results = this.executeUpdate(query, [currentDateTime, credentialId]);
+      this.executeUpdate(aliasQuery, [currentDateTime, credentialId]);
+      this.executeUpdate(serviceQuery, [currentDateTime, credentialId]);
+
+      await this.commitTransaction();
+      return results;
+    } catch (error) {
+      this.rollbackTransaction();
+      console.error('Error deleting credential:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update an existing credential with associated entities
+   * @param credential The credential object to update
+   * @returns The number of rows modified
+   */
+  public async updateCredentialById(credential: Credential): Promise<number> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      this.beginTransaction();
+      const currentDateTime = new Date().toISOString()
+        .replace('T', ' ')
+        .replace('Z', '')
+        .substring(0, 23);
+
+      // Get existing credential to compare changes
+      const existingCredential = this.getCredentialById(credential.Id);
+      if (!existingCredential) {
+        throw new Error('Credential not found');
+      }
+
+      // 1. Update Service
+      const serviceQuery = `
+        UPDATE Services
+        SET Name = ?,
+            Url = ?,
+            Logo = COALESCE(?, Logo),
+            UpdatedAt = ?
+        WHERE Id = (
+          SELECT ServiceId
+          FROM Credentials
+          WHERE Id = ?
+        )`;
+
+      let logoData = null;
+      try {
+        if (credential.Logo) {
+          // Handle object-like array conversion
+          if (typeof credential.Logo === 'object' && !ArrayBuffer.isView(credential.Logo)) {
+            const values = Object.values(credential.Logo);
+            logoData = new Uint8Array(values);
+          // Handle existing array types
+          } else if (Array.isArray(credential.Logo) || credential.Logo instanceof ArrayBuffer || credential.Logo instanceof Uint8Array) {
+            logoData = new Uint8Array(credential.Logo);
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to convert logo to Uint8Array:', error);
+        logoData = null;
+      }
+
+      this.executeUpdate(serviceQuery, [
+        credential.ServiceName,
+        credential.ServiceUrl ?? null,
+        logoData,
+        currentDateTime,
+        credential.Id
+      ]);
+
+      // 2. Update Alias
+      const aliasQuery = `
+        UPDATE Aliases
+        SET FirstName = ?,
+            LastName = ?,
+            NickName = ?,
+            BirthDate = ?,
+            Gender = ?,
+            Email = ?,
+            UpdatedAt = ?
+        WHERE Id = (
+          SELECT AliasId
+          FROM Credentials
+          WHERE Id = ?
+        )`;
+
+      // Only update BirthDate if it's actually different (accounting for format differences)
+      let birthDate = credential.Alias.BirthDate;
+      if (birthDate && existingCredential.Alias.BirthDate) {
+        const newDate = new Date(birthDate);
+        const existingDate = new Date(existingCredential.Alias.BirthDate);
+        if (newDate.getTime() === existingDate.getTime()) {
+          birthDate = existingCredential.Alias.BirthDate;
+        }
+      }
+
+      this.executeUpdate(aliasQuery, [
+        credential.Alias.FirstName ?? null,
+        credential.Alias.LastName ?? null,
+        credential.Alias.NickName ?? null,
+        birthDate ?? null,
+        credential.Alias.Gender ?? null,
+        credential.Alias.Email ?? null,
+        currentDateTime,
+        credential.Id
+      ]);
+
+      // 3. Update Credential
+      const credentialQuery = `
+        UPDATE Credentials
+        SET Username = ?,
+            Notes = ?,
+            UpdatedAt = ?
+        WHERE Id = ?`;
+
+      this.executeUpdate(credentialQuery, [
+        credential.Username ?? null,
+        credential.Notes ?? null,
+        currentDateTime,
+        credential.Id
+      ]);
+
+      // 4. Update Password if changed
+      if (credential.Password !== existingCredential.Password) {
+        // Check if a password record already exists for this credential, if not, then create one.
+        const passwordRecordExistsQuery = `
+          SELECT Id
+          FROM Passwords
+          WHERE CredentialId = ?`;
+        const passwordResults = this.executeQuery(passwordRecordExistsQuery, [credential.Id]);
+
+        if (passwordResults.length === 0) {
+          // Create a new password record
+          const passwordQuery = `
+            INSERT INTO Passwords (Id, Value, CredentialId, CreatedAt, UpdatedAt, IsDeleted)
+            VALUES (?, ?, ?, ?, ?, ?)`;
+
+          this.executeUpdate(passwordQuery, [
+            crypto.randomUUID().toUpperCase(),
+            credential.Password,
+            credential.Id,
+            currentDateTime,
+            currentDateTime,
+            0
+          ]);
+        } else {
+          // Update the existing password record
+          const passwordQuery = `
+            UPDATE Passwords
+            SET Value = ?, UpdatedAt = ?
+            WHERE CredentialId = ?`;
+
+          this.executeUpdate(passwordQuery, [
+            credential.Password,
+            currentDateTime,
+            credential.Id
+          ]);
+        }
+      }
+
+      await this.commitTransaction();
+      return 1;
+
+    } catch (error) {
+      this.rollbackTransaction();
+      console.error('Error updating credential:', error);
+      throw error;
     }
   }
 

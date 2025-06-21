@@ -1,9 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { sendMessage } from 'webext-bridge/popup';
-import SqliteClient from '@/utils/SqliteClient';
-import { VaultResponse } from '@/utils/types/webapi/VaultResponse';
+
+import type { VaultMetadata } from '@/utils/dist/shared/models/metadata';
+import type { VaultResponse } from '@/utils/dist/shared/models/webapi';
 import EncryptionUtility from '@/utils/EncryptionUtility';
-import { VaultResponse as messageVaultResponse } from '@/utils/types/messaging/VaultResponse';
+import SqliteClient from '@/utils/SqliteClient';
+import { StoreVaultRequest } from '@/utils/types/messaging/StoreVaultRequest';
+import type { VaultResponse as messageVaultResponse } from '@/utils/types/messaging/VaultResponse';
 
 type DbContextType = {
   sqliteClient: SqliteClient | null;
@@ -11,9 +14,8 @@ type DbContextType = {
   dbAvailable: boolean;
   initializeDatabase: (vaultResponse: VaultResponse, derivedKey: string) => Promise<void>;
   clearDatabase: () => void;
-  vaultRevision: number;
-  publicEmailDomains: string[];
-  privateEmailDomains: string[];
+  getVaultMetadata: () => Promise<VaultMetadata | null>;
+  setCurrentVaultRevisionNumber: (revisionNumber: number) => Promise<void>;
 }
 
 const DbContext = createContext<DbContextType | undefined>(undefined);
@@ -38,19 +40,9 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [dbAvailable, setDbAvailable] = useState(false);
 
   /**
-   * Public email domains.
-   */
-  const [publicEmailDomains, setPublicEmailDomains] = useState<string[]>([]);
-
-  /**
    * Vault revision.
    */
-  const [vaultRevision, setVaultRevision] = useState(0);
-
-  /**
-   * Private email domains.
-   */
-  const [privateEmailDomains, setPrivateEmailDomains] = useState<string[]>([]);
+  const [vaultMetadata, setVaultMetadata] = useState<VaultMetadata | null>(null);
 
   const initializeDatabase = useCallback(async (vaultResponse: VaultResponse, derivedKey: string) => {
     // Attempt to decrypt the blob.
@@ -66,17 +58,24 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     setSqliteClient(client);
     setDbInitialized(true);
     setDbAvailable(true);
-    setPublicEmailDomains(vaultResponse.vault.publicEmailDomainList);
-    setPrivateEmailDomains(vaultResponse.vault.privateEmailDomainList);
-    setVaultRevision(vaultResponse.vault.currentRevisionNumber);
+    setVaultMetadata({
+      publicEmailDomains: vaultResponse.vault.publicEmailDomainList,
+      privateEmailDomains: vaultResponse.vault.privateEmailDomainList,
+      vaultRevisionNumber: vaultResponse.vault.currentRevisionNumber,
+    });
 
-    /*
+    /**
      * Store encrypted vault in background worker.
      */
-    sendMessage('STORE_VAULT', {
+    const request: StoreVaultRequest = {
+      vaultBlob: vaultResponse.vault.blob,
       derivedKey: derivedKey,
-      vaultResponse: vaultResponse,
-    }, 'background');
+      publicEmailDomainList: vaultResponse.vault.publicEmailDomainList,
+      privateEmailDomainList: vaultResponse.vault.privateEmailDomainList,
+      vaultRevisionNumber: vaultResponse.vault.currentRevisionNumber,
+    };
+
+    await sendMessage('STORE_VAULT', request, 'background');
   }, []);
 
   const checkStoredVault = useCallback(async () => {
@@ -89,9 +88,11 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         setSqliteClient(client);
         setDbInitialized(true);
         setDbAvailable(true);
-        setPublicEmailDomains(response.publicEmailDomains ?? []);
-        setPrivateEmailDomains(response.privateEmailDomains ?? []);
-        setVaultRevision(response.vaultRevisionNumber ?? 0);
+        setVaultMetadata({
+          publicEmailDomains: response.publicEmailDomains ?? [],
+          privateEmailDomains: response.privateEmailDomains ?? [],
+          vaultRevisionNumber: response.vaultRevisionNumber ?? 0,
+        });
       } else {
         setDbInitialized(true);
         setDbAvailable(false);
@@ -102,6 +103,24 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       setDbAvailable(false);
     }
   }, []);
+
+  /**
+   * Get the vault metadata.
+   */
+  const getVaultMetadata = useCallback(async () : Promise<VaultMetadata | null> => {
+    return vaultMetadata;
+  }, [vaultMetadata]);
+
+  /**
+   * Set the current vault revision number.
+   */
+  const setCurrentVaultRevisionNumber = useCallback(async (revisionNumber: number) => {
+    setVaultMetadata({
+      publicEmailDomains: vaultMetadata?.publicEmailDomains ?? [],
+      privateEmailDomains: vaultMetadata?.privateEmailDomains ?? [],
+      vaultRevisionNumber: revisionNumber,
+    });
+  }, [vaultMetadata]);
 
   /**
    * Check if database is initialized and try to retrieve vault from background
@@ -127,10 +146,9 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     dbAvailable,
     initializeDatabase,
     clearDatabase,
-    vaultRevision,
-    publicEmailDomains,
-    privateEmailDomains
-  }), [sqliteClient, dbInitialized, dbAvailable, initializeDatabase, clearDatabase, vaultRevision, publicEmailDomains, privateEmailDomains]);
+    getVaultMetadata,
+    setCurrentVaultRevisionNumber,
+  }), [sqliteClient, dbInitialized, dbAvailable, initializeDatabase, clearDatabase, getVaultMetadata, setCurrentVaultRevisionNumber]);
 
   return (
     <DbContext.Provider value={contextValue}>

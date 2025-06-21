@@ -1,20 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
-import { useAuth } from '@/entrypoints/popup/context/AuthContext';
-import { useMinDurationLoading } from '@/hooks/useMinDurationLoading';
-import Header from '@/entrypoints/popup/components/Layout/Header';
-import BottomNav from '@/entrypoints/popup/components/Layout/BottomNav';
-import AuthSettings from '@/entrypoints/popup/pages/AuthSettings';
-import CredentialsList from '@/entrypoints/popup/pages/CredentialsList';
-import EmailsList from '@/entrypoints/popup/pages/EmailsList';
-import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
-import Home from '@/entrypoints/popup/pages/Home';
-import CredentialDetails from '@/entrypoints/popup/pages/CredentialDetails';
-import EmailDetails from '@/entrypoints/popup/pages/EmailDetails';
-import Settings from '@/entrypoints/popup/pages/Settings';
+
 import GlobalStateChangeHandler from '@/entrypoints/popup/components/GlobalStateChangeHandler';
+import BottomNav from '@/entrypoints/popup/components/Layout/BottomNav';
+import Header from '@/entrypoints/popup/components/Layout/Header';
+import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
+import { useAuth } from '@/entrypoints/popup/context/AuthContext';
+import { useHeaderButtons } from '@/entrypoints/popup/context/HeaderButtonsContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
+import { NavigationProvider } from '@/entrypoints/popup/context/NavigationContext';
+import AuthSettings from '@/entrypoints/popup/pages/AuthSettings';
+import CredentialAddEdit from '@/entrypoints/popup/pages/CredentialAddEdit';
+import CredentialDetails from '@/entrypoints/popup/pages/CredentialDetails';
+import CredentialsList from '@/entrypoints/popup/pages/CredentialsList';
+import EmailDetails from '@/entrypoints/popup/pages/EmailDetails';
+import EmailsList from '@/entrypoints/popup/pages/EmailsList';
+import Home from '@/entrypoints/popup/pages/Home';
+import Login from '@/entrypoints/popup/pages/Login';
 import Logout from '@/entrypoints/popup/pages/Logout';
+import Settings from '@/entrypoints/popup/pages/Settings';
+import Unlock from '@/entrypoints/popup/pages/Unlock';
+import UnlockSuccess from '@/entrypoints/popup/pages/UnlockSuccess';
+
+import { useMinDurationLoading } from '@/hooks/useMinDurationLoading';
+
 import '@/entrypoints/popup/style.css';
 
 /**
@@ -35,13 +44,19 @@ const App: React.FC = () => {
   const { isInitialLoading } = useLoading();
   const [isLoading, setIsLoading] = useMinDurationLoading(true, 150);
   const [message, setMessage] = useState<string | null>(null);
+  const { headerButtons } = useHeaderButtons();
 
   // Add these route configurations
   const routes: RouteConfig[] = [
     { path: '/', element: <Home />, showBackButton: false },
+    { path: '/login', element: <Login />, showBackButton: false },
+    { path: '/unlock', element: <Unlock />, showBackButton: false },
+    { path: '/unlock-success', element: <UnlockSuccess onClose={() => window.location.search = ''} />, showBackButton: false },
     { path: '/auth-settings', element: <AuthSettings />, showBackButton: true, title: 'Settings' },
     { path: '/credentials', element: <CredentialsList />, showBackButton: false },
+    { path: '/credentials/add', element: <CredentialAddEdit />, showBackButton: true, title: 'Add credential' },
     { path: '/credentials/:id', element: <CredentialDetails />, showBackButton: true, title: 'Credential details' },
+    { path: '/credentials/:id/edit', element: <CredentialAddEdit />, showBackButton: true, title: 'Edit credential' },
     { path: '/emails', element: <EmailsList />, showBackButton: false },
     { path: '/emails/:id', element: <EmailDetails />, showBackButton: true, title: 'Email details' },
     { path: '/settings', element: <Settings />, showBackButton: false },
@@ -67,44 +82,45 @@ const App: React.FC = () => {
 
   return (
     <Router>
-      <div className="min-h-screen min-w-[350px] bg-white dark:bg-gray-900 flex flex-col">
-        {isLoading && (
-          <div className="fixed inset-0 bg-white dark:bg-gray-900 z-50 flex items-center justify-center">
-            <LoadingSpinner />
-          </div>
-        )}
+      <NavigationProvider>
+        <div className="min-h-screen min-w-[350px] bg-white dark:bg-gray-900 flex flex-col max-h-[600px]">
+          {isLoading && (
+            <div className="fixed inset-0 bg-white dark:bg-gray-900 z-50 flex items-center justify-center">
+              <LoadingSpinner />
+            </div>
+          )}
 
-        <GlobalStateChangeHandler />
-        <Header
-          routes={routes}
-        />
+          <GlobalStateChangeHandler />
+          <Header
+            routes={routes}
+            rightButtons={headerButtons}
+          />
 
-        <main
-          className="flex-1 overflow-y-auto bg-gray-100 dark:bg-gray-900"
-          style={{
-            paddingTop: '64px',
-            height: 'calc(100% - 120px)',
-            maxHeight: '600px',
-          }}
-        >
-          <div className="p-4 mb-16">
-            {message && (
-              <p className="text-red-500 mb-4">{message}</p>
-            )}
-            <Routes>
-              {routes.map((route) => (
-                <Route
-                  key={route.path}
-                  path={route.path}
-                  element={route.element}
-                />
-              ))}
-            </Routes>
-          </div>
-        </main>
-
-        <BottomNav />
-      </div>
+          <main
+            className="flex-1 overflow-y-auto bg-gray-100 dark:bg-gray-900"
+            style={{
+              paddingTop: '64px',
+              height: 'calc(100% - 120px)',
+            }}
+          >
+            <div className="p-4 mb-16">
+              {message && (
+                <p className="text-red-500 mb-4">{message}</p>
+              )}
+              <Routes>
+                {routes.map((route) => (
+                  <Route
+                    key={route.path}
+                    path={route.path}
+                    element={route.element}
+                  />
+                ))}
+              </Routes>
+            </div>
+          </main>
+          <BottomNav />
+        </div>
+      </NavigationProvider>
     </Router>
   );
 };
