@@ -1,27 +1,25 @@
 ---
 layout: default
-title: Installer Script (managed)
+title: Installer Script (multi-container)
 parent: Self-hosting
 nav_order: 1
 ---
 
-# Self-host via install.sh
+# Self-host using installer script (multi-container)
 The following guide will walk you through the steps to install AliasVault on your own server using the AliasVault installer script: `install.sh`. Minimum experience with Docker and Linux is required. Estimated time: 5-15 minutes.
 
-{: .toc }
-* TOC
-{:toc}
+{: .important-title }
+> Requirements:
+> - 64-bit Linux VM with root access (Ubuntu or RHEL-based recommended)
+> - Minimum: 1 vCPU, 1GB RAM, 16GB disk
+> - Docker (CE ≥ 20.10) and Docker Compose (≥ 2.0)
+> → Installation guide: [Docker Docs](https://docs.docker.com/engine/install/)
+> - Able to forward ports 80, 443 (with optional 25/587 for private email domains)
 
 ---
 
 ## 1. Basic Installation
 To get AliasVault up and running quickly, run the install script to pull pre-built Docker images. The install script will also configure the .env file and start the AliasVault containers. You can get up and running in less than 5 minutes.
-
-### Hardware requirements
-- 64-bit Linux VM with root access (Ubuntu or RHEL-based recommended)
-- Minimum: 1 vCPU, 1GB RAM, 16GB disk
-- Docker (CE ≥ 20.10) and Docker Compose (≥ 2.0)
-  → Installation guide: [Docker Docs](https://docs.docker.com/engine/install/)
 
 ### Installation steps
 1. Download the install script to a directory of your choice. All AliasVault files and directories will be created in this directory.
@@ -50,9 +48,9 @@ chmod +x install.sh
 ---
 
 ## 2. SSL configuration
-The default installation will create a self-signed SSL certificate and configure Nginx to use it.
+The default installation will create a self-signed SSL certificate and configure Nginx to use it. This is sufficient for local deployments using only the web-app, however the mobile apps (iOS and Android) require a valid (external) SSL certificate to be able to connect.
 
-You can however also use Let's Encrypt to generate valid SSL certificates and configure Nginx to use it. In order to make this work you will need the following:
+To generate a valid external SSL certificate for AliasVault, you can use Let's Encrypt via a built-in helper tool. In order to make this work you will need the following:
 
 - A public IPv4 address assigned to your server
 - Port 80 and 443 on your server must be open and accessible from the internet
@@ -76,19 +74,18 @@ and then in the prompt choose option 2.
 
 AliasVault includes a built-in email server that allows you to generate email aliases on-the-fly for every website you use, and receive + read the emails straight in AliasVault.
 
-> **Note:**
-> If you skip this step, AliasVault will default to use public email domains offered by SpamOK. While this still works for creating aliases, it has privacy limitations. For complete privacy and control, we recommend setting up your own domain.
-> [Learn more about the differences between private and public email domains](../misc/private-vs-public-email.md).
+{: .note }
+If you skip this step, AliasVault will default to use public email domains offered by SpamOK. While this still works for creating aliases, it has privacy limitations. For complete privacy and control, we recommend setting up your own domain. [Learn more about the differences between private and public email domains](../misc/private-vs-public-email.md).
 
 ---
 
 ### Requirements
-- A **public IPv4 address** with ports 25 and 587 pointing to your AliasVault server
-- Open ports **25** and **587** on your server firewall for email SMTP traffic.
+- A **public IPv4 address** with ports 25 and 587 forwarded to your AliasVault server
+- Open ports **25** and **587** on your server firewall for email SMTP traffic (*NOTE: some residential IP's block this, check with your ISP*).
 
 #### Verifying Port Access
 
-While the AliasVault docker containers are running, use `telnet` to confirm your public IP allows access to the ports:
+While the AliasVault docker container is running, use `telnet` to confirm your public IP allows access to the ports:
 
 ```bash
 # Test standard SMTP port

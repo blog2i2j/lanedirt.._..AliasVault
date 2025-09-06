@@ -38,3 +38,6 @@ callouts:
   note:
     title: Note
     color: purple
+  important:
+    title: Important
+    color: yellow

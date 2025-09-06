@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Troubleshooting
-parent: Install.sh
+parent: Installer Script (multi-container)
 nav_order: 5
 ---
 
@@ -42,10 +42,10 @@ docker compose restart [container-name-here]
 ---
 
 ## Check AliasVault Text Logs
-All AliasVault services log information and errors to text files. These files are located in the `logs` directory. You can check the logs of a specific container by running the following command:
+All AliasVault services log information and errors to text files. These files are located in the `logs` directory. You can check the logs of a specific service by running the following command:
 
 ```bash
-cat logs/[container-name-here].log
+cat logs/[service-name-here].txt
 ```
 
 ---

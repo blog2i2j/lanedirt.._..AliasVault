@@ -2,6 +2,7 @@
 layout: default
 title: Uninstall
 parent: Advanced
+grand_parent: Manual Setup (single container)
 nav_order: 4
 ---
 

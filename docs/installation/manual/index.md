@@ -5,27 +5,24 @@ parent: Self-hosting
 nav_order: 2
 ---
 
-# Self-host via All-In-One Docker image
+# Self-host using manual setup (single container)
 The following guide will walk you through the steps to install AliasVault via the All-In-One Docker container. This container uses `s6-overlay` to combine all AliasVault's services into one image for convenience. The only downside compared to the `install.sh` installer is that this version does NOT come with SSL support, so you'll have to make the container available through your own SSL proxy.
 
-**Prerequisites:**
-
-This guide assumes you already have the following:
-- Docker (20.10+) and Docker Compose (2.0+) installed on your system
-  - See instructions: [https://docs.docker.com/engine/install/](https://docs.docker.com/engine/install/)
-- You have existing SSL proxy infrastructure (Traefik, Nginx, HAProxy, Cloudflare Tunnel)
-- Knowledge of working with direct Docker commands
-- Knowledge of .yml and .env files
+{: .important-title }
+> Requirements:
+> - Docker (20.10+) and Docker Compose (2.0+) installed on your system
+>  - See instructions: [https://docs.docker.com/engine/install/](https://docs.docker.com/engine/install/)
+> - You have existing SSL proxy infrastructure (Traefik, Nginx, HAProxy, Cloudflare Tunnel)
+> - Knowledge of working with direct Docker commands
+> - Knowledge of .yml and .env files
 
 ## 1. Basic installation
 1. Create a new folder where you want to store AliasVault's data and configuration folders.
-
 ```bash
 mkdir aliasvault
 cd aliasvault
 ```
-
-2. Create a new `docker-compose.yml` file with the following contents. Note: this will auto-create the directories specified in `volumes:` in the current folder.
+2. Create a new `docker-compose.yml` file with the following contents. Note: the directories specified in `volumes:` will be auto-created in the current folder on container first start.
 
 ```yaml
 services:
@@ -51,20 +48,25 @@ services:
       SUPPORT_EMAIL: ""
       PRIVATE_EMAIL_DOMAINS: ""
 ```
-
 3. Run `docker-compose up -d` to start the container.
+4. After the container has started, AliasVault should now be running. You can access it at:
 
-4. After the container has started, AliasVault will be accessible at:
-  - Client: http://localhost/ or https://localhost/
-  - Admin: http://localhost/admin or https://localhost/admin
-  - API: http://localhost/api or https://localhost/api
+    - Admin Panel: http://localhost/admin
+        - **Username:** admin
+        - **Password:** [*Read instructions on page*]
+
+    - Client Website: http://localhost/
+        - Create your own account from here
+
+    - API: http://localhost/api
+        - Used for configuring the browser extension and mobile app to connect to your server
 
 ---
 
 ## 2. SSL configuration
 HTTPS is required to use AliasVault for using:
 - Web app via non-localhost URLs (because of browser crypto restrictions)
-- Mobile apps require the API URL to have a valid SSL certificate, otherwise the app refuses to connect
+- Mobile apps require the API URL to have a valid SSL certificate, otherwise the app refuses to connect via HTTPS
 
 Configure your existing SSL infrastructure (Traefik, Nginx, HAProxy, CloudFlare Tunnel) to make the AliasVault container available through HTTPS with a valid SSL certificate. E.g. `https://aliasvault.yourdomain.com`.
 
@@ -81,8 +83,8 @@ If you skip this step, AliasVault will default to use public email domains offer
 ---
 
 ### Requirements
-- A **public IPv4 address** with ports 25 and 587 pointing to your AliasVault server
-- Open ports **25** and **587** on your server firewall for email SMTP traffic (NOTE: some residential IP's block this, check with your ISP).
+- A **public IPv4 address** with ports 25 and 587 forwarded to your AliasVault server
+- Open ports **25** and **587** on your server firewall for email SMTP traffic (*NOTE: some residential IP's block this, check with your ISP*).
 
 #### Verifying Port Access
 

@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Update
-parent: Install.sh
+parent: Installer Script (multi-container)
 nav_order: 3
 ---
 
