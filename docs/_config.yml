@@ -41,3 +41,15 @@ callouts:
   important:
     title: Important
     color: yellow
+
+# 404 page
+defaults:
+  - scope:
+      path: "404.html"
+    values:
+      sitemap: false
+
+# Sitemap settings
+url: "https://docs.aliasvault.net"
+plugins:
+  - jekyll-sitemap
