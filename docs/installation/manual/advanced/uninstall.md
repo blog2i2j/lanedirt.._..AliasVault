@@ -8,13 +8,13 @@ nav_order: 4
 
 # Uninstall
 
-To uninstall AliasVault, run the install script with the `uninstall` option. This will stop and remove the AliasVault containers, remove the Docker images, and delete the .env file.
+To uninstall AliasVault, run the following command. This will stop and remove the AliasVault containers and remove the Docker images.
 
 {: .note }
 This will not delete any data stored in the database. If you wish to delete all data, you should manually delete the `database` directory and the other directories created by AliasVault.
 
 ### Steps
-1. Run the install script with the `uninstall` option
+1. Run docker compose down and remove any local Docker images related to AliasVault.
 ```bash
-./install.sh uninstall
+docker compose down --rmi all
 ```

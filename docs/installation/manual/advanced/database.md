@@ -7,19 +7,26 @@ nav_order: 4
 ---
 
 # Database Operations
-This page explains how to import/export on the AliasVault server database via the `./install.sh` script.
+This page explains how to import/export on the AliasVault server database via Docker commands.
 
 ## Database Export
-In order to backup the AliasVault server database (which includes all encrypted user vaults as well), you can use the `install.sh` script. This script will stop all services, export the database to a file, and then restart the services.
+In order to backup the AliasVault server database (which includes all encrypted user vaults as well), you can use the following command. Run this command from the directory where your AliasVault `docker-compose.yml` is located.
 
 ```bash
-./install.sh db-backup > backup.sql.gz
+docker compose exec aliasvault pg_dump -U aliasvault aliasvault > backup.sql
 ```
 
 ## Database Import
 
-To restore a previously exported database, you can use the `install.sh` script. This script will stop all services, drop the database, import the database from a file, and then restart the services.
+To restore a previously exported database, you can use the following snippet. Run these commands from the directory where your AliasVault `docker-compose.yml` is located.
 
 ```bash
-./install.sh db-restore < backup.sql.gz
+# Drop database first (warning: this can't be undone!)
+docker compose exec -T aliasvault psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS aliasvault WITH (FORCE);"
+
+# Create new empty database
+docker compose exec -T aliasvault psql -U postgres -d postgres -c "CREATE DATABASE aliasvault;"
+
+# Import backup
+docker compose exec -T aliasvault psql -U postgres aliasvault < backup.sql
 ```

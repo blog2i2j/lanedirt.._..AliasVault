@@ -70,13 +70,13 @@ docker compose ps
 docker compose logs postgres
 ```
 
-### 2. SSL Certificate Issues
+### 2. TLS/SSL Certificate Issues
 
 **Symptoms:**
-- Browser shows SSL errors
+- Browser shows TLS/SSL errors
 
 **Steps:**
-1. Check the certbot container logs if SSL certificates are being correctly renewed:
+1. Check the certbot container logs if TLS/SSL certificates are being correctly renewed:
 ```bash
 docker compose logs certbot
 ```
@@ -86,7 +86,7 @@ docker compose logs certbot
 docker compose logs reverse-proxy
 ```
 
-3. In case the SSL certificates are being correctly renewed, but the browser still shows SSL errors, try to restart AliasVault manually in order to force the NGINX container to reload the SSL certificates:
+3. In case the SSL certificates are being correctly renewed, but the browser still shows TLS/SSL errors, try to restart AliasVault manually in order to force the NGINX container to reload the TLS/SSL certificates:
 ```bash
 ./install.sh restart
 ```

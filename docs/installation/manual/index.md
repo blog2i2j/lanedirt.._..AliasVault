@@ -6,13 +6,13 @@ nav_order: 2
 ---
 
 # Self-host using manual setup (single container)
-The following guide will walk you through the steps to install AliasVault via the All-In-One Docker container. This container uses `s6-overlay` to combine all AliasVault's services into one image for convenience. The only downside compared to the `install.sh` installer is that this version does NOT come with SSL support, so you'll have to make the container available through your own SSL proxy.
+The following guide will walk you through the steps to install AliasVault via the All-In-One Docker container. This container uses `s6-overlay` to combine all AliasVault's services into one image for convenience. The only downside compared to the `install.sh` installer is that this version does NOT come with SSL/TLS support, so you'll have to make the container available through your own SSL/TLS proxy.
 
 {: .important-title }
 > Requirements:
 > - Docker (20.10+) and Docker Compose (2.0+) installed on your system
 >  - See instructions: [https://docs.docker.com/engine/install/](https://docs.docker.com/engine/install/)
-> - You have existing SSL proxy infrastructure (Traefik, Nginx, HAProxy, Cloudflare Tunnel)
+> - You have existing SSL/TLS proxy infrastructure (Traefik, Nginx, HAProxy, Cloudflare Tunnel)
 > - Knowledge of working with direct Docker commands
 > - Knowledge of .yml and .env files
 
@@ -63,12 +63,12 @@ services:
 
 ---
 
-## 2. SSL configuration
+## 2. SSL/TLS configuration
 HTTPS is required to use AliasVault for using:
 - Web app via non-localhost URLs (because of browser crypto restrictions)
-- Mobile apps require the API URL to have a valid SSL certificate, otherwise the app refuses to connect via HTTPS
+- Mobile apps require the API URL to have a valid TLS certificate, otherwise the app refuses to connect via HTTPS
 
-Configure your existing SSL infrastructure (Traefik, Nginx, HAProxy, CloudFlare Tunnel) to make the AliasVault container available through HTTPS with a valid SSL certificate. E.g. `https://aliasvault.yourdomain.com`.
+Configure your existing TLS infrastructure (Traefik, Nginx, HAProxy, CloudFlare Tunnel) to make the AliasVault container available through HTTPS with a valid SSL/TLS certificate. E.g. `https://aliasvault.yourdomain.com`.
 
 ---
 

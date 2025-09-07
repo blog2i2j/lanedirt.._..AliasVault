@@ -19,7 +19,7 @@ The following guide will walk you through the steps to install AliasVault on you
 ---
 
 ## 1. Basic Installation
-To get AliasVault up and running quickly, run the install script to pull pre-built Docker images. The install script will also configure the .env file and start the AliasVault containers. You can get up and running in less than 5 minutes.
+To get AliasVault up and running quickly, run the install script to pull pre-built Docker images. The install script will also configure the .env file and start the AliasVault containers.
 
 ### Installation steps
 1. Download the install script to a directory of your choice. All AliasVault files and directories will be created in this directory.
@@ -47,10 +47,10 @@ chmod +x install.sh
 
 ---
 
-## 2. SSL configuration
-The default installation will create a self-signed SSL certificate and configure Nginx to use it. This is sufficient for local deployments using only the web-app, however the mobile apps (iOS and Android) require a valid (external) SSL certificate to be able to connect.
+## 2. TLS/SSL configuration
+The default installation will create a self-signed TLS/SSL certificate and configure Nginx to use it. This is sufficient for local deployments using only the web-app, however the mobile apps (iOS and Android) require a valid (external) SSL certificate to be able to connect.
 
-To generate a valid external SSL certificate for AliasVault, you can use Let's Encrypt via a built-in helper tool. In order to make this work you will need the following:
+To generate a valid external TLS/SSL certificate for AliasVault, you can use Let's Encrypt via a built-in helper tool. In order to make this work you will need the following:
 
 - A public IPv4 address assigned to your server
 - Port 80 and 443 on your server must be open and accessible from the internet
@@ -64,8 +64,8 @@ To generate a valid external SSL certificate for AliasVault, you can use Let's E
 ```
 2. Follow the prompts to configure Let's Encrypt.
 
-### Reverting to self-signed SSL
-If at any point you would like to revert to the self-signed SSL certificate, run the install script again with the `configure-ssl` option
+### Reverting to self-signed TLS/SSL
+If at any point you would like to revert to the self-signed TLS/SSL certificate, run the install script again with the `configure-ssl` option
 and then in the prompt choose option 2.
 
 ---
