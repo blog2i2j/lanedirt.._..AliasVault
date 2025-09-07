@@ -7,7 +7,7 @@ nav_order: 2
 ---
 
 # Stopping and starting AliasVault
-You can stop and start AliasVault via the default docker compose commands.
+You can stop and start AliasVault via the default docker compose commands. Run these commands from the directory where your AliasVault `docker-compose.yml` is located.
 
 ## Stop
 To stop AliasVault:

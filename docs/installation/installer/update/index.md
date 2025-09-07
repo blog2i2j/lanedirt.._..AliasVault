@@ -56,5 +56,5 @@ To install a specific version and skip the automatic version checks, run the ins
 ./install.sh install <version>
 
 # Example:
-./install.sh install 0.7.0
+./install.sh install 0.22.0
 ```

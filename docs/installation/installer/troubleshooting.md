@@ -98,7 +98,7 @@ If you are not receiving emails on your aliases, check the following:
 - Check your server's firewall settings
 - Verify that your ISP/hosting provider allows SMTP traffic
 
-Refer to the [installation guide](./install.md) for more information on how to configure your DNS records and ports.
+Refer to the [installation guide](./#3-email-server-setup) for more information on how to configure your DNS records and ports.
 
 
 ### 4. Forgot AliasVault Admin Password
@@ -113,4 +113,4 @@ If you have lost your admin password, you can reset it by running the install sc
 ## Other Issues
 If you encounter any other issues not mentioned here and need help, please join our Discord server or create an issue on the GitHub repository and we will be happy to help you out.
 
-Find all contact information on the contact page of our website: [https://aliasvault.net/contact](https://aliasvault.net/contact)
+Find all contact information on the contact page of our website: [https://www.aliasvault.net/contact](https://www.aliasvault.net/contact)

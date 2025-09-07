@@ -43,7 +43,7 @@ chmod +x install.sh
   - Client: `https://localhost`
   - Admin: `https://localhost/admin`
 
-> Note: if you do not wish to run the `install.sh` wizard but want to use Docker commands directly, follow the [manual setup guide](advanced/manual-setup.md). We do however encourage the use of `install.sh` as it will guide you through all configuration steps and allow you to easily update your AliasVault server later.
+> Note: if you do not wish to run the `install.sh` wizard but prefer to use Docker commands directly, follow the [manual setup guide](../manual) instead.
 
 ---
 

@@ -2,7 +2,7 @@
 layout: default
 title: Troubleshooting
 parent: Manual Setup (single container)
-nav_order: 2
+nav_order: 3
 ---
 
 # Troubleshooting
@@ -54,7 +54,7 @@ If you are not receiving emails on your aliases, check the following:
 - Check your server's firewall settings
 - Verify that your ISP/hosting provider allows SMTP traffic and does not block port 25
 
-Refer to the [installation guide](./index.md) for more information on how to configure your DNS records and ports.
+Refer to the [installation guide](./#3-email-server-setup) for more information on how to configure your DNS records and ports.
 
 
 ### 2. Forgot AliasVault Admin Password
@@ -79,4 +79,4 @@ docker compose restart
 ## Other Issues
 If you encounter any other issues not mentioned here and need help, please join our Discord server or create an issue on the GitHub repository and we will be happy to help you out.
 
-Find all contact information on the contact page of our website: [https://aliasvault.net/contact](https://aliasvault.net/contact)
+Find all contact information on the contact page of our website: [https://www.aliasvault.net/contact](https://www.aliasvault.net/contact)

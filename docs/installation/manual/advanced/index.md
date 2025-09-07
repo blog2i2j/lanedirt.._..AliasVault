@@ -2,7 +2,7 @@
 layout: default
 title: Advanced
 parent: Manual Setup (single container)
-nav_order: 1
+nav_order: 2
 ---
 
 # Advanced Installation

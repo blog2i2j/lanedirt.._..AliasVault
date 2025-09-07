@@ -64,11 +64,11 @@ services:
 ---
 
 ## 2. SSL/TLS configuration
-HTTPS is required to use AliasVault for using:
-- Web app via non-localhost URLs (because of browser crypto restrictions)
-- Mobile apps require the API URL to have a valid TLS certificate, otherwise the app refuses to connect via HTTPS
+To use AliasVault securely, HTTPS is required in the following situations:
+- When accessing the web app from any address other than `localhost` (due to browser security restrictions)
+- When using the mobile apps, which require the API URL to have a valid TLS certificate; otherwise, the app will not connect
 
-Configure your existing TLS infrastructure (Traefik, Nginx, HAProxy, CloudFlare Tunnel) to make the AliasVault container available through HTTPS with a valid SSL/TLS certificate. E.g. `https://aliasvault.yourdomain.com`.
+You must set up and configure your own TLS/SSL infrastructure (such as Traefik, Nginx, HAProxy, or Cloudflare Tunnel) to make the AliasVault container accessible over HTTPS with a valid SSL/TLS certificate. For example: `https://aliasvault.yourdomain.com`.
 
 ---
 
@@ -160,10 +160,10 @@ This keeps the email configuration of your primary domain (`example.com`) comple
 After setting up your DNS, you have to configure AliasVault to let it know which email domains it should support. Update the `docker-compose.yml` file:
 
 ```bash
-[..]
-
+# ...
     environment:
       PRIVATE_EMAIL_DOMAINS: "yourdomain1.com,yourdomain2.com"
+# ...
 ```
 
 After updating the docker-compose.yml file, issue a `docker compose restart`. Afterwards, when you login to the AliasVault web app, you should now be able to create an alias with your domain and be able to receive email on it.
