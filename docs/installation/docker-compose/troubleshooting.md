@@ -20,17 +20,17 @@ For any issues you might encounter, the first step is to check the Docker contai
 
 1. Check the Docker container running status:
 ```bash
-docker compose ps
+$ docker compose ps
 ```
 
 2. Check the Docker container logs
-```
-docker compose logs
+```bash
+$ docker compose logs
 ```
 
 3. Try restarting the Docker container
 ```bash
-docker compose restart
+$ docker compose restart
 ```
 
 ---
@@ -39,7 +39,7 @@ docker compose restart
 All AliasVault services log information and errors to text files. These files are located in the `logs` directory. You can check the logs of a specific service by running the following command:
 
 ```bash
-cat logs/[service-name].txt
+$ cat logs/[service-name].txt
 ```
 
 ---
@@ -58,19 +58,19 @@ Refer to the [installation guide](./#3-email-server-setup) for more information 
 
 
 ### 2. Forgot AliasVault Admin Password
-If you have lost your admin password, you can reset it by running the install script with the `reset-admin-password` option. This will generate a new random password and update the .env file with it. After that it will restart the AliasVault containers to apply the changes.
+If you have lost your admin password, you can reset it by running the `aliasvault reset-admin-password` option. This will generate a new random password and update the secret. After that it will restart the AliasVault containers to apply the changes.
 
 1. SSH into the aliasvault container:
 ```bash
-docker compose exec -it aliasvault /bin/bash
+$ docker compose exec -it aliasvault /bin/bash
 ```
 2. Run the reset-admin-password.sh script:
 ```bash
-./reset-admin-password.sh
+$ aliasvault reset-admin-password
 ```
 3. Remember the password outputted by the step above. Then quit out of the SSH session (ctrl+C) and then restart the container:
 ```bash
-docker compose restart
+$ docker compose restart
 ```
 4. You can now login to the admin panel (/admin) with the new password.
 

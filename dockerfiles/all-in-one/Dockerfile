@@ -131,8 +131,8 @@ RUN apt-get update && \
 # Copy built applications and all configuration files from builder stage
 COPY --from=dotnet-builder /app /app
 
-# Copy configuration files and scripts directly to their destinations
-COPY dockerfiles/all-in-one/reset-admin-password.sh /usr/local/bin/reset-admin-password.sh
+# Copy all scripts from scripts directory to /usr/local/bin
+COPY dockerfiles/all-in-one/scripts/ /usr/local/bin/
 COPY apps/server/AliasVault.Client/nginx.conf /app/client/nginx.conf
 COPY dockerfiles/all-in-one/config/nginx-80-443.conf /etc/nginx/nginx-80-443.conf
 COPY dockerfiles/all-in-one/config/nginx-443.conf /etc/nginx/nginx-443.conf
@@ -141,9 +141,16 @@ COPY dockerfiles/all-in-one/s6-scripts /etc/s6-overlay/s6-rc.d/
 
 # Copy InstallCLI to /usr/local/bin and configure everything
 RUN cp -r /app/installcli /usr/local/bin/aliasvault-cli && \
-    chmod +x /usr/local/bin/aliasvault-cli/AliasVault.InstallCli \
-             /usr/local/bin/reset-admin-password.sh && \
+    chmod +x /usr/local/bin/aliasvault-cli/AliasVault.InstallCli && \
     ln -s /usr/local/bin/aliasvault-cli/AliasVault.InstallCli /usr/local/bin/aliasvault-cli.sh && \
+    # Make all scripts executable and create symlinks without .sh extension
+    for script in /usr/local/bin/*.sh; do \
+        if [ -f "$script" ]; then \
+            chmod +x "$script" && \
+            basename="$(basename "$script" .sh)" && \
+            ln -sf "$script" "/usr/local/bin/$basename"; \
+        fi; \
+    done && \
     find /etc/s6-overlay/s6-rc.d -type f \( -name "run" -o -name "up" -o -name "script" \) -exec chmod +x {} \; && \
     cd /etc/s6-overlay/s6-rc.d/user/contents.d && \
     touch init postgres api client admin smtp taskrunner nginx notification && \
