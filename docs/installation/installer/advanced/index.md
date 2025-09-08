@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Advanced
-parent: Installer Script (multi-container)
+parent: Install Script
 nav_order: 4
 ---
 

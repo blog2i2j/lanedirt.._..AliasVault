@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Manual Setup (single container)
+title: Manual Setup
 parent: Self-host Install
 nav_order: 2
 ---

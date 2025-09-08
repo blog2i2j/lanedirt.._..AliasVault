@@ -2,7 +2,7 @@
 layout: default
 title: Build from Source
 parent: Advanced
-grand_parent: Installer Script (multi-container)
+grand_parent: Install Script
 nav_order: 3
 ---
 

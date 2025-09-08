@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Advanced
-parent: Manual Setup (single container)
+parent: Manual Setup
 nav_order: 2
 ---
 

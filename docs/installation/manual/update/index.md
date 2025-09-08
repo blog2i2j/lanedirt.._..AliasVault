@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Update
-parent: Manual Setup (single container)
+parent: Manual Setup
 nav_order: 1
 ---
 

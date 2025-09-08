@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Troubleshooting
-parent: Installer Script (multi-container)
+parent: Install Script
 nav_order: 5
 ---
 

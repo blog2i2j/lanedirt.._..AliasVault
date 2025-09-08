@@ -6,9 +6,9 @@ nav_order: 2
 
 # Self-host Install
 
-AliasVault can be self-hosted on your own servers using two different installation methods. Both use Docker, but they differ in how much is automated versus how much you manage yourself:
+AliasVault can be self-hosted on your own servers using two different installation methods. Both use Docker, but they differ in how much is automated versus how much you manage yourself. For ease of use, we recommend using the Installer Script (Option 1).
 
-|                          | **Option 1: Installer Script (multi-container)** | **Option 2: Manual Setup (single container)** |
+|                          | **Option 1: Install Script (multi-container)** | **Option 2: Manual Setup (single container)** |
 |--------------------------|---------------------------------------------------|-----------------------------------------------|
 | **Best for**             | ☁️ VPS/VM/Proxmox, cloud hosts, DigitalOcean, AWS/Azure | 🏠 NAS/Synology/Unraid, Raspberry Pi, home servers |
 | **Internet accessible**  | Direct internet access with ports 80/443         | Behind existing infrastructure                |

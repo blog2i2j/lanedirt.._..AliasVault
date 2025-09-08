@@ -2,7 +2,7 @@
 layout: default
 title: Uninstall
 parent: Advanced
-grand_parent: Installer Script (multi-container)
+grand_parent: Install Script
 nav_order: 4
 ---
 
