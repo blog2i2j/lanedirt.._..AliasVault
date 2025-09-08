@@ -10,14 +10,29 @@
 
 <ServerValidationErrors @ref="ServerValidationErrors" />
 
-@if (!IsAdminConfigured)
+@if (!IsAdminConfigured || 1==1)
 {
     <MessageInfo Title="Admin User Not Configured">
         The admin user has not been configured yet. To set up admin access:
         <ol class="list-decimal list-inside space-y-1 mb-3">
-            <li>Connect to your Docker container: <code class="bg-orange-300 px-1 py-0.5 rounded text-xs">$ docker compose exec -it aliasvault /bin/bash</code></li>
-            <li>Run the password reset script: <code class="bg-orange-300  px-1 py-0.5 rounded text-xs">$ aliasvault reset-admin-password</code></li>
-            <li>Restart the container to apply changes: <code class="bg-orange-300  px-1 py-0.5 rounded text-xs">$ docker compose restart</code></li>
+            <li>
+                Connect to your Docker container:
+                <div>
+                    <code class="bg-gray-700 text-white px-1 py-0.5 rounded text-xs">$ docker compose exec -it aliasvault /bin/bash</code>
+                </div>
+            </li>
+            <li>
+                Run the password reset script:
+                <div>
+                    <code class="bg-gray-700 text-white px-1 py-0.5 rounded text-xs">$ aliasvault reset-admin-password</code>
+                </div>
+            </li>
+            <li>
+                Exit out of the container, then restart the container to apply changes:
+                <div>
+                    <code class="bg-gray-700 text-white px-1 py-0.5 rounded text-xs">$ docker compose restart</code>
+                </div>
+            </li>
         </ol>
     </MessageInfo>
 }
