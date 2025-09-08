@@ -170,7 +170,14 @@ After setting up your DNS, you have to configure AliasVault to let it know which
 # ...
 ```
 
-After updating the docker-compose.yml file, issue a `docker compose restart`. Afterwards, when you login to the AliasVault web app, you should now be able to create an alias with your domain and be able to receive email on it.
+After updating the docker-compose.yml file, restart the Docker Compose stack:
+```bash
+# To apply new environment variables, containers must be recreated.
+docker compose down
+docker compose up -d
+```
+
+Afterwards, when you login to the AliasVault web app, you should now be able to create an alias with your configured private domain and be able to receive email on it.
 
 {: .note }
 Important: DNS propagation can take up to 24-48 hours. During this time, email delivery might be inconsistent.

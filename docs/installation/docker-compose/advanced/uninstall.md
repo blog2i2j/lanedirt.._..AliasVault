@@ -16,5 +16,5 @@ This will not delete any data stored in the database. If you wish to delete all 
 ### Steps
 1. Run docker compose down and remove any local Docker images related to AliasVault.
 ```bash
-docker compose down --rmi all
+$ docker compose down --rmi all
 ```

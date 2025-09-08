@@ -16,5 +16,5 @@ This will not delete any data stored in the database. If you wish to delete all 
 ### Steps
 1. Run the install script with the `uninstall` option
 ```bash
-./install.sh uninstall
+$ ./install.sh uninstall
 ```

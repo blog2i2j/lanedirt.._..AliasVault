@@ -20,7 +20,7 @@ AliasVault can be self-hosted on your own servers using two different installati
 | **Setup style**          | Managed, opinionated, production-ready defaults  | Fits into existing homelab/stack tools (Portainer compatible) |
 | **Build from source**    | Optional (supported)                             | Pre-built container only                      |
 | **Choose if…**           | You want auto SSL and a managed stack            | You already have TLS and prefer manual control |
-|                          | [**Self-host via Install Script →**](./script){: .btn .btn-primary } (Recommended) | [**Self-host via Docker Compose →**](./docker-compose){: .btn .btn-primary } |
+|                          | [**Self-host via Install Script →**](./script){: .btn .btn-primary } | [**Self-host via Docker →**](./docker-compose){: .btn .btn-primary } |
 
 
 ---

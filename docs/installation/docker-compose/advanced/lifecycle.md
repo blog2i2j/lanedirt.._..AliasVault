@@ -12,19 +12,19 @@ You can stop and start AliasVault via the default docker compose commands. Run t
 ## Stop
 To stop AliasVault:
 ```bash
-docker compose down
+$ docker compose down
 ```
 
 ## Start
 To start AliasVault:
 
 ```bash
-docker compose up -d
+$ docker compose up -d
 ```
 
 ## Restart
-To restart AliasVault:
+To restart AliasVault (note: when making changes to the `docker-compose.yml`, you'll need to manually stop and start to make the new changes be applied)
 
 ```bash
-docker compose restart
+$ docker compose restart
 ```
