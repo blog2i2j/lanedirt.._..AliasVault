@@ -53,3 +53,4 @@ defaults:
 url: "https://docs.aliasvault.net"
 plugins:
   - jekyll-sitemap
+  - jekyll-redirect-from

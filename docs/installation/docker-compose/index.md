@@ -1,11 +1,14 @@
 ---
 layout: default
-title: Manual Setup
+title: Docker Compose
 parent: Self-host Install
+redirect_from:
+  - /installation/advanced/manual-setup
+  - /installation/advanced/manual-setup.html
 nav_order: 2
 ---
 
-# Self-host using manual setup (single container)
+# Self-host using Docker Compose (single container)
 The following guide will walk you through the steps to install AliasVault via the All-In-One Docker container. This container uses `s6-overlay` to combine all AliasVault's services into one image for convenience. The only downside compared to the `install.sh` installer is that this version does NOT come with SSL/TLS support, so you'll have to make the container available through your own SSL/TLS proxy.
 
 {: .important-title }
@@ -45,6 +48,7 @@ services:
     environment:
       PUBLIC_REGISTRATION_ENABLED: "true"
       IP_LOGGING_ENABLED: "true"
+      FORCE_HTTPS_REDIRECT: "false"
       SUPPORT_EMAIL: ""
       PRIVATE_EMAIL_DOMAINS: ""
 ```

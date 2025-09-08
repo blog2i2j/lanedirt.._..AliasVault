@@ -2,6 +2,9 @@
 layout: default
 title: Troubleshooting
 parent: Install Script
+redirect_from:
+  - /installation/troubleshooting
+  - /installation/troubleshooting.html
 nav_order: 5
 ---
 

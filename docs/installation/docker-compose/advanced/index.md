@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Advanced
-parent: Manual Setup
+parent: Docker Compose
 nav_order: 2
 ---
 

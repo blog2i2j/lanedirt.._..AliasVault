@@ -2,6 +2,9 @@
 layout: default
 title: Update
 parent: Install Script
+redirect_from:
+  - /installation/update
+  - /installation/update.html
 nav_order: 3
 ---
 

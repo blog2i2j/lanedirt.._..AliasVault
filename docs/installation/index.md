@@ -6,9 +6,9 @@ nav_order: 2
 
 # Self-host Install
 
-AliasVault can be self-hosted on your own servers using two different installation methods. Both use Docker, but they differ in how much is automated versus how much you manage yourself. For ease of use, we recommend using the Installer Script (Option 1).
+AliasVault can be self-hosted on your own servers using two different installation methods. Both use Docker, but they differ in how much is automated versus how much you manage yourself.
 
-|                          | **Option 1: Install Script (multi-container)** | **Option 2: Manual Setup (single container)** |
+|                          | **Option 1: Install Script (multi-container)** | **Option 2: Docker Compose (single container)** |
 |--------------------------|---------------------------------------------------|-----------------------------------------------|
 | **Best for**             | ☁️ VPS/VM/Proxmox, cloud hosts, DigitalOcean, AWS/Azure | 🏠 NAS/Synology/Unraid, Raspberry Pi, home servers |
 | **Internet accessible**  | Direct internet access with ports 80/443         | Behind existing infrastructure                |
@@ -20,7 +20,7 @@ AliasVault can be self-hosted on your own servers using two different installati
 | **Setup style**          | Managed, opinionated, production-ready defaults  | Fits into existing homelab/stack tools (Portainer compatible) |
 | **Build from source**    | Optional (supported)                             | Pre-built container only                      |
 | **Choose if…**           | You want auto SSL and a managed stack            | You already have TLS and prefer manual control |
-|                          | [**Self-host via Installer Script →**](./installer){: .btn .btn-primary } | [**Self-host via Manual Setup →**](./manual){: .btn .btn-primary } |
+|                          | [**Self-host via Install Script →**](./script){: .btn .btn-primary } (Recommended) | [**Self-host via Manual Setup →**](./manual){: .btn .btn-primary } |
 
 
 ---

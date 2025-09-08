@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Troubleshooting
-parent: Manual Setup
+parent: Docker Compose
 nav_order: 3
 ---
 

@@ -2,11 +2,14 @@
 layout: default
 title: Install Script
 parent: Self-host Install
+redirect_from:
+  - /installation/install
+  - /installation/install.html
 nav_order: 1
 ---
 
-# Self-host using install script (multi-container)
-The following guide will walk you through the steps to install AliasVault on your own server using the AliasVault installer script: `install.sh`. Minimum experience with Docker and Linux is required. Estimated time: 5-15 minutes.
+# Self-host using Install Script (multi-container)
+The following guide will walk you through the steps to install AliasVault on your own server using the AliasVault installer script: `install.sh`. This script will pull pre-built Docker Images and do all the configuration for you while using `docker compose` in the background.
 
 {: .important-title }
 > Requirements:
@@ -19,9 +22,6 @@ The following guide will walk you through the steps to install AliasVault on you
 ---
 
 ## 1. Basic Installation
-To get AliasVault up and running quickly, run the install script to pull pre-built Docker images. The install script will also configure the .env file and start the AliasVault containers.
-
-### Installation steps
 1. Download the install script to a directory of your choice. All AliasVault files and directories will be created in this directory.
 ```bash
 # Download the install script

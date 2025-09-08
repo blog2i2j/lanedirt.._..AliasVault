@@ -2,7 +2,7 @@
 layout: default
 title: Stop/start
 parent: Advanced
-grand_parent: Manual Setup
+grand_parent: Docker Compose
 nav_order: 2
 ---
 

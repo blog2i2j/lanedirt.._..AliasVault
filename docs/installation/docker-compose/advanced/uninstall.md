@@ -2,7 +2,7 @@
 layout: default
 title: Uninstall
 parent: Advanced
-grand_parent: Manual Setup
+grand_parent: Docker Compose
 nav_order: 4
 ---
 
