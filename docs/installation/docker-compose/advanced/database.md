@@ -13,7 +13,7 @@ This page explains how to import/export on the AliasVault server database via Do
 In order to backup the AliasVault server database (which includes all encrypted user vaults as well), you can use the following command. Run this command from the directory where your AliasVault `docker-compose.yml` is located.
 
 ```bash
-docker compose exec aliasvault pg_dump -U aliasvault aliasvault > backup.sql
+$ docker compose exec aliasvault pg_dump -U aliasvault aliasvault > backup.sql
 ```
 
 ## Database Import
@@ -25,8 +25,8 @@ To restore a previously exported database, you can use the following snippet. Ru
 docker compose exec -T aliasvault psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS aliasvault WITH (FORCE);"
 
 # Create new empty database
-docker compose exec -T aliasvault psql -U postgres -d postgres -c "CREATE DATABASE aliasvault;"
+docker compose exec -T aliasvault psql -U postgres -d postgres -c "CREATE DATABASE aliasvault OWNER aliasvault;"
 
 # Import backup
-docker compose exec -T aliasvault psql -U postgres aliasvault < backup.sql
+docker compose exec -T aliasvault psql -U aliasvault aliasvault < backup.sql
 ```
