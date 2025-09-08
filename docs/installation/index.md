@@ -1,10 +1,10 @@
 ---
 layout: default
-title: Self-hosting
+title: Self-host Install
 nav_order: 2
 ---
 
-# Self-hosting
+# Self-host Install
 
 AliasVault can be self-hosted on your own servers using two different installation methods. Both use Docker, but they differ in how much is automated versus how much you manage yourself:
 

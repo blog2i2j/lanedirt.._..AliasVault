@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Installer Script (multi-container)
-parent: Self-hosting
+parent: Self-host Install
 nav_order: 1
 ---
 

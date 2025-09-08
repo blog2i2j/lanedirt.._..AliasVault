@@ -13,7 +13,7 @@ A privacy-first password manager with built-in email aliasing. Fully encrypted a
 
 {: .fs-6 .fw-300 }
 
-[Self-host installation](./installation/install){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
+[Self-host installation](./installation){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View on GitHub](https://github.com/aliasvault/aliasvault){: .btn .fs-5 .mb-4 .mb-md-0 }
 
 ---
