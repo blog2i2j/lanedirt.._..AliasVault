@@ -17,5 +17,6 @@ services:
     environment:
       PUBLIC_REGISTRATION_ENABLED: "true"
       IP_LOGGING_ENABLED: "true"
+      FORCE_HTTPS_REDIRECT: "false"
       SUPPORT_EMAIL: ""
       PRIVATE_EMAIL_DOMAINS: ""

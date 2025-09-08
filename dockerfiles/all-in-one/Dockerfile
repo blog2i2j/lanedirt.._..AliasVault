@@ -134,7 +134,8 @@ COPY --from=dotnet-builder /app /app
 # Copy configuration files and scripts directly to their destinations
 COPY dockerfiles/all-in-one/reset-admin-password.sh /usr/local/bin/reset-admin-password.sh
 COPY apps/server/AliasVault.Client/nginx.conf /app/client/nginx.conf
-COPY dockerfiles/all-in-one/config/nginx.conf /etc/nginx/nginx.conf
+COPY dockerfiles/all-in-one/config/nginx-80-443.conf /etc/nginx/nginx-80-443.conf
+COPY dockerfiles/all-in-one/config/nginx-443.conf /etc/nginx/nginx-443.conf
 COPY apps/server/status.html /usr/share/nginx/html/status.html
 COPY dockerfiles/all-in-one/s6-scripts /etc/s6-overlay/s6-rc.d/
 
@@ -159,6 +160,7 @@ ENV ALIASVAULT_VERBOSITY=0 \
     POSTGRES_PORT=5432 \
     POSTGRES_USER=aliasvault \
     POSTGRES_DATABASE=aliasvault \
+    FORCE_HTTPS_REDIRECT=false \
     S6_CMD_WAIT_FOR_SERVICES_MAXTIME=0 \
     S6_VERBOSITY=0
 
