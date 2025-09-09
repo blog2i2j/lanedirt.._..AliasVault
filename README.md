@@ -138,6 +138,6 @@ Core features that are being worked on:
 Feel free to open an issue or join our [Discord](https://discord.gg/DsaXMTEtpF)! Contributions are warmly welcomed—whether in feature development, testing, or spreading the word. Get in touch on Discord if you're interested in contributing.
 
 ### Support the mission
-Your donation helps me dedicate more time and resources to improving AliasVault, making the internet safer for everyone!
+AliasVault is open-source and community-driven. If you like what we’re building, consider supporting us through [Open Collective](https://opencollective.com/aliasvault) or through:
 
 <a href="https://www.buymeacoffee.com/lanedirt" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 50px !important;" ></a>
