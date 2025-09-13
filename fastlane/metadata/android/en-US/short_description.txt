@@ -1,1 +1,1 @@
-Privacy-First Password & Email Alias Manager
+Privacy-first Password Manager with Built-in Email Aliasing
