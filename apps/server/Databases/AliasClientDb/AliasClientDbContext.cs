@@ -111,16 +111,8 @@ public class AliasClientDbContext : DbContext
         // TODO: when the birthdate field is made optional in data model and all existing values have been converted from "yyyy-MM-dd HH.mm.ss" to "yyyy-MM-dd HH':'mm':'ss", this can probably
         // be removed. But test the usecase where the birthdate field is empty string (because of browser extension error).
         var emptyDateTimeConverter = new ValueConverter<DateTime, string>(
-            v => v == DateTime.MinValue
-                ? string.Empty
-                : v.ToString("yyyy-MM-dd HH':'mm':'ss", CultureInfo.InvariantCulture),
-            v => string.IsNullOrEmpty(v)
-                ? DateTime.MinValue
-                : DateTime.ParseExact(
-                    v,
-                    new[] { "yyyy-MM-dd HH':'mm':'ss", "yyyy-MM-dd HH.mm.ss" }, // Support reading . and : as separators.
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.None));
+            v => DateTimeToString(v),
+            v => StringToDateTime(v));
 
         modelBuilder.Entity<Alias>()
             .Property(e => e.BirthDate)
@@ -187,6 +179,12 @@ public class AliasClientDbContext : DbContext
         base.OnConfiguring(optionsBuilder);
     }
 
+    /// <summary>
+    /// Gets the options for the AliasClientDbContext.
+    /// </summary>
+    /// <param name="connection">The SQLite connection to use to connect to the SQLite database.</param>
+    /// <param name="logAction">The action to perform for logging.</param>
+    /// <returns>The options for the AliasClientDbContext.</returns>
     private static DbContextOptions<AliasClientDbContext> GetOptions(SqliteConnection connection, Action<string> logAction)
     {
         var optionsBuilder = new DbContextOptionsBuilder<AliasClientDbContext>();
@@ -194,5 +192,57 @@ public class AliasClientDbContext : DbContext
         optionsBuilder.LogTo(logAction, new[] { DbLoggerCategory.Database.Command.Name });
 
         return optionsBuilder.Options;
+    }
+
+    /// <summary>
+    /// Converts a DateTime to a string.
+    /// </summary>
+    /// <param name="v">The DateTime to convert.</param>
+    /// <returns>The string representation of the DateTime.</returns>
+    private static string DateTimeToString(DateTime v)
+    {
+        return v == DateTime.MinValue ? string.Empty : v.ToString("yyyy-MM-dd HH':'mm':'ss", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// Converts a string to a DateTime.
+    /// </summary>
+    /// <param name="v">The string to convert.</param>
+    /// <returns>The DateTime representation of the string.</returns>
+    private static DateTime StringToDateTime(string v)
+    {
+        if (string.IsNullOrEmpty(v))
+        {
+            return DateTime.MinValue;
+        }
+
+        // Try to parse with all known formats first
+        string[] formats = new[]
+        {
+            "yyyy-MM-dd HH':'mm':'ss",
+            "yyyy-MM-dd HH.mm.ss",
+            "yyyy-MM-dd'T'HH:mm:ss.fff'Z'", // ISO 8601 with milliseconds and Zulu
+            "yyyy-MM-dd'T'HH:mm:ss'Z'",     // ISO 8601 with Zulu
+            "yyyy-MM-dd'T'HH:mm:ss.fff",    // ISO 8601 with milliseconds
+            "yyyy-MM-dd'T'HH:mm:ss",        // ISO 8601 basic
+            "yyyy-MM-dd",                   // Date only,
+        };
+
+        foreach (var format in formats)
+        {
+            if (DateTime.TryParseExact(v, format, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var dt))
+            {
+                return dt;
+            }
+        }
+
+        // Fallback: try to parse dynamically (handles most .NET and JS date strings)
+        if (DateTime.TryParse(v, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var dynamicDt))
+        {
+            return dynamicDt;
+        }
+
+        // If all parsing fails, return MinValue as a safe fallback
+        return DateTime.MinValue;
     }
 }
