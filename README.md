@@ -136,6 +136,6 @@ Core features that are being worked on:
 Feel free to open an issue or discussion on GitHub. We warmly welcome all contributions: whether it’s translating, testing, helping to build features, sharing feedback - or helping spread the word about AliasVault. Every bit of support helps the project grow, so don’t hesitate to jump in and [say hi to us on Discord](https://discord.gg/DsaXMTEtpF)!
 
 ### Support the mission
-Your donation helps me dedicate more time and resources to improving AliasVault, making the internet safer for everyone!
+AliasVault is open-source and community-driven. If you like what we’re building, consider supporting us through [Open Collective](https://opencollective.com/aliasvault) or through:
 
 <a href="https://www.buymeacoffee.com/lanedirt" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 50px !important;" ></a>

@@ -47,6 +47,12 @@
           "type": "payment-provider",
           "address": "https://buymeacoffee.com/lanedirt",
           "description": "Support AliasVault development via Buy Me a Coffee."
+        },
+        {
+          "guid": "opencollective",
+          "type": "payment-provider",
+          "address": "https://opencollective.com/aliasvault",
+          "description": "Support AliasVault development via Open Collective."
         }
       ],
       "plans": [
@@ -59,7 +65,8 @@
           "currency": "EUR",
           "frequency": "one-time",
           "channels": [
-            "buymeacoffee"
+            "buymeacoffee",
+            "opencollective"
           ]
         }
       ],

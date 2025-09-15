@@ -1,3 +1,5 @@
+import { Buffer } from 'buffer';
+
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Toast from 'react-native-toast-message';
@@ -316,10 +318,10 @@ export function useVaultMutate() : {
       Toast.show({
         type: 'error',
         text1: t('vault.errors.operationFailed'),
-        text2: error instanceof Error ? error.message : t('vault.errors.unknownError'),
+        text2: error instanceof Error ? error.message : t('common.unknownError'),
         position: 'bottom'
       });
-      options.onError?.(error instanceof Error ? error : new Error(t('vault.errors.unknownError')));
+      options.onError?.(error instanceof Error ? error : new Error(t('common.unknownError')));
     } finally {
       setIsLoading(false);
       setSyncStatus('');
@@ -397,10 +399,10 @@ export function useVaultMutate() : {
       Toast.show({
         type: 'error',
         text1: t('vault.errors.operationFailed'),
-        text2: error instanceof Error ? error.message : t('vault.errors.unknownError'),
+        text2: error instanceof Error ? error.message : t('common.unknownError'),
         position: 'bottom'
       });
-      options.onError?.(error instanceof Error ? error : new Error(t('vault.errors.unknownError')));
+      options.onError?.(error instanceof Error ? error : new Error(t('common.unknownError')));
     } finally {
       setIsLoading(false);
       setSyncStatus('');

@@ -67,7 +67,7 @@ else
             <DataAnnotationsValidator/>
             <div>
                 <label asp-for="Input.Password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">@Localizer["YourPasswordLabel"]</label>
-                <InputTextField id="password" @bind-Value="_unlockModel.Password" type="password" placeholder="••••••••"/>
+                <PasswordInputField id="password" @bind-Value="_unlockModel.Password" placeholder="••••••••"/>
                 <ValidationMessage For="() => _unlockModel.Password"/>
             </div>
 
@@ -82,6 +82,8 @@ else
         @Localizer["SwitchAccountsText"] <a href="/user/logout" class="text-primary-700 hover:underline dark:text-primary-500">@Localizer["LogOutLink"]</a>
     </div>
 }
+
+<FooterLogin />
 
 @code {
     /// <summary>

@@ -1,4 +1,4 @@
-AliasVault – Privacy-First Wachtwoord & E-mailalias Manager
+AliasVault – Privacy-First Wachtwoord Manager met Ingebouwde E-mailaliassen
 
 Met AliasVault voor Android heb je veilig toegang tot al je wachtwoorden en e-mailaliassen, waar je ook bent. Houd je wachtwoorden bij, en maak e-mail aliassen aan terwijl je je smartphone gebruikt. AliasVault heeft volledige ondersteuning voor Android autofill, zodat je niet handmatig hoeft te kopiëren en plakken.
 

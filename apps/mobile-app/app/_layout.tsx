@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Linking, StyleSheet, Platform } from 'react-native';
 import 'react-native-reanimated';
 import 'react-native-get-random-values';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { install } from 'react-native-quick-crypto';
 
 import { useColors, useColorScheme } from '@/hooks/useColorScheme';
@@ -184,7 +186,11 @@ export default function RootLayout() : React.ReactNode {
       <AuthProvider>
         <WebApiProvider>
           <ClipboardCountdownProvider>
-            <RootLayoutNav />
+            <KeyboardProvider>
+              <GestureHandlerRootView>
+                <RootLayoutNav />
+              </GestureHandlerRootView>
+            </KeyboardProvider>
           </ClipboardCountdownProvider>
         </WebApiProvider>
       </AuthProvider>

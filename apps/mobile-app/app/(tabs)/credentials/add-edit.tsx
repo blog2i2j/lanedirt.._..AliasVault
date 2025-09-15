@@ -1,3 +1,5 @@
+import { Buffer } from 'buffer';
+
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as Haptics from 'expo-haptics';
@@ -5,12 +7,12 @@ import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-rout
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Resolver, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View, TouchableOpacity, Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { StyleSheet, View, Alert, Keyboard, Platform } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import Toast from 'react-native-toast-message';
 
 import { CreateIdentityGenerator, IdentityGenerator, IdentityHelperUtils } from '@/utils/dist/shared/identity-generator';
-import type { Attachment, Credential, PasswordSettings } from '@/utils/dist/shared/models/vault';
+import type { Attachment, Credential } from '@/utils/dist/shared/models/vault';
 import type { FaviconExtractModel } from '@/utils/dist/shared/models/webapi';
 import { CreatePasswordGenerator, PasswordGenerator } from '@/utils/dist/shared/password-generator';
 import emitter from '@/utils/EventEmitter';
@@ -28,6 +30,7 @@ import LoadingOverlay from '@/components/LoadingOverlay';
 import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { AliasVaultToast } from '@/components/Toast';
+import { RobustPressable } from '@/components/ui/RobustPressable';
 import { useAuth } from '@/context/AuthContext';
 import { useDb } from '@/context/DbContext';
 import { useWebApi } from '@/context/WebApiContext';
@@ -53,7 +56,6 @@ export default function AddEditCredentialScreen() : React.ReactNode {
   const [isSaveDisabled, setIsSaveDisabled] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [originalAttachmentIds, setOriginalAttachmentIds] = useState<string[]>([]);
-  const [passwordSettings, setPasswordSettings] = useState<PasswordSettings | null>(null);
   const { t } = useTranslation();
 
   const { control, handleSubmit, setValue, watch } = useForm<Credential>({
@@ -131,14 +133,6 @@ export default function AddEditCredentialScreen() : React.ReactNode {
         }, 100);
         router.dismiss();
         return;
-      }
-
-      // Load password settings
-      try {
-        const settings = await dbContext.sqliteClient!.getPasswordSettings();
-        setPasswordSettings(settings);
-      } catch (err) {
-        console.error('Error loading password settings:', err);
       }
 
       if (isEditMode) {
@@ -328,7 +322,11 @@ export default function AddEditCredentialScreen() : React.ReactNode {
 
       // Then navigate after a short delay to ensure the modal has closed
       setTimeout(() => {
-        router.push(`/credentials/${credentialToSave.Id}`);
+        if (isEditMode) {
+          // Do nothing, as the original screen will update itself.
+        } else {
+          router.push(`/credentials/${credentialToSave.Id}`);
+        }
       }, 100);
 
       // Show success toast
@@ -364,25 +362,6 @@ export default function AddEditCredentialScreen() : React.ReactNode {
       Toast.show({
         type: 'error',
         text1: t('credentials.errors.generateUsernameFailed'),
-        text2: t('auth.errors.enterPassword')
-      });
-    }
-  };
-
-  /**
-   * Generate a random password.
-   */
-  const generateRandomPassword = async () : Promise<void> => {
-    try {
-      const { passwordGenerator } = await initializeGenerators();
-      const password = passwordGenerator.generateRandomPassword();
-      setValue('Password', password);
-      setIsPasswordVisible(true);
-    } catch (error) {
-      console.error('Error generating random password:', error);
-      Toast.show({
-        type: 'error',
-        text1: t('credentials.errors.generatePasswordFailed'),
         text2: t('auth.errors.enterPassword')
       });
     }
@@ -536,51 +515,40 @@ export default function AddEditCredentialScreen() : React.ReactNode {
 
   // Set header buttons
   useEffect(() => {
-    if (Platform.OS === 'ios') {
-      navigation.setOptions({
+    navigation.setOptions({
+      /**
+       * Header left button (iOS only).
+       */
+      ...(Platform.OS === 'ios' && {
         /**
          * Header left button.
          */
-        headerLeft: () => (
-          <TouchableOpacity
+        headerLeft: () : React.ReactNode => (
+          <RobustPressable
             onPress={() => router.back()}
             style={styles.headerLeftButton}
           >
             <ThemedText style={styles.headerLeftButtonText}>{t('common.cancel')}</ThemedText>
-          </TouchableOpacity>
+          </RobustPressable>
         ),
-        /**
-         * Header right button.
-         */
-        headerRight: () => (
-          <TouchableOpacity
-            onPress={handleSubmit(onSubmit)}
-            style={[styles.headerRightButton, isSaveDisabled && styles.headerRightButtonDisabled]}
-            disabled={isSaveDisabled}
-          >
-            <MaterialIcons name="save" size={22} color={colors.primary} />
-          </TouchableOpacity>
-        ),
-      });
-    } else {
-      navigation.setOptions({
-        /**
-         * Header right button.
-         */
-        headerRight: () => (
-          <Pressable
-            onPressIn={handleSubmit(onSubmit)}
-            android_ripple={{ color: 'lightgray' }}
-            pressRetentionOffset={100}
-            hitSlop={100}
-            style={[styles.headerRightButton, isSaveDisabled && styles.headerRightButtonDisabled]}
-            disabled={isSaveDisabled}
-          >
-            <MaterialIcons name="save" size={24} color={colors.primary} />
-          </Pressable>
-        ),
-      });
-    }
+      }),
+      /**
+       * Header right button.
+       */
+      headerRight: () => (
+        <RobustPressable
+          onPress={handleSubmit(onSubmit)}
+          style={[styles.headerRightButton, isSaveDisabled && styles.headerRightButtonDisabled]}
+          disabled={isSaveDisabled}
+        >
+          <MaterialIcons
+            name="save"
+            size={Platform.OS === 'android' ? 24 : 22}
+            color={colors.primary}
+          />
+        </RobustPressable>
+      ),
+    });
   }, [navigation, mode, handleSubmit, onSubmit, colors.primary, isEditMode, router, styles.headerLeftButton, styles.headerLeftButtonText, styles.headerRightButton, styles.headerRightButtonDisabled, isSaveDisabled, t]);
 
   return (
@@ -589,188 +557,164 @@ export default function AddEditCredentialScreen() : React.ReactNode {
       {(isSyncing) && (
         <LoadingOverlay status={syncStatus} />
       )}
-      <KeyboardAvoidingView
-        style={styles.keyboardContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ThemedContainer style={styles.container}>
-          <KeyboardAwareScrollView
-            enableOnAndroid={true}
-            contentContainerStyle={styles.contentContainer}
-            keyboardShouldPersistTaps="handled"
-            extraScrollHeight={0}
-          >
-            {!isEditMode && (
-              <View style={styles.modeSelector}>
-                <TouchableOpacity
-                  style={[styles.modeButton, mode === 'random' && styles.modeButtonActive]}
-                  onPress={() => setMode('random')}
-                >
-                  <MaterialIcons
-                    name="auto-fix-high"
-                    size={20}
-                    color={mode === 'random' ? colors.primarySurfaceText : colors.text}
-                  />
-                  <ThemedText style={[styles.modeButtonText, mode === 'random' && styles.modeButtonTextActive]}>
-                    {t('credentials.randomAlias')}
-                  </ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modeButton, mode === 'manual' && styles.modeButtonActive]}
-                  onPress={() => setMode('manual')}
-                >
-                  <MaterialIcons
-                    name="person"
-                    size={20}
-                    color={mode === 'manual' ? colors.primarySurfaceText : colors.text}
-                  />
-                  <ThemedText style={[styles.modeButtonText, mode === 'manual' && styles.modeButtonTextActive]}>
-                    {t('credentials.manual')}
-                  </ThemedText>
-                </TouchableOpacity>
-              </View>
-            )}
 
-            <View style={styles.section}>
-              <ThemedText style={styles.sectionTitle}>{t('credentials.service')}</ThemedText>
-              <ValidatedFormField
-                ref={serviceNameRef}
-                control={control}
-                name="ServiceName"
-                label={t('credentials.serviceName')}
-                required
-              />
-              <ValidatedFormField
-                control={control}
-                name="ServiceUrl"
-                label={t('credentials.serviceUrl')}
-              />
+      <ThemedContainer style={styles.container}>
+        <KeyboardAwareScrollView
+          enabled={true}
+          contentContainerStyle={styles.contentContainer}
+          keyboardShouldPersistTaps="handled"
+          bottomOffset={30}
+        >
+          {!isEditMode && (
+            <View style={styles.modeSelector}>
+              <RobustPressable
+                style={[styles.modeButton, mode === 'random' && styles.modeButtonActive]}
+                onPress={() => setMode('random')}
+              >
+                <MaterialIcons
+                  name="auto-fix-high"
+                  size={20}
+                  color={mode === 'random' ? colors.primarySurfaceText : colors.text}
+                />
+                <ThemedText style={[styles.modeButtonText, mode === 'random' && styles.modeButtonTextActive]}>
+                  {t('credentials.randomAlias')}
+                </ThemedText>
+              </RobustPressable>
+              <RobustPressable
+                style={[styles.modeButton, mode === 'manual' && styles.modeButtonActive]}
+                onPress={() => setMode('manual')}
+              >
+                <MaterialIcons
+                  name="person"
+                  size={20}
+                  color={mode === 'manual' ? colors.primarySurfaceText : colors.text}
+                />
+                <ThemedText style={[styles.modeButtonText, mode === 'manual' && styles.modeButtonTextActive]}>
+                  {t('credentials.manual')}
+                </ThemedText>
+              </RobustPressable>
             </View>
-            {(mode === 'manual' || isEditMode) && (
-              <>
-                <View style={styles.section}>
-                  <ThemedText style={styles.sectionTitle}>{t('credentials.loginCredentials')}</ThemedText>
+          )}
 
-                  <EmailDomainField
-                    value={watch('Alias.Email') ?? ''}
-                    onChange={(newValue) => setValue('Alias.Email', newValue)}
-                    label={t('credentials.email')}
-                  />
-                  <ValidatedFormField
-                    control={control}
-                    name="Username"
-                    label={t('credentials.username')}
-                    buttons={[
-                      {
-                        icon: "refresh",
-                        onPress: generateRandomUsername
-                      }
-                    ]}
-                  />
-                  {passwordSettings ? (
-                    <AdvancedPasswordField
-                      control={control}
-                      name="Password"
-                      label={t('credentials.password')}
-                      initialSettings={passwordSettings}
-                      showPassword={isPasswordVisible}
-                      onShowPasswordChange={setIsPasswordVisible}
-                      isNewCredential={!isEditMode}
-                    />
-                  ) : (
-                    <ValidatedFormField
-                      control={control}
-                      name="Password"
-                      label={t('credentials.password')}
-                      secureTextEntry={!isPasswordVisible}
-                      buttons={[
-                        {
-                          icon: isPasswordVisible ? "visibility-off" : "visibility",
-                          /**
-                           * Toggle the visibility of the password.
-                           */
-                          onPress: () => setIsPasswordVisible(!isPasswordVisible)
-                        },
-                        {
-                          icon: "refresh",
-                          onPress: generateRandomPassword
-                        }
-                      ]}
-                    />
-                  )}
-                </View>
+          <View style={styles.section}>
+            <ThemedText style={styles.sectionTitle}>{t('credentials.service')}</ThemedText>
+            <ValidatedFormField
+              ref={serviceNameRef}
+              control={control}
+              name="ServiceName"
+              label={t('credentials.serviceName')}
+              required
+            />
+            <ValidatedFormField
+              control={control}
+              name="ServiceUrl"
+              label={t('credentials.serviceUrl')}
+            />
+          </View>
+          {(mode === 'manual' || isEditMode) && (
+            <>
+              <View style={styles.section}>
+                <ThemedText style={styles.sectionTitle}>{t('credentials.loginCredentials')}</ThemedText>
 
-                <View style={styles.section}>
-                  <ThemedText style={styles.sectionTitle}>{t('credentials.alias')}</ThemedText>
-                  <TouchableOpacity style={styles.generateButton} onPress={handleGenerateRandomAlias}>
-                    <MaterialIcons name="auto-fix-high" size={20} color="#fff" />
-                    <ThemedText style={styles.generateButtonText}>{t('credentials.generateRandomAlias')}</ThemedText>
-                  </TouchableOpacity>
-                  <ValidatedFormField
-                    control={control}
-                    name="Alias.FirstName"
-                    label={t('credentials.firstName')}
-                  />
-                  <ValidatedFormField
-                    control={control}
-                    name="Alias.LastName"
-                    label={t('credentials.lastName')}
-                  />
-                  <ValidatedFormField
-                    control={control}
-                    name="Alias.NickName"
-                    label={t('credentials.nickName')}
-                  />
-                  <ValidatedFormField
-                    control={control}
-                    name="Alias.Gender"
-                    label={t('credentials.gender')}
-                  />
-                  <ValidatedFormField
-                    control={control}
-                    name="Alias.BirthDate"
-                    label={t('credentials.birthDate')}
-                    placeholder={t('credentials.birthDatePlaceholder')}
-                  />
-                </View>
+                <EmailDomainField
+                  value={watch('Alias.Email') ?? ''}
+                  onChange={(newValue) => setValue('Alias.Email', newValue)}
+                  label={t('credentials.email')}
+                />
+                <ValidatedFormField
+                  control={control}
+                  name="Username"
+                  label={t('credentials.username')}
+                  buttons={[
+                    {
+                      icon: "refresh",
+                      onPress: generateRandomUsername
+                    }
+                  ]}
+                />
+                <AdvancedPasswordField
+                  control={control}
+                  name="Password"
+                  label={t('credentials.password')}
+                  showPassword={isPasswordVisible}
+                  onShowPasswordChange={setIsPasswordVisible}
+                  isNewCredential={!isEditMode}
+                />
+              </View>
 
-                <View style={styles.section}>
-                  <ThemedText style={styles.sectionTitle}>{t('credentials.metadata')}</ThemedText>
+              <View style={styles.section}>
+                <ThemedText style={styles.sectionTitle}>{t('credentials.alias')}</ThemedText>
+                <RobustPressable
+                  style={styles.generateButton}
+                  onPress={handleGenerateRandomAlias}
+                >
+                  <MaterialIcons name="auto-fix-high" size={20} color="#fff" />
+                  <ThemedText style={styles.generateButtonText}>{t('credentials.generateRandomAlias')}</ThemedText>
+                </RobustPressable>
+                <ValidatedFormField
+                  control={control}
+                  name="Alias.FirstName"
+                  label={t('credentials.firstName')}
+                />
+                <ValidatedFormField
+                  control={control}
+                  name="Alias.LastName"
+                  label={t('credentials.lastName')}
+                />
+                <ValidatedFormField
+                  control={control}
+                  name="Alias.NickName"
+                  label={t('credentials.nickName')}
+                />
+                <ValidatedFormField
+                  control={control}
+                  name="Alias.Gender"
+                  label={t('credentials.gender')}
+                />
+                <ValidatedFormField
+                  control={control}
+                  name="Alias.BirthDate"
+                  label={t('credentials.birthDate')}
+                  placeholder={t('credentials.birthDatePlaceholder')}
+                />
+              </View>
 
-                  <ValidatedFormField
-                    control={control}
-                    name="Notes"
-                    label={t('credentials.notes')}
-                    multiline={true}
-                    numberOfLines={4}
-                    textAlignVertical="top"
-                  />
-                  {/* TODO: Add TOTP management */}
-                </View>
+              <View style={styles.section}>
+                <ThemedText style={styles.sectionTitle}>{t('credentials.metadata')}</ThemedText>
 
-                <View style={styles.section}>
-                  <ThemedText style={styles.sectionTitle}>{t('credentials.attachments')}</ThemedText>
+                <ValidatedFormField
+                  control={control}
+                  name="Notes"
+                  label={t('credentials.notes')}
+                  multiline={true}
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                />
+                {/* TODO: Add TOTP management */}
+              </View>
 
-                  <AttachmentUploader
-                    attachments={attachments}
-                    onAttachmentsChange={setAttachments}
-                  />
-                </View>
+              <View style={styles.section}>
+                <ThemedText style={styles.sectionTitle}>{t('credentials.attachments')}</ThemedText>
 
-                {isEditMode && (
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={handleDelete}
-                  >
-                    <ThemedText style={styles.deleteButtonText}>{t('credentials.deleteCredential')}</ThemedText>
-                  </TouchableOpacity>
-                )}
-              </>
-            )}
-          </KeyboardAwareScrollView>
-        </ThemedContainer>
-        <AliasVaultToast />
-      </KeyboardAvoidingView>
+                <AttachmentUploader
+                  attachments={attachments}
+                  onAttachmentsChange={setAttachments}
+                />
+              </View>
+
+              {isEditMode && (
+                <RobustPressable
+                  style={styles.deleteButton}
+                  onPress={handleDelete}
+                >
+                  <ThemedText style={styles.deleteButtonText}>{t('credentials.deleteCredential')}</ThemedText>
+                </RobustPressable>
+              )}
+            </>
+          )}
+        </KeyboardAwareScrollView>
+      </ThemedContainer>
+      <AliasVaultToast />
     </>
   );
 }

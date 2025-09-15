@@ -1,8 +1,10 @@
+import { Buffer } from 'buffer';
+
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, View, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView, Dimensions, TouchableWithoutFeedback, Keyboard, Text } from 'react-native';
+import { StyleSheet, View, TextInput, Alert, KeyboardAvoidingView, Platform, ScrollView, Dimensions, TouchableWithoutFeedback, Keyboard, Text, Pressable } from 'react-native';
 
 import EncryptionUtility from '@/utils/EncryptionUtility';
 
@@ -14,6 +16,7 @@ import LoadingIndicator from '@/components/LoadingIndicator';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedView } from '@/components/themed/ThemedView';
 import { Avatar } from '@/components/ui/Avatar';
+import { RobustPressable } from '@/components/ui/RobustPressable';
 import { useAuth } from '@/context/AuthContext';
 import { useDb } from '@/context/DbContext';
 import { useWebApi } from '@/context/WebApiContext';
@@ -31,6 +34,7 @@ export default function UnlockScreen() : React.ReactNode {
   const { t } = useTranslation();
   const webApi = useWebApi();
   const [biometricDisplayName, setBiometricDisplayName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   /**
    * Check if the key derivation parameters are stored in native storage.
@@ -109,8 +113,9 @@ export default function UnlockScreen() : React.ReactNode {
       } else {
         Alert.alert(t('common.error'), t('auth.errors.incorrectPassword'));
       }
-    } catch {
-      Alert.alert(t('common.error'), t('auth.errors.incorrectPasswordFallback'));
+    } catch (error) {
+      console.error('Unlock error:', error);
+      Alert.alert(t('common.error'), t('auth.errors.incorrectPassword'));
     } finally {
       setIsLoading(false);
     }
@@ -297,7 +302,7 @@ export default function UnlockScreen() : React.ReactNode {
                   <View style={styles.inputContainer}>
                     <MaterialIcons
                       name="lock"
-                      size={24}
+                      size={20}
                       color={colors.textMuted}
                       style={styles.inputIcon}
                     />
@@ -305,7 +310,7 @@ export default function UnlockScreen() : React.ReactNode {
                       style={styles.input}
                       placeholder={t('auth.enterPasswordPlaceholder')}
                       placeholderTextColor={colors.textMuted}
-                      secureTextEntry
+                      secureTextEntry={!showPassword}
                       value={password}
                       onChangeText={setPassword}
                       autoCapitalize="none"
@@ -313,9 +318,19 @@ export default function UnlockScreen() : React.ReactNode {
                       multiline={false}
                       numberOfLines={1}
                     />
+                    <Pressable
+                      onPress={() => setShowPassword(!showPassword)}
+                      style={styles.inputIcon}
+                    >
+                      <MaterialIcons
+                        name={showPassword ? "visibility" : "visibility-off"}
+                        size={20}
+                        color={colors.textMuted}
+                      />
+                    </Pressable>
                   </View>
 
-                  <TouchableOpacity
+                  <RobustPressable
                     style={styles.button}
                     onPress={handleUnlock}
                     disabled={isLoading}
@@ -323,24 +338,24 @@ export default function UnlockScreen() : React.ReactNode {
                     <ThemedText style={styles.buttonText}>
                       {isLoading ? t('auth.unlocking') : t('auth.unlock')}
                     </ThemedText>
-                  </TouchableOpacity>
+                  </RobustPressable>
 
                   {isBiometricsAvailable && (
-                    <TouchableOpacity
+                    <RobustPressable
                       style={styles.faceIdButton}
                       onPress={handleBiometricsRetry}
                     >
                       <ThemedText style={styles.faceIdButtonText}>{t('auth.tryBiometricAgain', { biometric: biometricDisplayName })}</ThemedText>
-                    </TouchableOpacity>
+                    </RobustPressable>
                   )}
                 </View>
 
-                <TouchableOpacity
+                <RobustPressable
                   style={styles.logoutButton}
                   onPress={handleLogout}
                 >
                   <ThemedText style={styles.logoutButtonText}>{t('auth.logout')}</ThemedText>
-                </TouchableOpacity>
+                </RobustPressable>
               </View>
             </ScrollView>
           </TouchableWithoutFeedback>

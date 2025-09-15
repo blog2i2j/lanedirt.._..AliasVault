@@ -1,12 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 
 import { useColors } from '@/hooks/useColorScheme';
+import { useTranslation } from '@/hooks/useTranslation';
 import { useVaultSync } from '@/hooks/useVaultSync';
 
 import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedView } from '@/components/themed/ThemedView';
+import { RobustPressable } from '@/components/ui/RobustPressable';
 import { useAuth } from '@/context/AuthContext';
 
 /**
@@ -16,6 +18,7 @@ import { useAuth } from '@/context/AuthContext';
 export function OfflineBanner(): React.ReactNode {
   const { isOffline } = useAuth();
   const colors = useColors();
+  const { t } = useTranslation();
   const { syncVault } = useVaultSync();
 
   if (!isOffline) {
@@ -41,7 +44,7 @@ export function OfflineBanner(): React.ReactNode {
       onSuccess: () => {
         Toast.show({
           type: 'success',
-          text1: 'Back online',
+          text1: t('app.offline.backOnline'),
           position: 'bottom'
         });
       },
@@ -51,7 +54,7 @@ export function OfflineBanner(): React.ReactNode {
       onOffline: () => {
         Toast.show({
           type: 'error',
-          text1: 'Still offline',
+          text1: t('app.offline.stillOffline'),
           position: 'bottom'
         });
       },
@@ -62,7 +65,7 @@ export function OfflineBanner(): React.ReactNode {
       onError: (error: string) => {
         Toast.show({
           type: 'error',
-          text1: 'Still offline',
+          text1: t('app.offline.stillOffline'),
           text2: error,
           position: 'bottom'
         });
@@ -98,14 +101,14 @@ export function OfflineBanner(): React.ReactNode {
     <ThemedView style={styles.container}>
       <View style={styles.content}>
         <ThemedText style={styles.text}>
-          Offline mode (read-only)
+          {t('app.offline.banner')}
         </ThemedText>
-        <TouchableOpacity
+        <RobustPressable
           style={styles.retryButton}
           onPress={handleRetry}
         >
           <Ionicons name="refresh" size={20} color={colors.primarySurfaceText} />
-        </TouchableOpacity>
+        </RobustPressable>
       </View>
     </ThemedView>
   );

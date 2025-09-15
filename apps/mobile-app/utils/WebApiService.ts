@@ -145,10 +145,10 @@ export class WebApiService {
 
           if (isSelfHosted) {
             // For self-hosted instances, throw error with translation key
-            throw new LocalAuthError('networkErrorSelfHosted');
+            throw new LocalAuthError(i18n.t('auth.errors.networkErrorSelfHosted'));
           } else {
             // For the default API URL, throw error with translation key
-            throw new LocalAuthError('networkError');
+            throw new LocalAuthError(i18n.t('auth.errors.networkError'));
           }
         }
       }

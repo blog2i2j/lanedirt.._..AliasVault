@@ -165,6 +165,13 @@ export default function SettingsScreen() : React.ReactNode {
   };
 
   /**
+   * Handle the password generator settings press.
+   */
+  const handlePasswordGeneratorPress = () : void => {
+    router.push('/(tabs)/settings/password-generator');
+  };
+
+  /**
    * Handle the clipboard clear settings press.
    */
   const handleClipboardClearPress = () : void => {
@@ -223,7 +230,7 @@ export default function SettingsScreen() : React.ReactNode {
 
   const styles = StyleSheet.create({
     scrollContent: {
-      paddingBottom: 40,
+      paddingBottom: 80,
       paddingTop: Platform.OS === 'ios' ? 42 : 16,
     },
     scrollView: {
@@ -437,6 +444,19 @@ export default function SettingsScreen() : React.ReactNode {
         <View style={styles.section}>
           <TouchableOpacity
             style={styles.settingItem}
+            onPress={handlePasswordGeneratorPress}
+          >
+            <View style={styles.settingItemIcon}>
+              <Ionicons name="key-sharp" size={20} color={colors.text} />
+            </View>
+            <View style={styles.settingItemContent}>
+              <ThemedText style={styles.settingItemText}>{t('settings.passwordGenerator')}</ThemedText>
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+            </View>
+          </TouchableOpacity>
+          <View style={styles.separator} />
+          <TouchableOpacity
+            style={styles.settingItem}
             onPress={handleIdentityGeneratorPress}
           >
             <View style={styles.settingItemIcon}>
@@ -444,6 +464,19 @@ export default function SettingsScreen() : React.ReactNode {
             </View>
             <View style={styles.settingItemContent}>
               <ThemedText style={styles.settingItemText}>{t('settings.identityGenerator')}</ThemedText>
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+            </View>
+          </TouchableOpacity>
+          <View style={styles.separator} />
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => router.push('/(tabs)/settings/import-export')}
+          >
+            <View style={styles.settingItemIcon}>
+              <Ionicons name="swap-horizontal" size={20} color={colors.text} />
+            </View>
+            <View style={styles.settingItemContent}>
+              <ThemedText style={styles.settingItemText}>{t('settings.importExport')}</ThemedText>
               <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </View>
           </TouchableOpacity>
