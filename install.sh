@@ -871,9 +871,9 @@ main() {
             if [ $? -eq 0 ]; then
                 printf "${CYAN}> Restarting admin container...${NC}\n"
                 if [ "$VERBOSE" = true ]; then
-                    $(get_docker_compose_command) up -d --force-recreate admin
+                    eval "$(get_docker_compose_command) up -d --force-recreate admin"
                 else
-                    $(get_docker_compose_command) up -d --force-recreate admin > /dev/null 2>&1
+                    eval "$(get_docker_compose_command) up -d --force-recreate admin" > /dev/null 2>&1
                 fi
                 print_password_reset_message
             fi
@@ -1142,7 +1142,7 @@ create_env_file() {
 populate_hostname() {
     if ! grep -q "^HOSTNAME=" "$ENV_FILE" || [ -z "$(grep "^HOSTNAME=" "$ENV_FILE" | cut -d '=' -f2)" ]; then
         while true; do
-            read -p "Enter the (public) hostname where this AliasVault server can be accessed from (e.g. aliasvault.net): " USER_HOSTNAME
+            read -p "Enter the hostname where this AliasVault server can be accessed (e.g. aliasvault.example.com): " USER_HOSTNAME
             if [ -n "$USER_HOSTNAME" ]; then
                 HOSTNAME="$USER_HOSTNAME"
                 break
@@ -1583,13 +1583,13 @@ recreate_docker_containers() {
     if [ "$VERBOSE" = true ]; then
         printf "${CYAN}ℹ (Re)creating Docker containers...${NC}\n"
         printf "\b${NC}\n"
-        if ! $(get_docker_compose_command) up -d --force-recreate; then
+        if ! eval "$(get_docker_compose_command) up -d --force-recreate"; then
             log_error "Failed to recreate Docker containers"
             exit 1
         fi
     else
         (
-            $(get_docker_compose_command) up -d --force-recreate > /tmp/docker_recreate.log 2>&1 &
+            eval "$(get_docker_compose_command) up -d --force-recreate" > /tmp/docker_recreate.log 2>&1 &
             RECREATE_PID=$!
             show_spinner $RECREATE_PID "Recreating Docker containers "
             wait $RECREATE_PID
@@ -1793,13 +1793,13 @@ handle_build() {
     if [ "$VERBOSE" = true ]; then
         printf "${CYAN}ℹ Building Docker Compose stack...${NC}\n"
         printf "\b${NC}\n"
-        if ! $(get_docker_compose_command) build; then
+        if ! eval "$(get_docker_compose_command) build"; then
             log_error "Failed to build Docker Compose stack"
             exit 1
         fi
     else
         (
-            $(get_docker_compose_command) build > install_compose_build_output.log 2>&1 &
+            eval "$(get_docker_compose_command) build" > install_compose_build_output.log 2>&1 &
             BUILD_PID=$!
             show_spinner $BUILD_PID "Building Docker Compose stack "
             wait $BUILD_PID
@@ -1936,7 +1936,7 @@ handle_ssl_configuration() {
     printf "Hostname: ${CYAN}${CURRENT_HOSTNAME}${NC} (change via: ./install.sh configure-hostname)\n"
     printf "\n"
     printf "Choose an option:\n"
-    printf "1) Use Let's Encrypt certificate (recommended)\n"
+    printf "1) Use Let's Encrypt certificate (recommended for public domains)\n"
     printf "2) Use self-signed certificate\n"
     printf "3) Cancel\n"
     printf "\n"
@@ -2192,11 +2192,11 @@ configure_letsencrypt() {
 
     # Restart only the reverse proxy with new configuration so it loads the new certificate
     printf "${CYAN}> Restarting reverse proxy with Let's Encrypt configuration...${NC}\n"
-    $(get_docker_compose_command) up -d reverse-proxy --force-recreate
+    eval "$(get_docker_compose_command) up -d reverse-proxy --force-recreate"
 
     # Starting certbot container to renew certificates automatically
     printf "${CYAN}> Starting new certbot container to renew certificates automatically...${NC}\n"
-    $(get_docker_compose_command) up -d certbot
+    eval "$(get_docker_compose_command) up -d certbot"
 
     # Print success message
     printf "\n"
@@ -2210,17 +2210,27 @@ generate_self_signed_cert() {
     # Disable Let's Encrypt
     update_env_var "LETSENCRYPT_ENABLED" "false"
 
+    # Get current hostname from .env
+    HOSTNAME_VALUE=$(grep "^HOSTNAME=" "$ENV_FILE" | cut -d '=' -f2)
+
+    if [ -n "$HOSTNAME_VALUE" ] && [ "$HOSTNAME_VALUE" != "localhost" ]; then
+        printf "${CYAN}> Using configured hostname: ${HOSTNAME_VALUE}${NC}\n"
+        printf "${CYAN}> The certificate will include:${NC}\n"
+        printf "  ${GREEN}Primary CN:${NC} ${HOSTNAME_VALUE}\n"
+        printf "  ${GREEN}Alternative Names:${NC} localhost, 127.0.0.1\n\n"
+    fi
+
     # Stop existing containers
     printf "${CYAN}> Stopping existing containers...${NC}\n"
     docker compose down
 
-    # Remove existing certificates
-    rm -f ./certificates/ssl/cert.pem ./certificates/ssl/key.pem
+    # Remove existing certificates and hostname marker
+    rm -f ./certificates/ssl/cert.pem ./certificates/ssl/key.pem ./certificates/ssl/.hostname_marker
 
     # Remove Let's Encrypt directories
     rm -rf ./certificates/letsencrypt
 
-    # Start containers (which will generate new self-signed certs)
+    # Start containers (which will generate new self-signed cert with hostname)
     printf "${CYAN}> Restarting services...${NC}\n"
     docker compose up -d
 
@@ -2232,7 +2242,7 @@ generate_self_signed_cert() {
 # New functions to handle container lifecycle:
 handle_start() {
     printf "${CYAN}> Starting AliasVault containers...${NC}\n"
-    $(get_docker_compose_command) up -d
+    eval "$(get_docker_compose_command) up -d"
     printf "${GREEN}> AliasVault containers started successfully.${NC}\n"
 }
 
@@ -2243,14 +2253,14 @@ handle_stop() {
         exit 0
     fi
 
-    $(get_docker_compose_command) down
+    eval "$(get_docker_compose_command) down"
     printf "${GREEN}> AliasVault containers stopped successfully.${NC}\n"
 }
 
 handle_restart() {
     printf "\n${CYAN}> Restarting AliasVault containers...${NC}\n"
-    $(get_docker_compose_command) down
-    $(get_docker_compose_command) up -d
+    eval "$(get_docker_compose_command) down"
+    eval "$(get_docker_compose_command) up -d"
     printf "${GREEN}> AliasVault containers restarted successfully.${NC}\n"
 }
 
@@ -2727,9 +2737,10 @@ handle_db_export() {
         printf "Options:\n" >&2
         printf "  --dev    Export from development database\n" >&2
         printf "\n" >&2
-        printf "Example:\n" >&2
+        printf "Examples:\n" >&2
         printf "  ./install.sh db-export > my_backup_$(date +%Y%m%d).sql.gz\n" >&2
         printf "  ./install.sh db-export --dev > my_dev_backup_$(date +%Y%m%d).sql.gz\n" >&2
+        printf "\n" >&2
         exit 1
     fi
 
@@ -2791,7 +2802,15 @@ handle_db_import() {
 
     # Check if we're getting input from a pipe
     if [ -t 0 ]; then
-        printf "Usage: ./install.sh db-import [--dev] < backup.sql.gz\n"
+        printf "Usage: ./install.sh db-import [--dev] < backup_file\n"
+        printf "\n"
+        printf "Options:\n"
+        printf "  --dev    Import to development database\n"
+        printf "\n"
+        printf "Examples:\n"
+        printf "  ./install.sh db-import < backup.sql.gz    # Import gzipped backup\n"
+        printf "  ./install.sh db-import < backup.sql       # Import plain SQL backup\n"
+        printf "  ./install.sh db-import --dev < backup.sql # Import to dev database\n"
         exit 1
     fi
 
@@ -2840,15 +2859,25 @@ handle_db_import() {
     fi
     printf "database...${NC}\n"
 
-    # Create a temporary file to verify the gzip input
+    # Create a temporary file to store the input
     temp_file=$(mktemp)
     cat <&3 > "$temp_file"  # Read from fd 3 instead of stdin
     exec 3<&-  # Close fd 3
 
-    if ! gzip -t "$temp_file" 2>/dev/null; then
-        printf "${RED}Error: Input is not a valid gzip file${NC}\n"
-        rm "$temp_file"
-        exit 1
+    # Detect if the file is gzipped or plain SQL
+    is_gzipped=false
+    if gzip -t "$temp_file" 2>/dev/null; then
+        is_gzipped=true
+        printf "${CYAN}> Detected gzipped SQL backup${NC}\n"
+    else
+        # Check if it looks like SQL (basic validation)
+        if head -n 10 "$temp_file" | grep -qE '(^--|^CREATE |^INSERT |^ALTER |^DROP |^\\\\connect|^SET |^COMMENT |^GRANT |^REVOKE )'; then
+            printf "${CYAN}> Detected plain SQL backup${NC}\n"
+        else
+            printf "${RED}Error: Input is neither a valid gzip file nor a SQL file${NC}\n"
+            rm "$temp_file"
+            exit 1
+        fi
     fi
 
     if [ "$DEV_DB" = true ]; then
@@ -2856,24 +2885,40 @@ handle_db_import() {
             docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev psql -U aliasvault postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'aliasvault' AND pid <> pg_backend_pid();" && \
             docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev psql -U aliasvault postgres -c "DROP DATABASE IF EXISTS aliasvault;" && \
             docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev psql -U aliasvault postgres -c "CREATE DATABASE aliasvault OWNER aliasvault;" && \
-            gunzip -c "$temp_file" | docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev psql -U aliasvault aliasvault
+            if [ "$is_gzipped" = true ]; then
+                gunzip -c "$temp_file" | docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev psql -U aliasvault aliasvault
+            else
+                cat "$temp_file" | docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev psql -U aliasvault aliasvault
+            fi
         else
             docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev psql -U aliasvault postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'aliasvault' AND pid <> pg_backend_pid();" > /dev/null 2>&1 && \
             docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev psql -U aliasvault postgres -c "DROP DATABASE IF EXISTS aliasvault;" > /dev/null 2>&1 && \
             docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev psql -U aliasvault postgres -c "CREATE DATABASE aliasvault OWNER aliasvault;" > /dev/null 2>&1 && \
-            gunzip -c "$temp_file" | docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev psql -U aliasvault aliasvault > /dev/null 2>&1
+            if [ "$is_gzipped" = true ]; then
+                gunzip -c "$temp_file" | docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev psql -U aliasvault aliasvault > /dev/null 2>&1
+            else
+                cat "$temp_file" | docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev psql -U aliasvault aliasvault > /dev/null 2>&1
+            fi
         fi
     else
         if [ "$VERBOSE" = true ]; then
             docker compose exec -T postgres psql -U aliasvault postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'aliasvault' AND pid <> pg_backend_pid();" && \
             docker compose exec -T postgres psql -U aliasvault postgres -c "DROP DATABASE IF EXISTS aliasvault;" && \
             docker compose exec -T postgres psql -U aliasvault postgres -c "CREATE DATABASE aliasvault OWNER aliasvault;" && \
-            gunzip -c "$temp_file" | docker compose exec -T postgres psql -U aliasvault aliasvault
+            if [ "$is_gzipped" = true ]; then
+                gunzip -c "$temp_file" | docker compose exec -T postgres psql -U aliasvault aliasvault
+            else
+                cat "$temp_file" | docker compose exec -T postgres psql -U aliasvault aliasvault
+            fi
         else
             docker compose exec -T postgres psql -U aliasvault postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'aliasvault' AND pid <> pg_backend_pid();" > /dev/null 2>&1 && \
             docker compose exec -T postgres psql -U aliasvault postgres -c "DROP DATABASE IF EXISTS aliasvault;" > /dev/null 2>&1 && \
             docker compose exec -T postgres psql -U aliasvault postgres -c "CREATE DATABASE aliasvault OWNER aliasvault;" > /dev/null 2>&1 && \
-            gunzip -c "$temp_file" | docker compose exec -T postgres psql -U aliasvault aliasvault > /dev/null 2>&1
+            if [ "$is_gzipped" = true ]; then
+                gunzip -c "$temp_file" | docker compose exec -T postgres psql -U aliasvault aliasvault > /dev/null 2>&1
+            else
+                cat "$temp_file" | docker compose exec -T postgres psql -U aliasvault aliasvault > /dev/null 2>&1
+            fi
         fi
     fi
 
@@ -2908,8 +2953,7 @@ handle_hostname_configuration() {
     fi
 
     printf "The hostname is the domain name where your AliasVault server will be accessible.\n"
-    printf "A valid hostname is required for Let's Encrypt SSL certificate generation.\n"
-    printf "The hostname must be a real domain that points to this server (not localhost).\n"
+    printf "This hostname will be used for both Let's Encrypt and self-signed certificates.\n"
     printf "\n"
 
     # Get current hostname
@@ -2919,7 +2963,7 @@ handle_hostname_configuration() {
 
     # Ask for new hostname
     while true; do
-        read -p "Enter new hostname (e.g. aliasvault.net): " NEW_HOSTNAME
+        read -p "Enter new hostname (e.g. aliasvault.example.com): " NEW_HOSTNAME
         if [ -n "$NEW_HOSTNAME" ]; then
             break
         else
@@ -2927,8 +2971,35 @@ handle_hostname_configuration() {
         fi
     done
 
+    # Check if hostname changed
+    HOSTNAME_CHANGED=false
+    if [ "$CURRENT_HOSTNAME" != "$NEW_HOSTNAME" ]; then
+        HOSTNAME_CHANGED=true
+    fi
+
     # Update the hostname
     update_env_var "HOSTNAME" "$NEW_HOSTNAME"
+
+    # If using self-signed cert and hostname changed, offer to regenerate
+    if [ "$HOSTNAME_CHANGED" = true ]; then
+        LETSENCRYPT_ENABLED=$(grep "^LETSENCRYPT_ENABLED=" "$ENV_FILE" | cut -d '=' -f2)
+        if [ "$LETSENCRYPT_ENABLED" != "true" ]; then
+            printf "\n${YELLOW}Hostname changed. The self-signed certificate needs to be regenerated.${NC}\n"
+            read -p "Regenerate certificate now? (y/n): " REGEN_CERT
+            if [ "$REGEN_CERT" = "y" ] || [ "$REGEN_CERT" = "Y" ]; then
+                # Remove the hostname marker to force regeneration
+                rm -f ./certificates/ssl/.hostname_marker
+
+                printf "\n${YELLOW}Restarting services to regenerate certificate...${NC}\n"
+                handle_restart
+            else
+                printf "${YELLOW}Please restart services manually to apply the new certificate.${NC}\n"
+            fi
+        else
+            printf "\n${YELLOW}Note: You're using Let's Encrypt. Make sure the new hostname has proper DNS records.${NC}\n"
+            printf "${YELLOW}You may need to reconfigure Let's Encrypt for the new hostname.${NC}\n"
+        fi
+    fi
 
     printf "\n"
     print_success_box "Hostname updated successfully to ${NEW_HOSTNAME}!"

@@ -404,6 +404,7 @@ certificates/**/*.crt
 certificates/**/*.key
 certificates/**/*.pfx
 certificates/**/*.pem
+certificates/**/.hostname_marker
 certificates/letsencrypt/**
 
 # Secrets

@@ -1,7 +1,10 @@
 ---
 layout: default
 title: Update
-parent: Server Installation
+parent: Install Script
+redirect_from:
+  - /installation/update
+  - /installation/update.html
 nav_order: 3
 ---
 
@@ -36,6 +39,7 @@ For most version updates, you can use the standard update process:
 ## Version-Specific Upgrade Guides
 Upgrading from certain earlier versions require additional steps during upgrade. If you are upgrading from an older version, please check the relevant articles below if it applies to your server:
 
+- [Updating to 0.23.0](v0.23.0.html) - Update Docker Image locations due to new AliasVault GitHub organization
 - [Updating to 0.22.0](v0.22.0.html) - Move secrets from .env to file based secrets
 
 ## Additional Update Options
@@ -56,5 +60,5 @@ To install a specific version and skip the automatic version checks, run the ins
 ./install.sh install <version>
 
 # Example:
-./install.sh install 0.7.0
+./install.sh install 0.22.0
 ```
