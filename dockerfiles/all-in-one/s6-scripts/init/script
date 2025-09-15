@@ -154,25 +154,75 @@ else
     chmod 700 /database/postgres
 fi
 
-# Generate SSL certificates if needed
-if [ ! -f /certificates/ssl/cert.pem ] || [ ! -f /certificates/ssl/key.pem ]; then
+# Function to check if certificate needs regeneration
+needs_cert_regeneration() {
+    # If cert doesn't exist, need to generate
+    if [ ! -f /certificates/ssl/cert.pem ] || [ ! -f /certificates/ssl/key.pem ]; then
+        return 0
+    fi
+
+    # Check if we have a hostname marker file
+    if [ -f /certificates/ssl/.hostname_marker ]; then
+        STORED_HOSTNAME=$(cat /certificates/ssl/.hostname_marker)
+        if [ "$STORED_HOSTNAME" != "${HOSTNAME:-localhost}" ]; then
+            log 0 "[init] Hostname changed from '$STORED_HOSTNAME' to '${HOSTNAME:-localhost}', regenerating certificate..."
+            return 0
+        fi
+    else
+        # No marker file, regenerate to be safe
+        return 0
+    fi
+
+    return 1
+}
+
+# Generate SSL certificates if needed or hostname changed
+if needs_cert_regeneration; then
     log 0 ""
     log 0 "[init] Generating SSL certificates..."
     mkdir -p /certificates/ssl
-    if [ "$VERBOSITY" -ge 2 ]; then
-        openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
-            -keyout /certificates/ssl/key.pem \
-            -out /certificates/ssl/cert.pem \
-            -subj "/C=US/ST=State/L=City/O=AliasVault/CN=${HOSTNAME:-localhost}"
+
+    HOSTNAME_VALUE="${HOSTNAME:-localhost}"
+
+    if [ "$HOSTNAME_VALUE" = "localhost" ] || [ -z "$HOSTNAME_VALUE" ]; then
+        # Default localhost-only configuration
+        if [ "$VERBOSITY" -ge 2 ]; then
+            openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+                -keyout /certificates/ssl/key.pem \
+                -out /certificates/ssl/cert.pem \
+                -subj "/C=US/ST=State/L=City/O=AliasVault/CN=localhost"
+        else
+            openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+                -keyout /certificates/ssl/key.pem \
+                -out /certificates/ssl/cert.pem \
+                -subj "/C=US/ST=State/L=City/O=AliasVault/CN=localhost" \
+                >/dev/null 2>&1
+        fi
     else
-        openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
-            -keyout /certificates/ssl/key.pem \
-            -out /certificates/ssl/cert.pem \
-            -subj "/C=US/ST=State/L=City/O=AliasVault/CN=${HOSTNAME:-localhost}" \
-            >/dev/null 2>&1
+        # Generate certificate with the hostname and include localhost as SAN
+        if [ "$VERBOSITY" -ge 2 ]; then
+            openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+                -keyout /certificates/ssl/key.pem \
+                -out /certificates/ssl/cert.pem \
+                -subj "/C=US/ST=State/L=City/O=AliasVault/CN=${HOSTNAME_VALUE}" \
+                -addext "subjectAltName=DNS:${HOSTNAME_VALUE},DNS:localhost,IP:127.0.0.1"
+        else
+            openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+                -keyout /certificates/ssl/key.pem \
+                -out /certificates/ssl/cert.pem \
+                -subj "/C=US/ST=State/L=City/O=AliasVault/CN=${HOSTNAME_VALUE}" \
+                -addext "subjectAltName=DNS:${HOSTNAME_VALUE},DNS:localhost,IP:127.0.0.1" \
+                >/dev/null 2>&1
+        fi
     fi
+
     chmod 600 /certificates/ssl/key.pem
     chmod 644 /certificates/ssl/cert.pem
+
+    # Store current hostname for change detection
+    echo "${HOSTNAME:-localhost}" > /certificates/ssl/.hostname_marker
+    chmod 644 /certificates/ssl/.hostname_marker
+
     log 0 "[init] Self-signed SSL certificates generated"
 else
     log 0 "[init] ✅ Self-signed SSL certificates already exist"
