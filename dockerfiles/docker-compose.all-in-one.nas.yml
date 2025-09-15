@@ -23,6 +23,7 @@ services:
       - avsecrets:/secrets
 
     environment:
+      HOSTNAME: "localhost"
       PUBLIC_REGISTRATION_ENABLED: "true"
       IP_LOGGING_ENABLED: "true"
       FORCE_HTTPS_REDIRECT: "false"
