@@ -23,9 +23,5 @@ services:
       - NO_GITHUB=true
     volumes:
       - .:/srv/jekyll
-      - jekyll_cache:/srv/jekyll/.jekyll-cache
-      - jekyll_site:/srv/jekyll/_site
-
-volumes:
-  jekyll_cache:
-  jekyll_site:
+      - ./.jekyll-cache:/srv/jekyll/.jekyll-cache
+      - ./_site:/srv/jekyll/_site
