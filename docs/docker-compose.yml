@@ -1,12 +1,31 @@
+# Docker Compose file for the AliasVault documentation
+#
+# This file is used to build the AliasVault documentation and serve it locally in production mode
+# with caching and without livereload.
+#
+# Usage:
+# docker-compose up -d
+# docker-compose down
+#
 services:
-    jekyll:
-        build: .
-        volumes:
-            - .:/srv/jekyll
-        ports:
-            - "4000:4000"
-        command: bundle exec jekyll serve --host 0.0.0.0 --watch --force_polling --livereload
-        environment:
-            - JEKYLL_ENV=development
-            - JEKYLL_NO_CACHE=true
-            - DISABLE_DISK_CACHE=true
+  jekyll:
+    build:
+      context: .
+    ports:
+      - "4000:4000"
+    command: bundle exec jekyll serve --host 0.0.0.0 --no-watch --config _config.yml,_config.production.yml
+    environment:
+      - JEKYLL_ENV=production
+      - JEKYLL_NO_CACHE=false
+      - DISABLE_DISK_CACHE=false
+      - JEKYLL_GITHUB_TOKEN=
+      - PAGES_REPO_NWO=aliasvault/aliasvault
+      - NO_GITHUB=true
+    volumes:
+      - .:/srv/jekyll
+      - jekyll_cache:/srv/jekyll/.jekyll-cache
+      - jekyll_site:/srv/jekyll/_site
+
+volumes:
+  jekyll_cache:
+  jekyll_site:
