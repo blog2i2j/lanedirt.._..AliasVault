@@ -1,0 +1,5 @@
+- Make "Generate Random Alias" button be a toggle for easy generation and clear
+- Prepopulate service title and URL fields when creating a new credential
+- Improve quick alias/credential create popup UI shown during autofill
+- Improve autofill on certain websites which caused some characters to be entered twice (e.g. password fields)
+- Fix bug where credentials wouldn't save if email field was cleared

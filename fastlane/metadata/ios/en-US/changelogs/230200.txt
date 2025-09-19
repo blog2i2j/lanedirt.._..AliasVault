@@ -1,0 +1,4 @@
+- Add Liquid Glass iOS 26 optimized app icon
+- Make "Generate Random Alias" button be a toggle for easy generation and clear
+- Replace Argon2id with native implementation
+- Fix bug where credentials wouldn't save if email field was cleared

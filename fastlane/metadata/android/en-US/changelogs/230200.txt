@@ -1,0 +1,4 @@
+- Add support for monochrome app icon
+- Make "Generate Random Alias" button be a toggle for easy generation and clear
+- Fix bug where credentials wouldn't save if email field was cleared
+- Replace Argon2id with native implementation

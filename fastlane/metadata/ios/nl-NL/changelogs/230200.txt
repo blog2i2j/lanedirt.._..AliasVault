@@ -1,0 +1,4 @@
+- Liquid Glass iOS 26 geoptimaliseerd app icoon toegevoegd
+- Verbeter "Genereer willekeurige alias" knop voor makkelijk legen van velden
+- Probleem verholpen waar credential niet kon worden opgeslagen na het legen van email veld
+- Update Argon2id met native implementatie
