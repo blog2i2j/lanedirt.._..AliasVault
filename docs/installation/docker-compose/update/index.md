@@ -8,6 +8,9 @@ nav_order: 1
 # Updating AliasVault
 {: .no_toc }
 
+{: .note }
+This guide is for Docker Compose manual installations. If you're using the `install.sh` script for self-hosted installations, see [Install Script Update Guide](../../script/update/).
+
 <details open markdown="block">
   <summary>
     Table of contents
