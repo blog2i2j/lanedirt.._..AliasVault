@@ -44,7 +44,9 @@ function extractDomain(url: string): string {
  */
 function extractRootDomain(domain: string): string {
   const parts = domain.split('.');
-  if (parts.length < 2) return domain;
+  if (parts.length < 2) {
+    return domain;
+  }
 
   // Common two-level public TLDs
   const twoLevelTlds = new Set([
