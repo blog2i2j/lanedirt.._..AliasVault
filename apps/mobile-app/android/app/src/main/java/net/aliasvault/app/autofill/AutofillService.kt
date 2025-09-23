@@ -153,15 +153,25 @@ class AutofillService : AutofillService() {
                             }
 
                             // Filter credentials based on app/website info
-                            val filteredCredentials = if (appInfo != null) {
+                            val filteredByApp = if (appInfo != null) {
                                 CredentialMatcher.filterCredentialsByAppInfo(result, appInfo)
                             } else {
                                 result
                             }
 
+                            // Further filter to only include credentials with autofillable data
+                            val filteredCredentials = filteredByApp.filter { credential ->
+                                // Include credential only if it has at least username/email or password
+                                val hasUsername = !credential.username.isNullOrEmpty()
+                                val hasEmail = credential.alias?.email?.isNotEmpty() == true
+                                val hasPassword = credential.password?.value != null
+
+                                hasUsername || hasEmail || hasPassword
+                            }
+
                             Log.d(
                                 TAG,
-                                "Amount of credentials filtered with this app info: ${filteredCredentials.size}",
+                                "Credentials after filtering: app matches=${filteredByApp.size}, with data=${filteredCredentials.size}",
                             )
 
                             val responseBuilder = FillResponse.Builder()
@@ -242,6 +252,7 @@ class AutofillService : AutofillService() {
 
         // Add autofill values for all fields
         var presentationDisplayValue = credential.service.name
+        var hasSetValue = false
         for (field in fieldFinder.autofillableFields) {
             val fieldType = field.second
             when (fieldType) {
@@ -251,6 +262,7 @@ class AutofillService : AutofillService() {
                             field.first,
                             AutofillValue.forText(credential.password.value as CharSequence),
                         )
+                        hasSetValue = true
                     }
                 }
                 FieldType.EMAIL -> {
@@ -259,6 +271,7 @@ class AutofillService : AutofillService() {
                             field.first,
                             AutofillValue.forText(credential.alias.email),
                         )
+                        hasSetValue = true
                         if (credential.alias.email.isNotEmpty()) {
                             presentationDisplayValue += " (${credential.alias.email})"
                         } else if (!credential.username.isNullOrEmpty()) {
@@ -269,6 +282,7 @@ class AutofillService : AutofillService() {
                             field.first,
                             AutofillValue.forText(credential.username),
                         )
+                        hasSetValue = true
                         if (credential.username.isNotEmpty()) {
                             presentationDisplayValue += " (${credential.username})"
                         } else if ((credential.alias?.email ?: "").isNotEmpty()) {
@@ -282,6 +296,7 @@ class AutofillService : AutofillService() {
                             field.first,
                             AutofillValue.forText(credential.username),
                         )
+                        hasSetValue = true
                         if (credential.username.isNotEmpty()) {
                             presentationDisplayValue += " (${credential.username})"
                         } else if ((credential.alias?.email ?: "").isNotEmpty()) {
@@ -292,8 +307,9 @@ class AutofillService : AutofillService() {
                             field.first,
                             AutofillValue.forText(credential.alias.email),
                         )
+                        hasSetValue = true
                         if (credential.alias.email.isNotEmpty()) {
-                            presentationDisplayValue += " (${credential.alias.email})"
+                            presentationDisplayValue += " (${credential.alias?.email})"
                         }
                     }
                 }
@@ -304,6 +320,7 @@ class AutofillService : AutofillService() {
                             field.first,
                             AutofillValue.forText(credential.alias.email),
                         )
+                        hasSetValue = true
                         if (credential.alias.email.isNotEmpty()) {
                             presentationDisplayValue += " (${credential.alias.email})"
                         }
@@ -312,12 +329,23 @@ class AutofillService : AutofillService() {
                             field.first,
                             AutofillValue.forText(credential.username),
                         )
+                        hasSetValue = true
                         if (credential.username.isNotEmpty()) {
                             presentationDisplayValue += " (${credential.username})"
                         }
                     }
                 }
             }
+        }
+
+        // If no value was set, this shouldn't happen now since we filter credentials
+        // but keep as safety measure
+        if (!hasSetValue && fieldFinder.autofillableFields.isNotEmpty()) {
+            Log.w(TAG, "Credential ${credential.service.name} has no autofillable data - this should have been filtered")
+            dataSetBuilder.setValue(
+                fieldFinder.autofillableFields.first().first,
+                AutofillValue.forText(""),
+            )
         }
 
         // Set the display value of the dropdown item.
