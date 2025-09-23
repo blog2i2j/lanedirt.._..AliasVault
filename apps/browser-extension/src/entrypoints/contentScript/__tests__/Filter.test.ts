@@ -292,6 +292,44 @@ describe('Filter - Credential URL Matching', () => {
     expect(matches[0].ServiceName).toBe('Reddit');
   });
 
+  // [#20] - Test multi-part TLDs like .com.au don't match incorrectly
+  it('should handle multi-part TLDs correctly without false matches', () => {
+    // Create test data with different .com.au domains
+    const australianCredentials = [
+      createTestCredential('Example Site AU', 'https://example.com.au', 'user@example.com.au'),
+      createTestCredential('BlaBla AU', 'https://blabla.blabla.com.au', 'user@blabla.com.au'),
+      createTestCredential('Another AU', 'https://another.com.au', 'user@another.com.au'),
+      createTestCredential('UK Site', 'https://example.co.uk', 'user@example.co.uk'),
+    ];
+
+    // Test that blabla.blabla.com.au doesn't match other .com.au sites
+    const blablaMatches = filterCredentials(
+      australianCredentials,
+      'https://blabla.blabla.com.au',
+      ''
+    );
+    expect(blablaMatches).toHaveLength(1);
+    expect(blablaMatches[0].ServiceName).toBe('BlaBla AU');
+
+    // Test that example.com.au doesn't match blabla.blabla.com.au
+    const exampleMatches = filterCredentials(
+      australianCredentials,
+      'https://example.com.au',
+      ''
+    );
+    expect(exampleMatches).toHaveLength(1);
+    expect(exampleMatches[0].ServiceName).toBe('Example Site AU');
+
+    // Test that .co.uk domains work correctly too
+    const ukMatches = filterCredentials(
+      australianCredentials,
+      'https://example.co.uk',
+      ''
+    );
+    expect(ukMatches).toHaveLength(1);
+    expect(ukMatches[0].ServiceName).toBe('UK Site');
+  });
+
   /**
    * Creates the shared test credential dataset used across all platforms.
    * Note: when making changes to this list, make sure to update the corresponding list for iOS and Android tests as well.

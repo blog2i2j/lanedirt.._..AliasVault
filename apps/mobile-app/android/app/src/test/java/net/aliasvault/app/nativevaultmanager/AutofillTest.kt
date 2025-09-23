@@ -295,6 +295,42 @@ class AutofillTest {
         assertEquals("Reddit", matches[0].service.name)
     }
 
+    // [#20] - Test multi-part TLDs like .com.au don't match incorrectly
+    @Test
+    fun testMultiPartTldNoFalseMatches() {
+        // Create test data with different .com.au domains
+        val australianCredentials = listOf(
+            createTestCredential("Example Site AU", "https://example.com.au", "user@example.com.au"),
+            createTestCredential("BlaBla AU", "https://blabla.blabla.com.au", "user@blabla.com.au"),
+            createTestCredential("Another AU", "https://another.com.au", "user@another.com.au"),
+            createTestCredential("UK Site", "https://example.co.uk", "user@example.co.uk"),
+        )
+
+        // Test that blabla.blabla.com.au doesn't match other .com.au sites
+        val blablaMatches = CredentialMatcher.filterCredentialsByAppInfo(
+            australianCredentials,
+            "https://blabla.blabla.com.au",
+        )
+        assertEquals(1, blablaMatches.size, "Should only match the exact domain, not all .com.au sites")
+        assertEquals("BlaBla AU", blablaMatches[0].service.name)
+
+        // Test that example.com.au doesn't match blabla.blabla.com.au
+        val exampleMatches = CredentialMatcher.filterCredentialsByAppInfo(
+            australianCredentials,
+            "https://example.com.au",
+        )
+        assertEquals(1, exampleMatches.size, "Should only match example.com.au")
+        assertEquals("Example Site AU", exampleMatches[0].service.name)
+
+        // Test that .co.uk domains work correctly too
+        val ukMatches = CredentialMatcher.filterCredentialsByAppInfo(
+            australianCredentials,
+            "https://example.co.uk",
+        )
+        assertEquals(1, ukMatches.size, "Should only match the .co.uk domain")
+        assertEquals("UK Site", ukMatches[0].service.name)
+    }
+
     /**
      * Creates the shared test credential dataset used across all platforms.
      * This ensures consistent testing across Browser Extension, iOS, and Android.

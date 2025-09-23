@@ -189,6 +189,32 @@ final class CredentialFilterTests: XCTestCase {
         XCTAssertEqual(matches.first?.service.name, "Reddit")
     }
 
+    // [#20] - Test multi-part TLDs like .com.au don't match incorrectly
+    func testMultiPartTldNoFalseMatches() {
+        // Create test data with different .com.au domains
+        let australianCredentials = [
+            createTestCredential(serviceName: "Example Site AU", serviceUrl: "https://example.com.au", username: "user@example.com.au"),
+            createTestCredential(serviceName: "BlaBla AU", serviceUrl: "https://blabla.blabla.com.au", username: "user@blabla.com.au"),
+            createTestCredential(serviceName: "Another AU", serviceUrl: "https://another.com.au", username: "user@another.com.au"),
+            createTestCredential(serviceName: "UK Site", serviceUrl: "https://example.co.uk", username: "user@example.co.uk"),
+        ]
+
+        // Test that blabla.blabla.com.au doesn't match other .com.au sites
+        let blablaMatches = CredentialFilter.filterCredentials(australianCredentials, searchText: "https://blabla.blabla.com.au")
+        XCTAssertEqual(blablaMatches.count, 1, "Should only match the exact domain, not all .com.au sites")
+        XCTAssertEqual(blablaMatches.first?.service.name, "BlaBla AU")
+
+        // Test that example.com.au doesn't match blabla.blabla.com.au
+        let exampleMatches = CredentialFilter.filterCredentials(australianCredentials, searchText: "https://example.com.au")
+        XCTAssertEqual(exampleMatches.count, 1, "Should only match example.com.au")
+        XCTAssertEqual(exampleMatches.first?.service.name, "Example Site AU")
+
+        // Test that .co.uk domains work correctly too
+        let ukMatches = CredentialFilter.filterCredentials(australianCredentials, searchText: "https://example.co.uk")
+        XCTAssertEqual(ukMatches.count, 1, "Should only match the .co.uk domain")
+        XCTAssertEqual(ukMatches.first?.service.name, "UK Site")
+    }
+
     // MARK: - Shared Test Data
 
     /**
