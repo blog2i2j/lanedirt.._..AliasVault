@@ -10,6 +10,7 @@ package net.aliasvault.app.autofill
 
 import android.app.PendingIntent
 import android.content.Intent
+import android.graphics.Typeface
 import android.os.CancellationSignal
 import android.service.autofill.AutofillService
 import android.service.autofill.Dataset
@@ -18,6 +19,8 @@ import android.service.autofill.FillRequest
 import android.service.autofill.FillResponse
 import android.service.autofill.SaveCallback
 import android.service.autofill.SaveRequest
+import android.text.SpannableString
+import android.text.style.StyleSpan
 import android.util.Log
 import android.view.autofill.AutofillValue
 import android.widget.RemoteViews
@@ -85,26 +88,22 @@ class AutofillService : AutofillService() {
             Log.e(TAG, "Unexpected error in onFillRequest", e)
             // Provide a simple fallback response to prevent white flash
             try {
+                // Get the app/website information to include in debug dataset
+                val contexts = request.fillContexts
+                val context = contexts.last()
+                val structure = context.structure
+                val fieldFinder = FieldFinder(structure)
+                fieldFinder.parseStructure()
+                val appInfo = fieldFinder.getAppInfo()
+
                 val responseBuilder = FillResponse.Builder()
-                val presentation = RemoteViews(packageName, R.layout.autofill_dataset_item_logo)
-                presentation.setTextViewText(R.id.text, getString(R.string.autofill_failed_to_retrieve))
 
-                val dataSetBuilder = Dataset.Builder(presentation)
+                // Add debug dataset showing what we're searching for
+                responseBuilder.addDataset(createSearchDebugDataset(fieldFinder, appInfo ?: "unknown"))
 
-                // Add a click listener to open AliasVault app
-                val intent = Intent(this@AutofillService, MainActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    putExtra("OPEN_CREDENTIALS", true)
-                }
-                val pendingIntent = PendingIntent.getActivity(
-                    this@AutofillService,
-                    0,
-                    intent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-                )
-                dataSetBuilder.setAuthentication(pendingIntent.intentSender)
+                // Add failed to retrieve dataset
+                responseBuilder.addDataset(createFailedToRetrieveDataset(fieldFinder))
 
-                responseBuilder.addDataset(dataSetBuilder.build())
                 safeCallback(responseBuilder.build())
             } catch (fallbackError: Exception) {
                 Log.e(TAG, "Error creating fallback response", fallbackError)
@@ -167,6 +166,9 @@ class AutofillService : AutofillService() {
 
                             val responseBuilder = FillResponse.Builder()
 
+                            // Always add debug dataset as first option showing what we're searching for
+                            responseBuilder.addDataset(createSearchDebugDataset(fieldFinder, appInfo ?: "unknown"))
+
                             // If there are no results, return "no matches" placeholder option.
                             if (filteredCredentials.isEmpty()) {
                                 Log.d(
@@ -181,9 +183,6 @@ class AutofillService : AutofillService() {
                                         createCredentialDataset(fieldFinder, credential),
                                     )
                                 }
-
-                                // Add "Open AliasVault app" as the last option
-                                responseBuilder.addDataset(createOpenAppDataset(fieldFinder))
                             }
 
                             callback(responseBuilder.build())
@@ -191,6 +190,7 @@ class AutofillService : AutofillService() {
                             Log.e(TAG, "Error parsing credentials", e)
                             // Show "Failed to retrieve, open app" option instead of failing
                             val responseBuilder = FillResponse.Builder()
+                            responseBuilder.addDataset(createSearchDebugDataset(fieldFinder, appInfo ?: "unknown"))
                             responseBuilder.addDataset(createFailedToRetrieveDataset(fieldFinder))
                             callback(responseBuilder.build())
                         }
@@ -200,6 +200,7 @@ class AutofillService : AutofillService() {
                         Log.e(TAG, "Error getting credentials", e)
                         // Show "Failed to retrieve, open app" option instead of failing
                         val responseBuilder = FillResponse.Builder()
+                        responseBuilder.addDataset(createSearchDebugDataset(fieldFinder, appInfo ?: "unknown"))
                         responseBuilder.addDataset(createFailedToRetrieveDataset(fieldFinder))
                         callback(responseBuilder.build())
                     }
@@ -383,50 +384,6 @@ class AutofillService : AutofillService() {
     }
 
     /**
-     * Create a dataset for the "open app" option.
-     * @param fieldFinder The field finder
-     * @return The dataset
-     */
-    private fun createOpenAppDataset(fieldFinder: FieldFinder): Dataset {
-        val openAppPresentation = RemoteViews(packageName, R.layout.autofill_dataset_item_logo)
-        openAppPresentation.setTextViewText(
-            R.id.text,
-            getString(R.string.autofill_open_app),
-        )
-
-        val dataSetBuilder = Dataset.Builder(openAppPresentation)
-
-        // Get the app/website information to use as service URL
-        val appInfo = fieldFinder.getAppInfo()
-        val encodedUrl = appInfo?.let { java.net.URLEncoder.encode(it, "UTF-8") } ?: ""
-
-        // Create deep link URL to credentials page with service URL
-        val deepLinkUrl = "net.aliasvault.app://credentials?serviceUrl=$encodedUrl"
-
-        // Add a click listener to open AliasVault app with deep link
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            data = android.net.Uri.parse(deepLinkUrl)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            this@AutofillService,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        dataSetBuilder.setAuthentication(pendingIntent.intentSender)
-
-        // Set an empty value for the field to satisfy the requirement
-        if (fieldFinder.autofillableFields.isNotEmpty()) {
-            for (field in fieldFinder.autofillableFields) {
-                dataSetBuilder.setValue(field.first, AutofillValue.forText(""))
-            }
-        }
-
-        return dataSetBuilder.build()
-    }
-
-    /**
      * Create a dataset for the "vault locked" option.
      * @param fieldFinder The field finder
      * @return The dataset
@@ -496,6 +453,55 @@ class AutofillService : AutofillService() {
         dataSetBuilder.setAuthentication(pendingIntent.intentSender)
 
         // Add a placeholder value to both username and password fields to satisfy the requirement that at least one value must be set
+        if (fieldFinder.autofillableFields.isNotEmpty()) {
+            for (field in fieldFinder.autofillableFields) {
+                dataSetBuilder.setValue(field.first, AutofillValue.forText(""))
+            }
+        }
+
+        return dataSetBuilder.build()
+    }
+
+    /**
+     * Create a debug dataset showing what string we're searching for, clickable to open the app.
+     * @param fieldFinder The field finder
+     * @param searchText The text being searched for
+     * @return The dataset
+     */
+    private fun createSearchDebugDataset(fieldFinder: FieldFinder, searchText: String): Dataset {
+        // Create presentation for the debug option (with search icon)
+        val presentation = RemoteViews(packageName, R.layout.autofill_dataset_item_icon)
+
+        // Create bold text for the search string
+        val boldText = SpannableString(searchText)
+        boldText.setSpan(StyleSpan(Typeface.BOLD), 0, searchText.length, 0)
+
+        presentation.setTextViewText(R.id.text, boldText)
+        presentation.setImageViewResource(R.id.icon, R.drawable.ic_search)
+
+        val dataSetBuilder = Dataset.Builder(presentation)
+
+        // Get the app/website information to use as service URL
+        val appInfo = fieldFinder.getAppInfo()
+        val encodedUrl = appInfo?.let { java.net.URLEncoder.encode(it, "UTF-8") } ?: ""
+
+        // Create deep link URL to credentials page with service URL
+        val deepLinkUrl = "net.aliasvault.app://credentials?serviceUrl=$encodedUrl"
+
+        // Add a click listener to open AliasVault app with deep link
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            data = android.net.Uri.parse(deepLinkUrl)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this@AutofillService,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        dataSetBuilder.setAuthentication(pendingIntent.intentSender)
+
+        // Add placeholder values to satisfy Android's requirement that at least one value must be set
         if (fieldFinder.autofillableFields.isNotEmpty()) {
             for (field in fieldFinder.autofillableFields) {
                 dataSetBuilder.setValue(field.first, AutofillValue.forText(""))
