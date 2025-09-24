@@ -37,6 +37,92 @@ function extractDomain(url: string): string {
 }
 
 /**
+ * Extract root domain from a domain string.
+ * E.g., "sub.example.com" -> "example.com"
+ * E.g., "sub.example.com.au" -> "example.com.au"
+ * E.g., "sub.example.co.uk" -> "example.co.uk"
+ */
+function extractRootDomain(domain: string): string {
+  const parts = domain.split('.');
+  if (parts.length < 2) {
+    return domain;
+  }
+
+  // Common two-level public TLDs
+  const twoLevelTlds = new Set([
+    // Australia
+    'com.au', 'net.au', 'org.au', 'edu.au', 'gov.au', 'asn.au', 'id.au',
+    // United Kingdom
+    'co.uk', 'org.uk', 'net.uk', 'ac.uk', 'gov.uk', 'plc.uk', 'ltd.uk', 'me.uk',
+    // Canada
+    'co.ca', 'net.ca', 'org.ca', 'gc.ca', 'ab.ca', 'bc.ca', 'mb.ca', 'nb.ca', 'nf.ca', 'nl.ca', 'ns.ca', 'nt.ca', 'nu.ca',
+    'on.ca', 'pe.ca', 'qc.ca', 'sk.ca', 'yk.ca',
+    // India
+    'co.in', 'net.in', 'org.in', 'edu.in', 'gov.in', 'ac.in', 'res.in', 'gen.in', 'firm.in', 'ind.in',
+    // Japan
+    'co.jp', 'ne.jp', 'or.jp', 'ac.jp', 'ad.jp', 'ed.jp', 'go.jp', 'gr.jp', 'lg.jp',
+    // South Africa
+    'co.za', 'net.za', 'org.za', 'edu.za', 'gov.za', 'ac.za', 'web.za',
+    // New Zealand
+    'co.nz', 'net.nz', 'org.nz', 'edu.nz', 'govt.nz', 'ac.nz', 'geek.nz', 'gen.nz', 'kiwi.nz', 'maori.nz', 'mil.nz', 'school.nz',
+    // Brazil
+    'com.br', 'net.br', 'org.br', 'edu.br', 'gov.br', 'mil.br', 'art.br', 'etc.br', 'adv.br', 'arq.br', 'bio.br', 'cim.br',
+    'cng.br', 'cnt.br', 'ecn.br', 'eng.br', 'esp.br', 'eti.br', 'far.br', 'fnd.br', 'fot.br', 'fst.br', 'g12.br', 'geo.br',
+    'ggf.br', 'jor.br', 'lel.br', 'mat.br', 'med.br', 'mus.br', 'not.br', 'ntr.br', 'odo.br', 'ppg.br', 'pro.br', 'psc.br',
+    'psi.br', 'qsl.br', 'rec.br', 'slg.br', 'srv.br', 'tmp.br', 'trd.br', 'tur.br', 'tv.br', 'vet.br', 'zlg.br',
+    // Russia
+    'com.ru', 'net.ru', 'org.ru', 'edu.ru', 'gov.ru', 'int.ru', 'mil.ru', 'spb.ru', 'msk.ru',
+    // China
+    'com.cn', 'net.cn', 'org.cn', 'edu.cn', 'gov.cn', 'mil.cn', 'ac.cn', 'ah.cn', 'bj.cn', 'cq.cn', 'fj.cn', 'gd.cn', 'gs.cn',
+    'gz.cn', 'gx.cn', 'ha.cn', 'hb.cn', 'he.cn', 'hi.cn', 'hk.cn', 'hl.cn', 'hn.cn', 'jl.cn', 'js.cn', 'jx.cn', 'ln.cn', 'mo.cn',
+    'nm.cn', 'nx.cn', 'qh.cn', 'sc.cn', 'sd.cn', 'sh.cn', 'sn.cn', 'sx.cn', 'tj.cn', 'tw.cn', 'xj.cn', 'xz.cn', 'yn.cn', 'zj.cn',
+    // Mexico
+    'com.mx', 'net.mx', 'org.mx', 'edu.mx', 'gob.mx',
+    // Argentina
+    'com.ar', 'net.ar', 'org.ar', 'edu.ar', 'gov.ar', 'mil.ar', 'int.ar',
+    // Chile
+    'com.cl', 'net.cl', 'org.cl', 'edu.cl', 'gov.cl', 'mil.cl',
+    // Colombia
+    'com.co', 'net.co', 'org.co', 'edu.co', 'gov.co', 'mil.co', 'nom.co',
+    // Venezuela
+    'com.ve', 'net.ve', 'org.ve', 'edu.ve', 'gov.ve', 'mil.ve', 'web.ve',
+    // Peru
+    'com.pe', 'net.pe', 'org.pe', 'edu.pe', 'gob.pe', 'mil.pe', 'nom.pe',
+    // Ecuador
+    'com.ec', 'net.ec', 'org.ec', 'edu.ec', 'gov.ec', 'mil.ec', 'med.ec', 'fin.ec', 'pro.ec', 'info.ec',
+    // Europe
+    'co.at', 'or.at', 'ac.at', 'gv.at', 'priv.at',
+    'co.be', 'ac.be',
+    'co.dk', 'ac.dk',
+    'co.il', 'net.il', 'org.il', 'ac.il', 'gov.il', 'idf.il', 'k12.il', 'muni.il',
+    'co.no', 'ac.no', 'priv.no',
+    'co.pl', 'net.pl', 'org.pl', 'edu.pl', 'gov.pl', 'mil.pl', 'nom.pl', 'com.pl',
+    'co.th', 'net.th', 'org.th', 'edu.th', 'gov.th', 'mil.th', 'ac.th', 'in.th',
+    'co.kr', 'net.kr', 'org.kr', 'edu.kr', 'gov.kr', 'mil.kr', 'ac.kr', 'go.kr', 'ne.kr', 'or.kr', 'pe.kr', 're.kr', 'seoul.kr',
+    'kyonggi.kr',
+    // Others
+    'co.id', 'net.id', 'org.id', 'edu.id', 'gov.id', 'mil.id', 'web.id', 'ac.id', 'sch.id',
+    'co.ma', 'net.ma', 'org.ma', 'edu.ma', 'gov.ma', 'ac.ma', 'press.ma',
+    'co.ke', 'net.ke', 'org.ke', 'edu.ke', 'gov.ke', 'ac.ke', 'go.ke', 'info.ke', 'me.ke', 'mobi.ke', 'sc.ke',
+    'co.ug', 'net.ug', 'org.ug', 'edu.ug', 'gov.ug', 'ac.ug', 'sc.ug', 'go.ug', 'ne.ug', 'or.ug',
+    'co.tz', 'net.tz', 'org.tz', 'edu.tz', 'gov.tz', 'ac.tz', 'go.tz', 'hotel.tz', 'info.tz', 'me.tz', 'mil.tz', 'mobi.tz',
+    'ne.tz', 'or.tz', 'sc.tz', 'tv.tz',
+  ]);
+
+  // Check if the last two parts form a known two-level TLD
+  if (parts.length >= 3) {
+    const lastTwoParts = parts.slice(-2).join('.');
+    if (twoLevelTlds.has(lastTwoParts)) {
+      // Take the last three parts for two-level TLDs
+      return parts.slice(-3).join('.');
+    }
+  }
+
+  // Default to last two parts for regular TLDs
+  return parts.length >= 2 ? parts.slice(-2).join('.') : domain;
+}
+
+/**
  * Check if two domains match, supporting partial matches
  * @param domain1 - First domain
  * @param domain2 - Second domain
@@ -60,13 +146,9 @@ function domainsMatch(domain1: string, domain2: string): boolean {
     return true;
   }
 
-  // Extract root domains for comparison
-  const d1Parts = d1.split('.');
-  const d2Parts = d2.split('.');
-
-  // Get the last 2 parts (domain.tld) for comparison
-  const d1Root = d1Parts.slice(-2).join('.');
-  const d2Root = d2Parts.slice(-2).join('.');
+  // Check root domain match
+  const d1Root = extractRootDomain(d1);
+  const d2Root = extractRootDomain(d2);
 
   return d1Root === d2Root;
 }
