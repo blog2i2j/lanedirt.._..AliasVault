@@ -71,4 +71,10 @@ export const VAULT_VERSIONS: VaultVersion[] = [
     description: 'Add 2FA Tokens to credentials',
     releaseVersion: '0.14.0',
   },
+  {
+    revision: 11,
+    version: '1.6.0',
+    description: 'Add Passkey Entity',
+    releaseVersion: '0.24.0',
+  },
 ];

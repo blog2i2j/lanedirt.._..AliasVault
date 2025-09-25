@@ -85,6 +85,11 @@ public class AliasClientDbContext : DbContext
     public DbSet<TotpCode> TotpCodes { get; set; }
 
     /// <summary>
+    /// Gets or sets the Passkeys DbSet.
+    /// </summary>
+    public DbSet<Passkey> Passkeys { get; set; }
+
+    /// <summary>
     /// The OnModelCreating method.
     /// </summary>
     /// <param name="modelBuilder">ModelBuilder instance.</param>
@@ -152,6 +157,18 @@ public class AliasClientDbContext : DbContext
             .WithMany(c => c.TotpCodes)
             .HasForeignKey(l => l.CredentialId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Configure Passkey entity
+        modelBuilder.Entity<Passkey>()
+            .HasIndex(e => e.CredentialId)
+            .IsUnique();
+
+        modelBuilder.Entity<Passkey>()
+            .HasIndex(e => e.RpId);
+
+        modelBuilder.Entity<Passkey>()
+            .Property(e => e.RpId)
+            .UseCollation("NOCASE");
     }
 
     /// <summary>
