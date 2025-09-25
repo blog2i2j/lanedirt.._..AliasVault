@@ -35,7 +35,11 @@ export default defineConfig({
         "show-autofill-popup": {
           description: "Show the autofill popup (while focusing an input field)"
         }
-      }
+      },
+      web_accessible_resources: [{
+        resources: ["webauthn-inject.js"],
+        matches: ["<all_urls>"]
+      }]
     };
   },
   modules: ['@wxt-dev/module-react'],
