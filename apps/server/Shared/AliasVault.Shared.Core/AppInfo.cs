@@ -33,6 +33,11 @@ public static class AppInfo
     public const int VersionPatch = 2;
 
     /// <summary>
+    /// Gets the version stage (e.g., "", "-alpha", "-beta", "-rc").
+    /// </summary>
+    public const string VersionStage = "";
+
+    /// <summary>
     /// Gets the minimum supported AliasVault client version. Normally the minimum client version is the same
     /// for all clients as we are using a monorepo to build all clients from the same source code. But it's
     /// possible to override the minimum client version for a specific client if needed.
@@ -85,7 +90,7 @@ public static class AppInfo
     /// <returns>The full version string.</returns>
     public static string GetFullVersion()
     {
-        var version = $"{VersionMajor}.{VersionMinor}.{VersionPatch}";
+        var version = $"{VersionMajor}.{VersionMinor}.{VersionPatch}{VersionStage}";
 
         if (IsDevelopment)
         {
