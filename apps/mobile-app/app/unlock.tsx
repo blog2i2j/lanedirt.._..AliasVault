@@ -27,7 +27,7 @@ import { useDb } from '@/context/DbContext';
 export default function UnlockScreen() : React.ReactNode {
   const { isLoggedIn, username, isBiometricsEnabled, getBiometricDisplayNameKey, getEncryptionKeyDerivationParams, logout } = useApp();
   const dbContext = useDb();
-  const [password, setPassword] = useState('asdasdasdasd1');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isBiometricsAvailable, setIsBiometricsAvailable] = useState(false);
   const colors = useColors();
