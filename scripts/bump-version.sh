@@ -43,6 +43,47 @@ generate_semantic_build_number() {
     echo $((10#$semantic_build))
 }
 
+# Function to extract components from semantic build number
+# Returns: major minor patch stage increment
+extract_build_components() {
+    local semantic_build=$1
+
+    # Pad the semantic build number to 9 digits with leading zeros
+    local padded_build=$(printf "%09d" $semantic_build)
+
+    # Extract components
+    local major=${padded_build:0:2}
+    local minor=${padded_build:2:2}
+    local patch=${padded_build:4:2}
+    local stage_num=${padded_build:6:1}
+    local increment=${padded_build:7:2}
+
+    # Map stage number back to string
+    local stage
+    case $stage_num in
+        1)
+            stage="alpha"
+            ;;
+        3)
+            stage="beta"
+            ;;
+        7)
+            stage="rc"
+            ;;
+        9)
+            stage="ga"
+            ;;
+        *)
+            # Unknown stage, return empty to trigger reset
+            echo ""
+            return
+            ;;
+    esac
+
+    # Remove leading zeros and return
+    echo "$((10#$major)) $((10#$minor)) $((10#$patch)) $stage $((10#$increment))"
+}
+
 # Function to extract build increment from semantic build number
 extract_build_increment() {
     local semantic_build=$1
@@ -101,35 +142,51 @@ handle_semantic_build_number() {
     local version_minor=$4
     local version_patch=$5
     local is_marketing_update=$6
-    local version_suffix=${version_suffix:-""}
 
-    # Extract current build increment from semantic build
-    local current_increment=$(extract_build_increment "$current_build" "$version_major" "$version_minor" "$version_patch")
-
-    # Determine suggested increment based on update type
-    local suggested_increment
     if [[ "$is_marketing_update" == true ]]; then
-        # For marketing version updates, suggest 0 as we're starting fresh
-        suggested_increment=0
+        # For marketing version updates, generate new build number with current version suffix
+        local suggested_increment=0
         read -p "$project_name ($current_build) - Enter new build increment [$suggested_increment]: " input
 
-    else
-        # For build-only updates, suggest increment + 1
-        suggested_increment=$((current_increment + 1))
-        read -p "$project_name ($current_build) - (Increment: $current_increment) - Enter new build increment [$suggested_increment]: " input
-    fi
-
-    if [[ -z "$input" ]]; then
-        input=$suggested_increment
-    fi
-
-    if [[ "$input" =~ ^[0-9]+$ ]]; then
-        if [[ $input -gt 99 ]]; then
-            input=99
+        if [[ -z "$input" ]]; then
+            input=$suggested_increment
         fi
-        generate_semantic_build_number "$version_major" "$version_minor" "$version_patch" "$input" "$version_suffix"
+
+        if [[ "$input" =~ ^[0-9]+$ ]]; then
+            if [[ $input -gt 99 ]]; then
+                input=99
+            fi
+            generate_semantic_build_number "$version_major" "$version_minor" "$version_patch" "$input" "${version_suffix:-""}"
+        else
+            generate_semantic_build_number "$version_major" "$version_minor" "$version_patch" "$suggested_increment" "${version_suffix:-""}"
+        fi
     else
-        generate_semantic_build_number "$version_major" "$version_minor" "$version_patch" "$suggested_increment" "$version_suffix"
+        # For build-only updates, just increment the last 2 digits
+        local padded_build=$(printf "%09d" $current_build)
+        local last_two_digits=${padded_build: -2}
+        local current_increment=$((10#$last_two_digits))
+        local suggested_increment=$((current_increment + 1))
+
+        read -p "$project_name ($current_build) - (Increment: $current_increment) - Enter new build increment [$suggested_increment]: " input
+
+        if [[ -z "$input" ]]; then
+            input=$suggested_increment
+        fi
+
+        if [[ "$input" =~ ^[0-9]+$ ]]; then
+            if [[ $input -gt 99 ]]; then
+                input=99
+            fi
+            # Replace last 2 digits with new increment
+            local new_increment_padded=$(printf "%02d" $input)
+            local new_build="${padded_build:0:7}${new_increment_padded}"
+            echo $((10#$new_build))
+        else
+            # If invalid input, just increment by 1
+            local new_increment_padded=$(printf "%02d" $suggested_increment)
+            local new_build="${padded_build:0:7}${new_increment_padded}"
+            echo $((10#$new_build))
+        fi
     fi
 }
 
@@ -235,13 +292,21 @@ display_names["ios"]="iOS App"
 display_names["android"]="Android App"
 display_names["safari"]="Safari Extension"
 
-# Check if all versions are equal
+# Function to normalize version by removing stage suffix
+normalize_version() {
+    local version=$1
+    echo "${version%%-*}"
+}
+
+# Check if all versions are equal (comparing base versions without stage suffixes)
 all_equal=true
-first_version=""
+first_normalized_version=""
 for project in "${!versions[@]}"; do
-    if [[ -z "$first_version" ]]; then
+    normalized_version=$(normalize_version "${versions[$project]}")
+    if [[ -z "$first_normalized_version" ]]; then
+        first_normalized_version="$normalized_version"
         first_version="${versions[$project]}"
-    elif [[ "${versions[$project]}" != "$first_version" ]]; then
+    elif [[ "$normalized_version" != "$first_normalized_version" ]]; then
         all_equal=false
         break
     fi
@@ -281,11 +346,12 @@ esac
 
 # If versions are not equal, ask for confirmation
 if [[ "$all_equal" == false ]]; then
-    echo -e "\nWARNING: Not all versions are equal!"
-    echo "Different versions found:"
+    echo -e "\nWARNING: Not all base versions are equal!"
+    echo "Different base versions found (ignoring stage suffixes):"
     for project in "${!versions[@]}"; do
-        if [[ "${versions[$project]}" != "$first_version" ]]; then
-            echo "${display_names[$project]}: ${versions[$project]} (differs from $first_version)"
+        project_normalized=$(normalize_version "${versions[$project]}")
+        if [[ "$project_normalized" != "$first_normalized_version" ]]; then
+            echo "${display_names[$project]}: ${versions[$project]} (base: $project_normalized, differs from base: $first_normalized_version)"
         fi
     done
     read -p "Do you want to continue with the version bump? (y/N) " confirm
