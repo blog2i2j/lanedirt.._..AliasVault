@@ -379,11 +379,11 @@ elif [[ "$MARKETING_UPDATE" == true ]]; then
         "\"version\": \"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*[^\"]*\"," \
         "\"version\": \"$display_version\","
 
-    # Update iOS app version
+    # Update iOS app version (Apple doesn't accept stage suffixes in MARKETING_VERSION)
     echo "Updating iOS app version..."
     update_version "../apps/mobile-app/ios/AliasVault.xcodeproj/project.pbxproj" \
         "MARKETING_VERSION = [0-9]\+\.[0-9]\+\.[0-9]\+[^;]*;" \
-        "MARKETING_VERSION = $display_version;"
+        "MARKETING_VERSION = $version;"
 
     # Update Android app version
     echo "Updating Android app version..."
@@ -391,11 +391,11 @@ elif [[ "$MARKETING_UPDATE" == true ]]; then
         "versionName \"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*[^\"]*\"" \
         "versionName \"$display_version\""
 
-    # Update Safari extension version
+    # Update Safari extension version (Apple doesn't accept stage suffixes in MARKETING_VERSION)
     echo "Updating Safari extension version..."
     update_version "../apps/browser-extension/safari-xcode/AliasVault/AliasVault.xcodeproj/project.pbxproj" \
         "MARKETING_VERSION = [0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*[^;]*;" \
-        "MARKETING_VERSION = $display_version;"
+        "MARKETING_VERSION = $version;"
 fi
 
 # Handle build numbers with semantic versioning
