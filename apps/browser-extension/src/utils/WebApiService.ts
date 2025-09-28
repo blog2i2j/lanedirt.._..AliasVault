@@ -103,8 +103,8 @@ export class WebApiService {
     const url = baseUrl + endpoint;
     const headers = new Headers(options.headers ?? {});
 
-    // Add client version header
-    headers.set('X-AliasVault-Client', `${AppInfo.CLIENT_NAME}-${AppInfo.VERSION}`);
+    // Add client version header (using API_VERSION for server compatibility)
+    headers.set('X-AliasVault-Client', `${AppInfo.CLIENT_NAME}-${AppInfo.API_VERSION}`);
 
     const requestOptions: RequestInit = {
       ...options,
