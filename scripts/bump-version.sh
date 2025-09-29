@@ -418,14 +418,14 @@ elif [[ "$MARKETING_UPDATE" == true ]]; then
     # Build display version with suffix if present
     display_version="${version}${version_suffix}"
 
-    # Update browser extension version
-    echo "Updating browser extension version..."
+    # Update browser extension version (without suffix - browser stores don't support semver suffixes)
+    echo "Updating browser extension wxt.config.ts version..."
     update_version "../apps/browser-extension/wxt.config.ts" \
         "version: \"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*[^\"]*\"," \
-        "version: \"$display_version\","
+        "version: \"$version\","
 
     # Update package.json version
-    echo "Updating package.json version..."
+    echo "Updating browser extension package.json version..."
     update_version "../apps/browser-extension/package.json" \
         "\"version\": \"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*[^\"]*\"," \
         "\"version\": \"$display_version\","
