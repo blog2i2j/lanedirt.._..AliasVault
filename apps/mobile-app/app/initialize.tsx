@@ -1,8 +1,10 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, StyleSheet } from 'react-native';
+import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 
+import { useColors } from '@/hooks/useColorScheme';
 import { useVaultSync } from '@/hooks/useVaultSync';
 
 import LoadingIndicator from '@/components/LoadingIndicator';
@@ -17,13 +19,14 @@ import NativeVaultManager from '@/specs/NativeVaultManager';
 export default function Initialize() : React.ReactNode {
   const router = useRouter();
   const [status, setStatus] = useState('');
-  const [showOfflineButton, setShowOfflineButton] = useState(false);
+  const [showSkipButton, setShowSkipButton] = useState(false);
   const hasInitialized = useRef(false);
-  const offlineButtonTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const skipButtonTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { t } = useTranslation();
   const app = useApp();
   const { syncVault } = useVaultSync();
   const dbContext = useDb();
+  const colors = useColors();
 
   /**
    * Handle offline scenario - show alert with options to open local vault or retry sync.
@@ -97,12 +100,12 @@ export default function Initialize() : React.ReactNode {
            */
           onPress: () : void => {
             setStatus(t('app.status.retryingConnection'));
-            setShowOfflineButton(false);
+            setShowSkipButton(false);
 
             // Clear any existing timeout
-            if (offlineButtonTimeoutRef.current) {
-              clearTimeout(offlineButtonTimeoutRef.current);
-              offlineButtonTimeoutRef.current = null;
+            if (skipButtonTimeoutRef.current) {
+              clearTimeout(skipButtonTimeoutRef.current);
+              skipButtonTimeoutRef.current = null;
             }
 
             /**
@@ -195,17 +198,16 @@ export default function Initialize() : React.ReactNode {
             setStatus(message);
 
             // Clear any existing timeout
-            if (offlineButtonTimeoutRef.current) {
-              clearTimeout(offlineButtonTimeoutRef.current);
+            if (skipButtonTimeoutRef.current) {
+              clearTimeout(skipButtonTimeoutRef.current);
+              skipButtonTimeoutRef.current = null;
             }
 
-            // Show offline button after 2 seconds if we're checking vault updates
-            if (message === t('vault.checkingVaultUpdates')) {
-              offlineButtonTimeoutRef.current = setTimeout(() => {
-                setShowOfflineButton(true);
-              }, 2000) as unknown as NodeJS.Timeout;
-            } else {
-              setShowOfflineButton(false);
+            // Show skip button after 5 seconds when we start loading
+            if (message && !showSkipButton) {
+              skipButtonTimeoutRef.current = setTimeout(() => {
+                setShowSkipButton(true);
+              }, 5000) as unknown as NodeJS.Timeout;
             }
           },
           /**
@@ -247,22 +249,22 @@ export default function Initialize() : React.ReactNode {
 
     // Cleanup timeout on unmount
     return (): void => {
-      if (offlineButtonTimeoutRef.current) {
-        clearTimeout(offlineButtonTimeoutRef.current);
+      if (skipButtonTimeoutRef.current) {
+        clearTimeout(skipButtonTimeoutRef.current);
       }
     };
-  }, [dbContext, syncVault, app, router, t, handleOfflineFlow]);
+  }, [dbContext, syncVault, app, router, t, handleOfflineFlow, showSkipButton]);
 
   /**
-   * Handle offline button press by calling the stored offline handler.
+   * Handle skip button press by calling the offline handler.
    */
-  const handleOfflinePress = (): void => {
+  const handleSkipPress = (): void => {
     // Clear any existing timeout
-    if (offlineButtonTimeoutRef.current) {
-      clearTimeout(offlineButtonTimeoutRef.current);
+    if (skipButtonTimeoutRef.current) {
+      clearTimeout(skipButtonTimeoutRef.current);
     }
 
-    setShowOfflineButton(false);
+    setShowSkipButton(false);
 
     handleOfflineFlow();
   };
@@ -272,18 +274,37 @@ export default function Initialize() : React.ReactNode {
       alignItems: 'center',
       flex: 1,
       justifyContent: 'center',
+      paddingHorizontal: 20,
+    },
+    skipButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.accentBackground,
+      paddingVertical: 8,
+      paddingHorizontal: 20,
+      borderRadius: 8,
+      width: 200,
+      borderWidth: 1,
+      borderColor: colors.accentBorder,
+    },
+    skipButtonText: {
+      marginLeft: 8,
+      fontSize: 16,
+      color: colors.textMuted,
     },
   });
 
   return (
     <ThemedView style={styles.container}>
-      {status ? (
-        <LoadingIndicator
-          status={status}
-          showOfflineButton={showOfflineButton}
-          onOfflinePress={handleOfflinePress}
-        />
-      ) : null}
+      <View>
+        <LoadingIndicator status={status || ''} />
+      </View>
+      {showSkipButton && (
+        <TouchableOpacity style={styles.skipButton} onPress={handleSkipPress}>
+          <Ionicons name="close" size={20} color={colors.textMuted} />
+        </TouchableOpacity>
+      )}
     </ThemedView>
   );
 }
