@@ -12,7 +12,7 @@ export class AppInfo {
    * The API version to send to the server (base semver without stage suffixes).
    * Apple app store requires semver format without stage suffixes.
    */
-  public static readonly API_VERSION = (() => {
+  public static readonly API_VERSION = (() : string => {
     return AppInfo.VERSION.split('-')[0];
   })();
 
