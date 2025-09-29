@@ -424,11 +424,11 @@ elif [[ "$MARKETING_UPDATE" == true ]]; then
         "version: \"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*[^\"]*\"," \
         "version: \"$version\","
 
-    # Update package.json version
+    # Update package.json version (without suffix - for consistency with browser stores)
     echo "Updating browser extension package.json version..."
     update_version "../apps/browser-extension/package.json" \
         "\"version\": \"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*[^\"]*\"," \
-        "\"version\": \"$display_version\","
+        "\"version\": \"$version\","
 
     # Update browser extension AppInfo.ts version
     echo "Updating browser extension AppInfo.ts version..."
