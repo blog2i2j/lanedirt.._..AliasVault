@@ -8,7 +8,15 @@ export class AppInfo {
   /**
    * The current mobile app version. This should be updated with each release of the mobile app.
    */
-  public static readonly VERSION = '0.23.2';
+  public static readonly VERSION = '0.24.0-alpha';
+
+  /**
+   * The API version to send to the server (base semver without stage suffixes).
+   * Apple app store requires semver format without stage suffixes.
+   */
+  public static readonly API_VERSION = (() => {
+    return AppInfo.VERSION.split('-')[0];
+  })();
 
   /**
    * The minimum supported AliasVault server (API) version. If the server version is below this, the

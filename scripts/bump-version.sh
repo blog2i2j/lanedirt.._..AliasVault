@@ -12,12 +12,24 @@ BUILD_ONLY=false
 MARKETING_UPDATE=false
 
 # Function to generate semantic build number
-# Format: MMmmppXX where MM=major, mm=minor, pp=patch, XX=build
+# Format: MMmmppSXX where MM=major, mm=minor, pp=patch, S=stage, XX=build
+# Stage: 1=alpha, 3=beta, 7=rc, 9=ga (general availability)
 generate_semantic_build_number() {
     local major=$1
     local minor=$2
     local patch=$3
     local build_increment=$4
+    local version_suffix=$5
+
+    # Determine stage based on version suffix
+    local stage_num=9  # Default to GA
+    if [[ "$version_suffix" =~ -alpha ]]; then
+        stage_num=1
+    elif [[ "$version_suffix" =~ -beta ]]; then
+        stage_num=3
+    elif [[ "$version_suffix" =~ -rc ]]; then
+        stage_num=7
+    fi
 
     # Pad with zeros and create build number
     local major_padded=$(printf "%02d" $major)
@@ -25,10 +37,51 @@ generate_semantic_build_number() {
     local patch_padded=$(printf "%02d" $patch)
     local build_padded=$(printf "%02d" $build_increment)
 
-    local semantic_build="${major_padded}${minor_padded}${patch_padded}${build_padded}"
+    local semantic_build="${major_padded}${minor_padded}${patch_padded}${stage_num}${build_padded}"
 
     # Remove leading zeros for App Store compatibility
     echo $((10#$semantic_build))
+}
+
+# Function to extract components from semantic build number
+# Returns: major minor patch stage increment
+extract_build_components() {
+    local semantic_build=$1
+
+    # Pad the semantic build number to 9 digits with leading zeros
+    local padded_build=$(printf "%09d" $semantic_build)
+
+    # Extract components
+    local major=${padded_build:0:2}
+    local minor=${padded_build:2:2}
+    local patch=${padded_build:4:2}
+    local stage_num=${padded_build:6:1}
+    local increment=${padded_build:7:2}
+
+    # Map stage number back to string
+    local stage
+    case $stage_num in
+        1)
+            stage="alpha"
+            ;;
+        3)
+            stage="beta"
+            ;;
+        7)
+            stage="rc"
+            ;;
+        9)
+            stage="ga"
+            ;;
+        *)
+            # Unknown stage, return empty to trigger reset
+            echo ""
+            return
+            ;;
+    esac
+
+    # Remove leading zeros and return
+    echo "$((10#$major)) $((10#$minor)) $((10#$patch)) $stage $((10#$increment))"
 }
 
 # Function to extract build increment from semantic build number
@@ -38,14 +91,14 @@ extract_build_increment() {
     local version_minor=$3
     local version_patch=$4
 
-    # Pad the semantic build number to 8 digits with leading zeros
-    local padded_build=$(printf "%08d" $semantic_build)
+    # Pad the semantic build number to 9 digits with leading zeros
+    local padded_build=$(printf "%09d" $semantic_build)
 
-    # Generate the version prefix
+    # Generate the version prefix (first 6 digits)
     local version_prefix=$(printf "%02d%02d%02d" $version_major $version_minor $version_patch)
 
     # Check if the build number starts with the expected version prefix
-    if [[ $padded_build == $version_prefix* ]]; then
+    if [[ ${padded_build:0:6} == $version_prefix ]]; then
         # Extract the last 2 digits as the build increment
         local build_increment=${padded_build: -2}
         # Remove leading zeros
@@ -61,18 +114,22 @@ read_semver() {
     # Get current version from server
     local current_major=$(grep "public const int VersionMajor = " ../apps/server/Shared/AliasVault.Shared.Core/AppInfo.cs | tr -d ';' | tr -d ' ' | cut -d'=' -f2)
     local current_minor=$(grep "public const int VersionMinor = " ../apps/server/Shared/AliasVault.Shared.Core/AppInfo.cs | tr -d ';' | tr -d ' ' | cut -d'=' -f2)
+    local current_stage=$(grep "public const string VersionStage = " ../apps/server/Shared/AliasVault.Shared.Core/AppInfo.cs | cut -d'"' -f2)
     local suggested_version="${current_major}.$((current_minor + 1)).0"
 
     while true; do
-        read -p "Enter new semantic version [$suggested_version]: " version
+        read -p "Enter new semantic version (e.g. 1.2.3 or 1.2.3-alpha.1) [$suggested_version]: " version_input
         # If empty, use suggested version
-        if [[ -z "$version" ]]; then
-            version=$suggested_version
+        if [[ -z "$version_input" ]]; then
+            version_input=$suggested_version
         fi
-        if [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        # Extract base version and suffix
+        if [[ $version_input =~ ^([0-9]+\.[0-9]+\.[0-9]+)((-[a-zA-Z]+)(\.[0-9]+)?)?$ ]]; then
+            version=${BASH_REMATCH[1]}
+            version_suffix=${BASH_REMATCH[2]}
             break
         else
-            echo "Invalid version format. Please use format X.Y.Z (e.g. $suggested_version)"
+            echo "Invalid version format. Please use format X.Y.Z or X.Y.Z-suffix (e.g. $suggested_version or 1.2.3-alpha.1)"
         fi
     done
 }
@@ -86,33 +143,50 @@ handle_semantic_build_number() {
     local version_patch=$5
     local is_marketing_update=$6
 
-    # Extract current build increment from semantic build
-    local current_increment=$(extract_build_increment "$current_build" "$version_major" "$version_minor" "$version_patch")
-
-    # Determine suggested increment based on update type
-    local suggested_increment
     if [[ "$is_marketing_update" == true ]]; then
-        # For marketing version updates, suggest 0 as we're starting fresh
-        suggested_increment=0
+        # For marketing version updates, generate new build number with current version suffix
+        local suggested_increment=0
         read -p "$project_name ($current_build) - Enter new build increment [$suggested_increment]: " input
 
-    else
-        # For build-only updates, suggest increment + 1
-        suggested_increment=$((current_increment + 1))
-        read -p "$project_name ($current_build) - (Increment: $current_increment) - Enter new build increment [$suggested_increment]: " input
-    fi
-
-    if [[ -z "$input" ]]; then
-        input=$suggested_increment
-    fi
-
-    if [[ "$input" =~ ^[0-9]+$ ]]; then
-        if [[ $input -gt 99 ]]; then
-            input=99
+        if [[ -z "$input" ]]; then
+            input=$suggested_increment
         fi
-        generate_semantic_build_number "$version_major" "$version_minor" "$version_patch" "$input"
+
+        if [[ "$input" =~ ^[0-9]+$ ]]; then
+            if [[ $input -gt 99 ]]; then
+                input=99
+            fi
+            generate_semantic_build_number "$version_major" "$version_minor" "$version_patch" "$input" "${version_suffix:-""}"
+        else
+            generate_semantic_build_number "$version_major" "$version_minor" "$version_patch" "$suggested_increment" "${version_suffix:-""}"
+        fi
     else
-        generate_semantic_build_number "$version_major" "$version_minor" "$version_patch" "$suggested_increment"
+        # For build-only updates, just increment the last 2 digits
+        local padded_build=$(printf "%09d" $current_build)
+        local last_two_digits=${padded_build: -2}
+        local current_increment=$((10#$last_two_digits))
+        local suggested_increment=$((current_increment + 1))
+
+        read -p "$project_name ($current_build) - (Increment: $current_increment) - Enter new build increment [$suggested_increment]: " input
+
+        if [[ -z "$input" ]]; then
+            input=$suggested_increment
+        fi
+
+        if [[ "$input" =~ ^[0-9]+$ ]]; then
+            if [[ $input -gt 99 ]]; then
+                input=99
+            fi
+            # Replace last 2 digits with new increment
+            local new_increment_padded=$(printf "%02d" $input)
+            local new_build="${padded_build:0:7}${new_increment_padded}"
+            echo $((10#$new_build))
+        else
+            # If invalid input, just increment by 1
+            local new_increment_padded=$(printf "%02d" $suggested_increment)
+            local new_build="${padded_build:0:7}${new_increment_padded}"
+            echo $((10#$new_build))
+        fi
     fi
 }
 
@@ -140,7 +214,8 @@ get_server_version() {
     local major=$(grep "public const int VersionMajor = " ../apps/server/Shared/AliasVault.Shared.Core/AppInfo.cs | tr -d ';' | tr -d ' ' | cut -d'=' -f2)
     local minor=$(grep "public const int VersionMinor = " ../apps/server/Shared/AliasVault.Shared.Core/AppInfo.cs | tr -d ';' | tr -d ' ' | cut -d'=' -f2)
     local patch=$(grep "public const int VersionPatch = " ../apps/server/Shared/AliasVault.Shared.Core/AppInfo.cs | tr -d ';' | tr -d ' ' | cut -d'=' -f2)
-    echo "$major.$minor.$patch"
+    local stage=$(grep "public const string VersionStage = " ../apps/server/Shared/AliasVault.Shared.Core/AppInfo.cs | cut -d'"' -f2)
+    echo "$major.$minor.$patch$stage"
 }
 
 # Function to extract version from browser extension config
@@ -217,13 +292,21 @@ display_names["ios"]="iOS App"
 display_names["android"]="Android App"
 display_names["safari"]="Safari Extension"
 
-# Check if all versions are equal
+# Function to normalize version by removing stage suffix
+normalize_version() {
+    local version=$1
+    echo "${version%%-*}"
+}
+
+# Check if all versions are equal (comparing base versions without stage suffixes)
 all_equal=true
-first_version=""
+first_normalized_version=""
 for project in "${!versions[@]}"; do
-    if [[ -z "$first_version" ]]; then
+    normalized_version=$(normalize_version "${versions[$project]}")
+    if [[ -z "$first_normalized_version" ]]; then
+        first_normalized_version="$normalized_version"
         first_version="${versions[$project]}"
-    elif [[ "${versions[$project]}" != "$first_version" ]]; then
+    elif [[ "$normalized_version" != "$first_normalized_version" ]]; then
         all_equal=false
         break
     fi
@@ -263,11 +346,12 @@ esac
 
 # If versions are not equal, ask for confirmation
 if [[ "$all_equal" == false ]]; then
-    echo -e "\nWARNING: Not all versions are equal!"
-    echo "Different versions found:"
+    echo -e "\nWARNING: Not all base versions are equal!"
+    echo "Different base versions found (ignoring stage suffixes):"
     for project in "${!versions[@]}"; do
-        if [[ "${versions[$project]}" != "$first_version" ]]; then
-            echo "${display_names[$project]}: ${versions[$project]} (differs from $first_version)"
+        project_normalized=$(normalize_version "${versions[$project]}")
+        if [[ "$project_normalized" != "$first_normalized_version" ]]; then
+            echo "${display_names[$project]}: ${versions[$project]} (base: $project_normalized, differs from base: $first_normalized_version)"
         fi
     done
     read -p "Do you want to continue with the version bump? (y/N) " confirm
@@ -277,9 +361,20 @@ if [[ "$all_equal" == false ]]; then
     fi
 fi
 
+# Initialize version_suffix variable
+version_suffix=""
+
 if [[ "$BUILD_ONLY" == true ]]; then
     # Use existing version
-    version=$first_version
+    version_input=$first_version
+    # Extract base version and suffix
+    if [[ $version_input =~ ^([0-9]+\.[0-9]+\.[0-9]+)((-[a-zA-Z]+)(\.[0-9]+)?)?$ ]]; then
+        version=${BASH_REMATCH[1]}
+        version_suffix=${BASH_REMATCH[2]}
+    else
+        version=$version_input
+        version_suffix=""
+    fi
     major=$(echo $version | cut -d. -f1)
     minor=$(echo $version | cut -d. -f2)
     patch=$(echo $version | cut -d. -f3)
@@ -316,50 +411,56 @@ elif [[ "$MARKETING_UPDATE" == true ]]; then
     update_version "../apps/server/Shared/AliasVault.Shared.Core/AppInfo.cs" \
         "public const int VersionPatch = [0-9][0-9]*;" \
         "public const int VersionPatch = $patch;"
+    update_version "../apps/server/Shared/AliasVault.Shared.Core/AppInfo.cs" \
+        "public const string VersionStage = \"[^\"]*\";" \
+        "public const string VersionStage = \"$version_suffix\";"
 
-    # Update browser extension version
-    echo "Updating browser extension version..."
+    # Build display version with suffix if present
+    display_version="${version}${version_suffix}"
+
+    # Update browser extension version (without suffix - browser stores don't support semver suffixes)
+    echo "Updating browser extension wxt.config.ts version..."
     update_version "../apps/browser-extension/wxt.config.ts" \
-        "version: \"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\"," \
+        "version: \"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*[^\"]*\"," \
         "version: \"$version\","
 
-    # Update package.json version
-    echo "Updating package.json version..."
+    # Update package.json version (without suffix - for consistency with browser stores)
+    echo "Updating browser extension package.json version..."
     update_version "../apps/browser-extension/package.json" \
-        "\"version\": \"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\"," \
+        "\"version\": \"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*[^\"]*\"," \
         "\"version\": \"$version\","
 
     # Update browser extension AppInfo.ts version
     echo "Updating browser extension AppInfo.ts version..."
     update_version "../apps/browser-extension/src/utils/AppInfo.ts" \
-        "public static readonly VERSION = '[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*';" \
-        "public static readonly VERSION = '$version';"
+        "public static readonly VERSION = '[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*[^']*';" \
+        "public static readonly VERSION = '$display_version';"
 
     # Update generic mobile app version
     echo "Updating mobile app version..."
     update_version "../apps/mobile-app/utils/AppInfo.ts" \
-        "public static readonly VERSION = '[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*';" \
-        "public static readonly VERSION = '$version';"
+        "public static readonly VERSION = '[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*[^']*';" \
+        "public static readonly VERSION = '$display_version';"
     update_version "../apps/mobile-app/app.json" \
-        "\"version\": \"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\"," \
-        "\"version\": \"$version\","
+        "\"version\": \"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*[^\"]*\"," \
+        "\"version\": \"$display_version\","
 
-    # Update iOS app version
+    # Update iOS app version (Apple doesn't accept stage suffixes in MARKETING_VERSION)
     echo "Updating iOS app version..."
     update_version "../apps/mobile-app/ios/AliasVault.xcodeproj/project.pbxproj" \
-        "MARKETING_VERSION = [0-9]\+\.[0-9]\+\.[0-9]\+;" \
+        "MARKETING_VERSION = [0-9]\+\.[0-9]\+\.[0-9]\+[^;]*;" \
         "MARKETING_VERSION = $version;"
 
     # Update Android app version
     echo "Updating Android app version..."
     update_version "../apps/mobile-app/android/app/build.gradle" \
-        "versionName \"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\"" \
-        "versionName \"$version\""
+        "versionName \"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*[^\"]*\"" \
+        "versionName \"$display_version\""
 
-    # Update Safari extension version
+    # Update Safari extension version (Apple doesn't accept stage suffixes in MARKETING_VERSION)
     echo "Updating Safari extension version..."
     update_version "../apps/browser-extension/safari-xcode/AliasVault/AliasVault.xcodeproj/project.pbxproj" \
-        "MARKETING_VERSION = [0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*;" \
+        "MARKETING_VERSION = [0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*[^;]*;" \
         "MARKETING_VERSION = $version;"
 fi
 
@@ -368,8 +469,21 @@ echo ""
 echo "--------------------------------"
 echo "Update semantic build numbers (for App Store releases)"
 echo "--------------------------------"
-printf "Example for version %d.%d.%d: \"%02d%02d%02d00\" → %d (leading zeros removed)\n" $major $minor $patch $major $minor $patch $((10#$(printf "%02d%02d%02d00" $major $minor $patch)))
-echo "> Breakdown: $(printf "%02d" $major) (major) $(printf "%02d" $minor) (minor) $(printf "%02d" $patch) (patch) 00 (build)"
+echo "Format: MMmmppSXX (9 digits) where S=stage (1=alpha, 3=beta, 7=rc, 9=ga)"
+if [[ -n "$version_suffix" ]]; then
+    echo "Detected suffix: $version_suffix"
+fi
+printf "Example for version %d.%d.%d%s: \"" $major $minor $patch "$version_suffix"
+if [[ "$version_suffix" =~ -alpha ]]; then
+    printf "%02d%02d%02d100\" → %d" $major $minor $patch $((10#$(printf "%02d%02d%02d100" $major $minor $patch)))
+elif [[ "$version_suffix" =~ -beta ]]; then
+    printf "%02d%02d%02d300\" → %d" $major $minor $patch $((10#$(printf "%02d%02d%02d300" $major $minor $patch)))
+elif [[ "$version_suffix" =~ -rc ]]; then
+    printf "%02d%02d%02d700\" → %d" $major $minor $patch $((10#$(printf "%02d%02d%02d700" $major $minor $patch)))
+else
+    printf "%02d%02d%02d900\" → %d" $major $minor $patch $((10#$(printf "%02d%02d%02d900" $major $minor $patch)))
+fi
+echo " (leading zeros removed)"
 echo ""
 
 # Read current build numbers
@@ -422,50 +536,55 @@ if [[ "$MARKETING_UPDATE" == true ]]; then
     # Install.sh reminder (only for version changes)
     echo "• If you've made changes to install.sh since the last release, remember to update its @version in the header to match this release version ($version)."
 
-    # Create empty changelog files and remind about them
-    echo "• Creating empty changelog files for version $version in the /fastlane directory..."
+    # Only create changelog files for GA releases (not alpha, beta, or rc)
+    if [[ -z "$version_suffix" ]]; then
+        # Create empty changelog files and remind about them
+        echo "• Creating empty changelog files for GA version $version in the /fastlane directory..."
 
-    # Create iOS changelog files
-    if [ -d "../fastlane/metadata/ios" ]; then
-        for lang_dir in ../fastlane/metadata/ios/*/; do
-            if [ -d "$lang_dir" ]; then
-                lang=$(basename "$lang_dir")
-                changelog_dir="$lang_dir/changelogs"
-                mkdir -p "$changelog_dir"
-                touch "$changelog_dir/$new_ios_build.txt"
-            fi
-        done
+        # Create iOS changelog files
+        if [ -d "../fastlane/metadata/ios" ]; then
+            for lang_dir in ../fastlane/metadata/ios/*/; do
+                if [ -d "$lang_dir" ]; then
+                    lang=$(basename "$lang_dir")
+                    changelog_dir="$lang_dir/changelogs"
+                    mkdir -p "$changelog_dir"
+                    touch "$changelog_dir/$new_ios_build.txt"
+                fi
+            done
+        fi
+
+        # Create Android changelog files
+        if [ -d "../fastlane/metadata/android" ]; then
+            for lang_dir in ../fastlane/metadata/android/*/; do
+                if [ -d "$lang_dir" ]; then
+                    lang=$(basename "$lang_dir")
+                    changelog_dir="$lang_dir/changelogs"
+                    mkdir -p "$changelog_dir"
+                    touch "$changelog_dir/$new_android_build.txt"
+                fi
+            done
+        fi
+
+        # Create Browser Extension changelog files
+        if [ -d "../fastlane/metadata/browser-extension" ]; then
+            for lang_dir in ../fastlane/metadata/browser-extension/*/; do
+                if [ -d "$lang_dir" ]; then
+                    lang=$(basename "$lang_dir")
+                    changelog_dir="$lang_dir/changelogs"
+                    mkdir -p "$changelog_dir"
+                    touch "$changelog_dir/$version.txt"
+                fi
+            done
+        fi
+
+        echo ""
+        echo "• Please fill in the changelog content in the created files:"
+        echo "  - iOS: fastlane/metadata/ios/[lang]/changelogs/$new_ios_build.txt"
+        echo "  - Android: fastlane/metadata/android/[lang]/changelogs/$new_android_build.txt"
+        echo "  - Browser Extension: fastlane/metadata/browser-extension/[lang]/changelogs/$version.txt"
+    else
+        echo "• Skipping changelog creation for pre-release version $display_version (only GA releases get published to app stores)"
     fi
-
-    # Create Android changelog files
-    if [ -d "../fastlane/metadata/android" ]; then
-        for lang_dir in ../fastlane/metadata/android/*/; do
-            if [ -d "$lang_dir" ]; then
-                lang=$(basename "$lang_dir")
-                changelog_dir="$lang_dir/changelogs"
-                mkdir -p "$changelog_dir"
-                touch "$changelog_dir/$new_android_build.txt"
-            fi
-        done
-    fi
-
-    # Create Browser Extension changelog files
-    if [ -d "../fastlane/metadata/browser-extension" ]; then
-        for lang_dir in ../fastlane/metadata/browser-extension/*/; do
-            if [ -d "$lang_dir" ]; then
-                lang=$(basename "$lang_dir")
-                changelog_dir="$lang_dir/changelogs"
-                mkdir -p "$changelog_dir"
-                touch "$changelog_dir/$version.txt"
-            fi
-        done
-    fi
-
-    echo ""
-    echo "• Please fill in the changelog content in the created files:"
-    echo "  - iOS: fastlane/metadata/ios/[lang]/changelogs/$new_ios_build.txt"
-    echo "  - Android: fastlane/metadata/android/[lang]/changelogs/$new_android_build.txt"
-    echo "  - Browser Extension: fastlane/metadata/browser-extension/[lang]/changelogs/$version.txt"
 elif [[ "$BUILD_ONLY" == true ]]; then
     echo "  Marketing version remained at: $version"
     echo "  Only build numbers were incremented"

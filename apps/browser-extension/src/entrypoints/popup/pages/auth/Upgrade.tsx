@@ -7,7 +7,7 @@ import HeaderButton from '@/entrypoints/popup/components/HeaderButton';
 import { HeaderIconType } from '@/entrypoints/popup/components/Icons/HeaderIcons';
 import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
 import Modal from '@/entrypoints/popup/components/Modal';
-import { useAuth } from '@/entrypoints/popup/context/AuthContext';
+import { useApp } from '@/entrypoints/popup/context/AppContext';
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useHeaderButtons } from '@/entrypoints/popup/context/HeaderButtonsContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
@@ -24,7 +24,7 @@ import { VaultSqlGenerator } from '@/utils/dist/shared/vault-sql';
  */
 const Upgrade: React.FC = () => {
   const { t } = useTranslation();
-  const { username } = useAuth();
+  const { username } = useApp();
   const dbContext = useDb();
   const { sqliteClient } = dbContext;
   const { setHeaderButtons } = useHeaderButtons();
@@ -65,7 +65,7 @@ const Upgrade: React.FC = () => {
   const loadVersionInfo = useCallback(async () => {
     try {
       if (sqliteClient) {
-        const current = sqliteClient.getDatabaseVersion();
+        const current = await sqliteClient.getDatabaseVersion();
         const latest = await sqliteClient.getLatestDatabaseVersion();
         setCurrentVersion(current);
         setLatestVersion(latest);
@@ -165,7 +165,7 @@ const Upgrade: React.FC = () => {
       console.debug('executeVaultMutation done?');
     } catch (error) {
       console.error('Upgrade failed:', error);
-      setError(error instanceof Error ? error.message : t('upgrade.alerts.unknownErrorDuringUpgrade'));
+      setError(error instanceof Error ? error.message : t('common.errors.unknownError'));
     } finally {
       setIsLoading(false);
     }
@@ -296,7 +296,7 @@ const Upgrade: React.FC = () => {
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600 dark:text-gray-400">{t('upgrade.yourVault')}</span>
                 <span className="text-sm font-bold text-orange-600 dark:text-orange-400">
-                  {currentVersion?.releaseVersion ?? '...'}
+                  {currentVersion?.compatibleUpToVersion ?? '...'}
                 </span>
               </div>
               <div className="flex justify-between items-center">
@@ -312,6 +312,7 @@ const Upgrade: React.FC = () => {
         <div className="flex flex-col w-full space-y-2">
           <Button
             type="button"
+            id="upgrade-button"
             onClick={handleUpgrade}
           >
             {isLoading || isVaultMutationLoading ? (syncStatus || t('upgrade.upgrading')) : t('upgrade.upgrade')}

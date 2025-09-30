@@ -256,29 +256,6 @@ CREATE INDEX "IX_TotpCodes_CredentialId" ON "TotpCodes" ("CredentialId");
 INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
 VALUES ('20250310131554_1.5.0-AddTotpCodes', '9.0.4');
 
-CREATE TABLE "Passkeys" (
-    "Id" TEXT NOT NULL CONSTRAINT "PK_Passkeys" PRIMARY KEY,
-    "ItemVersion" INTEGER NOT NULL,
-    "RpId" TEXT COLLATE NOCASE NOT NULL,
-    "CredentialId" BLOB NOT NULL,
-    "SignCount" INTEGER NOT NULL,
-    "IsBackupEligible" INTEGER NOT NULL,
-    "IsBackupState" INTEGER NOT NULL,
-    "DisplayName" TEXT NOT NULL,
-    "LastUsedAt" TEXT NULL,
-    "AdditionalData" BLOB NULL,
-    "CreatedAt" TEXT NOT NULL,
-    "UpdatedAt" TEXT NOT NULL,
-    "IsDeleted" INTEGER NOT NULL
-);
-
-CREATE UNIQUE INDEX "IX_Passkeys_CredentialId" ON "Passkeys" ("CredentialId");
-
-CREATE INDEX "IX_Passkeys_RpId" ON "Passkeys" ("RpId");
-
-INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20250925085843_1.6.0-AddPasskeyEntity', '9.0.4');
-
 COMMIT;
 `;
 var MIGRATION_SCRIPTS = {
@@ -465,31 +442,6 @@ CREATE INDEX "IX_TotpCodes_CredentialId" ON "TotpCodes" ("CredentialId");
 INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
 VALUES ('20250310131554_1.5.0-AddTotpCodes', '9.0.4');
 
-COMMIT;`,
-  10: `\uFEFFBEGIN TRANSACTION;
-CREATE TABLE "Passkeys" (
-    "Id" TEXT NOT NULL CONSTRAINT "PK_Passkeys" PRIMARY KEY,
-    "ItemVersion" INTEGER NOT NULL,
-    "RpId" TEXT COLLATE NOCASE NOT NULL,
-    "CredentialId" BLOB NOT NULL,
-    "SignCount" INTEGER NOT NULL,
-    "IsBackupEligible" INTEGER NOT NULL,
-    "IsBackupState" INTEGER NOT NULL,
-    "DisplayName" TEXT NOT NULL,
-    "LastUsedAt" TEXT NULL,
-    "AdditionalData" BLOB NULL,
-    "CreatedAt" TEXT NOT NULL,
-    "UpdatedAt" TEXT NOT NULL,
-    "IsDeleted" INTEGER NOT NULL
-);
-
-CREATE UNIQUE INDEX "IX_Passkeys_CredentialId" ON "Passkeys" ("CredentialId");
-
-CREATE INDEX "IX_Passkeys_RpId" ON "Passkeys" ("RpId");
-
-INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20250925085843_1.6.0-AddPasskeyEntity', '9.0.4');
-
 COMMIT;`
 };
 
@@ -499,67 +451,71 @@ var VAULT_VERSIONS = [
     revision: 1,
     version: "1.0.0",
     description: "Initial Migration",
-    releaseVersion: "0.1.0"
+    releaseVersion: "0.1.0",
+    compatibleUpToVersion: "0.0.0"
   },
   {
     revision: 2,
     version: "1.0.1",
     description: "Empty Test Migration",
-    releaseVersion: "0.2.0"
+    releaseVersion: "0.2.0",
+    compatibleUpToVersion: "0.1.0"
   },
   {
     revision: 3,
     version: "1.0.2",
     description: "Change Email Column",
-    releaseVersion: "0.3.0"
+    releaseVersion: "0.3.0",
+    compatibleUpToVersion: "0.2.0"
   },
   {
     revision: 4,
     version: "1.1.0",
     description: "Add Pki Tables",
-    releaseVersion: "0.4.0"
+    releaseVersion: "0.4.0",
+    compatibleUpToVersion: "0.3.0"
   },
   {
     revision: 5,
     version: "1.2.0",
     description: "Add Settings Table",
-    releaseVersion: "0.4.0"
+    releaseVersion: "0.4.0",
+    compatibleUpToVersion: "0.3.0"
   },
   {
     revision: 6,
     version: "1.3.0",
     description: "Update Identity Structure",
-    releaseVersion: "0.5.0"
+    releaseVersion: "0.5.0",
+    compatibleUpToVersion: "0.4.0"
   },
   {
     revision: 7,
     version: "1.3.1",
     description: "Make Username Optional",
-    releaseVersion: "0.5.0"
+    releaseVersion: "0.5.0",
+    compatibleUpToVersion: "0.4.0"
   },
   {
     revision: 8,
     version: "1.4.0",
     description: "Add Sync Support",
-    releaseVersion: "0.6.0"
+    releaseVersion: "0.6.0",
+    compatibleUpToVersion: "0.5.0"
   },
   {
     revision: 9,
     version: "1.4.1",
     description: "Rename Attachments Plural",
-    releaseVersion: "0.6.0"
+    releaseVersion: "0.6.0",
+    compatibleUpToVersion: "0.13.0"
   },
   {
     revision: 10,
     version: "1.5.0",
     description: "Add 2FA Tokens to credentials",
-    releaseVersion: "0.14.0"
-  },
-  {
-    revision: 11,
-    version: "1.6.0",
-    description: "Add Passkey Entity",
-    releaseVersion: "0.24.0"
+    releaseVersion: "0.14.0",
+    compatibleUpToVersion: "0.23.0"
   }
 ];
 
