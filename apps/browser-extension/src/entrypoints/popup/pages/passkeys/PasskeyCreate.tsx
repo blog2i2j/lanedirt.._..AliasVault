@@ -150,17 +150,86 @@ const PasskeyCreate: React.FC = () => {
       authDataLengthBytes = [0x59, authData.length >> 8, authData.length & 0xff];
     }
 
-    // CBOR map keys must be in canonical order (sorted by byte length, then lexicographically)
-    // Order: "fmt" (3 chars), "attStmt" (7 chars), "authData" (8 chars)
-    const attestationObject = new Uint8Array([
-      0xa3, // map(3)
-      0x63, 0x66, 0x6d, 0x74, // "fmt" (text(3))
-      0x64, 0x6e, 0x6f, 0x6e, 0x65, // "none" (text(4))
-      0x67, 0x61, 0x74, 0x74, 0x53, 0x74, 0x6d, 0x74, // "attStmt" (text(7))
-      0xa0, // map(0) - empty map
-      0x68, 0x61, 0x75, 0x74, 0x68, 0x44, 0x61, 0x74, 0x61, // "authData" (text(8))
-      ...authDataLengthBytes, ...authData // byte string with proper length encoding
-    ]);
+    // Check what attestation format is requested
+    const attestationPreference = request.publicKey.attestation || 'none';
+    console.log('PasskeyCreate: attestation preference', attestationPreference);
+
+    let attestationObject: Uint8Array;
+
+    if (attestationPreference === 'none' || attestationPreference === 'indirect') {
+      // Use "none" attestation format (simplest, most privacy-preserving)
+      // CBOR map keys must be in canonical order (sorted by byte length, then lexicographically)
+      // Order: "fmt" (3 chars), "attStmt" (7 chars), "authData" (8 chars)
+      attestationObject = new Uint8Array([
+        0xa3, // map(3)
+        0x63, 0x66, 0x6d, 0x74, // "fmt" (text(3))
+        0x64, 0x6e, 0x6f, 0x6e, 0x65, // "none" (text(4))
+        0x67, 0x61, 0x74, 0x74, 0x53, 0x74, 0x6d, 0x74, // "attStmt" (text(7))
+        0xa0, // map(0) - empty map
+        0x68, 0x61, 0x75, 0x74, 0x68, 0x44, 0x61, 0x74, 0x61, // "authData" (text(8))
+        ...authDataLengthBytes, ...authData // byte string with proper length encoding
+      ]);
+    } else {
+      // Use "packed" attestation format with self-attestation
+      // Create signature over authData + clientDataHash
+      const clientDataJSON = JSON.stringify({
+        type: 'webauthn.create',
+        challenge: request.publicKey.challenge,
+        origin: request.origin
+      });
+      const clientDataHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(clientDataJSON));
+      const dataToSign = new Uint8Array([...authData, ...new Uint8Array(clientDataHash)]);
+
+      // Sign with the credential's private key (self-attestation)
+      const attSignature = await crypto.subtle.sign(
+        { name: 'ECDSA', hash: 'SHA-256' },
+        keyPair.privateKey,
+        dataToSign
+      );
+
+      // Convert to DER format
+      const rawSig = new Uint8Array(attSignature);
+      const r = rawSig.slice(0, 32);
+      const s = rawSig.slice(32, 64);
+
+      const encodeInteger = (int: Uint8Array): Uint8Array => {
+        let i = 0;
+        while (i < int.length && int[i] === 0) i++;
+        let trimmed = int.slice(i);
+        if (trimmed.length === 0) trimmed = new Uint8Array([0]);
+        if (trimmed[0] & 0x80) {
+          const padded = new Uint8Array(trimmed.length + 1);
+          padded[0] = 0;
+          padded.set(trimmed, 1);
+          trimmed = padded;
+        }
+        return new Uint8Array([0x02, trimmed.length, ...trimmed]);
+      };
+
+      const rDer = encodeInteger(r);
+      const sDer = encodeInteger(s);
+      const derSignature = new Uint8Array([0x30, rDer.length + sDer.length, ...rDer, ...sDer]);
+
+      // CBOR encode "packed" attestation object with self-attestation
+      // attStmt: { alg: -7, sig: derSignature }
+      const sigLengthBytes = derSignature.length <= 23
+        ? [0x40 | derSignature.length]
+        : [0x58, derSignature.length];
+
+      attestationObject = new Uint8Array([
+        0xa3, // map(3)
+        0x63, 0x66, 0x6d, 0x74, // "fmt" (text(3))
+        0x66, 0x70, 0x61, 0x63, 0x6b, 0x65, 0x64, // "packed" (text(6))
+        0x67, 0x61, 0x74, 0x74, 0x53, 0x74, 0x6d, 0x74, // "attStmt" (text(7))
+        0xa2, // map(2) - alg and sig
+        0x63, 0x61, 0x6c, 0x67, // "alg" (text(3))
+        0x26, // -7 (ES256)
+        0x63, 0x73, 0x69, 0x67, // "sig" (text(3))
+        ...sigLengthBytes, ...derSignature, // byte string
+        0x68, 0x61, 0x75, 0x74, 0x68, 0x44, 0x61, 0x74, 0x61, // "authData" (text(8))
+        ...authDataLengthBytes, ...authData // byte string with proper length encoding
+      ]);
+    }
 
     const credential = {
       id: credentialId,
