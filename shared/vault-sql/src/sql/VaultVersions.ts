@@ -86,5 +86,6 @@ export const VAULT_VERSIONS: VaultVersion[] = [
     version: '1.6.0',
     description: 'Add Passkey Entity',
     releaseVersion: '0.24.0',
+    compatibleUpToVersion: '0.24.0',
   },
 ];
