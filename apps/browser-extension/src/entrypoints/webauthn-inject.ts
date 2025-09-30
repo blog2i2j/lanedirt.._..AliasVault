@@ -139,6 +139,7 @@ export default defineUnlistedScript(() => {
     console.log('[AliasVault] Page: Intercepted credentials.get', options);
 
     if (!options?.publicKey) {
+      console.log('[AliasVault] Page: No public key, falling back to native');
       return originalGet(options);
     }
 

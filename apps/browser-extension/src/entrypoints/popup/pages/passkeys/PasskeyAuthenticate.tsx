@@ -30,8 +30,7 @@ const PasskeyAuthenticate: React.FC = () => {
 
   useEffect(() => {
     // Get the request data from hash (format: #/passkeys/authenticate?request=...)
-    const hash = location.hash.substring(1); // Remove '#'
-    const params = new URLSearchParams(hash.split('?')[1] || '');
+    const params = new URLSearchParams(location.search);
     const requestData = params.get('request');
 
     if (requestData) {
