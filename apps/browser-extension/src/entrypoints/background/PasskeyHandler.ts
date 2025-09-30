@@ -150,9 +150,11 @@ export async function handleWebAuthnGet(data: {
   }));
   console.log('handleWebAuthnGet: final passkeyList', passkeyList);
 
-  // If allowCredentials was specified but we have no matches, show all passkeys anyway
-  // (This is what password managers do - they show their own passkeys even if the site
-  // doesn't explicitly request them, allowing users to use extension passkeys)
+  /*
+   * If allowCredentials was specified but we have no matches, show all passkeys anyway
+   * (This is what password managers do - they show their own passkeys even if the site
+   * doesn't explicitly request them, allowing users to use extension passkeys)
+   */
   if (passkeyList.length === 0 && passkeys.length > 0) {
     console.log('handleWebAuthnGet: no matching allowCredentials, showing all passkeys instead');
     passkeyList = passkeys.map(pk => ({
@@ -256,18 +258,26 @@ export async function handleStorePasskey(data: {
 }
 
 /**
- * Update passkey last used time
+ * Update passkey last used time and sign count
  */
 export async function handleUpdatePasskeyLastUsed(data: {
   credentialId: string;
+  newSignCount?: number;
 }): Promise<{ success: boolean }> {
-  const { credentialId } = data;
+  const { credentialId, newSignCount } = data;
 
   // Find and update the passkey
   for (const [key, passkey] of sessionPasskeys.entries()) {
     if (passkey.credentialId === credentialId) {
       passkey.lastUsedAt = Date.now();
-      passkey.signCount++;
+
+      // Update sign count - either use provided value or increment
+      if (newSignCount !== undefined) {
+        passkey.signCount = newSignCount;
+      } else {
+        passkey.signCount++;
+      }
+
       sessionPasskeys.set(key, passkey);
 
       // Update in storage too

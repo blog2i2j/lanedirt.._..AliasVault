@@ -123,20 +123,35 @@ export default defineUnlistedScript(() => {
             response: {
               clientDataJSON: base64ToBuffer(cred.clientDataJSON),
               attestationObject: base64ToBuffer(cred.attestationObject),
+              /**
+               *
+               */
               getTransports() {
                 return ['internal'];
               },
+              /**
+               *
+               */
               getAuthenticatorData() {
                 // Parse authData from attestation object if needed
                 return new ArrayBuffer(0);
               },
+              /**
+               *
+               */
               getPublicKey() {
                 return null;
               },
+              /**
+               *
+               */
               getPublicKeyAlgorithm() {
                 return -7; // ES256
               }
             },
+            /**
+             *
+             */
             getClientExtensionResults() {
               return {};
             }
@@ -228,6 +243,9 @@ export default defineUnlistedScript(() => {
               signature: base64ToBuffer(cred.signature),
               userHandle: cred.userHandle ? base64ToBuffer(cred.userHandle) : null
             },
+            /**
+             *
+             */
             getClientExtensionResults() {
               return {};
             }

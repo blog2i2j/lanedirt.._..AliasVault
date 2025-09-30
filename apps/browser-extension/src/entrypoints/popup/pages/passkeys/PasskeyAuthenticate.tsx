@@ -29,6 +29,9 @@ const PasskeyAuthenticate: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    /**
+     *
+     */
     const fetchRequestData = async () => {
       // Get the requestId from URL
       const params = new URLSearchParams(location.search);
@@ -78,117 +81,138 @@ const PasskeyAuthenticate: React.FC = () => {
 
     setLoading(true);
 
-    // Get the stored passkey to access the private key
-    const passkeyData = await sendMessage('GET_PASSKEY_BY_ID', { credentialId: selectedPasskey }, 'background');
+    try {
+      console.log('PasskeyAuthenticate: Starting authentication');
+      console.log('PasskeyAuthenticate: selectedPasskey', selectedPasskey);
+      console.log('PasskeyAuthenticate: request', request);
 
-    if (!passkeyData) {
-      console.error('Passkey not found');
-      setLoading(false);
-      return;
-    }
+      // Get the stored passkey to access the private key
+      const passkeyData = await sendMessage('GET_PASSKEY_BY_ID', { credentialId: selectedPasskey }, 'background');
 
-    // Calculate rpId hash
-    const rpId = request.publicKey.rpId || new URL(request.origin).hostname;
-    const rpIdBuffer = new TextEncoder().encode(rpId);
-    const rpIdHashBuffer = await crypto.subtle.digest('SHA-256', rpIdBuffer);
-    const rpIdHash = new Uint8Array(rpIdHashBuffer);
-
-    // Flags: UP (User Present) = 1, UV (User Verified) = 1
-    const flags = new Uint8Array([0x05]); // Binary: 00000101
-
-    // Sign count (increment on each use)
-    const signCount = new Uint8Array([0, 0, 0, 1]);
-
-    // Construct authenticatorData (37 bytes minimum)
-    const authenticatorData = new Uint8Array([
-      ...rpIdHash,    // 32 bytes
-      ...flags,       // 1 byte
-      ...signCount    // 4 bytes
-    ]);
-
-    // Create clientDataJSON
-    const clientDataJSON = JSON.stringify({
-      type: 'webauthn.get',
-      challenge: request.publicKey.challenge,
-      origin: request.origin
-    });
-
-    // Create signature over authenticatorData + hash(clientDataJSON)
-    const clientDataHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(clientDataJSON));
-    const dataToSign = new Uint8Array([...authenticatorData, ...new Uint8Array(clientDataHash)]);
-
-    // Import the private key and sign
-    const privateKey = await crypto.subtle.importKey(
-      'jwk',
-      passkeyData.privateKey,
-      { name: 'ECDSA', namedCurve: 'P-256' },
-      false,
-      ['sign']
-    );
-
-    const signatureBuffer = await crypto.subtle.sign(
-      { name: 'ECDSA', hash: 'SHA-256' },
-      privateKey,
-      dataToSign
-    );
-
-    // Convert raw signature (r || s) to DER format for WebAuthn
-    const rawSignature = new Uint8Array(signatureBuffer);
-    const r = rawSignature.slice(0, 32);
-    const s = rawSignature.slice(32, 64);
-
-    // Helper to encode integer in DER format
-    const encodeInteger = (int: Uint8Array): Uint8Array => {
-      // Remove leading zeros
-      let i = 0;
-      while (i < int.length && int[i] === 0) i++;
-      let trimmed = int.slice(i);
-
-      // Add leading zero if high bit is set (to keep it positive)
-      if (trimmed.length === 0) trimmed = new Uint8Array([0]);
-      if (trimmed[0] & 0x80) {
-        const padded = new Uint8Array(trimmed.length + 1);
-        padded[0] = 0;
-        padded.set(trimmed, 1);
-        trimmed = padded;
+      if (!passkeyData) {
+        console.error('Passkey not found');
+        setLoading(false);
+        return;
       }
 
-      // DER encoding: 0x02 (INTEGER tag) + length + value
-      return new Uint8Array([0x02, trimmed.length, ...trimmed]);
-    };
+      // Calculate rpId hash
+      const rpId = request.publicKey.rpId || new URL(request.origin).hostname;
+      const rpIdBuffer = new TextEncoder().encode(rpId);
+      const rpIdHashBuffer = await crypto.subtle.digest('SHA-256', rpIdBuffer);
+      const rpIdHash = new Uint8Array(rpIdHashBuffer);
 
-    const rDer = encodeInteger(r);
-    const sDer = encodeInteger(s);
+      // Flags: UP (User Present) = 1, UV (User Verified) = 1
+      const flags = new Uint8Array([0x05]); // Binary: 00000101
 
-    // DER SEQUENCE: 0x30 (SEQUENCE tag) + length + r + s
-    const derSignature = new Uint8Array([
-      0x30,
-      rDer.length + sDer.length,
-      ...rDer,
-      ...sDer
-    ]);
+      // Sign count - increment from stored value (must increase on each use to detect cloned authenticators)
+      const newSignCount = (passkeyData.signCount || 0) + 1;
+      const signCount = new Uint8Array([
+        (newSignCount >> 24) & 0xff,
+        (newSignCount >> 16) & 0xff,
+        (newSignCount >> 8) & 0xff,
+        newSignCount & 0xff
+      ]);
 
-    const credential = {
-      id: selectedPasskey,
-      rawId: selectedPasskey,
-      clientDataJSON: btoa(clientDataJSON),
-      authenticatorData: btoa(String.fromCharCode(...authenticatorData)),
-      signature: btoa(String.fromCharCode(...derSignature)),
-      userHandle: null
-    };
+      // Construct authenticatorData (37 bytes minimum)
+      const authenticatorData = new Uint8Array([
+        ...rpIdHash,    // 32 bytes
+        ...flags,       // 1 byte
+        ...signCount    // 4 bytes
+      ]);
 
-    // Update last used
-    await sendMessage('UPDATE_PASSKEY_LAST_USED', {
-      credentialId: selectedPasskey
-    }, 'background');
+      // Create clientDataJSON
+      const clientDataJSON = JSON.stringify({
+        type: 'webauthn.get',
+        challenge: request.publicKey.challenge,
+        origin: request.origin
+      });
 
-    // Send response back
-    await sendMessage('PASSKEY_POPUP_RESPONSE', {
-      requestId: request.requestId,
-      credential
-    }, 'background');
+      // Create signature over authenticatorData + hash(clientDataJSON)
+      const clientDataHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(clientDataJSON));
+      const dataToSign = new Uint8Array([...authenticatorData, ...new Uint8Array(clientDataHash)]);
 
-    window.close();
+      // Import the private key and sign
+      const privateKey = await crypto.subtle.importKey(
+        'jwk',
+        passkeyData.privateKey,
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        false,
+        ['sign']
+      );
+
+      const signatureBuffer = await crypto.subtle.sign(
+        { name: 'ECDSA', hash: 'SHA-256' },
+        privateKey,
+        dataToSign
+      );
+
+      // Convert raw signature (r || s) to DER format for WebAuthn
+      const rawSignature = new Uint8Array(signatureBuffer);
+      const r = rawSignature.slice(0, 32);
+      const s = rawSignature.slice(32, 64);
+
+      // Helper to encode integer in DER format
+      /**
+       *
+       */
+      const encodeInteger = (int: Uint8Array): Uint8Array => {
+      // Remove leading zeros but keep at least one byte
+        let i = 0;
+        while (i < int.length - 1 && int[i] === 0 && (int[i + 1] & 0x80) === 0) {
+          i++;
+        }
+        let trimmed = int.slice(i);
+
+        // If high bit is set, add zero padding to keep it positive
+        if (trimmed[0] & 0x80) {
+          const padded = new Uint8Array(trimmed.length + 1);
+          padded[0] = 0;
+          padded.set(trimmed, 1);
+          trimmed = padded;
+        }
+
+        // DER encoding: 0x02 (INTEGER tag) + length + value
+        return new Uint8Array([0x02, trimmed.length, ...trimmed]);
+      };
+
+      const rDer = encodeInteger(r);
+      const sDer = encodeInteger(s);
+
+      // DER SEQUENCE: 0x30 (SEQUENCE tag) + length + r + s
+      const derSignature = new Uint8Array([
+        0x30,
+        rDer.length + sDer.length,
+        ...rDer,
+        ...sDer
+      ]);
+
+      const credential = {
+        id: selectedPasskey,
+        rawId: selectedPasskey,
+        clientDataJSON: btoa(clientDataJSON),
+        authenticatorData: btoa(String.fromCharCode(...authenticatorData)),
+        signature: btoa(String.fromCharCode(...derSignature)),
+        userHandle: null
+      };
+
+      // Update last used and sign count
+      await sendMessage('UPDATE_PASSKEY_LAST_USED', {
+        credentialId: selectedPasskey,
+        newSignCount
+      }, 'background');
+
+      // Send response back
+      await sendMessage('PASSKEY_POPUP_RESPONSE', {
+        requestId: request.requestId,
+        credential
+      }, 'background');
+
+      window.close();
+    } catch (error) {
+      console.error('PasskeyAuthenticate: Error during authentication', error);
+      setLoading(false);
+      alert(`Failed to authenticate: ${error instanceof Error ? error.message : String(error)}`);
+    }
   };
 
   /**

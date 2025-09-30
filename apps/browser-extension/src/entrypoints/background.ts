@@ -68,7 +68,7 @@ export default defineBackground({
     onMessage('WEBAUTHN_CREATE', ({ data }) => handleWebAuthnCreate(data as { publicKey: unknown; origin: string }));
     onMessage('WEBAUTHN_GET', ({ data }) => handleWebAuthnGet(data as { publicKey: { allowCredentials?: { id: string; }[] | undefined }; origin: string }));
     onMessage('STORE_PASSKEY', ({ data }) => handleStorePasskey(data as { rpId: string; credentialId: string; displayName: string; publicKey: unknown }));
-    onMessage('UPDATE_PASSKEY_LAST_USED', ({ data }) => handleUpdatePasskeyLastUsed(data as { credentialId: string }));
+    onMessage('UPDATE_PASSKEY_LAST_USED', ({ data }) => handleUpdatePasskeyLastUsed(data as { credentialId: string; newSignCount?: number }));
     onMessage('CLEAR_ALL_PASSKEYS', () => handleClearAllPasskeys());
     onMessage('PASSKEY_POPUP_RESPONSE', ({ data }) => handlePasskeyPopupResponse(data as { requestId: string; credential?: any; fallback?: boolean; cancelled?: boolean }));
     onMessage('GET_REQUEST_DATA', ({ data }) => handleGetRequestData(data as { requestId: string }));
