@@ -48,6 +48,10 @@ export async function handleWebAuthnCreate(data: {
   const { publicKey, origin } = data;
   const requestId = Math.random().toString(36).substr(2, 9);
 
+  console.log('handleWebAuthnCreate: requestId', requestId);
+  console.log('handleWebAuthnCreate: origin', origin);
+  console.log('handleWebAuthnCreate: publicKey', publicKey);
+
   // Create popup using main popup with hash navigation
   const popupUrl = browser.runtime.getURL('/popup.html') + '#/passkeys/create?' + new URLSearchParams({
     request: encodeURIComponent(JSON.stringify({

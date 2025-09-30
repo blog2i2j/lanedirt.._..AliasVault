@@ -65,12 +65,12 @@ export default defineBackground({
 
     // Passkey/WebAuthn management messages
     onMessage('GET_WEBAUTHN_SETTINGS', () => handleGetWebAuthnSettings());
-    onMessage('WEBAUTHN_CREATE', ({ data }) => handleWebAuthnCreate(data));
-    onMessage('WEBAUTHN_GET', ({ data }) => handleWebAuthnGet(data));
-    onMessage('STORE_PASSKEY', ({ data }) => handleStorePasskey(data));
-    onMessage('UPDATE_PASSKEY_LAST_USED', ({ data }) => handleUpdatePasskeyLastUsed(data));
+    onMessage('WEBAUTHN_CREATE', ({ data }) => handleWebAuthnCreate(data as { publicKey: unknown; origin: string }));
+    onMessage('WEBAUTHN_GET', ({ data }) => handleWebAuthnGet(data as { publicKey: { allowCredentials?: { id: string; }[] | undefined }; origin: string }));
+    onMessage('STORE_PASSKEY', ({ data }) => handleStorePasskey(data as { rpId: string; credentialId: string; displayName: string; publicKey: unknown }));
+    onMessage('UPDATE_PASSKEY_LAST_USED', ({ data }) => handleUpdatePasskeyLastUsed(data as { credentialId: string }));
     onMessage('CLEAR_ALL_PASSKEYS', () => handleClearAllPasskeys());
-    onMessage('PASSKEY_POPUP_RESPONSE', ({ data }) => handlePasskeyPopupResponse(data));
+    onMessage('PASSKEY_POPUP_RESPONSE', ({ data }) => handlePasskeyPopupResponse(data as { requestId: string; credential?: any; fallback?: boolean; cancelled?: boolean }));
 
     // Initialize passkeys from storage TODO: remove this once proper vault integration is added
     await initializePasskeys();

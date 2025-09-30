@@ -19,7 +19,7 @@ export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
   }
 
   // Listen for WebAuthn create events from the page
-  window.addEventListener('aliasVault:webauthn:create', async (event: any) => {
+  window.addEventListener('aliasvault:webauthn:create', async (event: any) => {
     const { requestId, publicKey, origin } = event.detail;
     console.log('[AliasVault] WebAuthnInterceptor: Received webauthn:create event', { requestId, origin });
 
@@ -33,14 +33,14 @@ export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
       console.log('[AliasVault] WebAuthnInterceptor: Background response for create', result);
 
       // Send response back to page
-      window.dispatchEvent(new CustomEvent('aliasVault:webauthn:create:response', {
+      window.dispatchEvent(new CustomEvent('aliasvault:webauthn:create:response', {
         detail: {
           requestId,
           ...result
         }
       }));
     } catch (error: any) {
-      window.dispatchEvent(new CustomEvent('aliasVault:webauthn:create:response', {
+      window.dispatchEvent(new CustomEvent('aliasvault:webauthn:create:response', {
         detail: {
           requestId,
           error: error.message
@@ -50,7 +50,7 @@ export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
   });
 
   // Listen for WebAuthn get events from the page
-  window.addEventListener('aliasVault:webauthn:get', async (event: any) => {
+  window.addEventListener('aliasvault:webauthn:get', async (event: any) => {
     const { requestId, publicKey, origin } = event.detail;
 
     try {
@@ -61,14 +61,14 @@ export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
       }, 'background');
 
       // Send response back to page
-      window.dispatchEvent(new CustomEvent('aliasVault:webauthn:get:response', {
+      window.dispatchEvent(new CustomEvent('aliasvault:webauthn:get:response', {
         detail: {
           requestId,
           ...result
         }
       }));
     } catch (error: any) {
-      window.dispatchEvent(new CustomEvent('aliasVault:webauthn:get:response', {
+      window.dispatchEvent(new CustomEvent('aliasvault:webauthn:get:response', {
         detail: {
           requestId,
           error: error.message

@@ -56,7 +56,7 @@ export default defineUnlistedScript(() => {
 
     // Send event to content script
     const requestId = Math.random().toString(36).substr(2, 9);
-    const event = new CustomEvent('aliasVault:webauthn:create', {
+    const event = new CustomEvent('aliasvault:webauthn:create', {
       detail: {
         requestId,
         publicKey: {
@@ -90,7 +90,7 @@ export default defineUnlistedScript(() => {
        */
       function cleanup() {
         clearTimeout(timeout);
-        window.removeEventListener('aliasVault:webauthn:create:response', handler);
+        window.removeEventListener('aliasvault:webauthn:create:response', handler);
       }
 
       /**
@@ -127,7 +127,7 @@ export default defineUnlistedScript(() => {
         }
       }
 
-      window.addEventListener('aliasVault:webauthn:create:response', handler);
+      window.addEventListener('aliasvault:webauthn:create:response', handler);
     });
   };
 
@@ -144,7 +144,7 @@ export default defineUnlistedScript(() => {
 
     // Send event to content script
     const requestId = Math.random().toString(36).substr(2, 9);
-    const event = new CustomEvent('aliasVault:webauthn:get', {
+    const event = new CustomEvent('aliasvault:webauthn:get', {
       detail: {
         requestId,
         publicKey: {
@@ -174,7 +174,7 @@ export default defineUnlistedScript(() => {
        */
       function cleanup() {
         clearTimeout(timeout);
-        window.removeEventListener('aliasVault:webauthn:get:response', handler);
+        window.removeEventListener('aliasvault:webauthn:get:response', handler);
       }
 
       /**
@@ -213,7 +213,7 @@ export default defineUnlistedScript(() => {
         }
       }
 
-      window.addEventListener('aliasVault:webauthn:get:response', handler);
+      window.addEventListener('aliasvault:webauthn:get:response', handler);
     });
   };
 

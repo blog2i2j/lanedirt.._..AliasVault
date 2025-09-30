@@ -30,6 +30,8 @@ const PasskeyCreate: React.FC = () => {
     const params = new URLSearchParams(hash.split('?')[1] || '');
     const requestData = params.get('request');
 
+    console.log('PasskeyCreate: useEffect: requestData', requestData);
+
     if (requestData) {
       try {
         const parsed = JSON.parse(decodeURIComponent(requestData));
@@ -44,6 +46,7 @@ const PasskeyCreate: React.FC = () => {
     }
 
     // Mark initial loading as complete
+    console.log('PasskeyCreate: useEffect: setIsInitialLoading(false)');
     setIsInitialLoading(false);
   }, [location, setIsInitialLoading]);
 
