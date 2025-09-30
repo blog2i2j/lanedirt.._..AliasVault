@@ -43,8 +43,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       setIsLoggingOut(true);
-      await webApi.revokeTokens();
-      await auth.clearAuth(errorMessage);
+      webApi.revokeTokens();
+      auth.clearAuth(errorMessage);
       setIsLoggedIn(false);
     } catch (error) {
       console.error('Error during logout:', error);
