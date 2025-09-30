@@ -30,12 +30,16 @@ export default defineUnlistedScript(() => {
     return btoa(binary);
   }
 
-  // Helper to convert base64 to ArrayBuffer
+  // Helper to convert base64/base64url to ArrayBuffer
   /**
    *
    */
   function base64ToBuffer(base64: string): ArrayBuffer {
-    const binary = atob(base64);
+    // Handle both base64 and base64url formats
+    const base64Standard = base64.replace(/-/g, '+').replace(/_/g, '/');
+    // Add padding if needed
+    const padded = base64Standard + '==='.slice((base64Standard.length + 3) % 4);
+    const binary = atob(padded);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) {
       bytes[i] = binary.charCodeAt(i);
@@ -110,17 +114,34 @@ export default defineUnlistedScript(() => {
         } else if (e.detail.error) {
           reject(new Error(e.detail.error));
         } else if (e.detail.credential) {
-          // Mock credential for POC
+          // Create a proper credential object with required methods
           const cred = e.detail.credential;
-          resolve({
+          const credential = {
             id: cred.id,
             type: 'public-key',
             rawId: base64ToBuffer(cred.rawId),
             response: {
               clientDataJSON: base64ToBuffer(cred.clientDataJSON),
-              attestationObject: base64ToBuffer(cred.attestationObject)
+              attestationObject: base64ToBuffer(cred.attestationObject),
+              getTransports() {
+                return ['internal'];
+              },
+              getAuthenticatorData() {
+                // Parse authData from attestation object if needed
+                return new ArrayBuffer(0);
+              },
+              getPublicKey() {
+                return null;
+              },
+              getPublicKeyAlgorithm() {
+                return -7; // ES256
+              }
+            },
+            getClientExtensionResults() {
+              return {};
             }
-          } as any);
+          };
+          resolve(credential as any);
         } else {
           // Cancelled
           resolve(null);
@@ -195,9 +216,9 @@ export default defineUnlistedScript(() => {
         } else if (e.detail.error) {
           reject(new Error(e.detail.error));
         } else if (e.detail.credential) {
-          // Mock credential for POC
+          // Create a proper credential object with required methods
           const cred = e.detail.credential;
-          resolve({
+          const credential = {
             id: cred.id,
             type: 'public-key',
             rawId: base64ToBuffer(cred.rawId),
@@ -206,8 +227,12 @@ export default defineUnlistedScript(() => {
               authenticatorData: base64ToBuffer(cred.authenticatorData),
               signature: base64ToBuffer(cred.signature),
               userHandle: cred.userHandle ? base64ToBuffer(cred.userHandle) : null
+            },
+            getClientExtensionResults() {
+              return {};
             }
-          } as any);
+          };
+          resolve(credential as any);
         } else {
           // Cancelled
           resolve(null);

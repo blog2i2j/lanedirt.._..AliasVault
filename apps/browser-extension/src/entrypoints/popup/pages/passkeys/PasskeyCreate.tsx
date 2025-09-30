@@ -25,30 +25,37 @@ const PasskeyCreate: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    console.log(location);
-    // Get the request data from hash (format: #/passkeys/create?request=...)
-    const params = new URLSearchParams(location.search);
-    const requestData = params.get('request');
+    const fetchRequestData = async () => {
+      console.log(location);
+      // Get the requestId from URL
+      const params = new URLSearchParams(location.search);
+      const requestId = params.get('requestId');
 
-    console.log('PasskeyCreate: useEffect: requestData', requestData);
+      console.log('PasskeyCreate: requestId', requestId);
 
-    if (requestData) {
-      try {
-        const parsed = JSON.parse(decodeURIComponent(requestData));
-        setRequest(parsed);
-        console.log('Parsed request data:', parsed);
+      if (requestId) {
+        try {
+          // Fetch the full request data from background
+          const data = await sendMessage('GET_REQUEST_DATA', { requestId }, 'background');
+          console.log('PasskeyCreate: fetched request data', data);
+          if (data) {
+            setRequest(data);
 
-        if (parsed.publicKey?.user?.displayName) {
-          setDisplayName(parsed.publicKey.user.displayName);
+            if (data.publicKey?.user?.displayName) {
+              setDisplayName(data.publicKey.user.displayName);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch request data:', error);
         }
-      } catch (error) {
-        console.error('Failed to parse request data:', error);
       }
-    }
 
-    // Mark initial loading as complete
-    console.log('PasskeyCreate: useEffect: setIsInitialLoading(false)');
-    setIsInitialLoading(false);
+      // Mark initial loading as complete
+      console.log('PasskeyCreate: useEffect: setIsInitialLoading(false)');
+      setIsInitialLoading(false);
+    };
+
+    fetchRequestData();
   }, [location, setIsInitialLoading]);
 
   /**
@@ -61,8 +68,100 @@ const PasskeyCreate: React.FC = () => {
 
     setLoading(true);
 
-    // Generate mock credential for POC
-    const credentialId = btoa(Math.random().toString());
+    // Generate a real cryptographic key pair
+    const keyPair = await crypto.subtle.generateKey(
+      {
+        name: 'ECDSA',
+        namedCurve: 'P-256'
+      },
+      true, // extractable
+      ['sign', 'verify']
+    );
+
+    // Export the public key
+    const publicKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
+    const privateKeyJwk = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
+
+    // Generate credential ID
+    const credIdBytes = crypto.getRandomValues(new Uint8Array(16));
+    // Convert to base64url (WebAuthn uses base64url, not standard base64)
+    const base64 = btoa(String.fromCharCode(...credIdBytes));
+    const credentialId = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+
+    // Calculate rpId hash (SHA-256 of rpId)
+    const rpId = request.publicKey.rp?.id || new URL(request.origin).hostname;
+    const rpIdBuffer = new TextEncoder().encode(rpId);
+    const rpIdHashBuffer = await crypto.subtle.digest('SHA-256', rpIdBuffer);
+    const rpIdHash = new Uint8Array(rpIdHashBuffer);
+
+    // Flags: UP (User Present) = 1, UV (User Verified) = 1, AT (Attested Credential Data) = 1
+    const flags = new Uint8Array([0x45]); // Binary: 01000101
+    const signCount = new Uint8Array([0, 0, 0, 0]);
+    const aaguid = new Uint8Array(16); // All zeros for this implementation
+
+    // Convert JWK coordinates from base64url to bytes for COSE format
+    const base64UrlToBytes = (base64url: string): Uint8Array => {
+      const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+      const binary = atob(base64);
+      return new Uint8Array(binary.split('').map(c => c.charCodeAt(0)));
+    };
+
+    const xCoord = base64UrlToBytes(publicKeyJwk.x!);
+    const yCoord = base64UrlToBytes(publicKeyJwk.y!);
+
+    // COSE public key (ES256 format) - proper CBOR encoding
+    // Map with 5 entries: kty, alg, crv, x, y
+    const coseKey = new Uint8Array([
+      0xa5, // map(5)
+      0x01, // key 1 (kty)
+      0x02, // value: 2 (EC2)
+      0x03, // key 3 (alg)
+      0x26, // value: -7 (ES256) encoded as negative int
+      0x20, // key -1 (crv) encoded as negative int
+      0x01, // value: 1 (P-256)
+      0x21, // key -2 (x) encoded as negative int
+      0x58, 0x20, // byte string of length 32
+      ...xCoord, // x coordinate (32 bytes)
+      0x22, // key -3 (y) encoded as negative int
+      0x58, 0x20, // byte string of length 32
+      ...yCoord  // y coordinate (32 bytes)
+    ]);
+
+    // Construct authData
+    const credIdLength = new Uint8Array([0, credIdBytes.length]);
+    const authData = new Uint8Array([
+      ...rpIdHash,
+      ...flags,
+      ...signCount,
+      ...aaguid,
+      ...credIdLength,
+      ...credIdBytes,
+      ...coseKey
+    ]);
+
+    // CBOR encode attestation object: {fmt: "none", authData: bytes, attStmt: {}}
+    // Need to properly encode the authData length as a CBOR byte string
+    let authDataLengthBytes: number[];
+    if (authData.length <= 23) {
+      authDataLengthBytes = [0x40 | authData.length];
+    } else if (authData.length <= 255) {
+      authDataLengthBytes = [0x58, authData.length];
+    } else {
+      authDataLengthBytes = [0x59, authData.length >> 8, authData.length & 0xff];
+    }
+
+    // CBOR map keys must be in canonical order (sorted by byte length, then lexicographically)
+    // Order: "fmt" (3 chars), "attStmt" (7 chars), "authData" (8 chars)
+    const attestationObject = new Uint8Array([
+      0xa3, // map(3)
+      0x63, 0x66, 0x6d, 0x74, // "fmt" (text(3))
+      0x64, 0x6e, 0x6f, 0x6e, 0x65, // "none" (text(4))
+      0x67, 0x61, 0x74, 0x74, 0x53, 0x74, 0x6d, 0x74, // "attStmt" (text(7))
+      0xa0, // map(0) - empty map
+      0x68, 0x61, 0x75, 0x74, 0x68, 0x44, 0x61, 0x74, 0x61, // "authData" (text(8))
+      ...authDataLengthBytes, ...authData // byte string with proper length encoding
+    ]);
+
     const credential = {
       id: credentialId,
       rawId: credentialId,
@@ -71,16 +170,17 @@ const PasskeyCreate: React.FC = () => {
         challenge: request.publicKey.challenge,
         origin: request.origin
       })),
-      attestationObject: btoa('mock_attestation_object')
+      attestationObject: btoa(String.fromCharCode(...attestationObject))
     };
 
-    // Store passkey
+    // Store passkey with the private key for future authentication
     await sendMessage('STORE_PASSKEY', {
-      rpId: request.origin,
+      rpId,
       credentialId,
       displayName,
-      publicKey: request.publicKey
-    }, 'background');
+      publicKey: publicKeyJwk as JsonWebKey,
+      privateKey: privateKeyJwk as JsonWebKey
+    } as any, 'background');
 
     // Send response back
     await sendMessage('PASSKEY_POPUP_RESPONSE', {

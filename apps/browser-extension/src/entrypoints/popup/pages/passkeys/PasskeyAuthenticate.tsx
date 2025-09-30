@@ -29,21 +29,43 @@ const PasskeyAuthenticate: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Get the request data from hash (format: #/passkeys/authenticate?request=...)
-    const params = new URLSearchParams(location.search);
-    const requestData = params.get('request');
+    const fetchRequestData = async () => {
+      // Get the requestId from URL
+      const params = new URLSearchParams(location.search);
+      const requestId = params.get('requestId');
 
-    if (requestData) {
-      try {
-        const parsed = JSON.parse(decodeURIComponent(requestData));
-        setRequest(parsed);
-      } catch (error) {
-        console.error('Failed to parse request data:', error);
+      if (requestId) {
+        try {
+          // Fetch the full request data from background
+          const response = await sendMessage('GET_REQUEST_DATA', { requestId }, 'background');
+          console.log('PasskeyAuthenticate: full response', response);
+          console.log('PasskeyAuthenticate: response type', typeof response);
+          const keys = response ? Object.keys(response) : [];
+          console.log('PasskeyAuthenticate: response keys', keys);
+          keys.forEach(key => {
+            console.log(`PasskeyAuthenticate: ${key} =`, (response as any)[key]);
+          });
+
+          // The response might be wrapped in a data property
+          const data = response;
+          console.log('PasskeyAuthenticate: request data', data);
+          console.log('PasskeyAuthenticate: passkeys', data?.passkeys);
+          console.log('PasskeyAuthenticate: passkeys is array?', Array.isArray(data?.passkeys));
+          console.log('PasskeyAuthenticate: passkeys length', data?.passkeys?.length);
+
+          if (data) {
+            setRequest(data);
+          }
+        } catch (error) {
+          console.error('Failed to fetch request data:', error);
+        }
       }
-    }
 
-    // Mark initial loading as complete
-    setIsInitialLoading(false);
+      // Mark initial loading as complete
+      setIsInitialLoading(false);
+    };
+
+    fetchRequestData();
   }, [location, setIsInitialLoading]);
 
   /**
@@ -56,18 +78,103 @@ const PasskeyAuthenticate: React.FC = () => {
 
     setLoading(true);
 
-    // Generate mock assertion for POC
+    // Get the stored passkey to access the private key
+    const passkeyData = await sendMessage('GET_PASSKEY_BY_ID', { credentialId: selectedPasskey }, 'background');
+
+    if (!passkeyData) {
+      console.error('Passkey not found');
+      setLoading(false);
+      return;
+    }
+
+    // Calculate rpId hash
+    const rpId = request.publicKey.rpId || new URL(request.origin).hostname;
+    const rpIdBuffer = new TextEncoder().encode(rpId);
+    const rpIdHashBuffer = await crypto.subtle.digest('SHA-256', rpIdBuffer);
+    const rpIdHash = new Uint8Array(rpIdHashBuffer);
+
+    // Flags: UP (User Present) = 1, UV (User Verified) = 1
+    const flags = new Uint8Array([0x05]); // Binary: 00000101
+
+    // Sign count (increment on each use)
+    const signCount = new Uint8Array([0, 0, 0, 1]);
+
+    // Construct authenticatorData (37 bytes minimum)
+    const authenticatorData = new Uint8Array([
+      ...rpIdHash,    // 32 bytes
+      ...flags,       // 1 byte
+      ...signCount    // 4 bytes
+    ]);
+
+    // Create clientDataJSON
+    const clientDataJSON = JSON.stringify({
+      type: 'webauthn.get',
+      challenge: request.publicKey.challenge,
+      origin: request.origin
+    });
+
+    // Create signature over authenticatorData + hash(clientDataJSON)
+    const clientDataHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(clientDataJSON));
+    const dataToSign = new Uint8Array([...authenticatorData, ...new Uint8Array(clientDataHash)]);
+
+    // Import the private key and sign
+    const privateKey = await crypto.subtle.importKey(
+      'jwk',
+      passkeyData.privateKey,
+      { name: 'ECDSA', namedCurve: 'P-256' },
+      false,
+      ['sign']
+    );
+
+    const signatureBuffer = await crypto.subtle.sign(
+      { name: 'ECDSA', hash: 'SHA-256' },
+      privateKey,
+      dataToSign
+    );
+
+    // Convert raw signature (r || s) to DER format for WebAuthn
+    const rawSignature = new Uint8Array(signatureBuffer);
+    const r = rawSignature.slice(0, 32);
+    const s = rawSignature.slice(32, 64);
+
+    // Helper to encode integer in DER format
+    const encodeInteger = (int: Uint8Array): Uint8Array => {
+      // Remove leading zeros
+      let i = 0;
+      while (i < int.length && int[i] === 0) i++;
+      let trimmed = int.slice(i);
+
+      // Add leading zero if high bit is set (to keep it positive)
+      if (trimmed.length === 0) trimmed = new Uint8Array([0]);
+      if (trimmed[0] & 0x80) {
+        const padded = new Uint8Array(trimmed.length + 1);
+        padded[0] = 0;
+        padded.set(trimmed, 1);
+        trimmed = padded;
+      }
+
+      // DER encoding: 0x02 (INTEGER tag) + length + value
+      return new Uint8Array([0x02, trimmed.length, ...trimmed]);
+    };
+
+    const rDer = encodeInteger(r);
+    const sDer = encodeInteger(s);
+
+    // DER SEQUENCE: 0x30 (SEQUENCE tag) + length + r + s
+    const derSignature = new Uint8Array([
+      0x30,
+      rDer.length + sDer.length,
+      ...rDer,
+      ...sDer
+    ]);
+
     const credential = {
       id: selectedPasskey,
       rawId: selectedPasskey,
-      clientDataJSON: btoa(JSON.stringify({
-        type: 'webauthn.get',
-        challenge: request.publicKey.challenge,
-        origin: request.origin
-      })),
-      authenticatorData: btoa('mock_authenticator_data'),
-      signature: btoa('mock_signature'),
-      userHandle: btoa('user_handle')
+      clientDataJSON: btoa(clientDataJSON),
+      authenticatorData: btoa(String.fromCharCode(...authenticatorData)),
+      signature: btoa(String.fromCharCode(...derSignature)),
+      userHandle: null
     };
 
     // Update last used

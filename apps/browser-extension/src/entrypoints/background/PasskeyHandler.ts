@@ -10,7 +10,8 @@ interface IPasskeyData {
   rpId: string;
   credentialId: string;
   displayName: string;
-  publicKey: unknown;
+  publicKey: JsonWebKey;
+  privateKey: JsonWebKey;
   createdAt: number;
   updatedAt: number;
   lastUsedAt: number | null;
@@ -25,6 +26,9 @@ const pendingRequests = new Map<string, {
   resolve: (value: any) => void;
   reject: (error: any) => void;
 }>();
+
+// Store request data temporarily (to avoid URL length limits)
+const pendingRequestData = new Map<string, any>();
 
 /**
  * Handle WebAuthn settings request
@@ -52,14 +56,18 @@ export async function handleWebAuthnCreate(data: {
   console.log('handleWebAuthnCreate: origin', origin);
   console.log('handleWebAuthnCreate: publicKey', publicKey);
 
-  // Create popup using main popup with hash navigation
+  // Store request data temporarily (to avoid URL length limits)
+  const requestData = {
+    type: 'create',
+    requestId,
+    origin,
+    publicKey
+  };
+  pendingRequestData.set(requestId, requestData);
+
+  // Create popup using main popup with hash navigation - only pass requestId
   const popupUrl = browser.runtime.getURL('/popup.html') + '#/passkeys/create?' + new URLSearchParams({
-    request: encodeURIComponent(JSON.stringify({
-      type: 'create',
-      requestId,
-      origin,
-      publicKey
-    }))
+    requestId
   }).toString();
 
   try {
@@ -114,30 +122,62 @@ export async function handleWebAuthnGet(data: {
   const requestId = Math.random().toString(36).substr(2, 9);
 
   // Get passkeys for this origin
+  console.log('handleWebAuthnGet: origin', origin);
+  console.log('handleWebAuthnGet: all passkeys', Array.from(sessionPasskeys.entries()));
   const passkeys = getPasskeysForOrigin(origin);
+  console.log('handleWebAuthnGet: found passkeys', passkeys);
 
   // Filter by allowCredentials if specified
   let filteredPasskeys = passkeys;
+  console.log('handleWebAuthnGet: before filter, passkeys count', passkeys.length);
+  console.log('handleWebAuthnGet: allowCredentials', publicKey.allowCredentials);
+
   if (publicKey.allowCredentials && publicKey.allowCredentials.length > 0) {
     const allowedIds = new Set(publicKey.allowCredentials.map(c => c.id));
-    filteredPasskeys = passkeys.filter(pk => allowedIds.has(pk.credentialId));
+    console.log('handleWebAuthnGet: allowedIds', Array.from(allowedIds));
+    filteredPasskeys = passkeys.filter(pk => {
+      const matches = allowedIds.has(pk.credentialId);
+      console.log('handleWebAuthnGet: checking', pk.credentialId, 'matches?', matches);
+      return matches;
+    });
+    console.log('handleWebAuthnGet: after filter, filteredPasskeys count', filteredPasskeys.length);
   }
 
-  const passkeyList = filteredPasskeys.map(pk => ({
+  let passkeyList = filteredPasskeys.map(pk => ({
     id: pk.credentialId,
     displayName: pk.displayName,
     lastUsed: pk.lastUsedAt ? new Date(pk.lastUsedAt).toLocaleDateString() : null
   }));
+  console.log('handleWebAuthnGet: final passkeyList', passkeyList);
 
-  // Create popup using main popup with hash navigation
+  // If allowCredentials was specified but we have no matches, show all passkeys anyway
+  // (This is what password managers do - they show their own passkeys even if the site
+  // doesn't explicitly request them, allowing users to use extension passkeys)
+  if (passkeyList.length === 0 && passkeys.length > 0) {
+    console.log('handleWebAuthnGet: no matching allowCredentials, showing all passkeys instead');
+    passkeyList = passkeys.map(pk => ({
+      id: pk.credentialId,
+      displayName: pk.displayName,
+      lastUsed: pk.lastUsedAt ? new Date(pk.lastUsedAt).toLocaleDateString() : null
+    }));
+  }
+
+  // Store request data temporarily (to avoid URL length limits)
+  const requestData = {
+    type: 'get',
+    requestId,
+    origin,
+    publicKey,
+    passkeys: passkeyList
+  };
+  console.log('handleWebAuthnGet: storing request data', requestData);
+  console.log('handleWebAuthnGet: passkeyList length', passkeyList.length);
+  pendingRequestData.set(requestId, requestData);
+  console.log('handleWebAuthnGet: stored in map, map size', pendingRequestData.size);
+
+  // Create popup using main popup with hash navigation - only pass requestId
   const popupUrl = browser.runtime.getURL('/popup.html') + '#/passkeys/authenticate?' + new URLSearchParams({
-    request: encodeURIComponent(JSON.stringify({
-      type: 'get',
-      requestId,
-      origin,
-      publicKey,
-      passkeys: passkeyList
-    }))
+    requestId
   }).toString();
 
   try {
@@ -182,16 +222,18 @@ export async function handleStorePasskey(data: {
   rpId: string;
   credentialId: string;
   displayName: string;
-  publicKey: unknown;
+  publicKey: JsonWebKey;
+  privateKey: JsonWebKey;
 }): Promise<{ success: boolean }> {
-  const { rpId, credentialId, displayName, publicKey } = data;
+  const { rpId, credentialId, displayName, publicKey, privateKey } = data;
 
   const passkey: IPasskeyData = {
     id: Date.now().toString(),
-    rpId: rpId.replace(/^https?:\/\//, '').split('/')[0], // Extract domain
+    rpId, // Already processed by the popup, no need to extract domain again
     credentialId,
     displayName,
     publicKey,
+    privateKey,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     lastUsedAt: null,
@@ -246,14 +288,17 @@ export async function handleUpdatePasskeyLastUsed(data: {
  */
 function getPasskeysForOrigin(origin: string): IPasskeyData[] {
   const rpId = origin.replace(/^https?:\/\//, '').split('/')[0];
+  console.log('getPasskeysForOrigin: searching for rpId', rpId);
   const passkeys: IPasskeyData[] = [];
 
-  for (const [_key, passkey] of sessionPasskeys.entries()) {
+  for (const [key, passkey] of sessionPasskeys.entries()) {
+    console.log('getPasskeysForOrigin: checking passkey', key, passkey.rpId);
     if (passkey.rpId === rpId || passkey.rpId === `.${rpId}`) {
       passkeys.push(passkey);
     }
   }
 
+  console.log('getPasskeysForOrigin: found', passkeys.length, 'passkeys');
   return passkeys;
 }
 
@@ -297,6 +342,35 @@ export async function handlePasskeyPopupResponse(data: {
   }
 
   return { success: true };
+}
+
+/**
+ * Get passkey by credential ID
+ */
+export async function handleGetPasskeyById(data: { credentialId: string }): Promise<IPasskeyData | null> {
+  const { credentialId } = data;
+
+  for (const [_key, passkey] of sessionPasskeys.entries()) {
+    if (passkey.credentialId === credentialId) {
+      return passkey;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Get request data by request ID
+ */
+export async function handleGetRequestData(data: { requestId: string }): Promise<any> {
+  const { requestId } = data;
+  console.log('handleGetRequestData: requestId', requestId);
+  console.log('handleGetRequestData: map size', pendingRequestData.size);
+  console.log('handleGetRequestData: map keys', Array.from(pendingRequestData.keys()));
+  const requestData = pendingRequestData.get(requestId);
+  console.log('handleGetRequestData: found data', requestData);
+  console.log('handleGetRequestData: passkeys in data', requestData?.passkeys);
+  return requestData || null;
 }
 
 /**
