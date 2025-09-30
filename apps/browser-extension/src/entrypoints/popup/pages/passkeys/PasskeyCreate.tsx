@@ -25,9 +25,9 @@ const PasskeyCreate: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Get the request data from hash
-    const hash = location.hash.substring(1); // Remove '#'
-    const params = new URLSearchParams(hash.split('?')[1] || '');
+    console.log(location);
+    // Get the request data from hash (format: #/passkeys/create?request=...)
+    const params = new URLSearchParams(location.search);
     const requestData = params.get('request');
 
     console.log('PasskeyCreate: useEffect: requestData', requestData);
@@ -36,6 +36,7 @@ const PasskeyCreate: React.FC = () => {
       try {
         const parsed = JSON.parse(decodeURIComponent(requestData));
         setRequest(parsed);
+        console.log('Parsed request data:', parsed);
 
         if (parsed.publicKey?.user?.displayName) {
           setDisplayName(parsed.publicKey.user.displayName);
