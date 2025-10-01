@@ -258,25 +258,19 @@ export async function handleStorePasskey(data: {
 }
 
 /**
- * Update passkey last used time and sign count
+ * Update passkey last used time (sign count always remains 0 for cross-device sync compatibility)
  */
 export async function handleUpdatePasskeyLastUsed(data: {
   credentialId: string;
-  newSignCount?: number;
 }): Promise<{ success: boolean }> {
-  const { credentialId, newSignCount } = data;
+  const { credentialId } = data;
 
   // Find and update the passkey
   for (const [key, passkey] of sessionPasskeys.entries()) {
     if (passkey.credentialId === credentialId) {
       passkey.lastUsedAt = Date.now();
-
-      // Update sign count - either use provided value or increment
-      if (newSignCount !== undefined) {
-        passkey.signCount = newSignCount;
-      } else {
-        passkey.signCount++;
-      }
+      // Sign count always remains 0 for cross-device sync compatibility
+      passkey.signCount = 0;
 
       sessionPasskeys.set(key, passkey);
 

@@ -103,6 +103,7 @@ const PasskeyCreate: React.FC = () => {
 
       // Flags: UP (User Present) = 1, UV (User Verified) = 1, AT (Attested Credential Data) = 1
       const flags = new Uint8Array([0x45]); // Binary: 01000101
+      // Sign count always 0 - disabled to ensure compatibility when syncing passkeys across devices
       const signCount = new Uint8Array([0, 0, 0, 0]);
       const aaguid = new Uint8Array(16); // All zeros for this implementation
 

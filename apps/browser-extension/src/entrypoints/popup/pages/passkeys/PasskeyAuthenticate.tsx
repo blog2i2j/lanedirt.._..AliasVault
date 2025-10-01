@@ -104,14 +104,8 @@ const PasskeyAuthenticate: React.FC = () => {
       // Flags: UP (User Present) = 1, UV (User Verified) = 1
       const flags = new Uint8Array([0x05]); // Binary: 00000101
 
-      // Sign count - increment from stored value (must increase on each use to detect cloned authenticators)
-      const newSignCount = (passkeyData.signCount || 0) + 1;
-      const signCount = new Uint8Array([
-        (newSignCount >> 24) & 0xff,
-        (newSignCount >> 16) & 0xff,
-        (newSignCount >> 8) & 0xff,
-        newSignCount & 0xff
-      ]);
+      // Sign count always 0 - disabled to ensure compatibility when syncing passkeys across devices
+      const signCount = new Uint8Array([0, 0, 0, 0]);
 
       // Construct authenticatorData (37 bytes minimum)
       const authenticatorData = new Uint8Array([
@@ -195,10 +189,9 @@ const PasskeyAuthenticate: React.FC = () => {
         userHandle: null
       };
 
-      // Update last used and sign count
+      // Update last used timestamp
       await sendMessage('UPDATE_PASSKEY_LAST_USED', {
-        credentialId: selectedPasskey,
-        newSignCount
+        credentialId: selectedPasskey
       }, 'background');
 
       // Send response back
