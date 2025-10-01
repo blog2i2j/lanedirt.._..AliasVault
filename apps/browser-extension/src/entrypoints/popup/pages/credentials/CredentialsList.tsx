@@ -72,7 +72,6 @@ const CredentialsList: React.FC = () => {
          */
         onError: async (error) => {
           console.error('Error syncing vault:', error);
-          await app.logout('Error while syncing vault, please re-authenticate.');
         },
       });
     } catch (err) {

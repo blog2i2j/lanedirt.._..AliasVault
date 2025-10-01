@@ -42,20 +42,29 @@ const Unlock: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const { showLoading, hideLoading, setIsInitialLoading } = useLoading();
 
-  useEffect(() => {
-    /**
-     * Make status call to API which acts as health check.
-     * This runs only once during component mount.
-     */
-    const checkStatus = async () : Promise<void> => {
-      const statusResponse = await webApi.getStatus();
-      const statusError = webApi.validateStatusResponse(statusResponse);
-      if (statusError !== null) {
-        await app.logout(t('common.errors.' + statusError));
-      }
-      setIsInitialLoading(false);
-    };
+  /**
+   * Make status call to API which acts as health check.
+   * This runs only once during component mount.
+   */
+  const checkStatus = async () : Promise<boolean> => {
+    const statusResponse = await webApi.getStatus();
+    const statusError = webApi.validateStatusResponse(statusResponse);
 
+    if (statusResponse.serverVersion === '0.0.0') {
+      setError(t('common.errors.serverNotAvailable'));
+      return false;
+    }
+
+    if (statusError !== null) {
+      await app.logout(t('common.errors.' + statusError));
+      return false;
+    }
+
+    setIsInitialLoading(false);
+    return true;
+  };
+
+  useEffect(() => {
     checkStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
@@ -84,6 +93,12 @@ const Unlock: React.FC = () => {
     e.preventDefault();
     setError(null);
     showLoading();
+
+    const isStatusOk = await checkStatus();
+    if (!isStatusOk) {
+      hideLoading();
+      return;
+    }
 
     try {
       // 1. Initiate login to get salt and server ephemeral

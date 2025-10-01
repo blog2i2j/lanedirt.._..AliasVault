@@ -74,7 +74,9 @@ export const useVaultSync = () : {
 
       // Check if server is actually available, 0.0.0 indicates connection error which triggers offline mode.
       if (statusResponse.serverVersion === '0.0.0') {
-        // Offline mode is not implemented for browser extension yet, let it fail below due to the validateStatusResponse check.
+        // Offline mode is not implemented for browser extension yet, so logout the user.
+        onError?.(t('common.errors.serverNotAvailable'));
+        return false;
       }
 
       const statusError = webApi.validateStatusResponse(statusResponse);
