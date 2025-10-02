@@ -95,6 +95,7 @@ export async function handleWebAuthnCreate(data: {
           clearInterval(checkClosed);
           if (pendingRequests.has(requestId)) {
             pendingRequests.delete(requestId);
+            pendingRequestData.delete(requestId);
             resolve({ cancelled: true });
           }
         }
@@ -123,14 +124,10 @@ export async function handleWebAuthnGet(data: {
 
   // Get passkeys for this origin
   console.log('handleWebAuthnGet: origin', origin);
-  console.log('handleWebAuthnGet: all passkeys', Array.from(sessionPasskeys.entries()));
   const passkeys = getPasskeysForOrigin(origin);
-  console.log('handleWebAuthnGet: found passkeys', passkeys);
 
   // Filter by allowCredentials if specified
   let filteredPasskeys = passkeys;
-  console.log('handleWebAuthnGet: before filter, passkeys count', passkeys.length);
-  console.log('handleWebAuthnGet: allowCredentials', publicKey.allowCredentials);
 
   if (publicKey.allowCredentials && publicKey.allowCredentials.length > 0) {
     const allowedIds = new Set(publicKey.allowCredentials.map(c => c.id));
@@ -172,10 +169,7 @@ export async function handleWebAuthnGet(data: {
     publicKey,
     passkeys: passkeyList
   };
-  console.log('handleWebAuthnGet: storing request data', requestData);
-  console.log('handleWebAuthnGet: passkeyList length', passkeyList.length);
   pendingRequestData.set(requestId, requestData);
-  console.log('handleWebAuthnGet: stored in map, map size', pendingRequestData.size);
 
   // Create popup using main popup with hash navigation - only pass requestId
   const popupUrl = browser.runtime.getURL('/popup.html') + '#/passkeys/authenticate?' + new URLSearchParams({
@@ -207,6 +201,7 @@ export async function handleWebAuthnGet(data: {
           clearInterval(checkClosed);
           if (pendingRequests.has(requestId)) {
             pendingRequests.delete(requestId);
+            pendingRequestData.delete(requestId);
             resolve({ cancelled: true });
           }
         }
@@ -320,17 +315,14 @@ export async function handleUpdatePasskeyLastUsed(data: {
  */
 function getPasskeysForOrigin(origin: string): IPasskeyData[] {
   const rpId = origin.replace(/^https?:\/\//, '').split('/')[0];
-  console.log('getPasskeysForOrigin: searching for rpId', rpId);
   const passkeys: IPasskeyData[] = [];
 
   for (const [key, passkey] of sessionPasskeys.entries()) {
-    console.log('getPasskeysForOrigin: checking passkey', key, passkey.rpId);
     if (passkey.rpId === rpId || passkey.rpId === `.${rpId}`) {
       passkeys.push(passkey);
     }
   }
 
-  console.log('getPasskeysForOrigin: found', passkeys.length, 'passkeys');
   return passkeys;
 }
 
@@ -383,7 +375,9 @@ export async function handlePasskeyPopupResponse(data: {
     return { success: false };
   }
 
+  // Clean up both maps
   pendingRequests.delete(requestId);
+  pendingRequestData.delete(requestId);
 
   if (cancelled) {
     request.resolve({ cancelled: true });
@@ -419,6 +413,7 @@ export async function handleGetPasskeyById(data: { credentialId: string }): Prom
 export async function handleGetRequestData(data: { requestId: string }): Promise<any> {
   const { requestId } = data;
   console.log('handleGetRequestData: requestId', requestId);
+  console.log('handleGetRequestData: pendingRequestData', pendingRequestData);
   console.log('handleGetRequestData: map size', pendingRequestData.size);
   console.log('handleGetRequestData: map keys', Array.from(pendingRequestData.keys()));
   const requestData = pendingRequestData.get(requestId);
