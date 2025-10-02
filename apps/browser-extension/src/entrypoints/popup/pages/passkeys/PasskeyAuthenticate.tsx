@@ -7,7 +7,7 @@ import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 
 import { AliasVaultPasskeyProvider } from '@/utils/passkey/AliasVaultPasskeyProvider';
-import type { GetRequest, StoredPasskeyRecord } from '@/utils/passkey/types';
+import type { GetRequest, StoredPasskeyRecord, PasskeyGetCredentialResponse } from '@/utils/passkey/types';
 
 interface IPasskeyRequest {
   type: 'get';
@@ -112,7 +112,7 @@ const PasskeyAuthenticate: React.FC = () => {
       };
 
       // Get the assertion using the provider
-      const credential = await provider.getAssertion(getRequest, credentialId, {
+      const credential: PasskeyGetCredentialResponse = await provider.getAssertion(getRequest, credentialId, {
         uvPerformed: true, // Set to true if you implement actual user verification
         includeBEBS: true   // Include backup-eligible and backup-state flags
       });

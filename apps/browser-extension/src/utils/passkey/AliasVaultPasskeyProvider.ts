@@ -109,7 +109,7 @@ export class AliasVaultPasskeyProvider {
     const authenticatorData = this.concat(rpIdHash, new Uint8Array([flags]), signCount, attestedCredData);
 
     // 9) clientDataJSON (stringify with challenge as base64url)
-    const challengeB64u = this.asB64u(req.publicKey.challenge);
+    const challengeB64u = this.challengeToB64u(req.publicKey.challenge);
     const clientDataObj = {
       type: 'webauthn.create',
       challenge: challengeB64u,
@@ -127,12 +127,18 @@ export class AliasVaultPasskeyProvider {
         : await this.buildAttObjPackedSelf(authenticatorData, clientDataJSONBytes, keyPair.privateKey);
 
     // 11) Store the passkey in your vault (so it can be used later for authentication)
+    // Normalize userId to base64url string for consistent storage and later retrieval
+    let userIdB64u: string | null = null;
+    if (req.publicKey.user?.id) {
+      userIdB64u = this.userIdToB64u(req.publicKey.user.id);
+    }
+
     const stored: StoredPasskeyRecord = {
       rpId,
       credentialId: credentialIdB64u,
       publicKey: pubJwk,
       privateKey: prvJwk,
-      userId: req.publicKey.user?.id ?? null,
+      userId: userIdB64u,
       userName: req.publicKey.user?.name,
       userDisplayName: req.publicKey.user?.displayName,
       lastUsedAt: Date.now()
@@ -204,7 +210,7 @@ export class AliasVaultPasskeyProvider {
     const authenticatorData = this.concat(rpIdHash, new Uint8Array([flags]), signCount);
 
     // 5) clientDataJSON
-    const challengeB64u = this.asB64u(req.publicKey.challenge);
+    const challengeB64u = this.challengeToB64u(req.publicKey.challenge);
     const clientDataObj = {
       type: 'webauthn.get',
       challenge: challengeB64u,
@@ -232,19 +238,23 @@ export class AliasVaultPasskeyProvider {
     // 7) Convert raw (r|s) to DER sequence
     const derSig = this.ecdsaRawToDer(rawSig);
 
-    /*
-     * (Optional) Update last used timestamp in your own layer
-     * (not done here; call a provided callback if you like)
-     */
+    // 8) Encode userHandle (userId) as base64 if present
+    // This is required for discoverable credentials (resident keys) where the RP doesn't ask for a username first
+    // userId is stored as base64url, convert to base64 for WebAuthn response
+    let userHandleB64: string | null = null;
+    if (rec.userId) {
+      const userIdBytes = this.fromB64u(rec.userId);
+      userHandleB64 = this.toB64(userIdBytes);
+    }
 
-    // 8) Return object in the flat shape (base64 strings), as your client example expects
+    // 9) Return object in the flat shape (base64 strings), as your client example expects
     return {
       id: credentialIdB64u,
       rawId: credentialIdB64u,
       clientDataJSON: this.toB64(clientDataJSONBytes),
       authenticatorData: this.toB64(authenticatorData),
       signature: this.toB64(derSig),
-      userHandle: null // optionally encode/stash rec.userId and return as base64 if needed
+      userHandle: userHandleB64
     };
   }
 
@@ -430,13 +440,39 @@ export class AliasVaultPasskeyProvider {
     return out;
   }
 
-  /** Normalize unknown challenge types to base64url string. */
-  private asB64u(challenge: ArrayBuffer | Uint8Array | string): string {
+  /**
+   * Normalize challenge to base64url string.
+   * Challenges from the web page are already base64url encoded by the injection script.
+   * Only ArrayBuffer/Uint8Array need conversion.
+   */
+  private challengeToB64u(challenge: ArrayBuffer | Uint8Array | string): string {
     if (typeof challenge === 'string') {
-      // Assume already base64url. If you need robustness, validate and convert if not.
+      // Already base64url from injection script - use as-is
       return challenge;
     }
     const bytes = challenge instanceof Uint8Array ? challenge : new Uint8Array(challenge);
+    return this.toB64u(bytes);
+  }
+
+  /**
+   * Normalize userId to base64url string.
+   * userId can be:
+   * - ArrayBuffer/Uint8Array from WebAuthn API (needs encoding)
+   * - Plain UTF-8 string from test/simple cases (needs encoding)
+   * - Already base64url encoded string (use as-is)
+   */
+  private userIdToB64u(userId: ArrayBuffer | Uint8Array | string): string {
+    if (typeof userId === 'string') {
+      // Check if it's already base64url (contains only valid base64url chars)
+      if (/^[A-Za-z0-9_-]+$/.test(userId) && userId.length % 4 !== 1) {
+        // Looks like base64url already (and not an invalid length)
+        return userId;
+      } else {
+        // Plain UTF-8 string, encode it
+        return this.toB64u(this.te(userId));
+      }
+    }
+    const bytes = userId instanceof Uint8Array ? userId : new Uint8Array(userId);
     return this.toB64u(bytes);
   }
 

@@ -8,7 +8,7 @@ import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 
 import { AliasVaultPasskeyProvider } from '@/utils/passkey/AliasVaultPasskeyProvider';
-import type { CreateRequest, StoredPasskeyRecord } from '@/utils/passkey/types';
+import type { CreateRequest, StoredPasskeyRecord, PasskeyCreateCredentialResponse } from '@/utils/passkey/types';
 
 interface IPasskeyRequest {
   type: 'create';
@@ -122,7 +122,7 @@ const PasskeyCreate: React.FC = () => {
       // Flatten credential structure for injection script compatibility
       // The injection script expects: { id, rawId, clientDataJSON, attestationObject }
       // But the provider returns: { id, rawId, response: { clientDataJSON, attestationObject }, type }
-      const flattenedCredential = {
+      const flattenedCredential: PasskeyCreateCredentialResponse = {
         id: credential.id,
         rawId: credential.rawId,
         clientDataJSON: credential.response.clientDataJSON,

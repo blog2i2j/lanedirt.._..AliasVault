@@ -100,6 +100,55 @@ describe('AliasVaultPasskeyProvider', () => {
       expect(clientData.crossOrigin).toBe(false);
     });
 
+    it('should preserve challenge when passed as ArrayBuffer (real-world scenario)', async () => {
+      // Simulate what a real website does: generates random bytes for challenge
+      const challengeBytes = crypto.getRandomValues(new Uint8Array(32));
+      const challengeArrayBuffer = challengeBytes.buffer;
+
+      // Convert to base64url for transmission (what injection script does)
+      const toBase64url = (bytes: Uint8Array): string => {
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+      };
+      const challengeB64u = toBase64url(challengeBytes);
+
+      const createRequest: CreateRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          // Our provider receives the base64url string (from injection script)
+          challenge: challengeB64u,
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+        }
+      };
+
+      const result = await provider.createPasskey(createRequest);
+
+      // Decode clientDataJSON and verify challenge matches
+      const clientDataJSON = atob(result.credential.response.clientDataJSON);
+      const clientData = JSON.parse(clientDataJSON);
+
+      // The challenge in clientDataJSON should match what we sent
+      expect(clientData.challenge).toBe(challengeB64u);
+
+      // Verify we can decode it back to the original bytes
+      const fromBase64url = (b64u: string): Uint8Array => {
+        const b64 = b64u.replace(/-/g, '+').replace(/_/g, '/');
+        const pad = b64.length % 4 === 2 ? '==' : b64.length % 4 === 3 ? '=' : '';
+        const binary = atob(b64 + pad);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes;
+      };
+
+      const decodedChallenge = fromBase64url(clientData.challenge);
+      expect(Array.from(decodedChallenge)).toEqual(Array.from(challengeBytes));
+    });
+
     it('should decode and validate attestationObject structure', async () => {
       const createRequest: CreateRequest = {
         origin: 'https://test.com',
@@ -241,7 +290,9 @@ describe('AliasVaultPasskeyProvider', () => {
       expect(assertion.clientDataJSON).toBeDefined();
       expect(assertion.authenticatorData).toBeDefined();
       expect(assertion.signature).toBeDefined();
-      expect(assertion.userHandle).toBeNull();
+      // userHandle should be present when user.id was provided during creation
+      expect(assertion.userHandle).toBeDefined();
+      expect(assertion.userHandle).not.toBeNull();
     });
 
     it('should decode and validate clientDataJSON for authentication', async () => {
@@ -411,6 +462,76 @@ describe('AliasVaultPasskeyProvider', () => {
 
       // Should have UV (0x04) set when required
       expect(flags & 0x04).toBe(0x04);
+    });
+
+    it('should return userHandle when user.id was provided during creation', async () => {
+      // Create passkey with explicit user.id (use bytes to avoid encoding ambiguity)
+      const userIdBytes = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
+      const createRequest: CreateRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          rp: { id: 'example.com', name: 'Example' },
+          user: {
+            id: userIdBytes,
+            name: 'testuser',
+            displayName: 'Test User'
+          },
+          challenge: 'create-challenge',
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+        }
+      };
+
+      const createResult = await provider.createPasskey(createRequest);
+
+      // Authenticate
+      const getRequest: GetRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          challenge: 'auth-challenge'
+        }
+      };
+
+      const assertion = await provider.getAssertion(getRequest, createResult.credential.id);
+
+      // userHandle should be present and be base64 encoded
+      expect(assertion.userHandle).toBeDefined();
+      expect(assertion.userHandle).not.toBeNull();
+
+      // Decode and verify it matches the original user.id bytes
+      if (assertion.userHandle) {
+        const decoded = atob(assertion.userHandle);
+        const decodedBytes = new Uint8Array(decoded.length);
+        for (let i = 0; i < decoded.length; i++) {
+          decodedBytes[i] = decoded.charCodeAt(i);
+        }
+        expect(Array.from(decodedBytes)).toEqual(Array.from(userIdBytes));
+      }
+    });
+
+    it('should return null userHandle when user.id was not provided', async () => {
+      // Create passkey without user.id
+      const createRequest: CreateRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          challenge: 'create-challenge',
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+        }
+      };
+
+      const createResult = await provider.createPasskey(createRequest);
+
+      // Authenticate
+      const getRequest: GetRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          challenge: 'auth-challenge'
+        }
+      };
+
+      const assertion = await provider.getAssertion(getRequest, createResult.credential.id);
+
+      // userHandle should be null when no user.id was provided
+      expect(assertion.userHandle).toBeNull();
     });
 
     it('should not set BE/BS flags when includeBEBS is false', async () => {
