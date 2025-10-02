@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 
 import { AliasVaultPasskeyProvider } from '../AliasVaultPasskeyProvider';
 
@@ -6,20 +6,9 @@ import type { CreateRequest, GetRequest, StoredPasskeyRecord } from '../types';
 
 describe('AliasVaultPasskeyProvider', () => {
   let storedPasskeys: Map<string, StoredPasskeyRecord>;
-  let provider: AliasVaultPasskeyProvider;
 
   beforeEach(() => {
     storedPasskeys = new Map();
-
-    // Create provider with mock storage callbacks
-    provider = new AliasVaultPasskeyProvider(
-      async (record: StoredPasskeyRecord) => {
-        storedPasskeys.set(record.credentialId, record);
-      },
-      async (credentialId: string) => {
-        return storedPasskeys.get(credentialId) || null;
-      }
-    );
   });
 
   describe('createPasskey', () => {
@@ -46,7 +35,10 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const result = await provider.createPasskey(createRequest);
+      const result = await AliasVaultPasskeyProvider.createPasskey(createRequest);
+
+      // Store the passkey manually for testing
+      storedPasskeys.set(result.stored.credentialId, result.stored);
 
       // Verify credential structure
       expect(result.credential).toBeDefined();
@@ -88,7 +80,7 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const result = await provider.createPasskey(createRequest);
+      const result = await AliasVaultPasskeyProvider.createPasskey(createRequest);
 
       // Decode and verify clientDataJSON
       const clientDataJSON = atob(result.credential.response.clientDataJSON);
@@ -125,7 +117,7 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const result = await provider.createPasskey(createRequest);
+      const result = await AliasVaultPasskeyProvider.createPasskey(createRequest);
 
       // Decode clientDataJSON and verify challenge matches
       const clientDataJSON = atob(result.credential.response.clientDataJSON);
@@ -161,7 +153,7 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const result = await provider.createPasskey(createRequest);
+      const result = await AliasVaultPasskeyProvider.createPasskey(createRequest);
 
       // Decode attestation object (base64)
       const attObjBytes = Uint8Array.from(
@@ -188,7 +180,7 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const result = await provider.createPasskey(createRequest);
+      const result = await AliasVaultPasskeyProvider.createPasskey(createRequest);
 
       expect(result.stored.rpId).toBe('subdomain.example.com');
     });
@@ -202,7 +194,7 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const result = await provider.createPasskey(createRequest);
+      const result = await AliasVaultPasskeyProvider.createPasskey(createRequest);
 
       // Should still create successfully with ES256
       expect(result.credential).toBeDefined();
@@ -221,7 +213,7 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      await expect(provider.createPasskey(createRequest)).rejects.toThrow(
+      await expect(AliasVaultPasskeyProvider.createPasskey(createRequest)).rejects.toThrow(
         'No supported algorithm (ES256) in pubKeyCredParams'
       );
     });
@@ -238,7 +230,7 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const result = await provider.createPasskey(createRequest, { uvPerformed: false });
+      const result = await AliasVaultPasskeyProvider.createPasskey(createRequest, { uvPerformed: false });
 
       /*
        * Find authenticatorData in the CBOR structure
@@ -265,7 +257,8 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const createResult = await provider.createPasskey(createRequest);
+      const createResult = await AliasVaultPasskeyProvider.createPasskey(createRequest);
+      storedPasskeys.set(createResult.credential.id, createResult.stored);
       const credentialId = createResult.credential.id;
 
       // Now, authenticate with the passkey
@@ -279,7 +272,8 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const assertion = await provider.getAssertion(getRequest, credentialId);
+      const storedRecord = storedPasskeys.get(credentialId)!;
+      const assertion = await AliasVaultPasskeyProvider.getAssertion(getRequest, storedRecord);
 
       // Verify assertion structure
       expect(assertion.id).toBe(credentialId);
@@ -302,7 +296,8 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const createResult = await provider.createPasskey(createRequest);
+      const createResult = await AliasVaultPasskeyProvider.createPasskey(createRequest);
+      storedPasskeys.set(createResult.credential.id, createResult.stored);
 
       // Authenticate
       const getRequest: GetRequest = {
@@ -313,7 +308,8 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const assertion = await provider.getAssertion(getRequest, createResult.credential.id);
+      const storedRecord = storedPasskeys.get(createResult.credential.id)!;
+      const assertion = await AliasVaultPasskeyProvider.getAssertion(getRequest, storedRecord);
 
       // Decode and validate clientDataJSON
       const clientDataJSON = atob(assertion.clientDataJSON);
@@ -336,7 +332,8 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const createResult = await provider.createPasskey(createRequest);
+      const createResult = await AliasVaultPasskeyProvider.createPasskey(createRequest);
+      storedPasskeys.set(createResult.credential.id, createResult.stored);
 
       // Authenticate
       const getRequest: GetRequest = {
@@ -347,7 +344,8 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const assertion = await provider.getAssertion(getRequest, createResult.credential.id);
+      const storedRecord = storedPasskeys.get(createResult.credential.id)!;
+      const assertion = await AliasVaultPasskeyProvider.getAssertion(getRequest, storedRecord);
 
       // Decode authenticatorData
       const authDataBytes = Uint8Array.from(atob(assertion.authenticatorData), c => c.charCodeAt(0));
@@ -385,7 +383,8 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const createResult = await provider.createPasskey(createRequest);
+      const createResult = await AliasVaultPasskeyProvider.createPasskey(createRequest);
+      storedPasskeys.set(createResult.credential.id, createResult.stored);
 
       // Authenticate
       const getRequest: GetRequest = {
@@ -395,7 +394,8 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const assertion = await provider.getAssertion(getRequest, createResult.credential.id);
+      const storedRecord = storedPasskeys.get(createResult.credential.id)!;
+      const assertion = await AliasVaultPasskeyProvider.getAssertion(getRequest, storedRecord);
 
       // Decode signature
       const sigBytes = Uint8Array.from(atob(assertion.signature), c => c.charCodeAt(0));
@@ -423,9 +423,17 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
+      // Test with a non-existent stored record
+      const invalidRecord = {
+        rpId: 'example.com',
+        credentialId: 'non-existent-id',
+        publicKey: {} as JsonWebKey,
+        privateKey: {} as JsonWebKey
+      } satisfies StoredPasskeyRecord;
+
       await expect(
-        provider.getAssertion(getRequest, 'non-existent-id')
-      ).rejects.toThrow('Passkey not found');
+        AliasVaultPasskeyProvider.getAssertion(getRequest, invalidRecord)
+      ).rejects.toThrow();
     });
 
     it('should set UV flag when userVerification is required', async () => {
@@ -438,7 +446,8 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const createResult = await provider.createPasskey(createRequest);
+      const createResult = await AliasVaultPasskeyProvider.createPasskey(createRequest);
+      storedPasskeys.set(createResult.credential.id, createResult.stored);
 
       // Authenticate with UV required
       const getRequest: GetRequest = {
@@ -449,7 +458,8 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const assertion = await provider.getAssertion(getRequest, createResult.credential.id, {
+      const storedRecord = storedPasskeys.get(createResult.credential.id)!;
+      const assertion = await AliasVaultPasskeyProvider.getAssertion(getRequest, storedRecord, {
         uvPerformed: false // Even without actual UV, if required, flag should be set
       });
 
@@ -478,7 +488,8 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const createResult = await provider.createPasskey(createRequest);
+      const createResult = await AliasVaultPasskeyProvider.createPasskey(createRequest);
+      storedPasskeys.set(createResult.credential.id, createResult.stored);
 
       // Authenticate
       const getRequest: GetRequest = {
@@ -488,7 +499,8 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const assertion = await provider.getAssertion(getRequest, createResult.credential.id);
+      const storedRecord = storedPasskeys.get(createResult.credential.id)!;
+      const assertion = await AliasVaultPasskeyProvider.getAssertion(getRequest, storedRecord);
 
       // userHandle should be present and be base64 encoded
       expect(assertion.userHandle).toBeDefined();
@@ -515,7 +527,8 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const createResult = await provider.createPasskey(createRequest);
+      const createResult = await AliasVaultPasskeyProvider.createPasskey(createRequest);
+      storedPasskeys.set(createResult.credential.id, createResult.stored);
 
       // Authenticate
       const getRequest: GetRequest = {
@@ -525,7 +538,8 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const assertion = await provider.getAssertion(getRequest, createResult.credential.id);
+      const storedRecord = storedPasskeys.get(createResult.credential.id)!;
+      const assertion = await AliasVaultPasskeyProvider.getAssertion(getRequest, storedRecord);
 
       // userHandle should be null when no user.id was provided
       expect(assertion.userHandle).toBeNull();
@@ -541,7 +555,8 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const createResult = await provider.createPasskey(createRequest);
+      const createResult = await AliasVaultPasskeyProvider.createPasskey(createRequest);
+      storedPasskeys.set(createResult.credential.id, createResult.stored);
 
       // Authenticate without BE/BS flags
       const getRequest: GetRequest = {
@@ -551,7 +566,8 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const assertion = await provider.getAssertion(getRequest, createResult.credential.id, {
+      const storedRecord = storedPasskeys.get(createResult.credential.id)!;
+      const assertion = await AliasVaultPasskeyProvider.getAssertion(getRequest, storedRecord, {
         includeBEBS: false
       });
 
@@ -585,18 +601,15 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const storeSpy = vi.fn();
-      const getSpy = vi.fn();
+      const result = await AliasVaultPasskeyProvider.createPasskey(createRequest);
 
-      const testProvider = new AliasVaultPasskeyProvider(storeSpy, getSpy);
-      await testProvider.createPasskey(createRequest);
+      // Manually store the passkey
+      storedPasskeys.set(result.stored.credentialId, result.stored);
 
-      // Verify store was called with userId
-      expect(storeSpy).toHaveBeenCalledTimes(1);
-      const storedRecord = storeSpy.mock.calls[0][0] as StoredPasskeyRecord;
-      expect(storedRecord.userId).toBeDefined();
-      expect(storedRecord.userId).not.toBeNull();
-      expect(typeof storedRecord.userId).toBe('string');
+      // Verify the result contains userId
+      expect(result.stored.userId).toBeDefined();
+      expect(result.stored.userId).not.toBeNull();
+      expect(typeof result.stored.userId).toBe('string');
     });
 
     it('should retrieve userId from getById callback during authentication', async () => {
@@ -617,7 +630,8 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const createResult = await provider.createPasskey(createRequest);
+      const createResult = await AliasVaultPasskeyProvider.createPasskey(createRequest);
+      storedPasskeys.set(createResult.credential.id, createResult.stored);
 
       // Now authenticate - verify that getById is called and userId is preserved
       const getRequest: GetRequest = {
@@ -628,21 +642,8 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const getBySpy = vi.fn(async (credentialId: string) => {
-        // Return the stored passkey with userId
-        return storedPasskeys.get(credentialId) || null;
-      });
-
-      const testProvider = new AliasVaultPasskeyProvider(
-        async () => {},
-        getBySpy
-      );
-
-      const assertion = await testProvider.getAssertion(getRequest, createResult.credential.id);
-
-      // Verify getById was called
-      expect(getBySpy).toHaveBeenCalledTimes(1);
-      expect(getBySpy).toHaveBeenCalledWith(createResult.credential.id);
+      const storedRecord = storedPasskeys.get(createResult.credential.id)!;
+      const assertion = await AliasVaultPasskeyProvider.getAssertion(getRequest, storedRecord);
 
       // Verify userHandle was populated from the retrieved userId
       expect(assertion.userHandle).not.toBeNull();
@@ -654,17 +655,7 @@ describe('AliasVaultPasskeyProvider', () => {
       const realStorage = new Map<string, StoredPasskeyRecord>();
       const userIdBytes = new Uint8Array([100, 101, 102, 103]);
 
-      const roundTripProvider = new AliasVaultPasskeyProvider(
-        async (record: StoredPasskeyRecord) => {
-          // Simulate real storage that might serialize/deserialize
-          const serialized = JSON.stringify(record);
-          const deserialized = JSON.parse(serialized);
-          realStorage.set(record.credentialId, deserialized);
-        },
-        async (credentialId: string) => {
-          return realStorage.get(credentialId) || null;
-        }
-      );
+      // We'll create the passkey and then simulate storage
 
       // Create passkey
       const createRequest: CreateRequest = {
@@ -680,7 +671,12 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const createResult = await roundTripProvider.createPasskey(createRequest);
+      const createResult = await AliasVaultPasskeyProvider.createPasskey(createRequest);
+
+      // Simulate real storage that might serialize/deserialize
+      const serialized = JSON.stringify(createResult.stored);
+      const deserialized = JSON.parse(serialized) as StoredPasskeyRecord;
+      realStorage.set(createResult.stored.credentialId, deserialized);
 
       // Verify it was stored
       const storedRecord = realStorage.get(createResult.credential.id);
@@ -695,7 +691,7 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const assertion = await roundTripProvider.getAssertion(getRequest, createResult.credential.id);
+      const assertion = await AliasVaultPasskeyProvider.getAssertion(getRequest, deserialized);
 
       // Verify userHandle was preserved through the round-trip
       expect(assertion.userHandle).not.toBeNull();
@@ -724,7 +720,8 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const createResult = await provider.createPasskey(createRequest);
+      const createResult = await AliasVaultPasskeyProvider.createPasskey(createRequest);
+      storedPasskeys.set(createResult.credential.id, createResult.stored);
 
       // Authenticate
       const getRequest: GetRequest = {
@@ -735,7 +732,8 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const assertion = await provider.getAssertion(getRequest, createResult.credential.id);
+      const storedRecord = storedPasskeys.get(createResult.credential.id)!;
+      const assertion = await AliasVaultPasskeyProvider.getAssertion(getRequest, storedRecord);
 
       // Import public key for verification
       const publicKey = await crypto.subtle.importKey(
@@ -812,7 +810,7 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const result = await provider.createPasskey(createRequest);
+      const result = await AliasVaultPasskeyProvider.createPasskey(createRequest);
       expect(result.credential).toBeDefined();
     });
 
@@ -827,7 +825,7 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const result = await provider.createPasskey(createRequest);
+      const result = await AliasVaultPasskeyProvider.createPasskey(createRequest);
       expect(result.credential).toBeDefined();
     });
 
@@ -840,7 +838,7 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const result = await provider.createPasskey(createRequest);
+      const result = await AliasVaultPasskeyProvider.createPasskey(createRequest);
       expect(result.stored.rpId).toBe('subdomain.test.com');
     });
 
@@ -855,7 +853,8 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const createResult = await provider.createPasskey(createRequest);
+      const createResult = await AliasVaultPasskeyProvider.createPasskey(createRequest);
+      storedPasskeys.set(createResult.credential.id, createResult.stored);
 
       // Authenticate without explicit rpId
       const getRequest: GetRequest = {
@@ -865,7 +864,8 @@ describe('AliasVaultPasskeyProvider', () => {
         }
       };
 
-      const assertion = await provider.getAssertion(getRequest, createResult.credential.id);
+      const storedRecord = storedPasskeys.get(createResult.credential.id)!;
+      const assertion = await AliasVaultPasskeyProvider.getAssertion(getRequest, storedRecord);
       expect(assertion).toBeDefined();
     });
   });

@@ -9,8 +9,6 @@
  *   - Consistent base64url/base64 handling
  *
  * NOTE:
- * - This class does not handle UI concerns or message passing. Inject storage callbacks so you
- *   can persist and retrieve passkeys (keys + metadata) in your extension background.
  * - By design, signCount is always 0 (clone detection disabled) for syncable passkeys.
  * - Attestation defaults to "none" (privacy-preserving). If an RP requests "direct", we do a
  *   "packed" *self* attestation using the generated credential private key (no x5c chain).
@@ -20,18 +18,14 @@
 import type { CreateRequest, GetRequest, StoredPasskeyRecord } from './types';
 
 /**
- * AliasVaultPasskeyProvider
+ * AliasVaultPasskeyProvider - Static utility class for WebAuthn operations
  */
 export class AliasVaultPasskeyProvider {
   /**
-   * Inject your storage layer via callbacks.
-   * - store: persist a newly created passkey
-   * - getById: fetch a stored passkey (by credentialId)
+   * Private constructor to prevent instantiation.
+   * This class only contains static methods.
    */
-  public constructor(
-    private readonly store: (record: StoredPasskeyRecord) => Promise<void>,
-    private readonly getById: (credentialId: string) => Promise<StoredPasskeyRecord | null>
-  ) {}
+  private constructor() {}
 
   /*
    * ------------------------------------------------------------------------------------
@@ -43,9 +37,9 @@ export class AliasVaultPasskeyProvider {
    * Create a new passkey (registration). Returns a credential-like object similar to
    * navigator.credentials.create() output, ready to be posted to the RP.
    *
-   * It also calls `this.store(...)` to persist the passkey (private/public keys, ids, etc).
+   * Also returns the passkey data that should be stored for later use.
    */
-  public async createPasskey(
+  public static async createPasskey(
     req: CreateRequest,
     opts?: { uvPerformed?: boolean; credentialIdBytes?: number } // uvPerformed: only set to true if your app did real UV
   ): Promise<{
@@ -61,11 +55,11 @@ export class AliasVaultPasskeyProvider {
     stored: StoredPasskeyRecord;
   }> {
     // 1) Validate and resolve algorithm (-7 = ES256)
-    this.pickSupportedAlgorithm(req.publicKey.pubKeyCredParams);
+    AliasVaultPasskeyProvider.pickSupportedAlgorithm(req.publicKey.pubKeyCredParams);
 
     // 2) Determine RP ID (domain) and hash it
     const rpId = req.publicKey.rp?.id || new URL(req.origin).hostname;
-    const rpIdHash = new Uint8Array(await crypto.subtle.digest('SHA-256', this.te(rpId)));
+    const rpIdHash = new Uint8Array(await crypto.subtle.digest('SHA-256', AliasVaultPasskeyProvider.te(rpId) as BufferSource));
 
     // 3) Key pair generation (ES256 / P-256)
     const keyPair = await crypto.subtle.generateKey(
@@ -79,10 +73,10 @@ export class AliasVaultPasskeyProvider {
     // 4) Generate a credentialId (random bytes; default 16)
     const credLen = Math.max(8, Math.min(opts?.credentialIdBytes ?? 16, 64));
     const credIdBytes = crypto.getRandomValues(new Uint8Array(credLen));
-    const credentialIdB64u = this.toB64u(credIdBytes);
+    const credentialIdB64u = AliasVaultPasskeyProvider.toB64u(credIdBytes);
 
     // 5) COSE public key (CBOR) from JWK (ES256 / P-256)
-    const coseKey = this.buildCoseEc2Es256(pubJwk);
+    const coseKey = AliasVaultPasskeyProvider.buildCoseEc2Es256(pubJwk);
 
     /*
      * 6) Flags (creation): UP (bit0)=1, UV (bit2) depends on policy, AT (bit6)=1, BE/BS optional
@@ -103,13 +97,13 @@ export class AliasVaultPasskeyProvider {
     // 7) AttestedCredentialData = AAGUID(16 zeros) + credIdLen(2) + credId + COSEKey
     const aaguid = new Uint8Array(16); // all zeros in "none" attestation
     const credIdLenBytes = new Uint8Array([(credIdBytes.length >> 8) & 0xff, credIdBytes.length & 0xff]);
-    const attestedCredData = this.concat(aaguid, credIdLenBytes, credIdBytes, coseKey);
+    const attestedCredData = AliasVaultPasskeyProvider.concat(aaguid, credIdLenBytes, credIdBytes, coseKey);
 
     // 8) authenticatorData = rpIdHash (32) + flags (1) + signCount (4) + attestedCredData
-    const authenticatorData = this.concat(rpIdHash, new Uint8Array([flags]), signCount, attestedCredData);
+    const authenticatorData = AliasVaultPasskeyProvider.concat(rpIdHash, new Uint8Array([flags]), signCount, attestedCredData);
 
     // 9) clientDataJSON (stringify with challenge as base64url)
-    const challengeB64u = this.challengeToB64u(req.publicKey.challenge);
+    const challengeB64u = AliasVaultPasskeyProvider.challengeToB64u(req.publicKey.challenge);
     const clientDataObj = {
       type: 'webauthn.create',
       challenge: challengeB64u,
@@ -117,17 +111,17 @@ export class AliasVaultPasskeyProvider {
       crossOrigin: false
     };
     const clientDataJSONStr = JSON.stringify(clientDataObj);
-    const clientDataJSONBytes = this.te(clientDataJSONStr);
+    const clientDataJSONBytes = AliasVaultPasskeyProvider.te(clientDataJSONStr);
 
     // 10) Build attestationObject (CBOR map with "fmt","attStmt","authData")
     const attPref = req.publicKey.attestation || 'none';
     const attObjBytes =
       attPref === 'none' || attPref === 'indirect'
-        ? this.buildAttObjNone(authenticatorData)
-        : await this.buildAttObjPackedSelf(authenticatorData, clientDataJSONBytes, keyPair.privateKey);
+        ? AliasVaultPasskeyProvider.buildAttObjNone(authenticatorData)
+        : await AliasVaultPasskeyProvider.buildAttObjPackedSelf(authenticatorData, clientDataJSONBytes, keyPair.privateKey);
 
     /*
-     * 11) Store the passkey in your vault (so it can be used later for authentication)
+     * 11) Prepare the passkey data for storage (caller will handle actual storage)
      * Store userId as-is (injection script sends it as standard base64 string)
      */
     let userIdB64: string | null = null;
@@ -135,7 +129,7 @@ export class AliasVaultPasskeyProvider {
       // The injection script already converted ArrayBuffer to standard base64, store as-is
       userIdB64 = typeof req.publicKey.user.id === 'string'
         ? req.publicKey.user.id
-        : this.toB64(req.publicKey.user.id instanceof Uint8Array ? req.publicKey.user.id : new Uint8Array(req.publicKey.user.id));
+        : AliasVaultPasskeyProvider.toB64(req.publicKey.user.id instanceof Uint8Array ? req.publicKey.user.id : new Uint8Array(req.publicKey.user.id));
     }
 
     const stored: StoredPasskeyRecord = {
@@ -148,15 +142,14 @@ export class AliasVaultPasskeyProvider {
       userDisplayName: req.publicKey.user?.displayName,
       lastUsedAt: Date.now()
     };
-    await this.store(stored);
 
     // 12) Return a credential-like object (base64-encoded fields for transport)
     const credential = {
       id: credentialIdB64u,
       rawId: credentialIdB64u,
       response: {
-        clientDataJSON: this.toB64(clientDataJSONBytes),
-        attestationObject: this.toB64(attObjBytes)
+        clientDataJSON: AliasVaultPasskeyProvider.toB64(clientDataJSONBytes),
+        attestationObject: AliasVaultPasskeyProvider.toB64(attObjBytes)
       },
       type: 'public-key' as const
     };
@@ -176,9 +169,9 @@ export class AliasVaultPasskeyProvider {
    * - The "standard" WebAuthn shape would nest these in `response` and use ArrayBuffers.
    *   You can adapt this output to that shape if the page expects the standard structure.
    */
-  public async getAssertion(
+  public static async getAssertion(
     req: GetRequest,
-    credentialIdB64u: string,
+    storedRecord: StoredPasskeyRecord,
     opts?: { uvPerformed?: boolean; includeBEBS?: boolean }
   ): Promise<{
     id: string;
@@ -188,15 +181,12 @@ export class AliasVaultPasskeyProvider {
     signature: string;         // base64 (DER)
     userHandle: string | null; // base64 (if you choose to return it)
   }> {
-    // 1) Load passkey
-    const rec = await this.getById(credentialIdB64u);
-    if (!rec) {
-      throw new Error('Passkey not found');
-    }
+    // Use the provided stored record
+    const rec = storedRecord;
 
     // 2) rpId & hash
     const rpId = req.publicKey.rpId || new URL(req.origin).hostname;
-    const rpIdHash = new Uint8Array(await crypto.subtle.digest('SHA-256', this.te(rpId)));
+    const rpIdHash = new Uint8Array(await crypto.subtle.digest('SHA-256', AliasVaultPasskeyProvider.te(rpId) as BufferSource));
 
     // 3) Flags (assertion): UP=1, UV depends on request & policy, BE/BS for syncable, AT=0 for auth
     let flags = 0x01; // UP
@@ -212,10 +202,10 @@ export class AliasVaultPasskeyProvider {
     const signCount = new Uint8Array([0, 0, 0, 0]); // always 0 (sync-friendly)
 
     // 4) authenticatorData = rpIdHash + flags + signCount
-    const authenticatorData = this.concat(rpIdHash, new Uint8Array([flags]), signCount);
+    const authenticatorData = AliasVaultPasskeyProvider.concat(rpIdHash, new Uint8Array([flags]), signCount);
 
     // 5) clientDataJSON
-    const challengeB64u = this.challengeToB64u(req.publicKey.challenge);
+    const challengeB64u = AliasVaultPasskeyProvider.challengeToB64u(req.publicKey.challenge);
     const clientDataObj = {
       type: 'webauthn.get',
       challenge: challengeB64u,
@@ -223,11 +213,11 @@ export class AliasVaultPasskeyProvider {
       crossOrigin: false
     };
     const clientDataJSONStr = JSON.stringify(clientDataObj);
-    const clientDataJSONBytes = this.te(clientDataJSONStr);
+    const clientDataJSONBytes = AliasVaultPasskeyProvider.te(clientDataJSONStr);
 
     // 6) Signature over authenticatorData || SHA256(clientDataJSON)
-    const clientDataHash = new Uint8Array(await crypto.subtle.digest('SHA-256', clientDataJSONBytes));
-    const toSign = this.concat(authenticatorData, clientDataHash);
+    const clientDataHash = new Uint8Array(await crypto.subtle.digest('SHA-256', clientDataJSONBytes as BufferSource));
+    const toSign = AliasVaultPasskeyProvider.concat(authenticatorData, clientDataHash);
 
     const privateKey = await crypto.subtle.importKey(
       'jwk',
@@ -237,11 +227,11 @@ export class AliasVaultPasskeyProvider {
       ['sign']
     );
     const rawSig = new Uint8Array(
-      await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, privateKey, toSign)
+      await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, privateKey, toSign as BufferSource)
     );
 
     // 7) Convert raw (r|s) to DER sequence
-    const derSig = this.ecdsaRawToDer(rawSig);
+    const derSig = AliasVaultPasskeyProvider.ecdsaRawToDer(rawSig);
 
     /*
      * 8) Return userHandle (userId) as-is
@@ -258,11 +248,11 @@ export class AliasVaultPasskeyProvider {
 
     // 9) Return object in the flat shape (base64 strings), as your client example expects
     return {
-      id: credentialIdB64u,
-      rawId: credentialIdB64u,
-      clientDataJSON: this.toB64(clientDataJSONBytes),
-      authenticatorData: this.toB64(authenticatorData),
-      signature: this.toB64(derSig),
+      id: rec.credentialId,
+      rawId: rec.credentialId,
+      clientDataJSON: AliasVaultPasskeyProvider.toB64(clientDataJSONBytes),
+      authenticatorData: AliasVaultPasskeyProvider.toB64(authenticatorData),
+      signature: AliasVaultPasskeyProvider.toB64(derSig),
       userHandle: userHandleB64
     };
   }
@@ -274,7 +264,7 @@ export class AliasVaultPasskeyProvider {
    */
 
   /** Ensure ES256 (-7) is available; else throw (or extend to support others). */
-  private pickSupportedAlgorithm(params?: Array<{ type: 'public-key'; alg: number }>): number {
+  private static pickSupportedAlgorithm(params?: Array<{ type: 'public-key'; alg: number }>): number {
     if (!params || params.length === 0) {
       return -7;
     } // assume ES256 default
@@ -286,9 +276,9 @@ export class AliasVaultPasskeyProvider {
   }
 
   /** Build COSE EC2 public key for ES256: {1:2, 3:-7, -1:1, -2:x, -3:y} in CBOR. */
-  private buildCoseEc2Es256(jwk: JsonWebKey): Uint8Array {
-    const x = this.pad32(this.fromB64u(jwk.x!));
-    const y = this.pad32(this.fromB64u(jwk.y!));
+  private static buildCoseEc2Es256(jwk: JsonWebKey): Uint8Array {
+    const x = AliasVaultPasskeyProvider.pad32(AliasVaultPasskeyProvider.fromB64u(jwk.x!));
+    const y = AliasVaultPasskeyProvider.pad32(AliasVaultPasskeyProvider.fromB64u(jwk.y!));
     /*
      * Map(5): 0xa5
      *  1:2      (kty: EC2)
@@ -308,16 +298,16 @@ export class AliasVaultPasskeyProvider {
   }
 
   /** Build "none" attestation object: { fmt: "none", attStmt: {}, authData: <bytes> } (CBOR). */
-  private buildAttObjNone(authenticatorData: Uint8Array): Uint8Array {
-    const fmtKey = this.cborText('fmt');         // "fmt"
-    const fmtVal = this.cborText('none');        // "none"
-    const attStmtKey = this.cborText('attStmt'); // "attStmt"
+  private static buildAttObjNone(authenticatorData: Uint8Array): Uint8Array {
+    const fmtKey = AliasVaultPasskeyProvider.cborText('fmt');         // "fmt"
+    const fmtVal = AliasVaultPasskeyProvider.cborText('none');        // "none"
+    const attStmtKey = AliasVaultPasskeyProvider.cborText('attStmt'); // "attStmt"
     const attStmtVal = new Uint8Array([0xa0]);   // map(0) {}
-    const authDataKey = this.cborText('authData'); // "authData"
-    const authDataVal = this.cborBstr(authenticatorData);
+    const authDataKey = AliasVaultPasskeyProvider.cborText('authData'); // "authData"
+    const authDataVal = AliasVaultPasskeyProvider.cborBstr(authenticatorData);
 
     // map(3)
-    return this.concat(
+    return AliasVaultPasskeyProvider.concat(
       new Uint8Array([0xa3]),
       fmtKey, fmtVal,
       attStmtKey, attStmtVal,
@@ -326,35 +316,35 @@ export class AliasVaultPasskeyProvider {
   }
 
   /** Build "packed" self-attestation object (no x5c). */
-  private async buildAttObjPackedSelf(
+  private static async buildAttObjPackedSelf(
     authenticatorData: Uint8Array,
     clientDataJSON: Uint8Array,
     privateKey: CryptoKey
   ): Promise<Uint8Array> {
     // Signature over authenticatorData || SHA256(clientDataJSON)
-    const clientDataHash = new Uint8Array(await crypto.subtle.digest('SHA-256', clientDataJSON));
-    const toSign = this.concat(authenticatorData, clientDataHash);
+    const clientDataHash = new Uint8Array(await crypto.subtle.digest('SHA-256', clientDataJSON as BufferSource));
+    const toSign = AliasVaultPasskeyProvider.concat(authenticatorData, clientDataHash);
     const rawSig = new Uint8Array(
-      await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, privateKey, toSign)
+      await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, privateKey, toSign as BufferSource)
     );
-    const derSig = this.ecdsaRawToDer(rawSig);
+    const derSig = AliasVaultPasskeyProvider.ecdsaRawToDer(rawSig);
 
     // attStmt = { alg: -7, sig: <derSig> }
-    const attStmtMap = this.concat(
-      this.cborText('alg'), new Uint8Array([0x26]), // -7
-      this.cborText('sig'), this.cborBstr(derSig)
+    const attStmtMap = AliasVaultPasskeyProvider.concat(
+      AliasVaultPasskeyProvider.cborText('alg'), new Uint8Array([0x26]), // -7
+      AliasVaultPasskeyProvider.cborText('sig'), AliasVaultPasskeyProvider.cborBstr(derSig)
     );
     // prepend map(2)
-    const attStmt = this.concat(new Uint8Array([0xa2]), attStmtMap);
+    const attStmt = AliasVaultPasskeyProvider.concat(new Uint8Array([0xa2]), attStmtMap);
 
     // final: { fmt:"packed", attStmt:{...}, authData:<bytes> }
-    const fmtKey = this.cborText('fmt');
-    const fmtVal = this.cborText('packed');
-    const attStmtKey = this.cborText('attStmt');
-    const authDataKey = this.cborText('authData');
-    const authDataVal = this.cborBstr(authenticatorData);
+    const fmtKey = AliasVaultPasskeyProvider.cborText('fmt');
+    const fmtVal = AliasVaultPasskeyProvider.cborText('packed');
+    const attStmtKey = AliasVaultPasskeyProvider.cborText('attStmt');
+    const authDataKey = AliasVaultPasskeyProvider.cborText('authData');
+    const authDataVal = AliasVaultPasskeyProvider.cborBstr(authenticatorData);
 
-    return this.concat(
+    return AliasVaultPasskeyProvider.concat(
       new Uint8Array([0xa3]), // map(3)
       fmtKey, fmtVal,
       attStmtKey, attStmt,
@@ -365,8 +355,8 @@ export class AliasVaultPasskeyProvider {
   // ----- CBOR small helpers -----
 
   /** Encode a UTF-8 string as CBOR text. */
-  private cborText(s: string): Uint8Array {
-    const bytes = this.te(s);
+  private static cborText(s: string): Uint8Array {
+    const bytes = AliasVaultPasskeyProvider.te(s);
     if (bytes.length <= 23) {
       return new Uint8Array([0x60 | bytes.length, ...bytes]);
     } // major type 3
@@ -377,7 +367,7 @@ export class AliasVaultPasskeyProvider {
   }
 
   /** Encode a byte string as CBOR bstr. */
-  private cborBstr(b: Uint8Array): Uint8Array {
+  private static cborBstr(b: Uint8Array): Uint8Array {
     if (b.length <= 23) {
       return new Uint8Array([0x40 | b.length, ...b]);
     } // major type 2
@@ -390,19 +380,19 @@ export class AliasVaultPasskeyProvider {
   // ----- DER helpers -----
 
   /** Convert raw ECDSA signature (r|s, 64 bytes) to DER SEQUENCE. */
-  private ecdsaRawToDer(raw: Uint8Array): Uint8Array {
+  private static ecdsaRawToDer(raw: Uint8Array): Uint8Array {
     if (raw.length !== 64) {
       throw new Error('Unexpected ECDSA signature length');
     }
     const r = raw.slice(0, 32);
     const s = raw.slice(32, 64);
-    const rDer = this.derInt(r);
-    const sDer = this.derInt(s);
+    const rDer = AliasVaultPasskeyProvider.derInt(r);
+    const sDer = AliasVaultPasskeyProvider.derInt(s);
     return new Uint8Array([0x30, rDer.length + sDer.length, ...rDer, ...sDer]);
   }
 
   /** Encode a positive big integer to DER INTEGER. */
-  private derInt(src: Uint8Array): Uint8Array {
+  private static derInt(src: Uint8Array): Uint8Array {
     // Trim leading zeros
     let i = 0;
     while (i < src.length - 1 && src[i] === 0x00) {
@@ -411,7 +401,10 @@ export class AliasVaultPasskeyProvider {
     let v = src.slice(i);
     // If MSB set, prepend 0 to keep it positive
     if ((v[0] & 0x80) !== 0) {
-      v = this.concat(new Uint8Array([0x00]), v);
+      const padded = new Uint8Array(v.length + 1);
+      padded[0] = 0x00;
+      padded.set(v, 1);
+      v = padded;
     }
     return new Uint8Array([0x02, v.length, ...v]);
   }
@@ -419,12 +412,13 @@ export class AliasVaultPasskeyProvider {
   // ----- Base64 / Base64url helpers -----
 
   /** UTF-8 encode string to bytes. */
-  private te(s: string): Uint8Array {
-    return new TextEncoder().encode(s);
+  private static te(s: string): Uint8Array {
+    const encoder = new TextEncoder();
+    return encoder.encode(s);
   }
 
   /** Base64 encode bytes (Uint8Array) to ASCII string. */
-  private toB64(bytes: Uint8Array): string {
+  private static toB64(bytes: Uint8Array): string {
     let bin = '';
     for (let i = 0; i < bytes.length; i++) {
       bin += String.fromCharCode(bytes[i]);
@@ -433,12 +427,12 @@ export class AliasVaultPasskeyProvider {
   }
 
   /** Base64url encode bytes. */
-  private toB64u(bytes: Uint8Array): string {
-    return this.toB64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  private static toB64u(bytes: Uint8Array): string {
+    return AliasVaultPasskeyProvider.toB64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
   }
 
   /** Base64url decode to bytes. */
-  private fromB64u(b64u: string): Uint8Array {
+  private static fromB64u(b64u: string): Uint8Array {
     const b64 = b64u.replace(/-/g, '+').replace(/_/g, '/');
     const pad = b64.length % 4 === 2 ? '==' : b64.length % 4 === 3 ? '=' : '';
     const s = atob(b64 + pad);
@@ -453,7 +447,7 @@ export class AliasVaultPasskeyProvider {
    * Normalize challenge to base64url string.
    * The injection script sends challenges as standard base64, so we need to convert to base64url.
    */
-  private challengeToB64u(challenge: ArrayBuffer | Uint8Array | string): string {
+  private static challengeToB64u(challenge: ArrayBuffer | Uint8Array | string): string {
     if (typeof challenge === 'string') {
       /*
        * String from injection script - it's standard base64, convert to base64url
@@ -462,7 +456,7 @@ export class AliasVaultPasskeyProvider {
       return challenge.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
     const bytes = challenge instanceof Uint8Array ? challenge : new Uint8Array(challenge);
-    return this.toB64u(bytes);
+    return AliasVaultPasskeyProvider.toB64u(bytes);
   }
 
   /**
@@ -472,7 +466,7 @@ export class AliasVaultPasskeyProvider {
    * - Plain UTF-8 string from test/simple cases (needs encoding)
    * - Already base64url encoded string (use as-is)
    */
-  private userIdToB64u(userId: ArrayBuffer | Uint8Array | string): string {
+  private static userIdToB64u(userId: ArrayBuffer | Uint8Array | string): string {
     if (typeof userId === 'string') {
       // Check if it's already base64url (contains only valid base64url chars)
       if (/^[A-Za-z0-9_-]+$/.test(userId) && userId.length % 4 !== 1) {
@@ -480,15 +474,15 @@ export class AliasVaultPasskeyProvider {
         return userId;
       } else {
         // Plain UTF-8 string, encode it
-        return this.toB64u(this.te(userId));
+        return AliasVaultPasskeyProvider.toB64u(AliasVaultPasskeyProvider.te(userId));
       }
     }
     const bytes = userId instanceof Uint8Array ? userId : new Uint8Array(userId);
-    return this.toB64u(bytes);
+    return AliasVaultPasskeyProvider.toB64u(bytes);
   }
 
   /** Left-pad to 32 bytes (P-256 coord). */
-  private pad32(b: Uint8Array): Uint8Array {
+  private static pad32(b: Uint8Array): Uint8Array {
     if (b.length === 32) {
       return b;
     }
@@ -498,7 +492,7 @@ export class AliasVaultPasskeyProvider {
   }
 
   /** Concatenate typed arrays. */
-  private concat(...chunks: Uint8Array[]): Uint8Array {
+  private static concat(...chunks: Uint8Array[]): Uint8Array {
     const total = chunks.reduce((s, c) => s + c.length, 0);
     const out = new Uint8Array(total);
     let o = 0;

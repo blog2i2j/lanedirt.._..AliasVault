@@ -145,13 +145,13 @@ export type PendingPasskeyGetRequest = {
 export type WebAuthnPublicKeyGetPayload = {
   challenge: string; // Base64URL-encoded challenge
   timeout?: number;
-  rpId: string;
+  rpId?: string;
   allowCredentials?: {
     id: string; // Base64URL-encoded credential ID
     type: "public-key";
     transports?: string[];
   }[];
-  userVerification: "required" | "preferred" | "discouraged";
+  userVerification?: "required" | "preferred" | "discouraged";
   hints?: string[];
 };
 

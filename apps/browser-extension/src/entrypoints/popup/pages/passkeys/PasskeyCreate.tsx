@@ -8,7 +8,7 @@ import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 
 import { AliasVaultPasskeyProvider } from '@/utils/passkey/AliasVaultPasskeyProvider';
-import type { CreateRequest, StoredPasskeyRecord, PasskeyCreateCredentialResponse, PendingPasskeyCreateRequest } from '@/utils/passkey/types';
+import type { CreateRequest, PasskeyCreateCredentialResponse, PendingPasskeyCreateRequest, StorePasskeyRequest, WebAuthnCreationPayload } from '@/utils/passkey/types';
 
 /**
  * PasskeyCreate
@@ -62,29 +62,6 @@ const PasskeyCreate: React.FC = () => {
     setLoading(true);
 
     try {
-      /*
-       * Create the provider with storage callbacks
-       * TODO: refactor this flow to be simpler.
-       */
-      const provider = new AliasVaultPasskeyProvider(
-        async (record: StoredPasskeyRecord) => {
-          await sendMessage('STORE_PASSKEY', {
-            rpId: record.rpId,
-            credentialId: record.credentialId,
-            displayName,
-            publicKey: record.publicKey,
-            privateKey: record.privateKey,
-            userId: record.userId,
-            userName: record.userName,
-            userDisplayName: record.userDisplayName
-          } as any, 'background');
-        },
-        async (credentialId: string) : Promise<StoredPasskeyRecord | null> => {
-          const result = await sendMessage('GET_PASSKEY_BY_ID', { credentialId }, 'background') as StoredPasskeyRecord | null;
-          return result || null;
-        }
-      );
-
       // Build the CreateRequest
       const createRequest: CreateRequest = {
         origin: request.origin,
@@ -99,10 +76,27 @@ const PasskeyCreate: React.FC = () => {
         }
       };
 
-      // Create the passkey using the provider
-      const { credential } = await provider.createPasskey(createRequest, {
-        uvPerformed: false // Set to true if you implement actual user verification
+      // Create passkey using static method
+      const result = await AliasVaultPasskeyProvider.createPasskey(createRequest, {
+        uvPerformed: true, // Set to true if you implement actual user verification
+        credentialIdBytes: 16
       });
+
+      // Store the passkey data
+      const data: StorePasskeyRequest = {
+        rpId: result.stored.rpId,
+        credentialId: result.stored.credentialId,
+        displayName: displayName,
+        publicKey: result.stored.publicKey as WebAuthnCreationPayload,
+        privateKey: result.stored.privateKey,
+        userId: result.stored.userId,
+        userName: result.stored.userName,
+        userDisplayName: result.stored.userDisplayName
+      };
+
+      await sendMessage('STORE_PASSKEY', data as unknown, 'background');
+
+      const { credential } = result;
 
       console.info('PasskeyCreate: Created credential successfully', credential);
 

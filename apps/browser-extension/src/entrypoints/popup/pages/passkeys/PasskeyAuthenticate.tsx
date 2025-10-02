@@ -58,17 +58,11 @@ const PasskeyAuthenticate: React.FC = () => {
     setLoading(true);
 
     try {
-      // Create the provider with storage callbacks
-      const provider = new AliasVaultPasskeyProvider(
-        async (record: StoredPasskeyRecord) => {
-          // Not used during authentication
-          await sendMessage('STORE_PASSKEY', record, 'background');
-        },
-        async (credentialId: string) : Promise<StoredPasskeyRecord | null> => {
-          const result = await sendMessage('GET_PASSKEY_BY_ID', { credentialId }, 'background') as StoredPasskeyRecord | null;
-          return result || null;
-        }
-      );
+      // Get the stored passkey record
+      const storedRecord = await sendMessage('GET_PASSKEY_BY_ID', { credentialId }, 'background') as StoredPasskeyRecord | null;
+      if (!storedRecord) {
+        throw new Error('Passkey not found');
+      }
 
       // Build the GetRequest
       const getRequest: GetRequest = {
@@ -82,8 +76,8 @@ const PasskeyAuthenticate: React.FC = () => {
         }
       };
 
-      // Get the assertion using the provider
-      const credential: PasskeyGetCredentialResponse = await provider.getAssertion(getRequest, credentialId, {
+      // Get the assertion using the static method
+      const credential: PasskeyGetCredentialResponse = await AliasVaultPasskeyProvider.getAssertion(getRequest, storedRecord, {
         uvPerformed: true, // Set to true if you implement actual user verification
         includeBEBS: true   // Include backup-eligible and backup-state flags
       });
