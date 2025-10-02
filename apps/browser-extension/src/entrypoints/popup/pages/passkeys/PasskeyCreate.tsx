@@ -135,7 +135,12 @@ const PasskeyCreate: React.FC = () => {
         credential: flattenedCredential
       }, 'background');
 
-      window.close();
+      // For debugging: Don't close the window automatically
+      console.info('PasskeyCreate: Passkey created successfully. Window kept open for debugging.');
+      setLoading(false);
+
+      // Uncomment to auto-close:
+      // window.close();
     } catch (error) {
       console.error('PasskeyCreate: Error creating passkey', error);
       setLoading(false);

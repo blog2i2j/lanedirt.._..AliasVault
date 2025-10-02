@@ -130,7 +130,12 @@ const PasskeyAuthenticate: React.FC = () => {
         credential
       }, 'background');
 
-      window.close();
+      // For debugging: Don't close the window automatically
+      console.info('PasskeyAuthenticate: Authentication complete. Window kept open for debugging.');
+      setLoading(false);
+
+      // Uncomment to auto-close:
+      // window.close();
     } catch (error) {
       console.error('PasskeyAuthenticate: Error during authentication', error);
       setLoading(false);
