@@ -17,6 +17,7 @@ import type {
   PendingPasskeyRequest,
   PendingPasskeyCreateRequest,
   PendingPasskeyGetRequest,
+  WebAuthnSettingsResponse,
   WebAuthnCreationPayload,
   WebAuthnPublicKeyGetPayload
 } from '@/utils/passkey/types';
@@ -54,7 +55,7 @@ const pendingRequestData = new Map<string, PendingPasskeyRequest>();
 /**
  * Handle WebAuthn settings request
  */
-export async function handleGetWebAuthnSettings(): Promise<{ enabled: boolean }> {
+export async function handleGetWebAuthnSettings(): Promise<WebAuthnSettingsResponse> {
   /*
    * For POC, always enabled. In production, this would be a user setting
    * const settings = await storage.getItem('local:webauthn_enabled');

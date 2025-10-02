@@ -3,7 +3,11 @@
  * TODO: review this file
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { sendMessage } from 'webext-bridge/content-script';
+
+import type { WebAuthnSettingsResponse } from '@/utils/passkey/types';
 
 import { browser } from '#imports';
 
@@ -32,7 +36,7 @@ export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
       window.dispatchEvent(new CustomEvent('aliasvault:webauthn:create:response', {
         detail: {
           requestId,
-          ...result
+          ...(typeof result === 'object' && result !== null ? result : {})
         }
       }));
     } catch (error: any) {
@@ -60,7 +64,7 @@ export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
       window.dispatchEvent(new CustomEvent('aliasvault:webauthn:get:response', {
         detail: {
           requestId,
-          ...result
+          ...(typeof result === 'object' && result !== null ? result : {})
         }
       }));
     } catch (error: any) {
@@ -99,7 +103,7 @@ export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
  */
 export async function isWebAuthnInterceptionEnabled(): Promise<boolean> {
   try {
-    const response = await sendMessage('GET_WEBAUTHN_SETTINGS', {}, 'background');
+    const response = await sendMessage('GET_WEBAUTHN_SETTINGS', {}, 'background') as unknown as WebAuthnSettingsResponse;
     return response.enabled ?? false;
   } catch {
     return false;

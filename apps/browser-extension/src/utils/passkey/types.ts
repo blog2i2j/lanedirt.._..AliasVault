@@ -116,6 +116,13 @@ export type WebAuthnGetRequest = {
 };
 
 /**
+ * WebAuthn settings response
+ */
+export type WebAuthnSettingsResponse = {
+  enabled: boolean;
+};
+
+/**
  * Pending passkey request data for create operation
  * TODO: check usage chain
  */
