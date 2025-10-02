@@ -60,6 +60,11 @@ export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
         origin
       }, 'background');
 
+      console.log('[AliasVault] WebAuthnInterceptor: Received credential from background:', result);
+      if (result.credential) {
+        console.log('[AliasVault] WebAuthnInterceptor: credential.userHandle =', result.credential.userHandle);
+      }
+
       // Send response back to page
       window.dispatchEvent(new CustomEvent('aliasvault:webauthn:get:response', {
         detail: {

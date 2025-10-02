@@ -5,6 +5,15 @@
 
 import { defineUnlistedScript } from '#imports';
 
+import type {
+  WebAuthnCreateEventDetail,
+  WebAuthnGetEventDetail,
+  WebAuthnCreateResponseDetail,
+  WebAuthnGetResponseDetail,
+  ProviderCreateCredential,
+  ProviderGetCredential
+} from '@/utils/passkey/webauthn-inject.types';
+
 export default defineUnlistedScript(() => {
   // Only run once
   if ((window as any).__aliasVaultWebAuthnIntercepted) {
@@ -60,23 +69,24 @@ export default defineUnlistedScript(() => {
 
     // Send event to content script
     const requestId = Math.random().toString(36).substr(2, 9);
-    const event = new CustomEvent('aliasvault:webauthn:create', {
-      detail: {
-        requestId,
-        publicKey: {
-          ...options.publicKey,
-          challenge: bufferToBase64(options.publicKey.challenge),
-          user: {
-            ...options.publicKey.user,
-            id: bufferToBase64(options.publicKey.user.id)
-          },
-          excludeCredentials: options.publicKey.excludeCredentials?.map(cred => ({
-            ...cred,
-            id: bufferToBase64(cred.id)
-          }))
+    const eventDetail: WebAuthnCreateEventDetail = {
+      requestId,
+      publicKey: {
+        ...options.publicKey,
+        challenge: bufferToBase64(options.publicKey.challenge),
+        user: {
+          ...options.publicKey.user,
+          id: bufferToBase64(options.publicKey.user.id)
         },
-        origin: window.location.origin
-      }
+        excludeCredentials: options.publicKey.excludeCredentials?.map(cred => ({
+          ...cred,
+          id: bufferToBase64(cred.id)
+        }))
+      },
+      origin: window.location.origin
+    };
+    const event = new CustomEvent<WebAuthnCreateEventDetail>('aliasvault:webauthn:create', {
+      detail: eventDetail
     });
     window.dispatchEvent(event);
 
@@ -94,13 +104,13 @@ export default defineUnlistedScript(() => {
        */
       function cleanup() {
         clearTimeout(timeout);
-        window.removeEventListener('aliasvault:webauthn:create:response', handler);
+        window.removeEventListener('aliasvault:webauthn:create:response', handler as EventListener);
       }
 
       /**
        *
        */
-      function handler(e: any) {
+      function handler(e: CustomEvent<WebAuthnCreateResponseDetail>) {
         if (e.detail.requestId !== requestId) {
           return;
         }
@@ -115,55 +125,100 @@ export default defineUnlistedScript(() => {
           reject(new Error(e.detail.error));
         } else if (e.detail.credential) {
           // Create a proper credential object with required methods
-          const cred = e.detail.credential;
-          const credential = {
-            id: cred.id,
-            type: 'public-key',
-            rawId: base64ToBuffer(cred.rawId),
-            response: {
-              clientDataJSON: base64ToBuffer(cred.clientDataJSON),
-              attestationObject: base64ToBuffer(cred.attestationObject),
-              /**
-               *
-               */
-              getTransports() {
-                return ['internal'];
-              },
-              /**
-               *
-               */
-              getAuthenticatorData() {
-                // Parse authData from attestation object if needed
-                return new ArrayBuffer(0);
-              },
-              /**
-               *
-               */
-              getPublicKey() {
-                return null;
-              },
-              /**
-               *
-               */
-              getPublicKeyAlgorithm() {
-                return -7; // ES256
+          const cred: ProviderCreateCredential = e.detail.credential;
+          console.log('[AliasVault] Page: Creating credential response from:', cred);
+          try {
+            // Decode the attestation object to extract authenticator data
+            const attestationObjectBuffer = base64ToBuffer(cred.attestationObject);
+            const attObjBytes = new Uint8Array(attestationObjectBuffer);
+
+            // Simple CBOR parser to extract authData
+            // CBOR map starts with 0xA3 (map with 3 items)
+            // Keys are: "fmt" (0x63), "attStmt" (0x67), "authData" (0x68)
+            let authDataBuffer = new ArrayBuffer(0);
+            try {
+              // Find "authData" key (0x68 0x61 0x75 0x74 0x68 0x44 0x61 0x74 0x61)
+              const authDataKeyBytes = [0x68, 0x61, 0x75, 0x74, 0x68, 0x44, 0x61, 0x74, 0x61];
+              for (let i = 0; i < attObjBytes.length - authDataKeyBytes.length; i++) {
+                let match = true;
+                for (let j = 0; j < authDataKeyBytes.length; j++) {
+                  if (attObjBytes[i + j] !== authDataKeyBytes[j]) {
+                    match = false;
+                    break;
+                  }
+                }
+                if (match) {
+                  // Found "authData" key, next byte is the type (0x58 = byte string)
+                  const typeIdx = i + authDataKeyBytes.length;
+                  if (attObjBytes[typeIdx] === 0x58) {
+                    // Next byte is the length
+                    const length = attObjBytes[typeIdx + 1];
+                    authDataBuffer = attObjBytes.slice(typeIdx + 2, typeIdx + 2 + length).buffer;
+                  }
+                  break;
+                }
               }
-            },
-            /**
-             *
-             */
-            getClientExtensionResults() {
-              return {};
+            } catch (e) {
+              console.error('[AliasVault] Failed to parse authData from attestation object:', e);
             }
-          };
-          resolve(credential as any);
+
+            const credential = {
+              id: cred.id,
+              type: 'public-key',
+              rawId: base64ToBuffer(cred.rawId),
+              authenticatorAttachment: 'platform',
+              response: {
+                clientDataJSON: base64ToBuffer(cred.clientDataJSON),
+                attestationObject: attestationObjectBuffer,
+                /**
+                 *
+                 */
+                getTransports() {
+                  return ['internal'];
+                },
+                /**
+                 *
+                 */
+                getAuthenticatorData() {
+                  return authDataBuffer;
+                },
+                /**
+                 *
+                 */
+                getPublicKey() {
+                  return null;
+                },
+                /**
+                 *
+                 */
+                getPublicKeyAlgorithm() {
+                  return -7; // ES256
+                }
+              },
+              /**
+               *
+               */
+              getClientExtensionResults() {
+                return {};
+              }
+            };
+            console.log('[AliasVault] Page: Created credential object:', credential);
+            console.log('[AliasVault] Page: Credential rawId length:', credential.rawId.byteLength);
+            console.log('[AliasVault] Page: Credential clientDataJSON length:', credential.response.clientDataJSON.byteLength);
+            console.log('[AliasVault] Page: Credential attestationObject length:', credential.response.attestationObject.byteLength);
+            console.log('[AliasVault] Page: Credential authData length:', authDataBuffer.byteLength);
+            resolve(credential as any);
+          } catch (error) {
+            console.error('[AliasVault] Page: Error creating credential object:', error);
+            reject(error);
+          }
         } else {
           // Cancelled
           resolve(null);
         }
       }
 
-      window.addEventListener('aliasvault:webauthn:create:response', handler);
+      window.addEventListener('aliasvault:webauthn:create:response', handler as EventListener);
     });
   };
 
@@ -181,19 +236,20 @@ export default defineUnlistedScript(() => {
 
     // Send event to content script
     const requestId = Math.random().toString(36).substr(2, 9);
-    const event = new CustomEvent('aliasvault:webauthn:get', {
-      detail: {
-        requestId,
-        publicKey: {
-          ...options.publicKey,
-          challenge: bufferToBase64(options.publicKey.challenge),
-          allowCredentials: options.publicKey.allowCredentials?.map(cred => ({
-            ...cred,
-            id: bufferToBase64(cred.id)
-          }))
-        },
-        origin: window.location.origin
-      }
+    const eventDetail: WebAuthnGetEventDetail = {
+      requestId,
+      publicKey: {
+        ...options.publicKey,
+        challenge: bufferToBase64(options.publicKey.challenge),
+        allowCredentials: options.publicKey.allowCredentials?.map(cred => ({
+          ...cred,
+          id: bufferToBase64(cred.id)
+        }))
+      },
+      origin: window.location.origin
+    };
+    const event = new CustomEvent<WebAuthnGetEventDetail>('aliasvault:webauthn:get', {
+      detail: eventDetail
     });
     window.dispatchEvent(event);
 
@@ -211,13 +267,13 @@ export default defineUnlistedScript(() => {
        */
       function cleanup() {
         clearTimeout(timeout);
-        window.removeEventListener('aliasvault:webauthn:get:response', handler);
+        window.removeEventListener('aliasvault:webauthn:get:response', handler as EventListener);
       }
 
       /**
        *
        */
-      function handler(e: any) {
+      function handler(e: CustomEvent<WebAuthnGetResponseDetail>) {
         if (e.detail.requestId !== requestId) {
           return;
         }
@@ -232,11 +288,13 @@ export default defineUnlistedScript(() => {
           reject(new Error(e.detail.error));
         } else if (e.detail.credential) {
           // Create a proper credential object with required methods
-          const cred = e.detail.credential;
+          const cred: ProviderGetCredential = e.detail.credential;
+          console.log('Sending back credential with userhandle (converted to buffer):', cred.userHandle);
           const credential = {
             id: cred.id,
             type: 'public-key',
             rawId: base64ToBuffer(cred.rawId),
+            authenticatorAttachment: 'platform',
             response: {
               clientDataJSON: base64ToBuffer(cred.clientDataJSON),
               authenticatorData: base64ToBuffer(cred.authenticatorData),
@@ -257,7 +315,7 @@ export default defineUnlistedScript(() => {
         }
       }
 
-      window.addEventListener('aliasvault:webauthn:get:response', handler);
+      window.addEventListener('aliasvault:webauthn:get:response', handler as EventListener);
     });
   };
 

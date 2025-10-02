@@ -2,6 +2,18 @@
  * Type definitions for the AliasVaultPasskeyProvider
  */
 
+// Re-export injection script types for convenience
+export type {
+  WebAuthnCreateEventDetail,
+  WebAuthnGetEventDetail,
+  WebAuthnCreateResponseDetail,
+  WebAuthnGetResponseDetail,
+  ProviderCreateCredential,
+  ProviderGetCredential,
+  WebAuthnPublicKeyCredential,
+  WebAuthnAssertionCredential
+} from './webauthn-inject.types';
+
 /**
  * WebAuthn credential response types (for injection script compatibility)
  */

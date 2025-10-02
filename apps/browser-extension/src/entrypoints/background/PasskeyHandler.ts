@@ -12,6 +12,9 @@ interface IPasskeyData {
   displayName: string;
   publicKey: JsonWebKey;
   privateKey: JsonWebKey;
+  userId?: string | null;          // base64url encoded user.id for userHandle
+  userName?: string;
+  userDisplayName?: string;
   createdAt: number;
   updatedAt: number;
   lastUsedAt: number | null;
@@ -221,8 +224,13 @@ export async function handleStorePasskey(data: {
   displayName: string;
   publicKey: JsonWebKey;
   privateKey: JsonWebKey;
+  userId?: string | null;
+  userName?: string;
+  userDisplayName?: string;
 }): Promise<{ success: boolean }> {
-  const { rpId, credentialId, displayName, publicKey, privateKey } = data;
+  const { rpId, credentialId, displayName, publicKey, privateKey, userId, userName, userDisplayName } = data;
+
+  console.log('handleStorePasskey: Storing passkey with raw userId:', userId);
 
   const passkey: IPasskeyData = {
     id: Date.now().toString(),
@@ -231,6 +239,9 @@ export async function handleStorePasskey(data: {
     displayName,
     publicKey,
     privateKey,
+    userId,
+    userName,
+    userDisplayName,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     lastUsedAt: null,
@@ -400,10 +411,12 @@ export async function handleGetPasskeyById(data: { credentialId: string }): Prom
 
   for (const [_key, passkey] of sessionPasskeys.entries()) {
     if (passkey.credentialId === credentialId) {
+      console.log('handleGetPasskeyById: Found passkey with userId:', passkey.userId);
       return passkey;
     }
   }
 
+  console.log('handleGetPasskeyById: Passkey not found for credentialId:', credentialId);
   return null;
 }
 
@@ -412,13 +425,7 @@ export async function handleGetPasskeyById(data: { credentialId: string }): Prom
  */
 export async function handleGetRequestData(data: { requestId: string }): Promise<any> {
   const { requestId } = data;
-  console.log('handleGetRequestData: requestId', requestId);
-  console.log('handleGetRequestData: pendingRequestData', pendingRequestData);
-  console.log('handleGetRequestData: map size', pendingRequestData.size);
-  console.log('handleGetRequestData: map keys', Array.from(pendingRequestData.keys()));
   const requestData = pendingRequestData.get(requestId);
-  console.log('handleGetRequestData: found data', requestData);
-  console.log('handleGetRequestData: passkeys in data', requestData?.passkeys);
   return requestData || null;
 }
 

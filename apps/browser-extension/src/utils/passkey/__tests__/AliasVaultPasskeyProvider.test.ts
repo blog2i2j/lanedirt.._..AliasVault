@@ -571,6 +571,150 @@ describe('AliasVaultPasskeyProvider', () => {
     });
   });
 
+  describe('Storage callbacks verification', () => {
+    it('should call store callback with userId when creating passkey', async () => {
+      const userIdBytes = new Uint8Array([10, 20, 30, 40]);
+      const createRequest: CreateRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          rp: { id: 'example.com', name: 'Example' },
+          user: {
+            id: userIdBytes,
+            name: 'testuser',
+            displayName: 'Test User'
+          },
+          challenge: 'create-challenge',
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+        }
+      };
+
+      const storeSpy = vi.fn();
+      const getSpy = vi.fn();
+
+      const testProvider = new AliasVaultPasskeyProvider(storeSpy, getSpy);
+      await testProvider.createPasskey(createRequest);
+
+      // Verify store was called with userId
+      expect(storeSpy).toHaveBeenCalledTimes(1);
+      const storedRecord = storeSpy.mock.calls[0][0] as StoredPasskeyRecord;
+      expect(storedRecord.userId).toBeDefined();
+      expect(storedRecord.userId).not.toBeNull();
+      expect(typeof storedRecord.userId).toBe('string');
+    });
+
+    it('should retrieve userId from getById callback during authentication', async () => {
+      const userIdBytes = new Uint8Array([50, 60, 70, 80]);
+
+      // First create a passkey with userId
+      const createRequest: CreateRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          rp: { id: 'example.com' },
+          user: {
+            id: userIdBytes,
+            name: 'testuser',
+            displayName: 'Test User'
+          },
+          challenge: 'create-challenge',
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+        }
+      };
+
+      const createResult = await provider.createPasskey(createRequest);
+
+      // Now authenticate - verify that getById is called and userId is preserved
+      const getRequest: GetRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          rpId: 'example.com',
+          challenge: 'auth-challenge'
+        }
+      };
+
+      const getBySpy = vi.fn(async (credentialId: string) => {
+        // Return the stored passkey with userId
+        return storedPasskeys.get(credentialId) || null;
+      });
+
+      const testProvider = new AliasVaultPasskeyProvider(
+        async () => {},
+        getBySpy
+      );
+
+      const assertion = await testProvider.getAssertion(getRequest, createResult.credential.id);
+
+      // Verify getById was called
+      expect(getBySpy).toHaveBeenCalledTimes(1);
+      expect(getBySpy).toHaveBeenCalledWith(createResult.credential.id);
+
+      // Verify userHandle was populated from the retrieved userId
+      expect(assertion.userHandle).not.toBeNull();
+      expect(assertion.userHandle).toBeDefined();
+    });
+
+    it('should preserve userId through storage and retrieval round-trip', async () => {
+      // This test simulates the full flow: create → store → retrieve → authenticate
+      const realStorage = new Map<string, StoredPasskeyRecord>();
+      const userIdBytes = new Uint8Array([100, 101, 102, 103]);
+
+      const roundTripProvider = new AliasVaultPasskeyProvider(
+        async (record: StoredPasskeyRecord) => {
+          // Simulate real storage that might serialize/deserialize
+          const serialized = JSON.stringify(record);
+          const deserialized = JSON.parse(serialized);
+          realStorage.set(record.credentialId, deserialized);
+        },
+        async (credentialId: string) => {
+          return realStorage.get(credentialId) || null;
+        }
+      );
+
+      // Create passkey
+      const createRequest: CreateRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          user: {
+            id: userIdBytes,
+            name: 'user',
+            displayName: 'User'
+          },
+          challenge: 'challenge',
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+        }
+      };
+
+      const createResult = await roundTripProvider.createPasskey(createRequest);
+
+      // Verify it was stored
+      const storedRecord = realStorage.get(createResult.credential.id);
+      expect(storedRecord).toBeDefined();
+      expect(storedRecord?.userId).toBeDefined();
+
+      // Authenticate - retrieve from storage
+      const getRequest: GetRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          challenge: 'auth-challenge'
+        }
+      };
+
+      const assertion = await roundTripProvider.getAssertion(getRequest, createResult.credential.id);
+
+      // Verify userHandle was preserved through the round-trip
+      expect(assertion.userHandle).not.toBeNull();
+
+      // Decode and verify it matches original
+      if (assertion.userHandle) {
+        const decoded = atob(assertion.userHandle);
+        const decodedBytes = new Uint8Array(decoded.length);
+        for (let i = 0; i < decoded.length; i++) {
+          decodedBytes[i] = decoded.charCodeAt(i);
+        }
+        expect(Array.from(decodedBytes)).toEqual(Array.from(userIdBytes));
+      }
+    });
+  });
+
   describe('Cross-verification', () => {
     it('should verify signature with public key', async () => {
       // Create passkey

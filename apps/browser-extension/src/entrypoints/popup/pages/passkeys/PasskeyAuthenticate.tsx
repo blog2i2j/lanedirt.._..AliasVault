@@ -118,6 +118,7 @@ const PasskeyAuthenticate: React.FC = () => {
       });
 
       console.info('PasskeyAuthenticate: Received assertion successfully', credential);
+      console.info('PasskeyAuthenticate: credential.userHandle =', credential.userHandle);
 
       // Update last used timestamp
       await sendMessage('UPDATE_PASSKEY_LAST_USED', {
@@ -125,13 +126,14 @@ const PasskeyAuthenticate: React.FC = () => {
       }, 'background');
 
       // Send response back
+      console.info('PasskeyAuthenticate: Sending credential to background:', credential);
       await sendMessage('PASSKEY_POPUP_RESPONSE', {
         requestId: request.requestId,
         credential
       }, 'background');
 
       // For debugging: Don't close the window automatically
-      console.info('PasskeyAuthenticate: Authentication complete. Window kept open for debugging.');
+      console.info('PasskeyAuthenticate: Authentication complete.');
       setLoading(false);
 
       // Uncomment to auto-close:

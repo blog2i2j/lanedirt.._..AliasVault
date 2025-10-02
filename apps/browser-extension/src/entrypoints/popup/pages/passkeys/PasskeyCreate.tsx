@@ -43,7 +43,7 @@ const PasskeyCreate: React.FC = () => {
         try {
           // Fetch the full request data from background
           const data = await sendMessage('GET_REQUEST_DATA', { requestId }, 'background');
-          console.log('PasskeyCreate: fetched request data', data);
+          console.log('PasskeyCreate: website create request:', data);
           if (data) {
             setRequest(data);
 
@@ -56,8 +56,6 @@ const PasskeyCreate: React.FC = () => {
         }
       }
 
-      // Mark initial loading as complete
-      console.log('PasskeyCreate: useEffect: setIsInitialLoading(false)');
       setIsInitialLoading(false);
     };
 
@@ -75,9 +73,6 @@ const PasskeyCreate: React.FC = () => {
     setLoading(true);
 
     try {
-      console.log('PasskeyCreate: Starting passkey creation');
-      console.log('PasskeyCreate: request', request);
-
       // Create the provider with storage callbacks
       const provider = new AliasVaultPasskeyProvider(
         async (record: StoredPasskeyRecord) => {
@@ -136,7 +131,7 @@ const PasskeyCreate: React.FC = () => {
       }, 'background');
 
       // For debugging: Don't close the window automatically
-      console.info('PasskeyCreate: Passkey created successfully. Window kept open for debugging.');
+      console.info('PasskeyCreate: Passkey created successfully.');
       setLoading(false);
 
       // Uncomment to auto-close:

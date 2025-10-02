@@ -65,6 +65,9 @@ export class AliasVaultPasskeyProvider {
 
     // 2) Determine RP ID (domain) and hash it
     const rpId = req.publicKey.rp?.id || new URL(req.origin).hostname;
+    console.log('AliasVaultPasskeyProvider.createPasskey: rpId:', rpId);
+    console.log('AliasVaultPasskeyProvider.createPasskey: rp.id from request:', req.publicKey.rp?.id);
+    console.log('AliasVaultPasskeyProvider.createPasskey: origin hostname:', new URL(req.origin).hostname);
     const rpIdHash = new Uint8Array(await crypto.subtle.digest('SHA-256', this.te(rpId)));
 
     // 3) Key pair generation (ES256 / P-256)
@@ -110,6 +113,9 @@ export class AliasVaultPasskeyProvider {
 
     // 9) clientDataJSON (stringify with challenge as base64url)
     const challengeB64u = this.challengeToB64u(req.publicKey.challenge);
+    console.log('AliasVaultPasskeyProvider.createPasskey: challenge received:', req.publicKey.challenge);
+    console.log('AliasVaultPasskeyProvider.createPasskey: challenge as base64url:', challengeB64u);
+    console.log('AliasVaultPasskeyProvider.createPasskey: origin:', req.origin);
     const clientDataObj = {
       type: 'webauthn.create',
       challenge: challengeB64u,
@@ -117,6 +123,7 @@ export class AliasVaultPasskeyProvider {
       crossOrigin: false
     };
     const clientDataJSONStr = JSON.stringify(clientDataObj);
+    console.log('AliasVaultPasskeyProvider.createPasskey: clientDataJSON:', clientDataJSONStr);
     const clientDataJSONBytes = this.te(clientDataJSONStr);
 
     // 10) Build attestationObject (CBOR map with "fmt","attStmt","authData")
@@ -127,10 +134,14 @@ export class AliasVaultPasskeyProvider {
         : await this.buildAttObjPackedSelf(authenticatorData, clientDataJSONBytes, keyPair.privateKey);
 
     // 11) Store the passkey in your vault (so it can be used later for authentication)
-    // Normalize userId to base64url string for consistent storage and later retrieval
-    let userIdB64u: string | null = null;
+    // Store userId as-is (injection script sends it as standard base64 string)
+    let userIdB64: string | null = null;
     if (req.publicKey.user?.id) {
-      userIdB64u = this.userIdToB64u(req.publicKey.user.id);
+      console.log('Storing passkey with userId (standard base64):', req.publicKey.user.id);
+      // The injection script already converted ArrayBuffer to standard base64, store as-is
+      userIdB64 = typeof req.publicKey.user.id === 'string'
+        ? req.publicKey.user.id
+        : this.toB64(req.publicKey.user.id instanceof Uint8Array ? req.publicKey.user.id : new Uint8Array(req.publicKey.user.id));
     }
 
     const stored: StoredPasskeyRecord = {
@@ -138,7 +149,7 @@ export class AliasVaultPasskeyProvider {
       credentialId: credentialIdB64u,
       publicKey: pubJwk,
       privateKey: prvJwk,
-      userId: userIdB64u,
+      userId: userIdB64,
       userName: req.publicKey.user?.name,
       userDisplayName: req.publicKey.user?.displayName,
       lastUsedAt: Date.now()
@@ -238,13 +249,17 @@ export class AliasVaultPasskeyProvider {
     // 7) Convert raw (r|s) to DER sequence
     const derSig = this.ecdsaRawToDer(rawSig);
 
-    // 8) Encode userHandle (userId) as base64 if present
+    // 8) Return userHandle (userId) as-is
     // This is required for discoverable credentials (resident keys) where the RP doesn't ask for a username first
-    // userId is stored as base64url, convert to base64 for WebAuthn response
+    // userId is already stored as standard base64 (from injection script), return as-is
     let userHandleB64: string | null = null;
     if (rec.userId) {
-      const userIdBytes = this.fromB64u(rec.userId);
-      userHandleB64 = this.toB64(userIdBytes);
+      console.log('AliasVaultPasskeyProvider.getAssertion: rec.userId (standard base64):', rec.userId);
+      // Return as-is - already in standard base64 format
+      userHandleB64 = rec.userId;
+      console.log('AliasVaultPasskeyProvider.getAssertion: userHandleB64:', userHandleB64);
+    } else {
+      console.warn('AliasVaultPasskeyProvider.getAssertion: No userId found in stored passkey record');
     }
 
     // 9) Return object in the flat shape (base64 strings), as your client example expects
@@ -442,13 +457,13 @@ export class AliasVaultPasskeyProvider {
 
   /**
    * Normalize challenge to base64url string.
-   * Challenges from the web page are already base64url encoded by the injection script.
-   * Only ArrayBuffer/Uint8Array need conversion.
+   * The injection script sends challenges as standard base64, so we need to convert to base64url.
    */
   private challengeToB64u(challenge: ArrayBuffer | Uint8Array | string): string {
     if (typeof challenge === 'string') {
-      // Already base64url from injection script - use as-is
-      return challenge;
+      // String from injection script - it's standard base64, convert to base64url
+      // Remove padding and replace + with - and / with _
+      return challenge.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
     const bytes = challenge instanceof Uint8Array ? challenge : new Uint8Array(challenge);
     return this.toB64u(bytes);
