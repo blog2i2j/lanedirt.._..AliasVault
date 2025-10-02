@@ -3,7 +3,7 @@ import { onMessage, sendMessage } from "webext-bridge/background";
 import { handleResetAutoLockTimer, handlePopupHeartbeat, handleSetAutoLockTimeout } from '@/entrypoints/background/AutolockTimeoutHandler';
 import { handleClipboardCopied, handleCancelClipboardClear, handleGetClipboardClearTimeout, handleSetClipboardClearTimeout, handleGetClipboardCountdownState } from '@/entrypoints/background/ClipboardClearHandler';
 import { setupContextMenus } from '@/entrypoints/background/ContextMenu';
-import { handleGetWebAuthnSettings, handleWebAuthnCreate, handleWebAuthnGet, handleStorePasskey, handleUpdatePasskeyLastUsed, handleClearAllPasskeys, handlePasskeyPopupResponse, initializePasskeys, handleGetRequestData, handleGetPasskeyById } from '@/entrypoints/background/PasskeyHandler';
+import { handleGetWebAuthnSettings, handleWebAuthnCreate, handleWebAuthnGet, handleStorePasskey, handleUpdatePasskeyLastUsed, handleClearAllPasskeys, handleDeletePasskey, handlePasskeyPopupResponse, initializePasskeys, handleGetRequestData, handleGetPasskeyById } from '@/entrypoints/background/PasskeyHandler';
 import { handleOpenPopup, handlePopupWithCredential, handleOpenPopupCreateCredential, handleToggleContextMenu } from '@/entrypoints/background/PopupMessageHandler';
 import { handleCheckAuthStatus, handleClearPersistedFormValues, handleClearVault, handleCreateIdentity, handleGetCredentials, handleGetDefaultEmailDomain, handleGetDefaultIdentitySettings, handleGetEncryptionKey, handleGetEncryptionKeyDerivationParams, handleGetPasswordSettings, handleGetPersistedFormValues, handleGetVault, handlePersistFormValues, handleStoreEncryptionKey, handleStoreEncryptionKeyDerivationParams, handleStoreVault, handleSyncVault, handleUploadVault } from '@/entrypoints/background/VaultMessageHandler';
 
@@ -70,6 +70,7 @@ export default defineBackground({
     onMessage('STORE_PASSKEY', ({ data }) => handleStorePasskey(data as { rpId: string; credentialId: string; displayName: string; publicKey: unknown }));
     onMessage('UPDATE_PASSKEY_LAST_USED', ({ data }) => handleUpdatePasskeyLastUsed(data as { credentialId: string; newSignCount?: number }));
     onMessage('CLEAR_ALL_PASSKEYS', () => handleClearAllPasskeys());
+    onMessage('DELETE_PASSKEY', ({ data }) => handleDeletePasskey(data as { credentialId: string }));
     onMessage('PASSKEY_POPUP_RESPONSE', ({ data }) => handlePasskeyPopupResponse(data as { requestId: string; credential?: any; fallback?: boolean; cancelled?: boolean }));
     onMessage('GET_REQUEST_DATA', ({ data }) => handleGetRequestData(data as { requestId: string }));
     onMessage('GET_PASSKEY_BY_ID', ({ data }) => handleGetPasskeyById(data as { credentialId: string }));

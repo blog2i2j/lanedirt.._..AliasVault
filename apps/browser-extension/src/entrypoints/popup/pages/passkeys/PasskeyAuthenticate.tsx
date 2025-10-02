@@ -74,10 +74,10 @@ const PasskeyAuthenticate: React.FC = () => {
   }, [location, setIsInitialLoading]);
 
   /**
-   *
+   * Handle passkey authentication
    */
-  const handleUsePasskey = async () => {
-    if (!request || !selectedPasskey) {
+  const handleUsePasskey = async (credentialId: string) => {
+    if (!request) {
       return;
     }
 
@@ -85,7 +85,7 @@ const PasskeyAuthenticate: React.FC = () => {
 
     try {
       console.log('PasskeyAuthenticate: Starting authentication');
-      console.log('PasskeyAuthenticate: selectedPasskey', selectedPasskey);
+      console.log('PasskeyAuthenticate: credentialId', credentialId);
       console.log('PasskeyAuthenticate: request', request);
 
       // Create the provider with storage callbacks
@@ -112,16 +112,16 @@ const PasskeyAuthenticate: React.FC = () => {
       };
 
       // Get the assertion using the provider
-      const credential = await provider.getAssertion(getRequest, selectedPasskey, {
-        uvPerformed: false, // Set to true if you implement actual user verification
+      const credential = await provider.getAssertion(getRequest, credentialId, {
+        uvPerformed: true, // Set to true if you implement actual user verification
         includeBEBS: true   // Include backup-eligible and backup-state flags
       });
 
-      console.info('PasskeyAuthenticate: Created credential successfully', credential);
+      console.info('PasskeyAuthenticate: Received assertion successfully', credential);
 
       // Update last used timestamp
       await sendMessage('UPDATE_PASSKEY_LAST_USED', {
-        credentialId: selectedPasskey
+        credentialId
       }, 'background');
 
       // Send response back
@@ -135,6 +135,35 @@ const PasskeyAuthenticate: React.FC = () => {
       console.error('PasskeyAuthenticate: Error during authentication', error);
       setLoading(false);
       alert(`Failed to authenticate: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
+  /**
+   * Handle passkey deletion
+   */
+  const handleDeletePasskey = async (credentialId: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent triggering authentication
+
+    if (!confirm('Are you sure you want to delete this passkey?')) {
+      return;
+    }
+
+    try {
+      await sendMessage('DELETE_PASSKEY', { credentialId }, 'background');
+
+      // Update the request to remove the deleted passkey
+      if (request?.passkeys) {
+        const updatedPasskeys = request.passkeys.filter(pk => pk.id !== credentialId);
+        setRequest({ ...request, passkeys: updatedPasskeys });
+
+        // Clear selection if the deleted passkey was selected
+        if (selectedPasskey === credentialId) {
+          setSelectedPasskey(null);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to delete passkey:', error);
+      alert(`Failed to delete passkey: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -195,24 +224,34 @@ const PasskeyAuthenticate: React.FC = () => {
         {request.passkeys && request.passkeys.length > 0 ? (
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Select a passkey:
+              Select a passkey to sign in:
             </label>
             <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-2 bg-gray-50 dark:bg-gray-800">
               {request.passkeys.map((pk) => (
                 <div
                   key={pk.id}
-                  className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                    selectedPasskey === pk.id
-                      ? 'bg-blue-50 border-blue-200 dark:bg-blue-900 dark:border-blue-700'
-                      : 'bg-white border-gray-200 hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600'
-                  }`}
-                  onClick={() => setSelectedPasskey(pk.id)}
+                  className="relative group p-3 rounded-lg border cursor-pointer transition-colors bg-white border-gray-200 hover:bg-blue-50 hover:border-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-blue-900 dark:hover:border-blue-700"
+                  onClick={() => !loading && handleUsePasskey(pk.id)}
                 >
-                  <div className="font-medium text-gray-900 dark:text-white text-sm">
-                    {pk.displayName}
-                  </div>
-                  <div className="text-xs text-gray-600 dark:text-gray-400">
-                    Last used: {pk.lastUsed || 'Never'}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-gray-900 dark:text-white text-sm truncate">
+                        {pk.displayName}
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400">
+                        Last used: {pk.lastUsed || 'Never'}
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => handleDeletePasskey(pk.id, e)}
+                      className="flex-shrink-0 p-1.5 text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                      title="Delete passkey"
+                      disabled={loading}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
               ))}
@@ -228,17 +267,6 @@ const PasskeyAuthenticate: React.FC = () => {
       </div>
 
       <div className="space-y-3">
-        {request.passkeys && request.passkeys.length > 0 && (
-          <Button
-            variant="primary"
-            onClick={handleUsePasskey}
-            disabled={loading || !selectedPasskey}
-            className="w-full"
-          >
-            {loading ? 'Signing in...' : 'Use Selected Passkey'}
-          </Button>
-        )}
-
         <Button
           variant="secondary"
           onClick={handleFallback}

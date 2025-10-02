@@ -250,7 +250,29 @@ export async function handleStorePasskey(data: {
    * In production, this would be stored in the vault database
    * For now, also store in local storage for persistence across reloads
    */
-  const storedPasskeys: Record<string, IPasskeyData> = await storage.getItem('local:passkeys') || {};
+  let storedPasskeys: Record<string, IPasskeyData> = {};
+  const rawData = await storage.getItem('local:passkeys');
+
+  // Handle migration from old array format or corrupted string data
+  if (typeof rawData === 'string') {
+    // Data was stored as stringified JSON (old format), clear it
+    console.warn('PasskeyHandler: Found old/corrupted passkey storage format, migrating...');
+    try {
+      const parsed = JSON.parse(rawData);
+      if (Array.isArray(parsed)) {
+        // Convert array to record format
+        for (const pk of parsed) {
+          const pkKey = `${pk.rpId}:${pk.credentialId}`;
+          storedPasskeys[pkKey] = pk;
+        }
+      }
+    } catch (e) {
+      console.error('PasskeyHandler: Failed to migrate old passkey data', e);
+    }
+  } else if (rawData && typeof rawData === 'object') {
+    storedPasskeys = rawData as Record<string, IPasskeyData>;
+  }
+
   storedPasskeys[key] = passkey;
   await storage.setItem('local:passkeys', storedPasskeys);
 
@@ -275,7 +297,13 @@ export async function handleUpdatePasskeyLastUsed(data: {
       sessionPasskeys.set(key, passkey);
 
       // Update in storage too
-      const storedPasskeys: Record<string, IPasskeyData> = await storage.getItem('local:passkeys') || {};
+      const rawData = await storage.getItem('local:passkeys');
+      let storedPasskeys: Record<string, IPasskeyData> = {};
+
+      if (typeof rawData === 'object' && rawData !== null) {
+        storedPasskeys = rawData as Record<string, IPasskeyData>;
+      }
+
       if (storedPasskeys[key]) {
         storedPasskeys[key] = passkey;
         await storage.setItem('local:passkeys', storedPasskeys);
@@ -310,7 +338,29 @@ function getPasskeysForOrigin(origin: string): IPasskeyData[] {
  * Initialize passkeys from storage on startup
  */
 export async function initializePasskeys(): Promise<void> {
-  const storedPasskeys: Record<string, IPasskeyData> = await storage.getItem('local:passkeys') || {};
+  const rawData = await storage.getItem('local:passkeys');
+  let storedPasskeys: Record<string, IPasskeyData> = {};
+
+  // Handle migration from old array format or corrupted string data
+  if (typeof rawData === 'string') {
+    console.warn('PasskeyHandler: Found old/corrupted passkey storage format during init, migrating...');
+    try {
+      const parsed = JSON.parse(rawData);
+      if (Array.isArray(parsed)) {
+        // Convert array to record format
+        for (const pk of parsed) {
+          const pkKey = `${pk.rpId}:${pk.credentialId}`;
+          storedPasskeys[pkKey] = pk;
+        }
+        // Save migrated data
+        await storage.setItem('local:passkeys', storedPasskeys);
+      }
+    } catch (e) {
+      console.error('PasskeyHandler: Failed to migrate old passkey data during init', e);
+    }
+  } else if (rawData && typeof rawData === 'object') {
+    storedPasskeys = rawData as Record<string, IPasskeyData>;
+  }
 
   for (const [key, passkey] of Object.entries(storedPasskeys)) {
     sessionPasskeys.set(key, passkey as IPasskeyData);
@@ -384,4 +434,30 @@ export async function handleClearAllPasskeys(): Promise<{ success: boolean }> {
   sessionPasskeys.clear();
   await storage.removeItem('local:passkeys');
   return { success: true };
+}
+
+/**
+ * Delete a specific passkey
+ */
+export async function handleDeletePasskey(data: { credentialId: string }): Promise<{ success: boolean }> {
+  const { credentialId } = data;
+
+  // Find and remove from session storage
+  let deletedKey: string | null = null;
+  for (const [key, passkey] of sessionPasskeys.entries()) {
+    if (passkey.credentialId === credentialId) {
+      sessionPasskeys.delete(key);
+      deletedKey = key;
+      break;
+    }
+  }
+
+  if (deletedKey) {
+    // Remove from storage (storage API expects Record format, not stringified)
+    const storedPasskeys: Record<string, IPasskeyData> = await storage.getItem('local:passkeys') || {};
+    delete storedPasskeys[deletedKey];
+    await storage.setItem('local:passkeys', storedPasskeys);
+  }
+
+  return { success: !!deletedKey };
 }
