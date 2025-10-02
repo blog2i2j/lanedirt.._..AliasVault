@@ -1,9 +1,9 @@
 /**
- * WebAuthn injection script - runs in page context to intercept credentials API
- * This is a public entry point that will be included in web_accessible_resources
+ * WebAuthn override injection script - included in web_accessible_resources as "webauthn.js"
+ * and runs in page context to override the browser's built-in credentials API.
  */
 
-import { defineUnlistedScript } from '#imports';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type {
   WebAuthnCreateEventDetail,
@@ -12,7 +12,9 @@ import type {
   WebAuthnGetResponseDetail,
   ProviderCreateCredential,
   ProviderGetCredential
-} from '@/utils/passkey/webauthn-inject.types';
+} from '@/utils/passkey/webauthn.types';
+
+import { defineUnlistedScript } from '#imports';
 
 export default defineUnlistedScript(() => {
   // Only run once
@@ -24,9 +26,8 @@ export default defineUnlistedScript(() => {
   const originalCreate = navigator.credentials.create.bind(navigator.credentials);
   const originalGet = navigator.credentials.get.bind(navigator.credentials);
 
-  // Helper to convert ArrayBuffer to base64
   /**
-   *
+   * Helper to convert ArrayBuffer to base64
    */
   function bufferToBase64(buffer: ArrayBuffer | ArrayBufferView): string {
     const bytes = buffer instanceof ArrayBuffer
@@ -39,9 +40,8 @@ export default defineUnlistedScript(() => {
     return btoa(binary);
   }
 
-  // Helper to convert base64/base64url to ArrayBuffer
   /**
-   *
+   * Helper to convert ArrayBuffer to base64
    */
   function base64ToBuffer(base64: string): ArrayBuffer {
     // Handle both base64 and base64url formats
@@ -56,13 +56,10 @@ export default defineUnlistedScript(() => {
     return bytes.buffer;
   }
 
-  // Override credentials.create
   /**
-   *
+   * Override credentials.create (monkey patch)
    */
-  navigator.credentials.create = async function(options?: CredentialCreationOptions) {
-    console.log('[AliasVault] Page: Intercepted credentials.create', options);
-
+  navigator.credentials.create = async function(options?: CredentialCreationOptions) : Promise<Credential | null> {
     if (!options?.publicKey) {
       return originalCreate(options);
     }
@@ -95,22 +92,21 @@ export default defineUnlistedScript(() => {
       const timeout = setTimeout(() => {
         cleanup();
         // Timeout - fall back to native
-        console.log('[AliasVault] Page: Timeout, falling back to native');
         originalCreate(options).then(resolve).catch(reject);
       }, 30000); // 30 second timeout
 
       /**
-       *
+       * cleanup
        */
-      function cleanup() {
+      function cleanup() : void {
         clearTimeout(timeout);
         window.removeEventListener('aliasvault:webauthn:create:response', handler as EventListener);
       }
 
       /**
-       *
+       * handler
        */
-      function handler(e: CustomEvent<WebAuthnCreateResponseDetail>) {
+      function handler(e: CustomEvent<WebAuthnCreateResponseDetail>) : void {
         if (e.detail.requestId !== requestId) {
           return;
         }
@@ -119,22 +115,22 @@ export default defineUnlistedScript(() => {
 
         if (e.detail.fallback) {
           // User chose to use native implementation
-          console.log('[AliasVault] Page: User chose native, falling back');
           originalCreate(options).then(resolve).catch(reject);
         } else if (e.detail.error) {
           reject(new Error(e.detail.error));
         } else if (e.detail.credential) {
           // Create a proper credential object with required methods
           const cred: ProviderCreateCredential = e.detail.credential;
-          console.log('[AliasVault] Page: Creating credential response from:', cred);
           try {
             // Decode the attestation object to extract authenticator data
             const attestationObjectBuffer = base64ToBuffer(cred.attestationObject);
             const attObjBytes = new Uint8Array(attestationObjectBuffer);
 
-            // Simple CBOR parser to extract authData
-            // CBOR map starts with 0xA3 (map with 3 items)
-            // Keys are: "fmt" (0x63), "attStmt" (0x67), "authData" (0x68)
+            /*
+             * Simple CBOR parser to extract authData
+             * CBOR map starts with 0xA3 (map with 3 items)
+             * Keys are: "fmt" (0x63), "attStmt" (0x67), "authData" (0x68)
+             */
             let authDataBuffer = new ArrayBuffer(0);
             try {
               // Find "authData" key (0x68 0x61 0x75 0x74 0x68 0x44 0x61 0x74 0x61)
@@ -171,42 +167,37 @@ export default defineUnlistedScript(() => {
                 clientDataJSON: base64ToBuffer(cred.clientDataJSON),
                 attestationObject: attestationObjectBuffer,
                 /**
-                 *
+                 * getTransports
                  */
-                getTransports() {
+                getTransports() : string[] {
                   return ['internal'];
                 },
                 /**
-                 *
+                 * getAuthenticatorData
                  */
-                getAuthenticatorData() {
+                getAuthenticatorData() : ArrayBuffer {
                   return authDataBuffer;
                 },
                 /**
-                 *
+                 * getPublicKey
                  */
-                getPublicKey() {
+                getPublicKey() : JsonWebKey | null {
                   return null;
                 },
                 /**
-                 *
+                 * getPublicKeyAlgorithm
                  */
-                getPublicKeyAlgorithm() {
+                getPublicKeyAlgorithm() : number {
                   return -7; // ES256
                 }
               },
               /**
-               *
+               * getClientExtensionResults
                */
-              getClientExtensionResults() {
+              getClientExtensionResults() : any {
                 return {};
               }
             };
-            console.log('[AliasVault] Page: Created credential object:', credential);
-            console.log('[AliasVault] Page: Credential rawId length:', credential.rawId.byteLength);
-            console.log('[AliasVault] Page: Credential clientDataJSON length:', credential.response.clientDataJSON.byteLength);
-            console.log('[AliasVault] Page: Credential attestationObject length:', credential.response.attestationObject.byteLength);
-            console.log('[AliasVault] Page: Credential authData length:', authDataBuffer.byteLength);
             resolve(credential as any);
           } catch (error) {
             console.error('[AliasVault] Page: Error creating credential object:', error);
@@ -222,15 +213,11 @@ export default defineUnlistedScript(() => {
     });
   };
 
-  // Override credentials.get
   /**
-   *
+   * Override credentials.get (monkey patch)
    */
-  navigator.credentials.get = async function(options?: CredentialRequestOptions) {
-    console.log('[AliasVault] Page: Intercepted credentials.get', options);
-
+  navigator.credentials.get = async function(options?: CredentialRequestOptions) : Promise<Credential | null> {
     if (!options?.publicKey) {
-      console.log('[AliasVault] Page: No public key, falling back to native');
       return originalGet(options);
     }
 
@@ -258,22 +245,21 @@ export default defineUnlistedScript(() => {
       const timeout = setTimeout(() => {
         cleanup();
         // Timeout - fall back to native
-        console.log('[AliasVault] Page: Timeout, falling back to native');
         originalGet(options).then(resolve).catch(reject);
       }, 30000);
 
       /**
-       *
+       * cleanup
        */
-      function cleanup() {
+      function cleanup() : void {
         clearTimeout(timeout);
         window.removeEventListener('aliasvault:webauthn:get:response', handler as EventListener);
       }
 
       /**
-       *
+       * handler
        */
-      function handler(e: CustomEvent<WebAuthnGetResponseDetail>) {
+      function handler(e: CustomEvent<WebAuthnGetResponseDetail>) : void {
         if (e.detail.requestId !== requestId) {
           return;
         }
@@ -282,14 +268,12 @@ export default defineUnlistedScript(() => {
 
         if (e.detail.fallback) {
           // User chose to use native implementation
-          console.log('[AliasVault] Page: User chose native, falling back');
           originalGet(options).then(resolve).catch(reject);
         } else if (e.detail.error) {
           reject(new Error(e.detail.error));
         } else if (e.detail.credential) {
           // Create a proper credential object with required methods
           const cred: ProviderGetCredential = e.detail.credential;
-          console.log('Sending back credential with userhandle (converted to buffer):', cred.userHandle);
           const credential = {
             id: cred.id,
             type: 'public-key',
@@ -302,9 +286,9 @@ export default defineUnlistedScript(() => {
               userHandle: cred.userHandle ? base64ToBuffer(cred.userHandle) : null
             },
             /**
-             *
+             * getClientExtensionResults
              */
-            getClientExtensionResults() {
+            getClientExtensionResults() : any {
               return {};
             }
           };
@@ -319,5 +303,5 @@ export default defineUnlistedScript(() => {
     });
   };
 
-  console.log('[AliasVault] WebAuthn interceptor initialized in page context');
+  console.debug('[AliasVault] WebAuthn inject script loaded successfully');
 });

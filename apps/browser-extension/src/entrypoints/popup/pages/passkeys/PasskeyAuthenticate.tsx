@@ -7,34 +7,22 @@ import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 
 import { AliasVaultPasskeyProvider } from '@/utils/passkey/AliasVaultPasskeyProvider';
-import type { GetRequest, StoredPasskeyRecord, PasskeyGetCredentialResponse } from '@/utils/passkey/types';
-
-interface IPasskeyRequest {
-  type: 'get';
-  requestId: string;
-  origin: string;
-  publicKey: any;
-  passkeys?: Array<{
-    id: string;
-    displayName: string;
-    lastUsed: string | null;
-  }>;
-}
+import type { GetRequest, StoredPasskeyRecord, PasskeyGetCredentialResponse, PendingPasskeyGetRequest } from '@/utils/passkey/types';
 /**
- *
+ * PasskeyAuthenticate
  */
 const PasskeyAuthenticate: React.FC = () => {
   const location = useLocation();
   const { setIsInitialLoading } = useLoading();
-  const [request, setRequest] = useState<IPasskeyRequest | null>(null);
+  const [request, setRequest] = useState<PendingPasskeyGetRequest | null>(null);
   const [selectedPasskey, setSelectedPasskey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     /**
-     *
+     * fetchRequestData
      */
-    const fetchRequestData = async () => {
+    const fetchRequestData = async () : Promise<void> => {
       // Get the requestId from URL
       const params = new URLSearchParams(location.search);
       const requestId = params.get('requestId');
@@ -42,23 +30,9 @@ const PasskeyAuthenticate: React.FC = () => {
       if (requestId) {
         try {
           // Fetch the full request data from background
-          const response = await sendMessage('GET_REQUEST_DATA', { requestId }, 'background');
-          console.log('PasskeyAuthenticate: full response', response);
-          console.log('PasskeyAuthenticate: response type', typeof response);
-          const keys = response ? Object.keys(response) : [];
-          console.log('PasskeyAuthenticate: response keys', keys);
-          keys.forEach(key => {
-            console.log(`PasskeyAuthenticate: ${key} =`, (response as any)[key]);
-          });
+          const data = await sendMessage('GET_REQUEST_DATA', { requestId }, 'background') as unknown as PendingPasskeyGetRequest;
 
-          // The response might be wrapped in a data property
-          const data = response;
-          console.log('PasskeyAuthenticate: request data', data);
-          console.log('PasskeyAuthenticate: passkeys', data?.passkeys);
-          console.log('PasskeyAuthenticate: passkeys is array?', Array.isArray(data?.passkeys));
-          console.log('PasskeyAuthenticate: passkeys length', data?.passkeys?.length);
-
-          if (data) {
+          if (data && data.type === 'get') {
             setRequest(data);
           }
         } catch (error) {
@@ -76,7 +50,7 @@ const PasskeyAuthenticate: React.FC = () => {
   /**
    * Handle passkey authentication
    */
-  const handleUsePasskey = async (credentialId: string) => {
+  const handleUsePasskey = async (credentialId: string) : Promise<void> => {
     if (!request) {
       return;
     }
@@ -84,18 +58,14 @@ const PasskeyAuthenticate: React.FC = () => {
     setLoading(true);
 
     try {
-      console.log('PasskeyAuthenticate: Starting authentication');
-      console.log('PasskeyAuthenticate: credentialId', credentialId);
-      console.log('PasskeyAuthenticate: request', request);
-
       // Create the provider with storage callbacks
       const provider = new AliasVaultPasskeyProvider(
         async (record: StoredPasskeyRecord) => {
           // Not used during authentication
-          await sendMessage('STORE_PASSKEY', record as any, 'background');
+          await sendMessage('STORE_PASSKEY', record, 'background');
         },
-        async (credentialId: string) => {
-          const result = await sendMessage('GET_PASSKEY_BY_ID', { credentialId }, 'background');
+        async (credentialId: string) : Promise<StoredPasskeyRecord | null> => {
+          const result = await sendMessage('GET_PASSKEY_BY_ID', { credentialId }, 'background') as StoredPasskeyRecord | null;
           return result || null;
         }
       );
@@ -105,6 +75,7 @@ const PasskeyAuthenticate: React.FC = () => {
         origin: request.origin,
         requestId: request.requestId,
         publicKey: {
+          // TODO: check request.publicKey type and actual stored data
           rpId: request.publicKey.rpId,
           challenge: request.publicKey.challenge,
           userVerification: request.publicKey.userVerification
@@ -136,8 +107,10 @@ const PasskeyAuthenticate: React.FC = () => {
       console.info('PasskeyAuthenticate: Authentication complete.');
       setLoading(false);
 
-      // Uncomment to auto-close:
-      // window.close();
+      /*
+       * Uncomment to auto-close:
+       * window.close();
+       */
     } catch (error) {
       console.error('PasskeyAuthenticate: Error during authentication', error);
       setLoading(false);
@@ -148,7 +121,7 @@ const PasskeyAuthenticate: React.FC = () => {
   /**
    * Handle passkey deletion
    */
-  const handleDeletePasskey = async (credentialId: string, event: React.MouseEvent) => {
+  const handleDeletePasskey = async (credentialId: string, event: React.MouseEvent) : Promise<void> => {
     event.stopPropagation(); // Prevent triggering authentication
 
     if (!confirm('Are you sure you want to delete this passkey?')) {
@@ -175,9 +148,9 @@ const PasskeyAuthenticate: React.FC = () => {
   };
 
   /**
-   *
+   * Handle fallback
    */
-  const handleFallback = async () => {
+  const handleFallback = async () : Promise<void> => {
     if (!request) {
       return;
     }
@@ -192,9 +165,9 @@ const PasskeyAuthenticate: React.FC = () => {
   };
 
   /**
-   *
+   * Handle cancel
    */
-  const handleCancel = async () => {
+  const handleCancel = async () : Promise<void> => {
     if (!request) {
       return;
     }

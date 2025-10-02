@@ -12,7 +12,7 @@ export type {
   ProviderGetCredential,
   WebAuthnPublicKeyCredential,
   WebAuthnAssertionCredential
-} from './webauthn-inject.types';
+} from './webauthn.types';
 
 /**
  * WebAuthn credential response types (for injection script compatibility)
@@ -44,6 +44,122 @@ export type StoredPasskeyRecord = {
   lastUsedAt?: number;
 };
 
+/**
+ * Request to store a new passkey
+ * TODO: check actual stored data type, but this will be replaced by vault integration anyway
+ */
+export type StorePasskeyRequest = {
+  rpId: string;
+  credentialId: string;
+  displayName: string;
+  publicKey: WebAuthnCreationPayload;
+  privateKey: JsonWebKey;
+  userId?: string | null;
+  userName?: string;
+  userDisplayName?: string;
+};
+
+/**
+ * Request to update passkey last used timestamp
+ */
+export type UpdatePasskeyLastUsedRequest = {
+  credentialId: string;
+};
+
+/**
+ * Request to delete a passkey
+ */
+export type DeletePasskeyRequest = {
+  credentialId: string;
+};
+
+/**
+ * Request to get passkey by ID
+ */
+export type GetPasskeyByIdRequest = {
+  credentialId: string;
+};
+
+/**
+ * Request to get pending request data
+ */
+export type GetRequestDataRequest = {
+  requestId: string;
+};
+
+/**
+ * Passkey popup response
+ */
+export type PasskeyPopupResponse = {
+  requestId: string;
+  credential?: PasskeyCreateCredentialResponse;
+  fallback?: boolean;
+  cancelled?: boolean;
+};
+
+/**
+ * WebAuthn create request
+ */
+export type WebAuthnCreateRequest = {
+  publicKey: unknown;
+  origin: string;
+};
+
+/**
+ * WebAuthn get request
+ */
+export type WebAuthnGetRequest = {
+  publicKey: {
+    allowCredentials?: Array<{ id: string }>;
+  };
+  origin: string;
+};
+
+/**
+ * Pending passkey request data for create operation
+ * TODO: check usage chain
+ */
+export type PendingPasskeyCreateRequest = {
+  type: 'create';
+  requestId: string;
+  origin: string;
+  publicKey: WebAuthnCreationPayload;
+};
+
+/**
+ * Pending passkey request data for get/authenticate operation
+ * TODO: check usage chain
+ */
+export type PendingPasskeyGetRequest = {
+  type: 'get';
+  requestId: string;
+  origin: string;
+  publicKey: WebAuthnPublicKeyGetPayload;
+  passkeys: Array<{
+    id: string;
+    displayName: string;
+    lastUsed: string | null;
+  }>;
+};
+
+export type WebAuthnPublicKeyGetPayload = {
+  challenge: string; // Base64URL-encoded challenge
+  timeout?: number;
+  rpId: string;
+  allowCredentials?: {
+    id: string; // Base64URL-encoded credential ID
+    type: "public-key";
+    transports?: string[];
+  }[];
+  userVerification: "required" | "preferred" | "discouraged";
+  hints?: string[];
+};
+
+/**
+ * Union type for all pending passkey requests
+ */
+export type PendingPasskeyRequest = PendingPasskeyCreateRequest | PendingPasskeyGetRequest;
+
 export type CreateRequest = {
   origin: string;                     // e.g. "https://example.com"
   requestId?: string;                 // optional correlation id (if you need it)
@@ -65,9 +181,39 @@ export type CreateRequest = {
 export type GetRequest = {
   origin: string;
   requestId?: string;
-  publicKey: {
-    rpId?: string;
-    challenge: ArrayBuffer | Uint8Array | string; // often base64url string from page
-    userVerification?: 'required' | 'preferred' | 'discouraged';
+  publicKey: WebAuthnPublicKeyGetPayload
+};
+
+export type WebAuthnCreationPayload = {
+  rp: {
+    name: string;
+    id: string;
+  };
+  user: {
+    id: string; // Base64URL-encoded user ID
+    name: string;
+    displayName: string;
+  };
+  challenge: string; // Base64URL-encoded challenge
+  pubKeyCredParams: {
+    type: "public-key";
+    alg: number; // COSE algorithm identifier
+  }[];
+  timeout: number;
+  excludeCredentials: {
+    id: string; // Base64URL-encoded credential ID
+    type: "public-key";
+    transports: string[];
+  }[];
+  authenticatorSelection: {
+    residentKey: "discouraged" | "preferred" | "required";
+    requireResidentKey: boolean;
+    userVerification: "required" | "preferred" | "discouraged";
+  };
+  attestation: "none" | "indirect" | "direct" | "enterprise";
+  hints: string[];
+  extensions?: {
+    credProps?: boolean;
+    [key: string]: unknown;
   };
 };

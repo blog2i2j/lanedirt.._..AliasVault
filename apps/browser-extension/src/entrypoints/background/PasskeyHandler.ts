@@ -3,6 +3,24 @@
  * TODO: review this file
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import type {
+  StorePasskeyRequest,
+  UpdatePasskeyLastUsedRequest,
+  DeletePasskeyRequest,
+  GetPasskeyByIdRequest,
+  GetRequestDataRequest,
+  PasskeyPopupResponse,
+  WebAuthnCreateRequest,
+  WebAuthnGetRequest,
+  PendingPasskeyRequest,
+  PendingPasskeyCreateRequest,
+  PendingPasskeyGetRequest,
+  WebAuthnCreationPayload,
+  WebAuthnPublicKeyGetPayload
+} from '@/utils/passkey/types';
+
 import { storage, browser } from '#imports';
 
 interface IPasskeyData {
@@ -31,7 +49,7 @@ const pendingRequests = new Map<string, {
 }>();
 
 // Store request data temporarily (to avoid URL length limits)
-const pendingRequestData = new Map<string, any>();
+const pendingRequestData = new Map<string, PendingPasskeyRequest>();
 
 /**
  * Handle WebAuthn settings request
@@ -48,23 +66,16 @@ export async function handleGetWebAuthnSettings(): Promise<{ enabled: boolean }>
 /**
  * Handle WebAuthn create (registration) request
  */
-export async function handleWebAuthnCreate(data: {
-  publicKey: unknown;
-  origin: string;
-}): Promise<any> {
-  const { publicKey, origin } = data;
+export async function handleWebAuthnCreate(data: any): Promise<any> {
+  const { publicKey, origin } = data as WebAuthnCreateRequest;
   const requestId = Math.random().toString(36).substr(2, 9);
 
-  console.log('handleWebAuthnCreate: requestId', requestId);
-  console.log('handleWebAuthnCreate: origin', origin);
-  console.log('handleWebAuthnCreate: publicKey', publicKey);
-
   // Store request data temporarily (to avoid URL length limits)
-  const requestData = {
+  const requestData: PendingPasskeyCreateRequest = {
     type: 'create',
     requestId,
     origin,
-    publicKey
+    publicKey: publicKey as WebAuthnCreationPayload
   };
   pendingRequestData.set(requestId, requestData);
 
@@ -90,7 +101,7 @@ export async function handleWebAuthnCreate(data: {
       const checkClosed = setInterval(async () => {
         try {
           if (popup.id) {
-            const window = await browser.windows.get(popup.id);
+            const _window = await browser.windows.get(popup.id);
             // Window still exists, continue waiting
           }
         } catch {
@@ -104,29 +115,19 @@ export async function handleWebAuthnCreate(data: {
         }
       }, 1000);
     });
-  } catch (error) {
+  } catch {
     return { error: 'Failed to create popup window' };
   }
-}
-
-interface IPasskeyDisplay {
-  id: string;
-  displayName: string;
-  lastUsed: string | null;
 }
 
 /**
  * Handle WebAuthn get (authentication) request
  */
-export async function handleWebAuthnGet(data: {
-  publicKey: { allowCredentials?: Array<{ id: string }> };
-  origin: string;
-}): Promise<any> {
-  const { publicKey, origin } = data;
+export async function handleWebAuthnGet(data: any): Promise<any> {
+  const { publicKey, origin } = data as WebAuthnGetRequest;
   const requestId = Math.random().toString(36).substr(2, 9);
 
   // Get passkeys for this origin
-  console.log('handleWebAuthnGet: origin', origin);
   const passkeys = getPasskeysForOrigin(origin);
 
   // Filter by allowCredentials if specified
@@ -134,13 +135,10 @@ export async function handleWebAuthnGet(data: {
 
   if (publicKey.allowCredentials && publicKey.allowCredentials.length > 0) {
     const allowedIds = new Set(publicKey.allowCredentials.map(c => c.id));
-    console.log('handleWebAuthnGet: allowedIds', Array.from(allowedIds));
     filteredPasskeys = passkeys.filter(pk => {
       const matches = allowedIds.has(pk.credentialId);
-      console.log('handleWebAuthnGet: checking', pk.credentialId, 'matches?', matches);
       return matches;
     });
-    console.log('handleWebAuthnGet: after filter, filteredPasskeys count', filteredPasskeys.length);
   }
 
   let passkeyList = filteredPasskeys.map(pk => ({
@@ -148,7 +146,6 @@ export async function handleWebAuthnGet(data: {
     displayName: pk.displayName,
     lastUsed: pk.lastUsedAt ? new Date(pk.lastUsedAt).toLocaleDateString() : null
   }));
-  console.log('handleWebAuthnGet: final passkeyList', passkeyList);
 
   /*
    * If allowCredentials was specified but we have no matches, show all passkeys anyway
@@ -156,7 +153,6 @@ export async function handleWebAuthnGet(data: {
    * doesn't explicitly request them, allowing users to use extension passkeys)
    */
   if (passkeyList.length === 0 && passkeys.length > 0) {
-    console.log('handleWebAuthnGet: no matching allowCredentials, showing all passkeys instead');
     passkeyList = passkeys.map(pk => ({
       id: pk.credentialId,
       displayName: pk.displayName,
@@ -165,11 +161,11 @@ export async function handleWebAuthnGet(data: {
   }
 
   // Store request data temporarily (to avoid URL length limits)
-  const requestData = {
+  const requestData: PendingPasskeyGetRequest = {
     type: 'get',
     requestId,
     origin,
-    publicKey,
+    publicKey: publicKey as WebAuthnPublicKeyGetPayload,
     passkeys: passkeyList
   };
   pendingRequestData.set(requestId, requestData);
@@ -196,7 +192,7 @@ export async function handleWebAuthnGet(data: {
       const checkClosed = setInterval(async () => {
         try {
           if (popup.id) {
-            const window = await browser.windows.get(popup.id);
+            const _window = await browser.windows.get(popup.id);
             // Window still exists, continue waiting
           }
         } catch {
@@ -210,7 +206,7 @@ export async function handleWebAuthnGet(data: {
         }
       }, 1000);
     });
-  } catch (error) {
+  } catch {
     return { error: 'Failed to create popup window' };
   }
 }
@@ -218,26 +214,15 @@ export async function handleWebAuthnGet(data: {
 /**
  * Store a new passkey
  */
-export async function handleStorePasskey(data: {
-  rpId: string;
-  credentialId: string;
-  displayName: string;
-  publicKey: JsonWebKey;
-  privateKey: JsonWebKey;
-  userId?: string | null;
-  userName?: string;
-  userDisplayName?: string;
-}): Promise<{ success: boolean }> {
-  const { rpId, credentialId, displayName, publicKey, privateKey, userId, userName, userDisplayName } = data;
-
-  console.log('handleStorePasskey: Storing passkey with raw userId:', userId);
+export async function handleStorePasskey(data: any): Promise<{ success: boolean }> {
+  const { rpId, credentialId, displayName, publicKey, privateKey, userId, userName, userDisplayName } = data as StorePasskeyRequest;
 
   const passkey: IPasskeyData = {
     id: Date.now().toString(),
     rpId, // Already processed by the popup, no need to extract domain again
     credentialId,
     displayName,
-    publicKey,
+    publicKey: publicKey as JsonWebKey,
     privateKey,
     userId,
     userName,
@@ -288,10 +273,8 @@ export async function handleStorePasskey(data: {
 /**
  * Update passkey last used time (sign count always remains 0 for cross-device sync compatibility)
  */
-export async function handleUpdatePasskeyLastUsed(data: {
-  credentialId: string;
-}): Promise<{ success: boolean }> {
-  const { credentialId } = data;
+export async function handleUpdatePasskeyLastUsed(data: any): Promise<{ success: boolean }> {
+  const { credentialId } = data as UpdatePasskeyLastUsedRequest;
 
   // Find and update the passkey
   for (const [key, passkey] of sessionPasskeys.entries()) {
@@ -328,7 +311,7 @@ function getPasskeysForOrigin(origin: string): IPasskeyData[] {
   const rpId = origin.replace(/^https?:\/\//, '').split('/')[0];
   const passkeys: IPasskeyData[] = [];
 
-  for (const [key, passkey] of sessionPasskeys.entries()) {
+  for (const [_key, passkey] of sessionPasskeys.entries()) {
     if (passkey.rpId === rpId || passkey.rpId === `.${rpId}`) {
       passkeys.push(passkey);
     }
@@ -373,13 +356,8 @@ export async function initializePasskeys(): Promise<void> {
 /**
  * Handle response from passkey popup
  */
-export async function handlePasskeyPopupResponse(data: {
-  requestId: string;
-  credential?: any;
-  fallback?: boolean;
-  cancelled?: boolean;
-}): Promise<{ success: boolean }> {
-  const { requestId, credential, fallback, cancelled } = data;
+export async function handlePasskeyPopupResponse(data: any): Promise<{ success: boolean }> {
+  const { requestId, credential, fallback, cancelled } = data as PasskeyPopupResponse;
   const request = pendingRequests.get(requestId);
 
   if (!request) {
@@ -406,25 +384,23 @@ export async function handlePasskeyPopupResponse(data: {
 /**
  * Get passkey by credential ID
  */
-export async function handleGetPasskeyById(data: { credentialId: string }): Promise<IPasskeyData | null> {
-  const { credentialId } = data;
+export async function handleGetPasskeyById(data: any): Promise<IPasskeyData | null> {
+  const { credentialId } = data as GetPasskeyByIdRequest;
 
   for (const [_key, passkey] of sessionPasskeys.entries()) {
     if (passkey.credentialId === credentialId) {
-      console.log('handleGetPasskeyById: Found passkey with userId:', passkey.userId);
       return passkey;
     }
   }
 
-  console.log('handleGetPasskeyById: Passkey not found for credentialId:', credentialId);
   return null;
 }
 
 /**
  * Get request data by request ID
  */
-export async function handleGetRequestData(data: { requestId: string }): Promise<any> {
-  const { requestId } = data;
+export async function handleGetRequestData(data: any): Promise<PendingPasskeyRequest | null> {
+  const { requestId } = data as GetRequestDataRequest;
   const requestData = pendingRequestData.get(requestId);
   return requestData || null;
 }
@@ -441,8 +417,8 @@ export async function handleClearAllPasskeys(): Promise<{ success: boolean }> {
 /**
  * Delete a specific passkey
  */
-export async function handleDeletePasskey(data: { credentialId: string }): Promise<{ success: boolean }> {
-  const { credentialId } = data;
+export async function handleDeletePasskey(data: any): Promise<{ success: boolean }> {
+  const { credentialId } = data as DeletePasskeyRequest;
 
   // Find and remove from session storage
   let deletedKey: string | null = null;

@@ -13,7 +13,6 @@ let interceptorInitialized = false;
  * Initialize the WebAuthn interceptor
  */
 export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
-  console.log('[AliasVault] WebAuthnInterceptor: Initializing, interceptorInitialized:', interceptorInitialized);
   if (interceptorInitialized) {
     return;
   }
@@ -21,7 +20,6 @@ export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
   // Listen for WebAuthn create events from the page
   window.addEventListener('aliasvault:webauthn:create', async (event: any) => {
     const { requestId, publicKey, origin } = event.detail;
-    console.log('[AliasVault] WebAuthnInterceptor: Received webauthn:create event', { requestId, origin });
 
     try {
       // Send to background script to handle
@@ -29,8 +27,6 @@ export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
         publicKey,
         origin
       }, 'background');
-
-      console.log('[AliasVault] WebAuthnInterceptor: Background response for create', result);
 
       // Send response back to page
       window.dispatchEvent(new CustomEvent('aliasvault:webauthn:create:response', {
@@ -60,11 +56,6 @@ export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
         origin
       }, 'background');
 
-      console.log('[AliasVault] WebAuthnInterceptor: Received credential from background:', result);
-      if (result.credential) {
-        console.log('[AliasVault] WebAuthnInterceptor: credential.userHandle =', result.credential.userHandle);
-      }
-
       // Send response back to page
       window.dispatchEvent(new CustomEvent('aliasvault:webauthn:get:response', {
         detail: {
@@ -84,25 +75,23 @@ export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
 
   // Inject the page script
   const script = document.createElement('script');
-  script.src = browser.runtime.getURL('/webauthn-inject.js');
+  script.src = browser.runtime.getURL('/webauthn.js');
   script.async = true;
   (document.head || document.documentElement).appendChild(script);
   /**
-   *
+   * onload
    */
-  script.onload = () => {
-    console.log('[AliasVault] WebAuthnInterceptor: Injected script loaded successfully');
+  script.onload = () : void => {
     script.remove();
   };
   /**
-   *
+   * onerror
    */
-  script.onerror = () => {
+  script.onerror = () : void => {
     console.error('[AliasVault] WebAuthnInterceptor: Failed to load injected script');
   };
 
   interceptorInitialized = true;
-  console.log('[AliasVault] WebAuthnInterceptor: Initialization complete');
 }
 
 /**

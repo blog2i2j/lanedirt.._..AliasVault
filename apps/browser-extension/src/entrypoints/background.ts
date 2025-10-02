@@ -1,3 +1,7 @@
+/**
+ * Background script entry point - handles messages from the content script
+ */
+
 import { onMessage, sendMessage } from "webext-bridge/background";
 
 import { handleResetAutoLockTimer, handlePopupHeartbeat, handleSetAutoLockTimeout } from '@/entrypoints/background/AutolockTimeoutHandler';
@@ -8,7 +12,7 @@ import { handleOpenPopup, handlePopupWithCredential, handleOpenPopupCreateCreden
 import { handleCheckAuthStatus, handleClearPersistedFormValues, handleClearVault, handleCreateIdentity, handleGetCredentials, handleGetDefaultEmailDomain, handleGetDefaultIdentitySettings, handleGetEncryptionKey, handleGetEncryptionKeyDerivationParams, handleGetPasswordSettings, handleGetPersistedFormValues, handleGetVault, handlePersistFormValues, handleStoreEncryptionKey, handleStoreEncryptionKeyDerivationParams, handleStoreVault, handleSyncVault, handleUploadVault } from '@/entrypoints/background/VaultMessageHandler';
 
 import { GLOBAL_CONTEXT_MENU_ENABLED_KEY } from '@/utils/Constants';
-import type { EncryptionKeyDerivationParams } from '@/utils/dist/shared/models/metadata';
+import { EncryptionKeyDerivationParams } from "@/utils/dist/shared/models/metadata";
 
 import { defineBackground, storage, browser } from '#imports';
 
@@ -65,15 +69,15 @@ export default defineBackground({
 
     // Passkey/WebAuthn management messages
     onMessage('GET_WEBAUTHN_SETTINGS', () => handleGetWebAuthnSettings());
-    onMessage('WEBAUTHN_CREATE', ({ data }) => handleWebAuthnCreate(data as { publicKey: unknown; origin: string }));
-    onMessage('WEBAUTHN_GET', ({ data }) => handleWebAuthnGet(data as { publicKey: { allowCredentials?: { id: string; }[] | undefined }; origin: string }));
-    onMessage('STORE_PASSKEY', ({ data }) => handleStorePasskey(data as { rpId: string; credentialId: string; displayName: string; publicKey: unknown }));
-    onMessage('UPDATE_PASSKEY_LAST_USED', ({ data }) => handleUpdatePasskeyLastUsed(data as { credentialId: string; newSignCount?: number }));
+    onMessage('WEBAUTHN_CREATE', ({ data }) => handleWebAuthnCreate(data));
+    onMessage('WEBAUTHN_GET', ({ data }) => handleWebAuthnGet(data));
+    onMessage('STORE_PASSKEY', ({ data }) => handleStorePasskey(data));
+    onMessage('UPDATE_PASSKEY_LAST_USED', ({ data }) => handleUpdatePasskeyLastUsed(data));
     onMessage('CLEAR_ALL_PASSKEYS', () => handleClearAllPasskeys());
-    onMessage('DELETE_PASSKEY', ({ data }) => handleDeletePasskey(data as { credentialId: string }));
-    onMessage('PASSKEY_POPUP_RESPONSE', ({ data }) => handlePasskeyPopupResponse(data as { requestId: string; credential?: any; fallback?: boolean; cancelled?: boolean }));
-    onMessage('GET_REQUEST_DATA', ({ data }) => handleGetRequestData(data as { requestId: string }));
-    onMessage('GET_PASSKEY_BY_ID', ({ data }) => handleGetPasskeyById(data as { credentialId: string }));
+    onMessage('DELETE_PASSKEY', ({ data }) => handleDeletePasskey(data));
+    onMessage('PASSKEY_POPUP_RESPONSE', ({ data }) => handlePasskeyPopupResponse(data));
+    onMessage('GET_REQUEST_DATA', ({ data }) => handleGetRequestData(data));
+    onMessage('GET_PASSKEY_BY_ID', ({ data }) => handleGetPasskeyById(data));
 
     // Initialize passkeys from storage TODO: remove this once proper vault integration is added
     await initializePasskeys();

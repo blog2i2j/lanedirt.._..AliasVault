@@ -1,3 +1,7 @@
+/**
+ * Content script entry point - handles autofill UI and WebAuthn passkey interception
+ */
+
 import '@/entrypoints/contentScript/style.css';
 import { onMessage } from "webext-bridge/content-script";
 
@@ -27,11 +31,12 @@ export default defineContentScript({
       return;
     }
 
-    // Initialize WebAuthn interceptor early (before page scripts run)
+    /*
+     * Initialize WebAuthn interceptor early (before page scripts run)
+     * TODO: is this actualyl configurable?
+     */
     const webAuthnEnabled = await isWebAuthnInterceptionEnabled();
-    console.log('[AliasVault] Content: WebAuthn interception enabled:', webAuthnEnabled);
     if (webAuthnEnabled) {
-      console.log('[AliasVault] Content: Initializing WebAuthn interceptor');
       await initializeWebAuthnInterceptor(ctx);
     }
 

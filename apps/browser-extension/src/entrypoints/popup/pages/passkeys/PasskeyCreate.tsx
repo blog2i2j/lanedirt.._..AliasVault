@@ -8,43 +8,32 @@ import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 
 import { AliasVaultPasskeyProvider } from '@/utils/passkey/AliasVaultPasskeyProvider';
-import type { CreateRequest, StoredPasskeyRecord, PasskeyCreateCredentialResponse } from '@/utils/passkey/types';
-
-interface IPasskeyRequest {
-  type: 'create';
-  requestId: string;
-  origin: string;
-  publicKey: any;
-}
+import type { CreateRequest, StoredPasskeyRecord, PasskeyCreateCredentialResponse, PendingPasskeyCreateRequest } from '@/utils/passkey/types';
 
 /**
- *
+ * PasskeyCreate
  */
 const PasskeyCreate: React.FC = () => {
   const location = useLocation();
   const { setIsInitialLoading } = useLoading();
-  const [request, setRequest] = useState<IPasskeyRequest | null>(null);
+  const [request, setRequest] = useState<PendingPasskeyCreateRequest | null>(null);
   const [displayName, setDisplayName] = useState('My Passkey');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     /**
-     *
+     * fetchRequestData
      */
-    const fetchRequestData = async () => {
-      console.log(location);
+    const fetchRequestData = async () : Promise<void> => {
       // Get the requestId from URL
       const params = new URLSearchParams(location.search);
       const requestId = params.get('requestId');
 
-      console.log('PasskeyCreate: requestId', requestId);
-
       if (requestId) {
         try {
           // Fetch the full request data from background
-          const data = await sendMessage('GET_REQUEST_DATA', { requestId }, 'background');
-          console.log('PasskeyCreate: website create request:', data);
-          if (data) {
+          const data = await sendMessage('GET_REQUEST_DATA', { requestId }, 'background') as unknown as PendingPasskeyCreateRequest;
+          if (data && data.type === 'create') {
             setRequest(data);
 
             if (data.publicKey?.user?.displayName) {
@@ -65,7 +54,7 @@ const PasskeyCreate: React.FC = () => {
   /**
    * Handle passkey creation
    */
-  const handleCreate = async () => {
+  const handleCreate = async () : Promise<void> => {
     if (!request) {
       return;
     }
@@ -73,7 +62,10 @@ const PasskeyCreate: React.FC = () => {
     setLoading(true);
 
     try {
-      // Create the provider with storage callbacks
+      /*
+       * Create the provider with storage callbacks
+       * TODO: refactor this flow to be simpler.
+       */
       const provider = new AliasVaultPasskeyProvider(
         async (record: StoredPasskeyRecord) => {
           await sendMessage('STORE_PASSKEY', {
@@ -87,8 +79,8 @@ const PasskeyCreate: React.FC = () => {
             userDisplayName: record.userDisplayName
           } as any, 'background');
         },
-        async (credentialId: string) => {
-          const result = await sendMessage('GET_PASSKEY_BY_ID', { credentialId }, 'background');
+        async (credentialId: string) : Promise<StoredPasskeyRecord | null> => {
+          const result = await sendMessage('GET_PASSKEY_BY_ID', { credentialId }, 'background') as StoredPasskeyRecord | null;
           return result || null;
         }
       );
@@ -114,9 +106,11 @@ const PasskeyCreate: React.FC = () => {
 
       console.info('PasskeyCreate: Created credential successfully', credential);
 
-      // Flatten credential structure for injection script compatibility
-      // The injection script expects: { id, rawId, clientDataJSON, attestationObject }
-      // But the provider returns: { id, rawId, response: { clientDataJSON, attestationObject }, type }
+      /*
+       * Flatten credential structure for injection script compatibility
+       * The injection script expects: { id, rawId, clientDataJSON, attestationObject }
+       * But the provider returns: { id, rawId, response: { clientDataJSON, attestationObject }, type }
+       */
       const flattenedCredential: PasskeyCreateCredentialResponse = {
         id: credential.id,
         rawId: credential.rawId,
@@ -134,8 +128,10 @@ const PasskeyCreate: React.FC = () => {
       console.info('PasskeyCreate: Passkey created successfully.');
       setLoading(false);
 
-      // Uncomment to auto-close:
-      // window.close();
+      /*
+       * Uncomment to auto-close:
+       * window.close();
+       */
     } catch (error) {
       console.error('PasskeyCreate: Error creating passkey', error);
       setLoading(false);
@@ -144,9 +140,9 @@ const PasskeyCreate: React.FC = () => {
   };
 
   /**
-   *
+   * Handle fallback
    */
-  const handleFallback = async () => {
+  const handleFallback = async () : Promise<void> => {
     if (!request) {
       return;
     }
@@ -161,9 +157,9 @@ const PasskeyCreate: React.FC = () => {
   };
 
   /**
-   *
+   * Handle cancel
    */
-  const handleCancel = async () => {
+  const handleCancel = async () : Promise<void> => {
     if (!request) {
       return;
     }

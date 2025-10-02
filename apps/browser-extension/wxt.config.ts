@@ -37,7 +37,7 @@ export default defineConfig({
         }
       },
       web_accessible_resources: [{
-        resources: ["webauthn-inject.js"],
+        resources: ["webauthn.js"],
         matches: ["<all_urls>"]
       }]
     };

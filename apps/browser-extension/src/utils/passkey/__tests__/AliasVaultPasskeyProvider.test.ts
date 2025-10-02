@@ -103,9 +103,10 @@ describe('AliasVaultPasskeyProvider', () => {
     it('should preserve challenge when passed as ArrayBuffer (real-world scenario)', async () => {
       // Simulate what a real website does: generates random bytes for challenge
       const challengeBytes = crypto.getRandomValues(new Uint8Array(32));
-      const challengeArrayBuffer = challengeBytes.buffer;
 
-      // Convert to base64url for transmission (what injection script does)
+      /**
+       * Convert Uint8Array to base64url string
+       */
       const toBase64url = (bytes: Uint8Array): string => {
         let binary = '';
         for (let i = 0; i < bytes.length; i++) {
@@ -133,7 +134,9 @@ describe('AliasVaultPasskeyProvider', () => {
       // The challenge in clientDataJSON should match what we sent
       expect(clientData.challenge).toBe(challengeB64u);
 
-      // Verify we can decode it back to the original bytes
+      /**
+       * Convert base64url string to Uint8Array
+       */
       const fromBase64url = (b64u: string): Uint8Array => {
         const b64 = b64u.replace(/-/g, '+').replace(/_/g, '/');
         const pad = b64.length % 4 === 2 ? '==' : b64.length % 4 === 3 ? '=' : '';
@@ -236,12 +239,6 @@ describe('AliasVaultPasskeyProvider', () => {
       };
 
       const result = await provider.createPasskey(createRequest, { uvPerformed: false });
-
-      // Decode attestation object to check flags
-      const attObjBytes = Uint8Array.from(
-        atob(result.credential.response.attestationObject),
-        c => c.charCodeAt(0)
-      );
 
       /*
        * Find authenticatorData in the CBOR structure
