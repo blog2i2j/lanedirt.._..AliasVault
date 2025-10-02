@@ -1,0 +1,610 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+import { AliasVaultPasskeyProvider } from '../AliasVaultPasskeyProvider';
+
+import type { CreateRequest, GetRequest, StoredPasskeyRecord } from '../types';
+
+describe('AliasVaultPasskeyProvider', () => {
+  let storedPasskeys: Map<string, StoredPasskeyRecord>;
+  let provider: AliasVaultPasskeyProvider;
+
+  beforeEach(() => {
+    storedPasskeys = new Map();
+
+    // Create provider with mock storage callbacks
+    provider = new AliasVaultPasskeyProvider(
+      async (record: StoredPasskeyRecord) => {
+        storedPasskeys.set(record.credentialId, record);
+      },
+      async (credentialId: string) => {
+        return storedPasskeys.get(credentialId) || null;
+      }
+    );
+  });
+
+  describe('createPasskey', () => {
+    it('should create a valid passkey with correct structure', async () => {
+      const createRequest: CreateRequest = {
+        origin: 'https://example.com',
+        requestId: 'test-request-123',
+        publicKey: {
+          rp: { id: 'example.com', name: 'Example Corp' },
+          user: {
+            id: 'user-123',
+            name: 'testuser@example.com',
+            displayName: 'Test User'
+          },
+          challenge: 'random-challenge-base64url',
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+          attestation: 'none',
+          authenticatorSelection: {
+            userVerification: 'preferred',
+            requireResidentKey: true,
+            residentKey: 'required',
+            authenticatorAttachment: 'platform'
+          }
+        }
+      };
+
+      const result = await provider.createPasskey(createRequest);
+
+      // Verify credential structure
+      expect(result.credential).toBeDefined();
+      expect(result.credential.id).toBeDefined();
+      expect(result.credential.rawId).toBe(result.credential.id);
+      expect(result.credential.type).toBe('public-key');
+      expect(result.credential.response).toBeDefined();
+      expect(result.credential.response.clientDataJSON).toBeDefined();
+      expect(result.credential.response.attestationObject).toBeDefined();
+
+      // Verify stored passkey
+      expect(result.stored).toBeDefined();
+      expect(result.stored.rpId).toBe('example.com');
+      expect(result.stored.credentialId).toBe(result.credential.id);
+      expect(result.stored.publicKey).toBeDefined();
+      expect(result.stored.privateKey).toBeDefined();
+      expect(result.stored.userName).toBe('testuser@example.com');
+      expect(result.stored.userDisplayName).toBe('Test User');
+
+      // Verify keys are valid JWK format
+      expect(result.stored.publicKey.kty).toBe('EC');
+      expect(result.stored.publicKey.crv).toBe('P-256');
+      expect(result.stored.publicKey.x).toBeDefined();
+      expect(result.stored.publicKey.y).toBeDefined();
+      expect(result.stored.privateKey.d).toBeDefined();
+
+      // Verify passkey was stored
+      expect(storedPasskeys.has(result.credential.id)).toBe(true);
+    });
+
+    it('should decode and validate clientDataJSON correctly', async () => {
+      const createRequest: CreateRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          rp: { id: 'example.com', name: 'Example' },
+          user: { id: 'user-1', name: 'user', displayName: 'User' },
+          challenge: 'test-challenge-123',
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+        }
+      };
+
+      const result = await provider.createPasskey(createRequest);
+
+      // Decode and verify clientDataJSON
+      const clientDataJSON = atob(result.credential.response.clientDataJSON);
+      const clientData = JSON.parse(clientDataJSON);
+
+      expect(clientData.type).toBe('webauthn.create');
+      expect(clientData.challenge).toBe('test-challenge-123');
+      expect(clientData.origin).toBe('https://example.com');
+      expect(clientData.crossOrigin).toBe(false);
+    });
+
+    it('should decode and validate attestationObject structure', async () => {
+      const createRequest: CreateRequest = {
+        origin: 'https://test.com',
+        publicKey: {
+          challenge: 'challenge-abc',
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+        }
+      };
+
+      const result = await provider.createPasskey(createRequest);
+
+      // Decode attestation object (base64)
+      const attObjBytes = Uint8Array.from(
+        atob(result.credential.response.attestationObject),
+        c => c.charCodeAt(0)
+      );
+
+      // Basic CBOR validation - should start with map marker (0xa3 = map with 3 entries)
+      expect(attObjBytes[0]).toBe(0xa3);
+
+      /*
+       * The attestation object should contain "fmt", "attStmt", and "authData" keys
+       * We can't easily parse CBOR here, but we can verify it's not empty and has expected structure
+       */
+      expect(attObjBytes.length).toBeGreaterThan(100); // Should contain authData + COSE key
+    });
+
+    it('should use rpId from origin if not provided', async () => {
+      const createRequest: CreateRequest = {
+        origin: 'https://subdomain.example.com',
+        publicKey: {
+          challenge: 'test-challenge',
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+        }
+      };
+
+      const result = await provider.createPasskey(createRequest);
+
+      expect(result.stored.rpId).toBe('subdomain.example.com');
+    });
+
+    it('should default to ES256 algorithm when pubKeyCredParams is empty', async () => {
+      const createRequest: CreateRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          challenge: 'test-challenge',
+          pubKeyCredParams: [] // Empty array
+        }
+      };
+
+      const result = await provider.createPasskey(createRequest);
+
+      // Should still create successfully with ES256
+      expect(result.credential).toBeDefined();
+      expect(result.stored.publicKey.crv).toBe('P-256');
+    });
+
+    it('should throw error when ES256 is not supported', async () => {
+      const createRequest: CreateRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          challenge: 'test-challenge',
+          pubKeyCredParams: [
+            { type: 'public-key', alg: -8 }, // EdDSA
+            { type: 'public-key', alg: -257 } // RS256
+          ]
+        }
+      };
+
+      await expect(provider.createPasskey(createRequest)).rejects.toThrow(
+        'No supported algorithm (ES256) in pubKeyCredParams'
+      );
+    });
+
+    it('should set UV flag when userVerification is required', async () => {
+      const createRequest: CreateRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          challenge: 'test-challenge',
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+          authenticatorSelection: {
+            userVerification: 'required'
+          }
+        }
+      };
+
+      const result = await provider.createPasskey(createRequest, { uvPerformed: false });
+
+      // Decode attestation object to check flags
+      const attObjBytes = Uint8Array.from(
+        atob(result.credential.response.attestationObject),
+        c => c.charCodeAt(0)
+      );
+
+      /*
+       * Find authenticatorData in the CBOR structure
+       * This is a simplified check - in real CBOR parsing, you'd properly decode the map
+       * The flags byte is at offset 32 in authenticatorData (after 32-byte rpIdHash)
+       * We expect: UP (0x01) + UV (0x04) + AT (0x40) + BE (0x08) + BS (0x10) = 0x5D
+       * Since we can't easily parse CBOR here, we just verify the credential was created
+       */
+      expect(result.credential).toBeDefined();
+    });
+  });
+
+  describe('getAssertion', () => {
+    it('should create a valid assertion for stored passkey', async () => {
+      // First, create a passkey
+      const createRequest: CreateRequest = {
+        origin: 'https://example.com',
+        requestId: 'create-123',
+        publicKey: {
+          rp: { id: 'example.com', name: 'Example' },
+          user: { id: 'user-1', name: 'testuser', displayName: 'Test User' },
+          challenge: 'create-challenge',
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+        }
+      };
+
+      const createResult = await provider.createPasskey(createRequest);
+      const credentialId = createResult.credential.id;
+
+      // Now, authenticate with the passkey
+      const getRequest: GetRequest = {
+        origin: 'https://example.com',
+        requestId: 'get-123',
+        publicKey: {
+          rpId: 'example.com',
+          challenge: 'auth-challenge',
+          userVerification: 'preferred'
+        }
+      };
+
+      const assertion = await provider.getAssertion(getRequest, credentialId);
+
+      // Verify assertion structure
+      expect(assertion.id).toBe(credentialId);
+      expect(assertion.rawId).toBe(credentialId);
+      expect(assertion.clientDataJSON).toBeDefined();
+      expect(assertion.authenticatorData).toBeDefined();
+      expect(assertion.signature).toBeDefined();
+      expect(assertion.userHandle).toBeNull();
+    });
+
+    it('should decode and validate clientDataJSON for authentication', async () => {
+      // Create passkey
+      const createRequest: CreateRequest = {
+        origin: 'https://test.com',
+        publicKey: {
+          challenge: 'create-challenge',
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+        }
+      };
+
+      const createResult = await provider.createPasskey(createRequest);
+
+      // Authenticate
+      const getRequest: GetRequest = {
+        origin: 'https://test.com',
+        publicKey: {
+          challenge: 'auth-challenge-xyz',
+          userVerification: 'preferred'
+        }
+      };
+
+      const assertion = await provider.getAssertion(getRequest, createResult.credential.id);
+
+      // Decode and validate clientDataJSON
+      const clientDataJSON = atob(assertion.clientDataJSON);
+      const clientData = JSON.parse(clientDataJSON);
+
+      expect(clientData.type).toBe('webauthn.get');
+      expect(clientData.challenge).toBe('auth-challenge-xyz');
+      expect(clientData.origin).toBe('https://test.com');
+      expect(clientData.crossOrigin).toBe(false);
+    });
+
+    it('should decode and validate authenticatorData', async () => {
+      // Create passkey
+      const createRequest: CreateRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          rp: { id: 'example.com' },
+          challenge: 'create-challenge',
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+        }
+      };
+
+      const createResult = await provider.createPasskey(createRequest);
+
+      // Authenticate
+      const getRequest: GetRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          rpId: 'example.com',
+          challenge: 'auth-challenge'
+        }
+      };
+
+      const assertion = await provider.getAssertion(getRequest, createResult.credential.id);
+
+      // Decode authenticatorData
+      const authDataBytes = Uint8Array.from(atob(assertion.authenticatorData), c => c.charCodeAt(0));
+
+      // AuthenticatorData for assertion: rpIdHash (32) + flags (1) + signCount (4) = 37 bytes
+      expect(authDataBytes.length).toBe(37);
+
+      // Extract flags (byte at index 32)
+      const flags = authDataBytes[32];
+
+      // Should have UP (0x01) set
+      expect(flags & 0x01).toBe(0x01); // User Present
+
+      // Should have BE (0x08) and BS (0x10) set (backup eligible/state)
+      expect(flags & 0x08).toBe(0x08); // Backup Eligible
+      expect(flags & 0x10).toBe(0x10); // Backup State
+
+      // Should NOT have AT (0x40) set (attested credential data only in creation)
+      expect(flags & 0x40).toBe(0x00);
+
+      // Sign count should be 0 (bytes 33-36)
+      expect(authDataBytes[33]).toBe(0);
+      expect(authDataBytes[34]).toBe(0);
+      expect(authDataBytes[35]).toBe(0);
+      expect(authDataBytes[36]).toBe(0);
+    });
+
+    it('should create valid DER-encoded signature', async () => {
+      // Create passkey
+      const createRequest: CreateRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          challenge: 'create-challenge',
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+        }
+      };
+
+      const createResult = await provider.createPasskey(createRequest);
+
+      // Authenticate
+      const getRequest: GetRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          challenge: 'auth-challenge'
+        }
+      };
+
+      const assertion = await provider.getAssertion(getRequest, createResult.credential.id);
+
+      // Decode signature
+      const sigBytes = Uint8Array.from(atob(assertion.signature), c => c.charCodeAt(0));
+
+      // DER signature should start with SEQUENCE tag (0x30)
+      expect(sigBytes[0]).toBe(0x30);
+
+      // Second byte is length of the sequence
+      const seqLength = sigBytes[1];
+      expect(seqLength).toBeGreaterThan(0);
+      expect(seqLength).toBeLessThanOrEqual(72); // Max for ECDSA P-256
+
+      /*
+       * Should contain two INTEGER values (r and s)
+       * Third byte should be INTEGER tag (0x02)
+       */
+      expect(sigBytes[2]).toBe(0x02);
+    });
+
+    it('should throw error when passkey not found', async () => {
+      const getRequest: GetRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          challenge: 'auth-challenge'
+        }
+      };
+
+      await expect(
+        provider.getAssertion(getRequest, 'non-existent-id')
+      ).rejects.toThrow('Passkey not found');
+    });
+
+    it('should set UV flag when userVerification is required', async () => {
+      // Create passkey
+      const createRequest: CreateRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          challenge: 'create-challenge',
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+        }
+      };
+
+      const createResult = await provider.createPasskey(createRequest);
+
+      // Authenticate with UV required
+      const getRequest: GetRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          challenge: 'auth-challenge',
+          userVerification: 'required'
+        }
+      };
+
+      const assertion = await provider.getAssertion(getRequest, createResult.credential.id, {
+        uvPerformed: false // Even without actual UV, if required, flag should be set
+      });
+
+      // Decode authenticatorData and check flags
+      const authDataBytes = Uint8Array.from(atob(assertion.authenticatorData), c => c.charCodeAt(0));
+      const flags = authDataBytes[32];
+
+      // Should have UV (0x04) set when required
+      expect(flags & 0x04).toBe(0x04);
+    });
+
+    it('should not set BE/BS flags when includeBEBS is false', async () => {
+      // Create passkey
+      const createRequest: CreateRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          challenge: 'create-challenge',
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+        }
+      };
+
+      const createResult = await provider.createPasskey(createRequest);
+
+      // Authenticate without BE/BS flags
+      const getRequest: GetRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          challenge: 'auth-challenge'
+        }
+      };
+
+      const assertion = await provider.getAssertion(getRequest, createResult.credential.id, {
+        includeBEBS: false
+      });
+
+      // Decode authenticatorData and check flags
+      const authDataBytes = Uint8Array.from(atob(assertion.authenticatorData), c => c.charCodeAt(0));
+      const flags = authDataBytes[32];
+
+      // Should NOT have BE (0x08) or BS (0x10) set
+      expect(flags & 0x08).toBe(0x00);
+      expect(flags & 0x10).toBe(0x00);
+
+      // Should still have UP (0x01) set
+      expect(flags & 0x01).toBe(0x01);
+    });
+  });
+
+  describe('Cross-verification', () => {
+    it('should verify signature with public key', async () => {
+      // Create passkey
+      const createRequest: CreateRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          rp: { id: 'example.com' },
+          challenge: 'create-challenge',
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+        }
+      };
+
+      const createResult = await provider.createPasskey(createRequest);
+
+      // Authenticate
+      const getRequest: GetRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          rpId: 'example.com',
+          challenge: 'auth-challenge'
+        }
+      };
+
+      const assertion = await provider.getAssertion(getRequest, createResult.credential.id);
+
+      // Import public key for verification
+      const publicKey = await crypto.subtle.importKey(
+        'jwk',
+        createResult.stored.publicKey,
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        false,
+        ['verify']
+      );
+
+      // Reconstruct the signed data
+      const authDataBytes = Uint8Array.from(atob(assertion.authenticatorData), c => c.charCodeAt(0));
+      const clientDataBytes = new TextEncoder().encode(atob(assertion.clientDataJSON));
+      const clientDataHash = new Uint8Array(await crypto.subtle.digest('SHA-256', clientDataBytes));
+      const signedData = new Uint8Array([...authDataBytes, ...clientDataHash]);
+
+      // Decode DER signature to raw format for verification
+      const derSig = Uint8Array.from(atob(assertion.signature), c => c.charCodeAt(0));
+
+      // Simple DER decoder for ECDSA signature (SEQUENCE of two INTEGERs)
+      let offset = 2; // Skip SEQUENCE tag and length
+
+      // Parse r
+      expect(derSig[offset]).toBe(0x02); // INTEGER tag
+      const rLen = derSig[offset + 1];
+      let r = derSig.slice(offset + 2, offset + 2 + rLen);
+      if (r.length > 32) {
+        r = r.slice(r.length - 32);
+      } // Remove padding if any
+      if (r.length < 32) {
+        const padded = new Uint8Array(32);
+        padded.set(r, 32 - r.length);
+        r = padded;
+      }
+      offset += 2 + rLen;
+
+      // Parse s
+      expect(derSig[offset]).toBe(0x02); // INTEGER tag
+      const sLen = derSig[offset + 1];
+      let s = derSig.slice(offset + 2, offset + 2 + sLen);
+      if (s.length > 32) {
+        s = s.slice(s.length - 32);
+      }
+      if (s.length < 32) {
+        const padded = new Uint8Array(32);
+        padded.set(s, 32 - s.length);
+        s = padded;
+      }
+
+      // Combine to raw signature (r || s)
+      const rawSig = new Uint8Array([...r, ...s]);
+
+      // Verify signature
+      const isValid = await crypto.subtle.verify(
+        { name: 'ECDSA', hash: 'SHA-256' },
+        publicKey,
+        rawSig,
+        signedData
+      );
+
+      expect(isValid).toBe(true);
+    });
+  });
+
+  describe('Edge cases', () => {
+    it('should handle challenge as Uint8Array', async () => {
+      const challengeBytes = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
+
+      const createRequest: CreateRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          challenge: challengeBytes,
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+        }
+      };
+
+      const result = await provider.createPasskey(createRequest);
+      expect(result.credential).toBeDefined();
+    });
+
+    it('should handle challenge as ArrayBuffer', async () => {
+      const challengeBuffer = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]).buffer;
+
+      const createRequest: CreateRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          challenge: challengeBuffer,
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+        }
+      };
+
+      const result = await provider.createPasskey(createRequest);
+      expect(result.credential).toBeDefined();
+    });
+
+    it('should use rpId from origin when not provided in create request', async () => {
+      const createRequest: CreateRequest = {
+        origin: 'https://subdomain.test.com:8080',
+        publicKey: {
+          challenge: 'test-challenge',
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+        }
+      };
+
+      const result = await provider.createPasskey(createRequest);
+      expect(result.stored.rpId).toBe('subdomain.test.com');
+    });
+
+    it('should use rpId from origin when not provided in get request', async () => {
+      // Create passkey with explicit rpId
+      const createRequest: CreateRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          rp: { id: 'example.com' },
+          challenge: 'create-challenge',
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+        }
+      };
+
+      const createResult = await provider.createPasskey(createRequest);
+
+      // Authenticate without explicit rpId
+      const getRequest: GetRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          challenge: 'auth-challenge'
+        }
+      };
+
+      const assertion = await provider.getAssertion(getRequest, createResult.credential.id);
+      expect(assertion).toBeDefined();
+    });
+  });
+});

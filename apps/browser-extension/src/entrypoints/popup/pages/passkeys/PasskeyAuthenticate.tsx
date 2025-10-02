@@ -6,6 +6,9 @@ import Button from '@/entrypoints/popup/components/Button';
 import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 
+import { AliasVaultPasskeyProvider } from '@/utils/passkey/AliasVaultPasskeyProvider';
+import type { GetRequest, StoredPasskeyRecord } from '@/utils/passkey/types';
+
 interface IPasskeyRequest {
   type: 'get';
   requestId: string;
@@ -17,9 +20,8 @@ interface IPasskeyRequest {
     lastUsed: string | null;
   }>;
 }
-
 /**
- * TODO: review this file
+ *
  */
 const PasskeyAuthenticate: React.FC = () => {
   const location = useLocation();
@@ -86,108 +88,36 @@ const PasskeyAuthenticate: React.FC = () => {
       console.log('PasskeyAuthenticate: selectedPasskey', selectedPasskey);
       console.log('PasskeyAuthenticate: request', request);
 
-      // Get the stored passkey to access the private key
-      const passkeyData = await sendMessage('GET_PASSKEY_BY_ID', { credentialId: selectedPasskey }, 'background');
+      // Create the provider with storage callbacks
+      const provider = new AliasVaultPasskeyProvider(
+        async (record: StoredPasskeyRecord) => {
+          // Not used during authentication
+          await sendMessage('STORE_PASSKEY', record as any, 'background');
+        },
+        async (credentialId: string) => {
+          const result = await sendMessage('GET_PASSKEY_BY_ID', { credentialId }, 'background');
+          return result || null;
+        }
+      );
 
-      if (!passkeyData) {
-        console.error('Passkey not found');
-        setLoading(false);
-        return;
-      }
+      // Build the GetRequest
+      const getRequest: GetRequest = {
+        origin: request.origin,
+        requestId: request.requestId,
+        publicKey: {
+          rpId: request.publicKey.rpId,
+          challenge: request.publicKey.challenge,
+          userVerification: request.publicKey.userVerification
+        }
+      };
 
-      // Calculate rpId hash
-      const rpId = request.publicKey.rpId || new URL(request.origin).hostname;
-      const rpIdBuffer = new TextEncoder().encode(rpId);
-      const rpIdHashBuffer = await crypto.subtle.digest('SHA-256', rpIdBuffer);
-      const rpIdHash = new Uint8Array(rpIdHashBuffer);
-
-      // Flags: UP (User Present) = 1, UV (User Verified) = 1
-      const flags = new Uint8Array([0x05]); // Binary: 00000101
-
-      // Sign count always 0 - disabled to ensure compatibility when syncing passkeys across devices
-      const signCount = new Uint8Array([0, 0, 0, 0]);
-
-      // Construct authenticatorData (37 bytes minimum)
-      const authenticatorData = new Uint8Array([
-        ...rpIdHash,    // 32 bytes
-        ...flags,       // 1 byte
-        ...signCount    // 4 bytes
-      ]);
-
-      // Create clientDataJSON
-      const clientDataJSON = JSON.stringify({
-        type: 'webauthn.get',
-        challenge: request.publicKey.challenge,
-        origin: request.origin
+      // Get the assertion using the provider
+      const credential = await provider.getAssertion(getRequest, selectedPasskey, {
+        uvPerformed: false, // Set to true if you implement actual user verification
+        includeBEBS: true   // Include backup-eligible and backup-state flags
       });
 
-      // Create signature over authenticatorData + hash(clientDataJSON)
-      const clientDataHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(clientDataJSON));
-      const dataToSign = new Uint8Array([...authenticatorData, ...new Uint8Array(clientDataHash)]);
-
-      // Import the private key and sign
-      const privateKey = await crypto.subtle.importKey(
-        'jwk',
-        passkeyData.privateKey,
-        { name: 'ECDSA', namedCurve: 'P-256' },
-        false,
-        ['sign']
-      );
-
-      const signatureBuffer = await crypto.subtle.sign(
-        { name: 'ECDSA', hash: 'SHA-256' },
-        privateKey,
-        dataToSign
-      );
-
-      // Convert raw signature (r || s) to DER format for WebAuthn
-      const rawSignature = new Uint8Array(signatureBuffer);
-      const r = rawSignature.slice(0, 32);
-      const s = rawSignature.slice(32, 64);
-
-      // Helper to encode integer in DER format
-      /**
-       *
-       */
-      const encodeInteger = (int: Uint8Array): Uint8Array => {
-      // Remove leading zeros but keep at least one byte
-        let i = 0;
-        while (i < int.length - 1 && int[i] === 0 && (int[i + 1] & 0x80) === 0) {
-          i++;
-        }
-        let trimmed = int.slice(i);
-
-        // If high bit is set, add zero padding to keep it positive
-        if (trimmed[0] & 0x80) {
-          const padded = new Uint8Array(trimmed.length + 1);
-          padded[0] = 0;
-          padded.set(trimmed, 1);
-          trimmed = padded;
-        }
-
-        // DER encoding: 0x02 (INTEGER tag) + length + value
-        return new Uint8Array([0x02, trimmed.length, ...trimmed]);
-      };
-
-      const rDer = encodeInteger(r);
-      const sDer = encodeInteger(s);
-
-      // DER SEQUENCE: 0x30 (SEQUENCE tag) + length + r + s
-      const derSignature = new Uint8Array([
-        0x30,
-        rDer.length + sDer.length,
-        ...rDer,
-        ...sDer
-      ]);
-
-      const credential = {
-        id: selectedPasskey,
-        rawId: selectedPasskey,
-        clientDataJSON: btoa(clientDataJSON),
-        authenticatorData: btoa(String.fromCharCode(...authenticatorData)),
-        signature: btoa(String.fromCharCode(...derSignature)),
-        userHandle: null
-      };
+      console.info('PasskeyAuthenticate: Created credential successfully', credential);
 
       // Update last used timestamp
       await sendMessage('UPDATE_PASSKEY_LAST_USED', {
