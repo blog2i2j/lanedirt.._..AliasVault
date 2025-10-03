@@ -42,7 +42,7 @@ const PasskeyAuthenticate: React.FC = () => {
         // Vault is locked, redirect to unlock
         const params = new URLSearchParams(location.search);
         const requestId = params.get('requestId');
-        navigate(`/unlock?redirect=/passkeys/authenticate&requestId=${requestId}`);
+        navigate(`/unlock?redirect=/credentials/passkeys/authenticate&requestId=${requestId}`);
         return;
       }
 
@@ -145,7 +145,7 @@ const PasskeyAuthenticate: React.FC = () => {
 
       // Get the assertion using the static method
       const credential: PasskeyGetCredentialResponse = await AliasVaultPasskeyProvider.getAssertion(getRequest, storedRecord, {
-        uvPerformed: true,
+        uvPerformed: true, // TODO: implement explicit user verification check if requested
         includeBEBS: true // Backup eligible/state - defaults to true
       });
 

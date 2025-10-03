@@ -25,6 +25,7 @@ import EmailsList from '@/entrypoints/popup/pages/emails/EmailsList';
 import Index from '@/entrypoints/popup/pages/Index';
 import PasskeyAuthenticate from '@/entrypoints/popup/pages/passkeys/PasskeyAuthenticate';
 import PasskeyCreate from '@/entrypoints/popup/pages/passkeys/PasskeyCreate';
+import PasskeysList from '@/entrypoints/popup/pages/passkeys/PasskeysList';
 import Reinitialize from '@/entrypoints/popup/pages/Reinitialize';
 import AutofillSettings from '@/entrypoints/popup/pages/settings/AutofillSettings';
 import AutoLockSettings from '@/entrypoints/popup/pages/settings/AutoLockSettings';
@@ -71,6 +72,9 @@ const App: React.FC = () => {
     { path: '/credentials/add', element: <CredentialAddEdit />, showBackButton: true, title: t('credentials.addCredential') },
     { path: '/credentials/:id', element: <CredentialDetails />, showBackButton: true, title: t('credentials.credentialDetails') },
     { path: '/credentials/:id/edit', element: <CredentialAddEdit />, showBackButton: true, title: t('credentials.editCredential') },
+    { path: '/credentials/passkeys', element: <PasskeysList />, showBackButton: false },
+    { path: '/credentials/passkeys/create', element: <PasskeyCreate />, showBackButton: true, title: 'Create Passkey' },
+    { path: '/credentials/passkeys/authenticate', element: <PasskeyAuthenticate />, showBackButton: true, title: 'Sign in with Passkey' },
     { path: '/emails', element: <EmailsList />, showBackButton: false },
     { path: '/emails/:id', element: <EmailDetails />, showBackButton: true, title: t('emails.title') },
     { path: '/settings', element: <Settings />, showBackButton: false },
@@ -80,8 +84,6 @@ const App: React.FC = () => {
     { path: '/settings/language', element: <LanguageSettings />, showBackButton: true, title: t('settings.language') },
     { path: '/settings/auto-lock', element: <AutoLockSettings />, showBackButton: true, title: t('settings.autoLockTimeout') },
     { path: '/logout', element: <Logout />, showBackButton: false },
-    { path: '/passkeys/create', element: <PasskeyCreate />, showBackButton: true, title: 'Create Passkey' },
-    { path: '/passkeys/authenticate', element: <PasskeyAuthenticate />, showBackButton: true, title: 'Sign in with Passkey' },
   ], [t]);
 
   useEffect(() => {

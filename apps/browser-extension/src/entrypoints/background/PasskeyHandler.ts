@@ -53,7 +53,7 @@ export async function handleWebAuthnCreate(data: any): Promise<any> {
   pendingRequestData.set(requestId, requestData);
 
   // Create popup using main popup with hash navigation - only pass requestId
-  const popupUrl = browser.runtime.getURL('/popup.html') + '#/passkeys/create?' + new URLSearchParams({
+  const popupUrl = browser.runtime.getURL('/popup.html') + '#/credentials/passkeys/create?' + new URLSearchParams({
     requestId
   }).toString();
 
@@ -112,7 +112,7 @@ export async function handleWebAuthnGet(data: any): Promise<any> {
   pendingRequestData.set(requestId, requestData);
 
   // Create popup using main popup with hash navigation - only pass requestId
-  const popupUrl = browser.runtime.getURL('/popup.html') + '#/passkeys/authenticate?' + new URLSearchParams({
+  const popupUrl = browser.runtime.getURL('/popup.html') + '#/credentials/passkeys/authenticate?' + new URLSearchParams({
     requestId
   }).toString();
 

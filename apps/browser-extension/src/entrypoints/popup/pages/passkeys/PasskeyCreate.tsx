@@ -41,7 +41,7 @@ const PasskeyCreate: React.FC = () => {
         // Vault is locked, redirect to unlock
         const params = new URLSearchParams(location.search);
         const requestId = params.get('requestId');
-        navigate(`/unlock?redirect=/passkeys/create&requestId=${requestId}`);
+        navigate(`/unlock?redirect=/credentials/passkeys/create&requestId=${requestId}`);
         return;
       }
 

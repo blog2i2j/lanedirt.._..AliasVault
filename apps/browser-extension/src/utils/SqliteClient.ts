@@ -1218,6 +1218,52 @@ export class SqliteClient {
   }
 
   /**
+   * Get all passkeys for a specific credential
+   * @param credentialId - The credential ID
+   * @returns Array of passkey objects
+   */
+  public getPasskeysByCredentialId(credentialId: string): Passkey[] {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    const query = `
+      SELECT
+        p.Id,
+        p.CredentialId,
+        p.RpId,
+        p.UserId,
+        p.PublicKey,
+        p.PrivateKey,
+        p.DisplayName,
+        p.AdditionalData,
+        p.CreatedAt,
+        p.UpdatedAt,
+        p.IsDeleted
+      FROM Passkeys p
+      WHERE p.CredentialId = ? AND p.IsDeleted = 0
+      ORDER BY p.CreatedAt DESC
+    `;
+
+    const results = this.executeQuery(query, [credentialId]);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return results.map((row: any) => ({
+      Id: row.Id,
+      CredentialId: row.CredentialId,
+      RpId: row.RpId,
+      UserId: row.UserId,
+      PublicKey: row.PublicKey,
+      PrivateKey: row.PrivateKey,
+      DisplayName: row.DisplayName,
+      AdditionalData: row.AdditionalData,
+      CreatedAt: row.CreatedAt,
+      UpdatedAt: row.UpdatedAt,
+      IsDeleted: row.IsDeleted
+    }));
+  }
+
+  /**
    * Create a new passkey linked to a credential
    * @param passkey - The passkey object to create
    */

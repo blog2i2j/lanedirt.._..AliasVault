@@ -143,13 +143,13 @@ export class AliasVaultPasskeyProvider {
       lastUsedAt: Date.now()
     };
 
-    // 12) Return a credential-like object (base64-encoded fields for transport)
+    // 12) Return a credential-like object (base64url-encoded fields for transport per RFC 4648 §5)
     const credential = {
       id: credentialIdB64u,
       rawId: credentialIdB64u,
       response: {
-        clientDataJSON: AliasVaultPasskeyProvider.toB64(clientDataJSONBytes),
-        attestationObject: AliasVaultPasskeyProvider.toB64(attObjBytes)
+        clientDataJSON: AliasVaultPasskeyProvider.toB64u(clientDataJSONBytes),
+        attestationObject: AliasVaultPasskeyProvider.toB64u(attObjBytes)
       },
       type: 'public-key' as const
     };
@@ -234,26 +234,26 @@ export class AliasVaultPasskeyProvider {
     const derSig = AliasVaultPasskeyProvider.ecdsaRawToDer(rawSig);
 
     /*
-     * 8) Return userHandle (userId) as-is
+     * 8) Return userHandle (userId) - convert to base64url if present
      * This is required for discoverable credentials (resident keys) where the RP doesn't ask for a username first
-     * userId is already stored as standard base64 (from injection script), return as-is
+     * userId is stored as standard base64, convert to base64url for RFC 4648 §5 compliance
      */
-    let userHandleB64: string | null = null;
+    let userHandleB64u: string | null = null;
     if (rec.userId) {
-      // Return as-is - already in standard base64 format
-      userHandleB64 = rec.userId;
+      // Convert standard base64 to base64url (remove padding, replace chars)
+      userHandleB64u = rec.userId.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     } else {
       console.warn('AliasVaultPasskeyProvider.getAssertion: No userId found in stored passkey record');
     }
 
-    // 9) Return object in the flat shape (base64 strings), as your client example expects
+    // 9) Return object in the flat shape (base64url strings per RFC 4648 §5)
     return {
       id: rec.credentialId,
       rawId: rec.credentialId,
-      clientDataJSON: AliasVaultPasskeyProvider.toB64(clientDataJSONBytes),
-      authenticatorData: AliasVaultPasskeyProvider.toB64(authenticatorData),
-      signature: AliasVaultPasskeyProvider.toB64(derSig),
-      userHandle: userHandleB64
+      clientDataJSON: AliasVaultPasskeyProvider.toB64u(clientDataJSONBytes),
+      authenticatorData: AliasVaultPasskeyProvider.toB64u(authenticatorData),
+      signature: AliasVaultPasskeyProvider.toB64u(derSig),
+      userHandle: userHandleB64u
     };
   }
 

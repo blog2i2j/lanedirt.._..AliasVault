@@ -4,6 +4,19 @@ import { AliasVaultPasskeyProvider } from '../AliasVaultPasskeyProvider';
 
 import type { CreateRequest, GetRequest, StoredPasskeyRecord } from '../types';
 
+/**
+ * Helper function to decode base64url strings
+ */
+function fromBase64url(base64url: string): string {
+  // Convert base64url to base64
+  let base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+  // Add padding if needed
+  while (base64.length % 4) {
+    base64 += '=';
+  }
+  return atob(base64);
+}
+
 describe('AliasVaultPasskeyProvider', () => {
   let storedPasskeys: Map<string, StoredPasskeyRecord>;
 
@@ -30,7 +43,7 @@ describe('AliasVaultPasskeyProvider', () => {
             userVerification: 'preferred',
             requireResidentKey: true,
             residentKey: 'required',
-            authenticatorAttachment: 'platform'
+            authenticatorAttachment: 'cross-platform'
           }
         }
       };
@@ -84,8 +97,8 @@ describe('AliasVaultPasskeyProvider', () => {
       const credentialIdBytes = crypto.getRandomValues(new Uint8Array(16));
       const result = await AliasVaultPasskeyProvider.createPasskey(credentialIdBytes, createRequest);
 
-      // Decode and verify clientDataJSON
-      const clientDataJSON = atob(result.credential.response.clientDataJSON);
+      // Decode and verify clientDataJSON (base64url)
+      const clientDataJSON = fromBase64url(result.credential.response.clientDataJSON);
       const clientData = JSON.parse(clientDataJSON);
 
       expect(clientData.type).toBe('webauthn.create');
@@ -123,7 +136,7 @@ describe('AliasVaultPasskeyProvider', () => {
       const result = await AliasVaultPasskeyProvider.createPasskey(credentialIdBytes, createRequest);
 
       // Decode clientDataJSON and verify challenge matches
-      const clientDataJSON = atob(result.credential.response.clientDataJSON);
+      const clientDataJSON = fromBase64url(result.credential.response.clientDataJSON);
       const clientData = JSON.parse(clientDataJSON);
 
       // The challenge in clientDataJSON should match what we sent
@@ -132,7 +145,7 @@ describe('AliasVaultPasskeyProvider', () => {
       /**
        * Convert base64url string to Uint8Array
        */
-      const fromBase64url = (b64u: string): Uint8Array => {
+      const base64urlToBytes = (b64u: string): Uint8Array => {
         const b64 = b64u.replace(/-/g, '+').replace(/_/g, '/');
         const pad = b64.length % 4 === 2 ? '==' : b64.length % 4 === 3 ? '=' : '';
         const binary = atob(b64 + pad);
@@ -143,7 +156,7 @@ describe('AliasVaultPasskeyProvider', () => {
         return bytes;
       };
 
-      const decodedChallenge = fromBase64url(clientData.challenge);
+      const decodedChallenge = base64urlToBytes(clientData.challenge);
       expect(Array.from(decodedChallenge)).toEqual(Array.from(challengeBytes));
     });
 
@@ -161,7 +174,7 @@ describe('AliasVaultPasskeyProvider', () => {
 
       // Decode attestation object (base64)
       const attObjBytes = Uint8Array.from(
-        atob(result.credential.response.attestationObject),
+        fromBase64url(result.credential.response.attestationObject),
         c => c.charCodeAt(0)
       );
 
@@ -322,7 +335,7 @@ describe('AliasVaultPasskeyProvider', () => {
       const assertion = await AliasVaultPasskeyProvider.getAssertion(getRequest, storedRecord);
 
       // Decode and validate clientDataJSON
-      const clientDataJSON = atob(assertion.clientDataJSON);
+      const clientDataJSON = fromBase64url(assertion.clientDataJSON);
       const clientData = JSON.parse(clientDataJSON);
 
       expect(clientData.type).toBe('webauthn.get');
@@ -359,7 +372,7 @@ describe('AliasVaultPasskeyProvider', () => {
       const assertion = await AliasVaultPasskeyProvider.getAssertion(getRequest, storedRecord);
 
       // Decode authenticatorData
-      const authDataBytes = Uint8Array.from(atob(assertion.authenticatorData), c => c.charCodeAt(0));
+      const authDataBytes = Uint8Array.from(fromBase64url(assertion.authenticatorData), c => c.charCodeAt(0));
 
       // AuthenticatorData for assertion: rpIdHash (32) + flags (1) + signCount (4) = 37 bytes
       expect(authDataBytes.length).toBe(37);
@@ -410,7 +423,7 @@ describe('AliasVaultPasskeyProvider', () => {
       const assertion = await AliasVaultPasskeyProvider.getAssertion(getRequest, storedRecord);
 
       // Decode signature
-      const sigBytes = Uint8Array.from(atob(assertion.signature), c => c.charCodeAt(0));
+      const sigBytes = Uint8Array.from(fromBase64url(assertion.signature), c => c.charCodeAt(0));
 
       // DER signature should start with SEQUENCE tag (0x30)
       expect(sigBytes[0]).toBe(0x30);
@@ -477,7 +490,7 @@ describe('AliasVaultPasskeyProvider', () => {
       });
 
       // Decode authenticatorData and check flags
-      const authDataBytes = Uint8Array.from(atob(assertion.authenticatorData), c => c.charCodeAt(0));
+      const authDataBytes = Uint8Array.from(fromBase64url(assertion.authenticatorData), c => c.charCodeAt(0));
       const flags = authDataBytes[32];
 
       // Should have UV (0x04) set when required
@@ -522,7 +535,7 @@ describe('AliasVaultPasskeyProvider', () => {
 
       // Decode and verify it matches the original user.id bytes
       if (assertion.userHandle) {
-        const decoded = atob(assertion.userHandle);
+        const decoded = fromBase64url(assertion.userHandle);
         const decodedBytes = new Uint8Array(decoded.length);
         for (let i = 0; i < decoded.length; i++) {
           decodedBytes[i] = decoded.charCodeAt(i);
@@ -588,7 +601,7 @@ describe('AliasVaultPasskeyProvider', () => {
       });
 
       // Decode authenticatorData and check flags
-      const authDataBytes = Uint8Array.from(atob(assertion.authenticatorData), c => c.charCodeAt(0));
+      const authDataBytes = Uint8Array.from(fromBase64url(assertion.authenticatorData), c => c.charCodeAt(0));
       const flags = authDataBytes[32];
 
       // Should NOT have BE (0x08) or BS (0x10) set
@@ -717,7 +730,7 @@ describe('AliasVaultPasskeyProvider', () => {
 
       // Decode and verify it matches original
       if (assertion.userHandle) {
-        const decoded = atob(assertion.userHandle);
+        const decoded = fromBase64url(assertion.userHandle);
         const decodedBytes = new Uint8Array(decoded.length);
         for (let i = 0; i < decoded.length; i++) {
           decodedBytes[i] = decoded.charCodeAt(i);
@@ -765,13 +778,13 @@ describe('AliasVaultPasskeyProvider', () => {
       );
 
       // Reconstruct the signed data
-      const authDataBytes = Uint8Array.from(atob(assertion.authenticatorData), c => c.charCodeAt(0));
-      const clientDataBytes = new TextEncoder().encode(atob(assertion.clientDataJSON));
+      const authDataBytes = Uint8Array.from(fromBase64url(assertion.authenticatorData), c => c.charCodeAt(0));
+      const clientDataBytes = new TextEncoder().encode(fromBase64url(assertion.clientDataJSON));
       const clientDataHash = new Uint8Array(await crypto.subtle.digest('SHA-256', clientDataBytes));
       const signedData = new Uint8Array([...authDataBytes, ...clientDataHash]);
 
       // Decode DER signature to raw format for verification
-      const derSig = Uint8Array.from(atob(assertion.signature), c => c.charCodeAt(0));
+      const derSig = Uint8Array.from(fromBase64url(assertion.signature), c => c.charCodeAt(0));
 
       // Simple DER decoder for ECDSA signature (SEQUENCE of two INTEGERs)
       let offset = 2; // Skip SEQUENCE tag and length

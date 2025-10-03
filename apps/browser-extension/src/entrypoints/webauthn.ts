@@ -64,6 +64,8 @@ export default defineUnlistedScript(() => {
       return originalCreate(options);
     }
 
+    console.log('[AliasVault] Page: Received credential CREATE request with options:', options);
+
     // Send event to content script
     const requestId = Math.random().toString(36).substr(2, 9);
     const eventDetail: WebAuthnCreateEventDetail = {
@@ -162,7 +164,7 @@ export default defineUnlistedScript(() => {
               id: cred.id,
               type: 'public-key',
               rawId: base64ToBuffer(cred.rawId),
-              authenticatorAttachment: 'platform',
+              authenticatorAttachment: 'cross-platform',
               response: {
                 clientDataJSON: base64ToBuffer(cred.clientDataJSON),
                 attestationObject: attestationObjectBuffer,
@@ -198,6 +200,7 @@ export default defineUnlistedScript(() => {
                 return {};
               }
             };
+            console.log('[AliasVault] Page: Returned created credential object:', credential);
             resolve(credential as any);
           } catch (error) {
             console.error('[AliasVault] Page: Error creating credential object:', error);
@@ -220,6 +223,8 @@ export default defineUnlistedScript(() => {
     if (!options?.publicKey) {
       return originalGet(options);
     }
+
+    console.log('[AliasVault] Page: Received credential GET request with options:', options);
 
     // Send event to content script
     const requestId = Math.random().toString(36).substr(2, 9);
@@ -274,11 +279,12 @@ export default defineUnlistedScript(() => {
         } else if (e.detail.credential) {
           // Create a proper credential object with required methods
           const cred: ProviderGetCredential = e.detail.credential;
+          console.log('[AliasVault] Page: Returned GET credential readable object:', cred);
           const credential = {
             id: cred.id,
             type: 'public-key',
             rawId: base64ToBuffer(cred.rawId),
-            authenticatorAttachment: 'platform',
+            authenticatorAttachment: 'cross-platform',
             response: {
               clientDataJSON: base64ToBuffer(cred.clientDataJSON),
               authenticatorData: base64ToBuffer(cred.authenticatorData),
@@ -292,6 +298,7 @@ export default defineUnlistedScript(() => {
               return {};
             }
           };
+          console.log('[AliasVault] Page: Returned GET credential raw object:', credential);
           resolve(credential as any);
         } else {
           // Cancelled
