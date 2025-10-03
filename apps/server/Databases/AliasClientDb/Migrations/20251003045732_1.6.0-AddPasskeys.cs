@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace AliasClientDb.Migrations
 {
     /// <inheritdoc />
-    public partial class _160AddPasskeyEntity : Migration
+    public partial class _160AddPasskeys : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -17,29 +17,32 @@ namespace AliasClientDb.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ItemVersion = table.Column<int>(type: "INTEGER", nullable: false),
+                    CredentialId = table.Column<Guid>(type: "TEXT", nullable: false),
                     RpId = table.Column<string>(type: "TEXT", maxLength: 255, nullable: false, collation: "NOCASE"),
-                    CredentialId = table.Column<byte[]>(type: "BLOB", nullable: false),
-                    SignCount = table.Column<int>(type: "INTEGER", nullable: false),
-                    IsBackupEligible = table.Column<bool>(type: "INTEGER", nullable: false),
-                    IsBackupState = table.Column<bool>(type: "INTEGER", nullable: false),
+                    UserId = table.Column<string>(type: "TEXT", maxLength: 255, nullable: true),
+                    PublicKey = table.Column<string>(type: "TEXT", nullable: false),
+                    PrivateKey = table.Column<string>(type: "TEXT", nullable: false),
                     DisplayName = table.Column<string>(type: "TEXT", maxLength: 255, nullable: false),
-                    LastUsedAt = table.Column<DateTime>(type: "TEXT", nullable: true),
                     AdditionalData = table.Column<byte[]>(type: "BLOB", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Passkeys", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Passkeys_Credentials_CredentialId",
+                        column: x => x.CredentialId,
+                        principalTable: "Credentials",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Passkeys_CredentialId",
                 table: "Passkeys",
-                column: "CredentialId",
-                unique: true);
+                column: "CredentialId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Passkeys_RpId",

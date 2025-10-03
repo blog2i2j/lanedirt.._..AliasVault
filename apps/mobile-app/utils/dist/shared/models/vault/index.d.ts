@@ -96,22 +96,18 @@ type Attachment = {
 type Passkey = {
     /** The ID of the passkey */
     Id: string;
-    /** The item version for payload schema */
-    ItemVersion: number;
+    /** The credential ID foreign key */
+    CredentialId: string;
     /** The relying party identifier */
     RpId: string;
-    /** The credential ID (Base64 encoded) */
-    CredentialId: string;
-    /** The signature counter */
-    SignCount: number;
-    /** Whether the passkey is backup eligible */
-    IsBackupEligible: number;
-    /** Whether the passkey is in backup state */
-    IsBackupState: number;
+    /** The user ID provided by the relying party */
+    UserId?: string | null;
+    /** The public key */
+    PublicKey: string;
+    /** The private key */
+    PrivateKey: string;
     /** The display name for the passkey */
     DisplayName: string;
-    /** The last used timestamp (epoch milliseconds) */
-    LastUsedAt?: number | null;
     /** Additional data as JSON blob (Base64 encoded) */
     AdditionalData?: string | null;
     /** Created timestamp (epoch milliseconds) */

@@ -180,26 +180,24 @@ namespace AliasClientDb.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<byte[]>("CredentialId")
-                        .IsRequired()
-                        .HasColumnType("BLOB");
+                    b.Property<Guid>("CredentialId")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("TEXT");
 
-                    b.Property<bool>("IsBackupEligible")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsBackupState")
-                        .HasColumnType("INTEGER");
-
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("ItemVersion")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("PrivateKey")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PublicKey")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("RpId")
                         .IsRequired()
@@ -207,16 +205,16 @@ namespace AliasClientDb.Migrations
                         .HasColumnType("TEXT")
                         .UseCollation("NOCASE");
 
-                    b.Property<int>("SignCount")
-                        .HasColumnType("INTEGER");
-
                     b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(255)
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CredentialId")
-                        .IsUnique();
+                    b.HasIndex("CredentialId");
 
                     b.HasIndex("RpId");
 
@@ -369,6 +367,17 @@ namespace AliasClientDb.Migrations
                     b.Navigation("Alias");
 
                     b.Navigation("Service");
+                });
+
+            modelBuilder.Entity("AliasClientDb.Passkey", b =>
+                {
+                    b.HasOne("AliasClientDb.Credential", "Credential")
+                        .WithMany()
+                        .HasForeignKey("CredentialId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Credential");
                 });
 
             modelBuilder.Entity("AliasClientDb.Password", b =>

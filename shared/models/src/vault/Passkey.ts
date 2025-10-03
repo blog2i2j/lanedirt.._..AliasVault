@@ -5,29 +5,23 @@ export type Passkey = {
     /** The ID of the passkey */
     Id: string;
 
-    /** The item version for payload schema */
-    ItemVersion: number;
+    /** The credential ID foreign key */
+    CredentialId: string;
 
     /** The relying party identifier */
     RpId: string;
 
-    /** The credential ID (Base64 encoded) */
-    CredentialId: string;
+    /** The user ID provided by the relying party */
+    UserId?: string | null;
 
-    /** The signature counter */
-    SignCount: number;
+    /** The public key */
+    PublicKey: string;
 
-    /** Whether the passkey is backup eligible */
-    IsBackupEligible: number;
-
-    /** Whether the passkey is in backup state */
-    IsBackupState: number;
+    /** The private key */
+    PrivateKey: string;
 
     /** The display name for the passkey */
     DisplayName: string;
-
-    /** The last used timestamp (epoch milliseconds) */
-    LastUsedAt?: number | null;
 
     /** Additional data as JSON blob (Base64 encoded) */
     AdditionalData?: string | null;

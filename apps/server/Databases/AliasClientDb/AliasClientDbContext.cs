@@ -158,11 +158,14 @@ public class AliasClientDbContext : DbContext
             .HasForeignKey(l => l.CredentialId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Configure Passkey entity
+        // Configure Passkey - Credential relationship
         modelBuilder.Entity<Passkey>()
-            .HasIndex(e => e.CredentialId)
-            .IsUnique();
+            .HasOne(p => p.Credential)
+            .WithMany()
+            .HasForeignKey(p => p.CredentialId)
+            .OnDelete(DeleteBehavior.Cascade);
 
+        // Configure Passkey indexes
         modelBuilder.Entity<Passkey>()
             .HasIndex(e => e.RpId);
 

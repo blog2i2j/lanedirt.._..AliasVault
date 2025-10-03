@@ -20,14 +20,19 @@ public class Passkey : SyncableEntity
     /// Gets or sets the ID.
     /// </summary>
     [Key]
-    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public Guid Id { get; set; }
 
     /// <summary>
-    /// Gets or sets the item version for payload schema.
+    /// Gets or sets the credential ID foreign key.
     /// </summary>
     [Required]
-    public int ItemVersion { get; set; }
+    public Guid CredentialId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the credential object.
+    /// </summary>
+    [ForeignKey("CredentialId")]
+    public virtual Credential Credential { get; set; } = null!;
 
     /// <summary>
     /// Gets or sets the relying party identifier.
@@ -37,28 +42,20 @@ public class Passkey : SyncableEntity
     public string RpId { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the credential ID.
+    /// Gets or sets the user ID provided by the relying party.
     /// </summary>
-    [Required]
-    public byte[] CredentialId { get; set; } = Array.Empty<byte>();
+    [MaxLength(255)]
+    public string? UserId { get; set; }
 
     /// <summary>
-    /// Gets or sets the signature counter.
+    /// Gets or sets the public key.
     /// </summary>
-    [Required]
-    public int SignCount { get; set; }
+    public string PublicKey { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets a value indicating whether the passkey is backup eligible.
+    /// Gets or sets the private key.
     /// </summary>
-    [Required]
-    public bool IsBackupEligible { get; set; }
-
-    /// <summary>
-    /// Gets or sets a value indicating whether the passkey is in backup state.
-    /// </summary>
-    [Required]
-    public bool IsBackupState { get; set; }
+    public string PrivateKey { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the display name for the passkey.
