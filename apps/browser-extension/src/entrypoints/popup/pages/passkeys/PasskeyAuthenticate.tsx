@@ -1,28 +1,51 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { sendMessage } from 'webext-bridge/popup';
 
 import Button from '@/entrypoints/popup/components/Button';
 import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
+import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
+import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
 import { AliasVaultPasskeyProvider } from '@/utils/passkey/AliasVaultPasskeyProvider';
-import type { GetRequest, StoredPasskeyRecord, PasskeyGetCredentialResponse, PendingPasskeyGetRequest } from '@/utils/passkey/types';
+import { PasskeyHelper } from '@/utils/passkey/PasskeyHelper';
+import type { GetRequest, PasskeyGetCredentialResponse, PendingPasskeyGetRequest } from '@/utils/passkey/types';
+
 /**
  * PasskeyAuthenticate
  */
 const PasskeyAuthenticate: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { setIsInitialLoading } = useLoading();
+  const dbContext = useDb();
+  const { executeVaultMutation } = useVaultMutate();
   const [request, setRequest] = useState<PendingPasskeyGetRequest | null>(null);
   const [selectedPasskey, setSelectedPasskey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [availablePasskeys, setAvailablePasskeys] = useState<Array<{ id: string; displayName: string; username?: string | null }>>([]);
 
   useEffect(() => {
     /**
      * fetchRequestData
      */
     const fetchRequestData = async () : Promise<void> => {
+      // Wait for DB to be initialized
+      if (!dbContext.dbInitialized) {
+        return;
+      }
+
+      // Check if vault is unlocked
+      if (!dbContext.dbAvailable) {
+        // Vault is locked, redirect to unlock
+        const params = new URLSearchParams(location.search);
+        const requestId = params.get('requestId');
+        navigate(`/unlock?redirect=/passkeys/authenticate&requestId=${requestId}`);
+        return;
+      }
+
       // Get the requestId from URL
       const params = new URLSearchParams(location.search);
       const requestId = params.get('requestId');
@@ -34,9 +57,38 @@ const PasskeyAuthenticate: React.FC = () => {
 
           if (data && data.type === 'get') {
             setRequest(data);
+
+            // Get passkeys for this rpId from the vault
+            const rpId = data.publicKey.rpId || new URL(data.origin).hostname;
+            const passkeys = dbContext.sqliteClient!.getPasskeysByRpId(rpId);
+
+            // Filter by allowCredentials if specified
+            let filteredPasskeys = passkeys;
+            if (data.publicKey.allowCredentials && data.publicKey.allowCredentials.length > 0) {
+              // Convert the RP's base64url credential IDs to GUIDs for comparison
+              const allowedGuids = new Set(
+                data.publicKey.allowCredentials.map(c => {
+                  try {
+                    return PasskeyHelper.base64urlToGuid(c.id);
+                  } catch (e) {
+                    console.warn('Failed to convert credential ID to GUID:', c.id, e);
+                    return null;
+                  }
+                }).filter((id): id is string => id !== null)
+              );
+              filteredPasskeys = passkeys.filter(pk => allowedGuids.has(pk.Id));
+            }
+
+            // Map to display format
+            setAvailablePasskeys(filteredPasskeys.map(pk => ({
+              id: pk.Id,
+              displayName: pk.DisplayName,
+              username: pk.Username
+            })));
           }
         } catch (error) {
           console.error('Failed to fetch request data:', error);
+          setError('Failed to load authentication request');
         }
       }
 
@@ -45,31 +97,46 @@ const PasskeyAuthenticate: React.FC = () => {
     };
 
     fetchRequestData();
-  }, [location, setIsInitialLoading]);
+  }, [location, setIsInitialLoading, dbContext.dbInitialized, dbContext.dbAvailable, dbContext.sqliteClient, navigate]);
 
   /**
    * Handle passkey authentication
    */
-  const handleUsePasskey = async (credentialId: string) : Promise<void> => {
-    if (!request) {
+  const handleUsePasskey = async (passkeyId: string) : Promise<void> => {
+    if (!request || !dbContext.sqliteClient) {
       return;
     }
 
     setLoading(true);
+    setError(null);
 
     try {
-      // Get the stored passkey record
-      const storedRecord = await sendMessage('GET_PASSKEY_BY_ID', { credentialId }, 'background') as StoredPasskeyRecord | null;
-      if (!storedRecord) {
+      // Get the stored passkey from vault
+      const storedPasskey = dbContext.sqliteClient.getPasskeyById(passkeyId);
+      if (!storedPasskey) {
         throw new Error('Passkey not found');
       }
+
+      // Parse the stored keys
+      const publicKey = JSON.parse(storedPasskey.PublicKey) as JsonWebKey;
+      const privateKey = JSON.parse(storedPasskey.PrivateKey) as JsonWebKey;
+
+      // Build the stored record for the provider
+      const storedRecord = {
+        rpId: storedPasskey.RpId,
+        credentialId: PasskeyHelper.guidToBase64url(storedPasskey.Id),
+        publicKey,
+        privateKey,
+        userId: storedPasskey.UserId,
+        userName: storedPasskey.Username,
+        userDisplayName: storedPasskey.ServiceName
+      };
 
       // Build the GetRequest
       const getRequest: GetRequest = {
         origin: request.origin,
         requestId: request.requestId,
         publicKey: {
-          // TODO: check request.publicKey type and actual stored data
           rpId: request.publicKey.rpId,
           challenge: request.publicKey.challenge,
           userVerification: request.publicKey.userVerification
@@ -78,66 +145,72 @@ const PasskeyAuthenticate: React.FC = () => {
 
       // Get the assertion using the static method
       const credential: PasskeyGetCredentialResponse = await AliasVaultPasskeyProvider.getAssertion(getRequest, storedRecord, {
-        uvPerformed: true, // Set to true if you implement actual user verification
-        includeBEBS: true   // Include backup-eligible and backup-state flags
+        uvPerformed: true,
+        includeBEBS: true // Backup eligible/state - defaults to true
       });
 
       console.info('PasskeyAuthenticate: Received assertion successfully', credential);
-      console.info('PasskeyAuthenticate: credential.userHandle =', credential.userHandle);
-
-      // Update last used timestamp
-      await sendMessage('UPDATE_PASSKEY_LAST_USED', {
-        credentialId
-      }, 'background');
 
       // Send response back
-      console.info('PasskeyAuthenticate: Sending credential to background:', credential);
       await sendMessage('PASSKEY_POPUP_RESPONSE', {
         requestId: request.requestId,
         credential
       }, 'background');
 
-      // For debugging: Don't close the window automatically
-      console.info('PasskeyAuthenticate: Authentication complete.');
-      setLoading(false);
-
-      /*
-       * Uncomment to auto-close:
-       * window.close();
-       */
+      // Auto-close window on success
+      window.close();
     } catch (error) {
       console.error('PasskeyAuthenticate: Error during authentication', error);
       setLoading(false);
-      alert(`Failed to authenticate: ${error instanceof Error ? error.message : String(error)}`);
+      setError(`Failed to authenticate: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
   /**
    * Handle passkey deletion
    */
-  const handleDeletePasskey = async (credentialId: string, event: React.MouseEvent) : Promise<void> => {
+  const handleDeletePasskey = async (passkeyId: string, event: React.MouseEvent) : Promise<void> => {
     event.stopPropagation(); // Prevent triggering authentication
 
     if (!confirm('Are you sure you want to delete this passkey?')) {
       return;
     }
 
+    if (!dbContext.sqliteClient) {
+      return;
+    }
+
     try {
-      await sendMessage('DELETE_PASSKEY', { credentialId }, 'background');
+      // Delete via vault mutation to sync changes
+      await executeVaultMutation(
+        async () => {
+          await dbContext.sqliteClient!.deletePasskeyById(passkeyId);
+        },
+        {
+          /**
+           * onSuccess
+           */
+          onSuccess: () => {
+            // Remove from UI
+            setAvailablePasskeys(prev => prev.filter(pk => pk.id !== passkeyId));
 
-      // Update the request to remove the deleted passkey
-      if (request?.passkeys) {
-        const updatedPasskeys = request.passkeys.filter(pk => pk.id !== credentialId);
-        setRequest({ ...request, passkeys: updatedPasskeys });
-
-        // Clear selection if the deleted passkey was selected
-        if (selectedPasskey === credentialId) {
-          setSelectedPasskey(null);
+            // Clear selection if the deleted passkey was selected
+            if (selectedPasskey === passkeyId) {
+              setSelectedPasskey(null);
+            }
+          },
+          /**
+           * onError
+           */
+          onError: (err) => {
+            console.error('Failed to delete passkey:', err);
+            setError(`Failed to delete passkey: ${err.message}`);
+          }
         }
-      }
+      );
     } catch (error) {
       console.error('Failed to delete passkey:', error);
-      alert(`Failed to delete passkey: ${error instanceof Error ? error.message : String(error)}`);
+      setError(`Failed to delete passkey: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -194,14 +267,20 @@ const PasskeyAuthenticate: React.FC = () => {
         </p>
       </div>
 
+      {error && (
+        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+        </div>
+      )}
+
       <div className="space-y-4">
-        {request.passkeys && request.passkeys.length > 0 ? (
+        {availablePasskeys && availablePasskeys.length > 0 ? (
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Select a passkey to sign in:
             </label>
             <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-2 bg-gray-50 dark:bg-gray-800">
-              {request.passkeys.map((pk) => (
+              {availablePasskeys.map((pk) => (
                 <div
                   key={pk.id}
                   className="relative group p-3 rounded-lg border cursor-pointer transition-colors bg-white border-gray-200 hover:bg-blue-50 hover:border-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-blue-900 dark:hover:border-blue-700"
@@ -212,9 +291,11 @@ const PasskeyAuthenticate: React.FC = () => {
                       <div className="font-medium text-gray-900 dark:text-white text-sm truncate">
                         {pk.displayName}
                       </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">
-                        Last used: {pk.lastUsed || 'Never'}
-                      </div>
+                      {pk.username && (
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          {pk.username}
+                        </div>
+                      )}
                     </div>
                     <button
                       onClick={(e) => handleDeletePasskey(pk.id, e)}

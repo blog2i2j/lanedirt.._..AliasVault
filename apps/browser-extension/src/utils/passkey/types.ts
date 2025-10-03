@@ -41,43 +41,6 @@ export type StoredPasskeyRecord = {
   userId?: string | null;             // base64url encoded user.id (stored as string for consistency)
   userName?: string;
   userDisplayName?: string;
-  lastUsedAt?: number;
-};
-
-/**
- * Request to store a new passkey
- * TODO: check actual stored data type, but this will be replaced by vault integration anyway
- */
-export type StorePasskeyRequest = {
-  rpId: string;
-  credentialId: string;
-  displayName: string;
-  publicKey: WebAuthnCreationPayload;
-  privateKey: JsonWebKey;
-  userId?: string | null;
-  userName?: string;
-  userDisplayName?: string;
-};
-
-/**
- * Request to update passkey last used timestamp
- */
-export type UpdatePasskeyLastUsedRequest = {
-  credentialId: string;
-};
-
-/**
- * Request to delete a passkey
- */
-export type DeletePasskeyRequest = {
-  credentialId: string;
-};
-
-/**
- * Request to get passkey by ID
- */
-export type GetPasskeyByIdRequest = {
-  credentialId: string;
 };
 
 /**
@@ -135,7 +98,6 @@ export type PendingPasskeyCreateRequest = {
 
 /**
  * Pending passkey request data for get/authenticate operation
- * TODO: check usage chain
  */
 export type PendingPasskeyGetRequest = {
   type: 'get';
@@ -145,7 +107,6 @@ export type PendingPasskeyGetRequest = {
   passkeys: Array<{
     id: string;
     displayName: string;
-    lastUsed: string | null;
   }>;
 };
 

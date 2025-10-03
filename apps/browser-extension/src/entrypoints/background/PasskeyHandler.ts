@@ -1,15 +1,10 @@
 /**
- * PasskeyHandler - Handles passkey storage and management in background
- * TODO: review this file
+ * PasskeyHandler - Handles passkey popup management in background
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type {
-  StorePasskeyRequest,
-  UpdatePasskeyLastUsedRequest,
-  DeletePasskeyRequest,
-  GetPasskeyByIdRequest,
   GetRequestDataRequest,
   PasskeyPopupResponse,
   WebAuthnCreateRequest,
@@ -22,26 +17,7 @@ import type {
   WebAuthnPublicKeyGetPayload
 } from '@/utils/passkey/types';
 
-import { storage, browser } from '#imports';
-
-interface IPasskeyData {
-  id: string;
-  rpId: string;
-  credentialId: string;
-  displayName: string;
-  publicKey: JsonWebKey;
-  privateKey: JsonWebKey;
-  userId?: string | null;          // base64url encoded user.id for userHandle
-  userName?: string;
-  userDisplayName?: string;
-  createdAt: number;
-  updatedAt: number;
-  lastUsedAt: number | null;
-  signCount: number;
-}
-
-// In-memory session storage for passkeys (for POC)
-const sessionPasskeys = new Map<string, IPasskeyData>();
+import { browser } from '#imports';
 
 // Pending popup requests
 const pendingRequests = new Map<string, {
@@ -56,11 +32,7 @@ const pendingRequestData = new Map<string, PendingPasskeyRequest>();
  * Handle WebAuthn settings request
  */
 export async function handleGetWebAuthnSettings(): Promise<WebAuthnSettingsResponse> {
-  /*
-   * For POC, always enabled. In production, this would be a user setting
-   * const settings = await storage.getItem('local:webauthn_enabled');
-   * return { enabled: settings !== false };
-   */
+  // Always enabled
   return { enabled: true };
 }
 
@@ -123,43 +95,11 @@ export async function handleWebAuthnCreate(data: any): Promise<any> {
 
 /**
  * Handle WebAuthn get (authentication) request
+ * Note: Passkey retrieval is now handled in the popup via SqliteClient
  */
 export async function handleWebAuthnGet(data: any): Promise<any> {
   const { publicKey, origin } = data as WebAuthnGetRequest;
   const requestId = Math.random().toString(36).substr(2, 9);
-
-  // Get passkeys for this origin
-  const passkeys = getPasskeysForOrigin(origin);
-
-  // Filter by allowCredentials if specified
-  let filteredPasskeys = passkeys;
-
-  if (publicKey.allowCredentials && publicKey.allowCredentials.length > 0) {
-    const allowedIds = new Set(publicKey.allowCredentials.map(c => c.id));
-    filteredPasskeys = passkeys.filter(pk => {
-      const matches = allowedIds.has(pk.credentialId);
-      return matches;
-    });
-  }
-
-  let passkeyList = filteredPasskeys.map(pk => ({
-    id: pk.credentialId,
-    displayName: pk.displayName,
-    lastUsed: pk.lastUsedAt ? new Date(pk.lastUsedAt).toLocaleDateString() : null
-  }));
-
-  /*
-   * If allowCredentials was specified but we have no matches, show all passkeys anyway
-   * (This is what password managers do - they show their own passkeys even if the site
-   * doesn't explicitly request them, allowing users to use extension passkeys)
-   */
-  if (passkeyList.length === 0 && passkeys.length > 0) {
-    passkeyList = passkeys.map(pk => ({
-      id: pk.credentialId,
-      displayName: pk.displayName,
-      lastUsed: pk.lastUsedAt ? new Date(pk.lastUsedAt).toLocaleDateString() : null
-    }));
-  }
 
   // Store request data temporarily (to avoid URL length limits)
   const requestData: PendingPasskeyGetRequest = {
@@ -167,7 +107,7 @@ export async function handleWebAuthnGet(data: any): Promise<any> {
     requestId,
     origin,
     publicKey: publicKey as WebAuthnPublicKeyGetPayload,
-    passkeys: passkeyList
+    passkeys: [] // Will be populated by the popup from vault
   };
   pendingRequestData.set(requestId, requestData);
 
@@ -181,7 +121,7 @@ export async function handleWebAuthnGet(data: any): Promise<any> {
       url: popupUrl,
       type: 'popup',
       width: 450,
-      height: Math.min(600, 400 + passkeyList.length * 60),
+      height: 600,
       focused: true
     });
 
@@ -209,148 +149,6 @@ export async function handleWebAuthnGet(data: any): Promise<any> {
     });
   } catch {
     return { error: 'Failed to create popup window' };
-  }
-}
-
-/**
- * Store a new passkey
- */
-export async function handleStorePasskey(data: any): Promise<{ success: boolean }> {
-  const { rpId, credentialId, displayName, publicKey, privateKey, userId, userName, userDisplayName } = data as StorePasskeyRequest;
-
-  const passkey: IPasskeyData = {
-    id: Date.now().toString(),
-    rpId, // Already processed by the popup, no need to extract domain again
-    credentialId,
-    displayName,
-    publicKey: publicKey as JsonWebKey,
-    privateKey,
-    userId,
-    userName,
-    userDisplayName,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    lastUsedAt: null,
-    signCount: 0
-  };
-
-  // Store in session memory
-  const key = `${passkey.rpId}:${credentialId}`;
-  sessionPasskeys.set(key, passkey);
-
-  /*
-   * In production, this would be stored in the vault database
-   * For now, also store in local storage for persistence across reloads
-   */
-  let storedPasskeys: Record<string, IPasskeyData> = {};
-  const rawData = await storage.getItem('local:passkeys');
-
-  // Handle migration from old array format or corrupted string data
-  if (typeof rawData === 'string') {
-    // Data was stored as stringified JSON (old format), clear it
-    console.warn('PasskeyHandler: Found old/corrupted passkey storage format, migrating...');
-    try {
-      const parsed = JSON.parse(rawData);
-      if (Array.isArray(parsed)) {
-        // Convert array to record format
-        for (const pk of parsed) {
-          const pkKey = `${pk.rpId}:${pk.credentialId}`;
-          storedPasskeys[pkKey] = pk;
-        }
-      }
-    } catch (e) {
-      console.error('PasskeyHandler: Failed to migrate old passkey data', e);
-    }
-  } else if (rawData && typeof rawData === 'object') {
-    storedPasskeys = rawData as Record<string, IPasskeyData>;
-  }
-
-  storedPasskeys[key] = passkey;
-  await storage.setItem('local:passkeys', storedPasskeys);
-
-  return { success: true };
-}
-
-/**
- * Update passkey last used time (sign count always remains 0 for cross-device sync compatibility)
- */
-export async function handleUpdatePasskeyLastUsed(data: any): Promise<{ success: boolean }> {
-  const { credentialId } = data as UpdatePasskeyLastUsedRequest;
-
-  // Find and update the passkey
-  for (const [key, passkey] of sessionPasskeys.entries()) {
-    if (passkey.credentialId === credentialId) {
-      passkey.lastUsedAt = Date.now();
-      // Sign count always remains 0 for cross-device sync compatibility
-      passkey.signCount = 0;
-
-      sessionPasskeys.set(key, passkey);
-
-      // Update in storage too
-      const rawData = await storage.getItem('local:passkeys');
-      let storedPasskeys: Record<string, IPasskeyData> = {};
-
-      if (typeof rawData === 'object' && rawData !== null) {
-        storedPasskeys = rawData as Record<string, IPasskeyData>;
-      }
-
-      if (storedPasskeys[key]) {
-        storedPasskeys[key] = passkey;
-        await storage.setItem('local:passkeys', storedPasskeys);
-      }
-      return { success: true };
-    }
-  }
-
-  return { success: false };
-}
-
-/**
- * Get passkeys for a specific origin
- */
-function getPasskeysForOrigin(origin: string): IPasskeyData[] {
-  const rpId = origin.replace(/^https?:\/\//, '').split('/')[0];
-  const passkeys: IPasskeyData[] = [];
-
-  for (const [_key, passkey] of sessionPasskeys.entries()) {
-    if (passkey.rpId === rpId || passkey.rpId === `.${rpId}`) {
-      passkeys.push(passkey);
-    }
-  }
-
-  return passkeys;
-}
-
-/**
- * Initialize passkeys from storage on startup
- */
-export async function initializePasskeys(): Promise<void> {
-  const rawData = await storage.getItem('local:passkeys');
-  let storedPasskeys: Record<string, IPasskeyData> = {};
-
-  // Handle migration from old array format or corrupted string data
-  if (typeof rawData === 'string') {
-    console.warn('PasskeyHandler: Found old/corrupted passkey storage format during init, migrating...');
-    try {
-      const parsed = JSON.parse(rawData);
-      if (Array.isArray(parsed)) {
-        // Convert array to record format
-        for (const pk of parsed) {
-          const pkKey = `${pk.rpId}:${pk.credentialId}`;
-          storedPasskeys[pkKey] = pk;
-        }
-        // Save migrated data
-        await storage.setItem('local:passkeys', storedPasskeys);
-      }
-    } catch (e) {
-      console.error('PasskeyHandler: Failed to migrate old passkey data during init', e);
-    }
-  } else if (rawData && typeof rawData === 'object') {
-    storedPasskeys = rawData as Record<string, IPasskeyData>;
-  }
-
-  for (const [key, passkey] of Object.entries(storedPasskeys)) {
-    sessionPasskeys.set(key, passkey as IPasskeyData);
   }
 }
 
@@ -383,21 +181,6 @@ export async function handlePasskeyPopupResponse(data: any): Promise<{ success: 
 }
 
 /**
- * Get passkey by credential ID
- */
-export async function handleGetPasskeyById(data: any): Promise<IPasskeyData | null> {
-  const { credentialId } = data as GetPasskeyByIdRequest;
-
-  for (const [_key, passkey] of sessionPasskeys.entries()) {
-    if (passkey.credentialId === credentialId) {
-      return passkey;
-    }
-  }
-
-  return null;
-}
-
-/**
  * Get request data by request ID
  */
 export async function handleGetRequestData(data: any): Promise<PendingPasskeyRequest | null> {
@@ -406,37 +189,3 @@ export async function handleGetRequestData(data: any): Promise<PendingPasskeyReq
   return requestData || null;
 }
 
-/**
- * Clear all passkeys (for development)
- */
-export async function handleClearAllPasskeys(): Promise<{ success: boolean }> {
-  sessionPasskeys.clear();
-  await storage.removeItem('local:passkeys');
-  return { success: true };
-}
-
-/**
- * Delete a specific passkey
- */
-export async function handleDeletePasskey(data: any): Promise<{ success: boolean }> {
-  const { credentialId } = data as DeletePasskeyRequest;
-
-  // Find and remove from session storage
-  let deletedKey: string | null = null;
-  for (const [key, passkey] of sessionPasskeys.entries()) {
-    if (passkey.credentialId === credentialId) {
-      sessionPasskeys.delete(key);
-      deletedKey = key;
-      break;
-    }
-  }
-
-  if (deletedKey) {
-    // Remove from storage (storage API expects Record format, not stringified)
-    const storedPasskeys: Record<string, IPasskeyData> = await storage.getItem('local:passkeys') || {};
-    delete storedPasskeys[deletedKey];
-    await storage.setItem('local:passkeys', storedPasskeys);
-  }
-
-  return { success: !!deletedKey };
-}

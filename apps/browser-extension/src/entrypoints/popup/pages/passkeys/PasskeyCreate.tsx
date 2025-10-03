@@ -1,30 +1,50 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { sendMessage } from 'webext-bridge/popup';
 
 import Button from '@/entrypoints/popup/components/Button';
 import { FormInput } from '@/entrypoints/popup/components/FormInput';
 import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
+import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
+import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
 import { AliasVaultPasskeyProvider } from '@/utils/passkey/AliasVaultPasskeyProvider';
-import type { CreateRequest, PasskeyCreateCredentialResponse, PendingPasskeyCreateRequest, StorePasskeyRequest, WebAuthnCreationPayload } from '@/utils/passkey/types';
+import { PasskeyHelper } from '@/utils/passkey/PasskeyHelper';
+import type { CreateRequest, PasskeyCreateCredentialResponse, PendingPasskeyCreateRequest } from '@/utils/passkey/types';
 
 /**
  * PasskeyCreate
  */
 const PasskeyCreate: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { setIsInitialLoading } = useLoading();
+  const dbContext = useDb();
+  const { executeVaultMutation, isLoading: isMutating, syncStatus } = useVaultMutate();
   const [request, setRequest] = useState<PendingPasskeyCreateRequest | null>(null);
   const [displayName, setDisplayName] = useState('My Passkey');
-  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     /**
      * fetchRequestData
      */
     const fetchRequestData = async () : Promise<void> => {
+      // Wait for DB to be initialized
+      if (!dbContext.dbInitialized) {
+        return;
+      }
+
+      // Check if vault is unlocked
+      if (!dbContext.dbAvailable) {
+        // Vault is locked, redirect to unlock
+        const params = new URLSearchParams(location.search);
+        const requestId = params.get('requestId');
+        navigate(`/unlock?redirect=/passkeys/create&requestId=${requestId}`);
+        return;
+      }
+
       // Get the requestId from URL
       const params = new URLSearchParams(location.search);
       const requestId = params.get('requestId');
@@ -42,6 +62,7 @@ const PasskeyCreate: React.FC = () => {
           }
         } catch (error) {
           console.error('Failed to fetch request data:', error);
+          setError('Failed to load passkey request');
         }
       }
 
@@ -49,17 +70,17 @@ const PasskeyCreate: React.FC = () => {
     };
 
     fetchRequestData();
-  }, [location, setIsInitialLoading]);
+  }, [location, setIsInitialLoading, dbContext.dbInitialized, dbContext.dbAvailable, navigate]);
 
   /**
    * Handle passkey creation
    */
   const handleCreate = async () : Promise<void> => {
-    if (!request) {
+    if (!request || !dbContext.sqliteClient) {
       return;
     }
 
-    setLoading(true);
+    setError(null);
 
     try {
       // Build the CreateRequest
@@ -76,60 +97,97 @@ const PasskeyCreate: React.FC = () => {
         }
       };
 
-      // Create passkey using static method
-      const result = await AliasVaultPasskeyProvider.createPasskey(createRequest, {
-        uvPerformed: true, // Set to true if you implement actual user verification
+      /**
+       * Generate a new GUID for the passkey which will be embedded in the passkey
+       * metadata and send back to the RP as the credential.id and credential.rawId.
+       */
+      const newPasskeyGuid = crypto.randomUUID().toUpperCase();
+      const newPasskeyGuidBytes = PasskeyHelper.guidToBytes(newPasskeyGuid);
+      const newPasskeyGuidBase64url = PasskeyHelper.guidToBase64url(newPasskeyGuid);
+
+      // Create passkey using static method (generates keys and credential ID)
+      const result = await AliasVaultPasskeyProvider.createPasskey(newPasskeyGuidBytes, createRequest, {
+        uvPerformed: true,
         credentialIdBytes: 16
       });
 
-      // Store the passkey data
-      const data: StorePasskeyRequest = {
-        rpId: result.stored.rpId,
-        credentialId: result.stored.credentialId,
-        displayName: displayName,
-        publicKey: result.stored.publicKey as WebAuthnCreationPayload,
-        privateKey: result.stored.privateKey,
-        userId: result.stored.userId,
-        userName: result.stored.userName,
-        userDisplayName: result.stored.userDisplayName
-      };
+      const { credential, stored } = result;
 
-      await sendMessage('STORE_PASSKEY', data as unknown, 'background');
+      // Use vault mutation to store both credential and passkey
+      await executeVaultMutation(
+        async () => {
+          // 1. Create a parent Credential entry
+          const credentialId = await dbContext.sqliteClient!.createCredential(
+            {
+              Id: '',
+              ServiceName: request.publicKey.rp.name || request.origin,
+              ServiceUrl: request.origin,
+              Username: request.publicKey.user.name,
+              Password: null,
+              Notes: null,
+              Logo: null,
+              Alias: {
+                FirstName: null,
+                LastName: null,
+                NickName: null,
+                BirthDate: '0001-01-01 00:00:00', // TODO: once birthdate is made nullable in datamodel refactor, remove this.
+                Gender: null,
+                Email: null
+              }
+            },
+            []
+          );
 
-      const { credential } = result;
+          /**
+           * Create the Passkey linked to the credential
+           * Note: We let the database generate a GUID for Id, which we'll convert to base64url for the RP
+           */
+          await dbContext.sqliteClient!.createPasskey({
+            Id: newPasskeyGuid,
+            CredentialId: credentialId,
+            RpId: stored.rpId,
+            UserId: stored.userId ?? null,
+            PublicKey: JSON.stringify(stored.publicKey),
+            PrivateKey: JSON.stringify(stored.privateKey),
+            DisplayName: displayName,
+            AdditionalData: null
+          });
+        },
+        {
+          /**
+           * Wait for vault mutation to have synced with server, then send passkey create success response
+           * with the GUID-based credential ID.
+           */
+          onSuccess: async () => {
+            // Use the GUID-based credential ID instead of the random one from the provider
+            const flattenedCredential: PasskeyCreateCredentialResponse = {
+              id: newPasskeyGuidBase64url,
+              rawId: newPasskeyGuidBase64url,
+              clientDataJSON: credential.response.clientDataJSON,
+              attestationObject: credential.response.attestationObject
+            };
 
-      console.info('PasskeyCreate: Created credential successfully', credential);
+            // Send response back to background
+            await sendMessage('PASSKEY_POPUP_RESPONSE', {
+              requestId: request.requestId,
+              credential: flattenedCredential
+            }, 'background');
 
-      /*
-       * Flatten credential structure for injection script compatibility
-       * The injection script expects: { id, rawId, clientDataJSON, attestationObject }
-       * But the provider returns: { id, rawId, response: { clientDataJSON, attestationObject }, type }
-       */
-      const flattenedCredential: PasskeyCreateCredentialResponse = {
-        id: credential.id,
-        rawId: credential.rawId,
-        clientDataJSON: credential.response.clientDataJSON,
-        attestationObject: credential.response.attestationObject
-      };
-
-      // Send response back with the flattened credential
-      await sendMessage('PASSKEY_POPUP_RESPONSE', {
-        requestId: request.requestId,
-        credential: flattenedCredential
-      }, 'background');
-
-      // For debugging: Don't close the window automatically
-      console.info('PasskeyCreate: Passkey created successfully.');
-      setLoading(false);
-
-      /*
-       * Uncomment to auto-close:
-       * window.close();
-       */
+            // Auto-close window on success
+            window.close();
+          },
+          /**
+           * onError
+           */
+          onError: (err) => {
+            console.error('PasskeyCreate: Error storing passkey', err);
+            setError(`Failed to store passkey: ${err.message}`);
+          }
+        }
+      );
     } catch (error) {
       console.error('PasskeyCreate: Error creating passkey', error);
-      setLoading(false);
-      alert(`Failed to create passkey: ${error instanceof Error ? error.message : String(error)}`);
+      setError(`Failed to create passkey: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -186,6 +244,18 @@ const PasskeyCreate: React.FC = () => {
         </p>
       </div>
 
+      {error && (
+        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+        </div>
+      )}
+
+      {isMutating && syncStatus && (
+        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <p className="text-sm text-blue-800 dark:text-blue-200">{syncStatus}</p>
+        </div>
+      )}
+
       <div className="space-y-4">
         <FormInput
           id="displayName"
@@ -200,16 +270,16 @@ const PasskeyCreate: React.FC = () => {
         <Button
           variant="primary"
           onClick={handleCreate}
-          disabled={loading || !displayName.trim()}
+          disabled={isMutating || !displayName.trim()}
           className="w-full"
         >
-          {loading ? 'Creating...' : 'Create Passkey'}
+          {isMutating ? 'Creating...' : 'Create Passkey'}
         </Button>
 
         <Button
           variant="secondary"
           onClick={handleFallback}
-          disabled={loading}
+          disabled={isMutating}
           className="w-full"
         >
           Use Browser Passkey
@@ -218,7 +288,7 @@ const PasskeyCreate: React.FC = () => {
         <Button
           variant="secondary"
           onClick={handleCancel}
-          disabled={loading}
+          disabled={isMutating}
           className="w-full"
         >
           Cancel

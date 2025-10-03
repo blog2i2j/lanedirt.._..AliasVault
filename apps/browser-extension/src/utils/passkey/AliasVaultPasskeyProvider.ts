@@ -19,6 +19,7 @@ import type { CreateRequest, GetRequest, StoredPasskeyRecord } from './types';
 
 /**
  * AliasVaultPasskeyProvider - Static utility class for WebAuthn operations
+ * TODO: rename this class to a more descriptive name
  */
 export class AliasVaultPasskeyProvider {
   /**
@@ -40,6 +41,7 @@ export class AliasVaultPasskeyProvider {
    * Also returns the passkey data that should be stored for later use.
    */
   public static async createPasskey(
+    credentialIdBytes: Uint8Array,
     req: CreateRequest,
     opts?: { uvPerformed?: boolean; credentialIdBytes?: number } // uvPerformed: only set to true if your app did real UV
   ): Promise<{
@@ -70,10 +72,8 @@ export class AliasVaultPasskeyProvider {
     const pubJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
     const prvJwk = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
 
-    // 4) Generate a credentialId (random bytes; default 16)
-    const credLen = Math.max(8, Math.min(opts?.credentialIdBytes ?? 16, 64));
-    const credIdBytes = crypto.getRandomValues(new Uint8Array(credLen));
-    const credentialIdB64u = AliasVaultPasskeyProvider.toB64u(credIdBytes);
+    // 4) Use the provided credentialIdBytes param
+    const credentialIdB64u = AliasVaultPasskeyProvider.toB64u(credentialIdBytes);
 
     // 5) COSE public key (CBOR) from JWK (ES256 / P-256)
     const coseKey = AliasVaultPasskeyProvider.buildCoseEc2Es256(pubJwk);
@@ -96,8 +96,8 @@ export class AliasVaultPasskeyProvider {
 
     // 7) AttestedCredentialData = AAGUID(16 zeros) + credIdLen(2) + credId + COSEKey
     const aaguid = new Uint8Array(16); // all zeros in "none" attestation
-    const credIdLenBytes = new Uint8Array([(credIdBytes.length >> 8) & 0xff, credIdBytes.length & 0xff]);
-    const attestedCredData = AliasVaultPasskeyProvider.concat(aaguid, credIdLenBytes, credIdBytes, coseKey);
+    const credIdLenBytes = new Uint8Array([(credentialIdBytes.length >> 8) & 0xff, credentialIdBytes.length & 0xff]);
+    const attestedCredData = AliasVaultPasskeyProvider.concat(aaguid, credIdLenBytes, credentialIdBytes, coseKey);
 
     // 8) authenticatorData = rpIdHash (32) + flags (1) + signCount (4) + attestedCredData
     const authenticatorData = AliasVaultPasskeyProvider.concat(rpIdHash, new Uint8Array([flags]), signCount, attestedCredData);

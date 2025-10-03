@@ -7,7 +7,7 @@ import { onMessage, sendMessage } from "webext-bridge/background";
 import { handleResetAutoLockTimer, handlePopupHeartbeat, handleSetAutoLockTimeout } from '@/entrypoints/background/AutolockTimeoutHandler';
 import { handleClipboardCopied, handleCancelClipboardClear, handleGetClipboardClearTimeout, handleSetClipboardClearTimeout, handleGetClipboardCountdownState } from '@/entrypoints/background/ClipboardClearHandler';
 import { setupContextMenus } from '@/entrypoints/background/ContextMenu';
-import { handleGetWebAuthnSettings, handleWebAuthnCreate, handleWebAuthnGet, handleStorePasskey, handleUpdatePasskeyLastUsed, handleClearAllPasskeys, handleDeletePasskey, handlePasskeyPopupResponse, initializePasskeys, handleGetRequestData, handleGetPasskeyById } from '@/entrypoints/background/PasskeyHandler';
+import { handleGetWebAuthnSettings, handleWebAuthnCreate, handleWebAuthnGet, handlePasskeyPopupResponse, handleGetRequestData } from '@/entrypoints/background/PasskeyHandler';
 import { handleOpenPopup, handlePopupWithCredential, handleOpenPopupCreateCredential, handleToggleContextMenu } from '@/entrypoints/background/PopupMessageHandler';
 import { handleCheckAuthStatus, handleClearPersistedFormValues, handleClearVault, handleCreateIdentity, handleGetCredentials, handleGetDefaultEmailDomain, handleGetDefaultIdentitySettings, handleGetEncryptionKey, handleGetEncryptionKeyDerivationParams, handleGetPasswordSettings, handleGetPersistedFormValues, handleGetVault, handlePersistFormValues, handleStoreEncryptionKey, handleStoreEncryptionKeyDerivationParams, handleStoreVault, handleSyncVault, handleUploadVault } from '@/entrypoints/background/VaultMessageHandler';
 
@@ -71,16 +71,8 @@ export default defineBackground({
     onMessage('GET_WEBAUTHN_SETTINGS', () => handleGetWebAuthnSettings());
     onMessage('WEBAUTHN_CREATE', ({ data }) => handleWebAuthnCreate(data));
     onMessage('WEBAUTHN_GET', ({ data }) => handleWebAuthnGet(data));
-    onMessage('STORE_PASSKEY', ({ data }) => handleStorePasskey(data));
-    onMessage('UPDATE_PASSKEY_LAST_USED', ({ data }) => handleUpdatePasskeyLastUsed(data));
-    onMessage('CLEAR_ALL_PASSKEYS', () => handleClearAllPasskeys());
-    onMessage('DELETE_PASSKEY', ({ data }) => handleDeletePasskey(data));
     onMessage('PASSKEY_POPUP_RESPONSE', ({ data }) => handlePasskeyPopupResponse(data));
     onMessage('GET_REQUEST_DATA', ({ data }) => handleGetRequestData(data));
-    onMessage('GET_PASSKEY_BY_ID', ({ data }) => handleGetPasskeyById(data));
-
-    // Initialize passkeys from storage TODO: remove this once proper vault integration is added
-    await initializePasskeys();
 
     // Setup context menus
     const isContextMenuEnabled = await storage.getItem(GLOBAL_CONTEXT_MENU_ENABLED_KEY) ?? true;
