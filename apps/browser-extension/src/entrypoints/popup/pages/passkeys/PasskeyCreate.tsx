@@ -9,7 +9,7 @@ import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
-import { AliasVaultPasskeyProvider } from '@/utils/passkey/AliasVaultPasskeyProvider';
+import { PasskeyAuthenticator } from '@/utils/passkey/PasskeyAuthenticator';
 import { PasskeyHelper } from '@/utils/passkey/PasskeyHelper';
 import type { CreateRequest, PasskeyCreateCredentialResponse, PendingPasskeyCreateRequest } from '@/utils/passkey/types';
 
@@ -106,7 +106,7 @@ const PasskeyCreate: React.FC = () => {
       const newPasskeyGuidBase64url = PasskeyHelper.guidToBase64url(newPasskeyGuid);
 
       // Create passkey using static method (generates keys and credential ID)
-      const result = await AliasVaultPasskeyProvider.createPasskey(newPasskeyGuidBytes, createRequest, {
+      const result = await PasskeyAuthenticator.createPasskey(newPasskeyGuidBytes, createRequest, {
         uvPerformed: true,
         credentialIdBytes: 16
       });
@@ -123,16 +123,16 @@ const PasskeyCreate: React.FC = () => {
               ServiceName: request.publicKey.rp.name || request.origin,
               ServiceUrl: request.origin,
               Username: request.publicKey.user.name,
-              Password: null,
-              Notes: null,
-              Logo: null,
+              Password: '',
+              Notes: '',
+              Logo: [],
               Alias: {
-                FirstName: null,
-                LastName: null,
-                NickName: null,
+                FirstName: '',
+                LastName: '',
+                NickName: '',
                 BirthDate: '0001-01-01 00:00:00', // TODO: once birthdate is made nullable in datamodel refactor, remove this.
-                Gender: null,
-                Email: null
+                Gender: '',
+                Email: ''
               }
             },
             []
@@ -270,8 +270,6 @@ const PasskeyCreate: React.FC = () => {
         <Button
           variant="primary"
           onClick={handleCreate}
-          disabled={isMutating || !displayName.trim()}
-          className="w-full"
         >
           {isMutating ? 'Creating...' : 'Create Passkey'}
         </Button>
@@ -279,8 +277,6 @@ const PasskeyCreate: React.FC = () => {
         <Button
           variant="secondary"
           onClick={handleFallback}
-          disabled={isMutating}
-          className="w-full"
         >
           Use Browser Passkey
         </Button>
@@ -288,8 +284,6 @@ const PasskeyCreate: React.FC = () => {
         <Button
           variant="secondary"
           onClick={handleCancel}
-          disabled={isMutating}
-          className="w-full"
         >
           Cancel
         </Button>

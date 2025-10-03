@@ -1,18 +1,6 @@
 /**
- * Type definitions for the AliasVaultPasskeyProvider
+ * Type definitions for the PasskeyAuthenticator
  */
-
-// Re-export injection script types for convenience
-export type {
-  WebAuthnCreateEventDetail,
-  WebAuthnGetEventDetail,
-  WebAuthnCreateResponseDetail,
-  WebAuthnGetResponseDetail,
-  ProviderCreateCredential,
-  ProviderGetCredential,
-  WebAuthnPublicKeyCredential,
-  WebAuthnAssertionCredential
-} from './webauthn.types';
 
 /**
  * WebAuthn credential response types (for injection script compatibility)
@@ -42,13 +30,6 @@ export type StoredPasskeyRecord = {
   userId?: string | null;             // standard base64 encoded user.id (used for userHandle in authentication)
   userName?: string;
   userDisplayName?: string;
-};
-
-/**
- * Request to get pending request data
- */
-export type GetRequestDataRequest = {
-  requestId: string;
 };
 
 /**
@@ -88,7 +69,6 @@ export type WebAuthnSettingsResponse = {
 
 /**
  * Pending passkey request data for create operation
- * TODO: check usage chain
  */
 export type PendingPasskeyCreateRequest = {
   type: 'create';

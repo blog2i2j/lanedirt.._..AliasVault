@@ -8,9 +8,9 @@ import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
-import { AliasVaultPasskeyProvider } from '@/utils/passkey/AliasVaultPasskeyProvider';
+import { PasskeyAuthenticator } from '@/utils/passkey/PasskeyAuthenticator';
 import { PasskeyHelper } from '@/utils/passkey/PasskeyHelper';
-import type { GetRequest, PasskeyGetCredentialResponse, PendingPasskeyGetRequest } from '@/utils/passkey/types';
+import type { GetRequest, PasskeyGetCredentialResponse, PendingPasskeyGetRequest, StoredPasskeyRecord } from '@/utils/passkey/types';
 
 /**
  * PasskeyAuthenticate
@@ -122,14 +122,14 @@ const PasskeyAuthenticate: React.FC = () => {
       const privateKey = JSON.parse(storedPasskey.PrivateKey) as JsonWebKey;
 
       // Build the stored record for the provider
-      const storedRecord = {
+      const storedRecord: StoredPasskeyRecord = {
         rpId: storedPasskey.RpId,
         credentialId: PasskeyHelper.guidToBase64url(storedPasskey.Id),
         publicKey,
         privateKey,
         userId: storedPasskey.UserId,
-        userName: storedPasskey.Username,
-        userDisplayName: storedPasskey.ServiceName
+        userName: storedPasskey.Username ?? undefined,
+        userDisplayName: storedPasskey.ServiceName ?? undefined
       };
 
       // Build the GetRequest
@@ -144,8 +144,8 @@ const PasskeyAuthenticate: React.FC = () => {
       };
 
       // Get the assertion using the static method
-      const credential: PasskeyGetCredentialResponse = await AliasVaultPasskeyProvider.getAssertion(getRequest, storedRecord, {
-        uvPerformed: true, // TODO: implement explicit user verification check if requested
+      const credential: PasskeyGetCredentialResponse = await PasskeyAuthenticator.getAssertion(getRequest, storedRecord, {
+        uvPerformed: true, // TODO: implement explicit user verification check
         includeBEBS: true // Backup eligible/state - defaults to true
       });
 
@@ -325,8 +325,6 @@ const PasskeyAuthenticate: React.FC = () => {
         <Button
           variant="secondary"
           onClick={handleFallback}
-          disabled={loading}
-          className="w-full"
         >
           Use Browser Passkey
         </Button>
@@ -334,8 +332,6 @@ const PasskeyAuthenticate: React.FC = () => {
         <Button
           variant="secondary"
           onClick={handleCancel}
-          disabled={loading}
-          className="w-full"
         >
           Cancel
         </Button>

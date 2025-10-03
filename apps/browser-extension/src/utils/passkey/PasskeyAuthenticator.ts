@@ -1,5 +1,5 @@
 /**
- * AliasVaultPasskeyProvider
+ * PasskeyAuthenticator
  * -------------------------
  * A small self-contained WebAuthn "virtual authenticator" for a browser extension.
  * It can create ("register") and use ("authenticate") passkeys. The class focuses on:
@@ -18,10 +18,9 @@
 import type { CreateRequest, GetRequest, StoredPasskeyRecord } from './types';
 
 /**
- * AliasVaultPasskeyProvider - Static utility class for WebAuthn operations
- * TODO: rename this class to a more descriptive name
+ * PasskeyAuthenticator - Static utility class for WebAuthn operations
  */
-export class AliasVaultPasskeyProvider {
+export class PasskeyAuthenticator {
   /**
    * Private constructor to prevent instantiation.
    * This class only contains static methods.
@@ -57,11 +56,11 @@ export class AliasVaultPasskeyProvider {
     stored: StoredPasskeyRecord;
   }> {
     // 1) Validate and resolve algorithm (-7 = ES256)
-    AliasVaultPasskeyProvider.pickSupportedAlgorithm(req.publicKey.pubKeyCredParams);
+    PasskeyAuthenticator.pickSupportedAlgorithm(req.publicKey.pubKeyCredParams);
 
     // 2) Determine RP ID (domain) and hash it
     const rpId = req.publicKey.rp?.id || new URL(req.origin).hostname;
-    const rpIdHash = new Uint8Array(await crypto.subtle.digest('SHA-256', AliasVaultPasskeyProvider.te(rpId) as BufferSource));
+    const rpIdHash = new Uint8Array(await crypto.subtle.digest('SHA-256', PasskeyAuthenticator.te(rpId) as BufferSource));
 
     // 3) Key pair generation (ES256 / P-256)
     const keyPair = await crypto.subtle.generateKey(
@@ -73,10 +72,10 @@ export class AliasVaultPasskeyProvider {
     const prvJwk = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
 
     // 4) Use the provided credentialIdBytes param
-    const credentialIdB64u = AliasVaultPasskeyProvider.toB64u(credentialIdBytes);
+    const credentialIdB64u = PasskeyAuthenticator.toB64u(credentialIdBytes);
 
     // 5) COSE public key (CBOR) from JWK (ES256 / P-256)
-    const coseKey = AliasVaultPasskeyProvider.buildCoseEc2Es256(pubJwk);
+    const coseKey = PasskeyAuthenticator.buildCoseEc2Es256(pubJwk);
 
     /*
      * 6) Flags (creation): UP (bit0)=1, UV (bit2) depends on policy, AT (bit6)=1, BE/BS optional
@@ -96,7 +95,6 @@ export class AliasVaultPasskeyProvider {
 
     /*
      * 7) AttestedCredentialData = AAGUID + credIdLen(2) + credId + COSEKey
-     * Note: The AAGUID uses custom formatting where 'v'=vault, 'u'=uuid in the brand name
      * AliasVault AAGUID: a11a5vau-9f32-4b8c-8c5d-2f7d13e8c942
      */
     const aaguidStr = 'a11a5vau-9f32-4b8c-8c5d-2f7d13e8c942';
@@ -106,13 +104,13 @@ export class AliasVaultPasskeyProvider {
       aaguid[i] = parseInt(aaguidHex.substr(i * 2, 2), 16);
     }
     const credIdLenBytes = new Uint8Array([(credentialIdBytes.length >> 8) & 0xff, credentialIdBytes.length & 0xff]);
-    const attestedCredData = AliasVaultPasskeyProvider.concat(aaguid, credIdLenBytes, credentialIdBytes, coseKey);
+    const attestedCredData = PasskeyAuthenticator.concat(aaguid, credIdLenBytes, credentialIdBytes, coseKey);
 
     // 8) authenticatorData = rpIdHash (32) + flags (1) + signCount (4) + attestedCredData
-    const authenticatorData = AliasVaultPasskeyProvider.concat(rpIdHash, new Uint8Array([flags]), signCount, attestedCredData);
+    const authenticatorData = PasskeyAuthenticator.concat(rpIdHash, new Uint8Array([flags]), signCount, attestedCredData);
 
     // 9) clientDataJSON (stringify with challenge as base64url)
-    const challengeB64u = AliasVaultPasskeyProvider.challengeToB64u(req.publicKey.challenge);
+    const challengeB64u = PasskeyAuthenticator.challengeToB64u(req.publicKey.challenge);
     const clientDataObj = {
       type: 'webauthn.create',
       challenge: challengeB64u,
@@ -120,14 +118,14 @@ export class AliasVaultPasskeyProvider {
       crossOrigin: false
     };
     const clientDataJSONStr = JSON.stringify(clientDataObj);
-    const clientDataJSONBytes = AliasVaultPasskeyProvider.te(clientDataJSONStr);
+    const clientDataJSONBytes = PasskeyAuthenticator.te(clientDataJSONStr);
 
     // 10) Build attestationObject (CBOR map with "fmt","attStmt","authData")
     const attPref = req.publicKey.attestation || 'none';
     const attObjBytes =
       attPref === 'none' || attPref === 'indirect'
-        ? AliasVaultPasskeyProvider.buildAttObjNone(authenticatorData)
-        : await AliasVaultPasskeyProvider.buildAttObjPackedSelf(authenticatorData, clientDataJSONBytes, keyPair.privateKey);
+        ? PasskeyAuthenticator.buildAttObjNone(authenticatorData)
+        : await PasskeyAuthenticator.buildAttObjPackedSelf(authenticatorData, clientDataJSONBytes, keyPair.privateKey);
 
     /*
      * 11) Prepare the passkey data for storage (caller will handle actual storage)
@@ -138,7 +136,7 @@ export class AliasVaultPasskeyProvider {
       // The injection script already converted ArrayBuffer to standard base64, store as-is
       userIdB64 = typeof req.publicKey.user.id === 'string'
         ? req.publicKey.user.id
-        : AliasVaultPasskeyProvider.toB64(req.publicKey.user.id instanceof Uint8Array ? req.publicKey.user.id : new Uint8Array(req.publicKey.user.id));
+        : PasskeyAuthenticator.toB64(req.publicKey.user.id instanceof Uint8Array ? req.publicKey.user.id : new Uint8Array(req.publicKey.user.id));
     }
 
     const stored: StoredPasskeyRecord = {
@@ -148,8 +146,7 @@ export class AliasVaultPasskeyProvider {
       privateKey: prvJwk,
       userId: userIdB64,
       userName: req.publicKey.user?.name,
-      userDisplayName: req.publicKey.user?.displayName,
-      lastUsedAt: Date.now()
+      userDisplayName: req.publicKey.user?.displayName
     };
 
     // 12) Return a credential-like object (base64url-encoded fields for transport per RFC 4648 §5)
@@ -157,8 +154,8 @@ export class AliasVaultPasskeyProvider {
       id: credentialIdB64u,
       rawId: credentialIdB64u,
       response: {
-        clientDataJSON: AliasVaultPasskeyProvider.toB64u(clientDataJSONBytes),
-        attestationObject: AliasVaultPasskeyProvider.toB64u(attObjBytes)
+        clientDataJSON: PasskeyAuthenticator.toB64u(clientDataJSONBytes),
+        attestationObject: PasskeyAuthenticator.toB64u(attObjBytes)
       },
       type: 'public-key' as const
     };
@@ -195,7 +192,7 @@ export class AliasVaultPasskeyProvider {
 
     // 2) rpId & hash
     const rpId = req.publicKey.rpId || new URL(req.origin).hostname;
-    const rpIdHash = new Uint8Array(await crypto.subtle.digest('SHA-256', AliasVaultPasskeyProvider.te(rpId) as BufferSource));
+    const rpIdHash = new Uint8Array(await crypto.subtle.digest('SHA-256', PasskeyAuthenticator.te(rpId) as BufferSource));
 
     // 3) Flags (assertion): UP=1, UV depends on request & policy, BE/BS for syncable, AT=0 for auth
     let flags = 0x01; // UP
@@ -211,10 +208,10 @@ export class AliasVaultPasskeyProvider {
     const signCount = new Uint8Array([0, 0, 0, 0]); // always 0 (sync-friendly)
 
     // 4) authenticatorData = rpIdHash + flags + signCount
-    const authenticatorData = AliasVaultPasskeyProvider.concat(rpIdHash, new Uint8Array([flags]), signCount);
+    const authenticatorData = PasskeyAuthenticator.concat(rpIdHash, new Uint8Array([flags]), signCount);
 
     // 5) clientDataJSON
-    const challengeB64u = AliasVaultPasskeyProvider.challengeToB64u(req.publicKey.challenge);
+    const challengeB64u = PasskeyAuthenticator.challengeToB64u(req.publicKey.challenge);
     const clientDataObj = {
       type: 'webauthn.get',
       challenge: challengeB64u,
@@ -222,11 +219,11 @@ export class AliasVaultPasskeyProvider {
       crossOrigin: false
     };
     const clientDataJSONStr = JSON.stringify(clientDataObj);
-    const clientDataJSONBytes = AliasVaultPasskeyProvider.te(clientDataJSONStr);
+    const clientDataJSONBytes = PasskeyAuthenticator.te(clientDataJSONStr);
 
     // 6) Signature over authenticatorData || SHA256(clientDataJSON)
     const clientDataHash = new Uint8Array(await crypto.subtle.digest('SHA-256', clientDataJSONBytes as BufferSource));
-    const toSign = AliasVaultPasskeyProvider.concat(authenticatorData, clientDataHash);
+    const toSign = PasskeyAuthenticator.concat(authenticatorData, clientDataHash);
 
     const privateKey = await crypto.subtle.importKey(
       'jwk',
@@ -240,7 +237,7 @@ export class AliasVaultPasskeyProvider {
     );
 
     // 7) Convert raw (r|s) to DER sequence
-    const derSig = AliasVaultPasskeyProvider.ecdsaRawToDer(rawSig);
+    const derSig = PasskeyAuthenticator.ecdsaRawToDer(rawSig);
 
     /*
      * 8) Return userHandle (userId) - convert to base64url if present
@@ -252,16 +249,16 @@ export class AliasVaultPasskeyProvider {
       // Convert standard base64 to base64url (remove padding, replace chars)
       userHandleB64u = rec.userId.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     } else {
-      console.warn('AliasVaultPasskeyProvider.getAssertion: No userId found in stored passkey record');
+      console.warn('PasskeyAuthenticator.getAssertion: No userId found in stored passkey record');
     }
 
     // 9) Return object in the flat shape (base64url strings per RFC 4648 §5)
     return {
       id: rec.credentialId,
       rawId: rec.credentialId,
-      clientDataJSON: AliasVaultPasskeyProvider.toB64u(clientDataJSONBytes),
-      authenticatorData: AliasVaultPasskeyProvider.toB64u(authenticatorData),
-      signature: AliasVaultPasskeyProvider.toB64u(derSig),
+      clientDataJSON: PasskeyAuthenticator.toB64u(clientDataJSONBytes),
+      authenticatorData: PasskeyAuthenticator.toB64u(authenticatorData),
+      signature: PasskeyAuthenticator.toB64u(derSig),
       userHandle: userHandleB64u
     };
   }
@@ -286,8 +283,8 @@ export class AliasVaultPasskeyProvider {
 
   /** Build COSE EC2 public key for ES256: {1:2, 3:-7, -1:1, -2:x, -3:y} in CBOR. */
   private static buildCoseEc2Es256(jwk: JsonWebKey): Uint8Array {
-    const x = AliasVaultPasskeyProvider.pad32(AliasVaultPasskeyProvider.fromB64u(jwk.x!));
-    const y = AliasVaultPasskeyProvider.pad32(AliasVaultPasskeyProvider.fromB64u(jwk.y!));
+    const x = PasskeyAuthenticator.pad32(PasskeyAuthenticator.fromB64u(jwk.x!));
+    const y = PasskeyAuthenticator.pad32(PasskeyAuthenticator.fromB64u(jwk.y!));
     /*
      * Map(5): 0xa5
      *  1:2      (kty: EC2)
@@ -308,15 +305,15 @@ export class AliasVaultPasskeyProvider {
 
   /** Build "none" attestation object: { fmt: "none", attStmt: {}, authData: <bytes> } (CBOR). */
   private static buildAttObjNone(authenticatorData: Uint8Array): Uint8Array {
-    const fmtKey = AliasVaultPasskeyProvider.cborText('fmt');         // "fmt"
-    const fmtVal = AliasVaultPasskeyProvider.cborText('none');        // "none"
-    const attStmtKey = AliasVaultPasskeyProvider.cborText('attStmt'); // "attStmt"
+    const fmtKey = PasskeyAuthenticator.cborText('fmt');         // "fmt"
+    const fmtVal = PasskeyAuthenticator.cborText('none');        // "none"
+    const attStmtKey = PasskeyAuthenticator.cborText('attStmt'); // "attStmt"
     const attStmtVal = new Uint8Array([0xa0]);   // map(0) {}
-    const authDataKey = AliasVaultPasskeyProvider.cborText('authData'); // "authData"
-    const authDataVal = AliasVaultPasskeyProvider.cborBstr(authenticatorData);
+    const authDataKey = PasskeyAuthenticator.cborText('authData'); // "authData"
+    const authDataVal = PasskeyAuthenticator.cborBstr(authenticatorData);
 
     // map(3)
-    return AliasVaultPasskeyProvider.concat(
+    return PasskeyAuthenticator.concat(
       new Uint8Array([0xa3]),
       fmtKey, fmtVal,
       attStmtKey, attStmtVal,
@@ -332,28 +329,28 @@ export class AliasVaultPasskeyProvider {
   ): Promise<Uint8Array> {
     // Signature over authenticatorData || SHA256(clientDataJSON)
     const clientDataHash = new Uint8Array(await crypto.subtle.digest('SHA-256', clientDataJSON as BufferSource));
-    const toSign = AliasVaultPasskeyProvider.concat(authenticatorData, clientDataHash);
+    const toSign = PasskeyAuthenticator.concat(authenticatorData, clientDataHash);
     const rawSig = new Uint8Array(
       await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, privateKey, toSign as BufferSource)
     );
-    const derSig = AliasVaultPasskeyProvider.ecdsaRawToDer(rawSig);
+    const derSig = PasskeyAuthenticator.ecdsaRawToDer(rawSig);
 
     // attStmt = { alg: -7, sig: <derSig> }
-    const attStmtMap = AliasVaultPasskeyProvider.concat(
-      AliasVaultPasskeyProvider.cborText('alg'), new Uint8Array([0x26]), // -7
-      AliasVaultPasskeyProvider.cborText('sig'), AliasVaultPasskeyProvider.cborBstr(derSig)
+    const attStmtMap = PasskeyAuthenticator.concat(
+      PasskeyAuthenticator.cborText('alg'), new Uint8Array([0x26]), // -7
+      PasskeyAuthenticator.cborText('sig'), PasskeyAuthenticator.cborBstr(derSig)
     );
     // prepend map(2)
-    const attStmt = AliasVaultPasskeyProvider.concat(new Uint8Array([0xa2]), attStmtMap);
+    const attStmt = PasskeyAuthenticator.concat(new Uint8Array([0xa2]), attStmtMap);
 
     // final: { fmt:"packed", attStmt:{...}, authData:<bytes> }
-    const fmtKey = AliasVaultPasskeyProvider.cborText('fmt');
-    const fmtVal = AliasVaultPasskeyProvider.cborText('packed');
-    const attStmtKey = AliasVaultPasskeyProvider.cborText('attStmt');
-    const authDataKey = AliasVaultPasskeyProvider.cborText('authData');
-    const authDataVal = AliasVaultPasskeyProvider.cborBstr(authenticatorData);
+    const fmtKey = PasskeyAuthenticator.cborText('fmt');
+    const fmtVal = PasskeyAuthenticator.cborText('packed');
+    const attStmtKey = PasskeyAuthenticator.cborText('attStmt');
+    const authDataKey = PasskeyAuthenticator.cborText('authData');
+    const authDataVal = PasskeyAuthenticator.cborBstr(authenticatorData);
 
-    return AliasVaultPasskeyProvider.concat(
+    return PasskeyAuthenticator.concat(
       new Uint8Array([0xa3]), // map(3)
       fmtKey, fmtVal,
       attStmtKey, attStmt,
@@ -365,7 +362,7 @@ export class AliasVaultPasskeyProvider {
 
   /** Encode a UTF-8 string as CBOR text. */
   private static cborText(s: string): Uint8Array {
-    const bytes = AliasVaultPasskeyProvider.te(s);
+    const bytes = PasskeyAuthenticator.te(s);
     if (bytes.length <= 23) {
       return new Uint8Array([0x60 | bytes.length, ...bytes]);
     } // major type 3
@@ -395,8 +392,8 @@ export class AliasVaultPasskeyProvider {
     }
     const r = raw.slice(0, 32);
     const s = raw.slice(32, 64);
-    const rDer = AliasVaultPasskeyProvider.derInt(r);
-    const sDer = AliasVaultPasskeyProvider.derInt(s);
+    const rDer = PasskeyAuthenticator.derInt(r);
+    const sDer = PasskeyAuthenticator.derInt(s);
     return new Uint8Array([0x30, rDer.length + sDer.length, ...rDer, ...sDer]);
   }
 
@@ -437,7 +434,7 @@ export class AliasVaultPasskeyProvider {
 
   /** Base64url encode bytes. */
   private static toB64u(bytes: Uint8Array): string {
-    return AliasVaultPasskeyProvider.toB64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    return PasskeyAuthenticator.toB64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
   }
 
   /** Base64url decode to bytes. */
@@ -465,7 +462,7 @@ export class AliasVaultPasskeyProvider {
       return challenge.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
     const bytes = challenge instanceof Uint8Array ? challenge : new Uint8Array(challenge);
-    return AliasVaultPasskeyProvider.toB64u(bytes);
+    return PasskeyAuthenticator.toB64u(bytes);
   }
 
   /**
@@ -483,11 +480,11 @@ export class AliasVaultPasskeyProvider {
         return userId;
       } else {
         // Plain UTF-8 string, encode it
-        return AliasVaultPasskeyProvider.toB64u(AliasVaultPasskeyProvider.te(userId));
+        return PasskeyAuthenticator.toB64u(PasskeyAuthenticator.te(userId));
       }
     }
     const bytes = userId instanceof Uint8Array ? userId : new Uint8Array(userId);
-    return AliasVaultPasskeyProvider.toB64u(bytes);
+    return PasskeyAuthenticator.toB64u(bytes);
   }
 
   /** Left-pad to 32 bytes (P-256 coord). */

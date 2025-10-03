@@ -5,7 +5,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type {
-  GetRequestDataRequest,
   PasskeyPopupResponse,
   WebAuthnCreateRequest,
   WebAuthnGetRequest,
@@ -184,7 +183,7 @@ export async function handlePasskeyPopupResponse(data: any): Promise<{ success: 
  * Get request data by request ID
  */
 export async function handleGetRequestData(data: any): Promise<PendingPasskeyRequest | null> {
-  const { requestId } = data as GetRequestDataRequest;
+  const { requestId } = data as { requestId: string };
   const requestData = pendingRequestData.get(requestId);
   return requestData || null;
 }

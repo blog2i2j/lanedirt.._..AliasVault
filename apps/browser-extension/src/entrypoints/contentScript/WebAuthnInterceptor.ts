@@ -1,6 +1,5 @@
 /**
  * WebAuthn Interceptor - Handles communication between page and extension
- * TODO: review this file
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */

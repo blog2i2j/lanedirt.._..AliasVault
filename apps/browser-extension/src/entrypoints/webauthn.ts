@@ -64,7 +64,7 @@ export default defineUnlistedScript(() => {
       return originalCreate(options);
     }
 
-    console.log('[AliasVault] Page: Received credential CREATE request with options:', options);
+    console.debug('[AliasVault] Page: Received credential CREATE request with options:', options);
 
     // Send event to content script
     const requestId = Math.random().toString(36).substr(2, 9);
@@ -200,7 +200,7 @@ export default defineUnlistedScript(() => {
                 return {};
               }
             };
-            console.log('[AliasVault] Page: Returned created credential object:', credential);
+            console.debug('[AliasVault] Page: Returned created credential object:', credential);
             resolve(credential as any);
           } catch (error) {
             console.error('[AliasVault] Page: Error creating credential object:', error);
@@ -224,7 +224,7 @@ export default defineUnlistedScript(() => {
       return originalGet(options);
     }
 
-    console.log('[AliasVault] Page: Received credential GET request with options:', options);
+    console.debug('[AliasVault] Page: Received credential GET request with options:', options);
 
     // Send event to content script
     const requestId = Math.random().toString(36).substr(2, 9);
@@ -279,7 +279,7 @@ export default defineUnlistedScript(() => {
         } else if (e.detail.credential) {
           // Create a proper credential object with required methods
           const cred: ProviderGetCredential = e.detail.credential;
-          console.log('[AliasVault] Page: Returned GET credential readable object:', cred);
+          console.debug('[AliasVault] Page: Returned GET credential readable object:', cred);
           const credential = {
             id: cred.id,
             type: 'public-key',
@@ -298,7 +298,7 @@ export default defineUnlistedScript(() => {
               return {};
             }
           };
-          console.log('[AliasVault] Page: Returned GET credential raw object:', credential);
+          console.debug('[AliasVault] Page: Returned GET credential raw object:', credential);
           resolve(credential as any);
         } else {
           // Cancelled

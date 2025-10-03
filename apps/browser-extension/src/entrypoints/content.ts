@@ -33,7 +33,7 @@ export default defineContentScript({
 
     /*
      * Initialize WebAuthn interceptor early (before page scripts run)
-     * TODO: is this actualyl configurable?
+     * TODO: is this actually configurable?
      */
     const webAuthnEnabled = await isWebAuthnInterceptionEnabled();
     if (webAuthnEnabled) {
