@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { sendMessage } from 'webext-bridge/popup';
 
-import { ClipboardCountdownBar } from '@/entrypoints/popup/components/ClipboardCountdownBar';
-import BottomNav from '@/entrypoints/popup/components/Layout/BottomNav';
-import Header from '@/entrypoints/popup/components/Layout/Header';
+import DefaultLayout from '@/entrypoints/popup/components/Layout/DefaultLayout';
+import PasskeyLayout from '@/entrypoints/popup/components/Layout/PasskeyLayout';
 import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
 import { useApp } from '@/entrypoints/popup/context/AppContext';
 import { useHeaderButtons } from '@/entrypoints/popup/context/HeaderButtonsContext';
@@ -39,6 +38,16 @@ import { useMinDurationLoading } from '@/hooks/useMinDurationLoading';
 import '@/entrypoints/popup/style.css';
 
 /**
+ * Available layout types for different page contexts.
+ */
+enum LayoutType {
+  /** Default layout with header, footer navigation, and full UI */
+  DEFAULT = 'default',
+  /** Minimal layout for passkey operations - logo only, no footer */
+  PASSKEY = 'passkey',
+}
+
+/**
  * Route configuration.
  */
 type RouteConfig = {
@@ -46,6 +55,81 @@ type RouteConfig = {
   element: React.ReactNode;
   showBackButton?: boolean;
   title?: string;
+  /** Layout type to use for this route. Defaults to LayoutType.DEFAULT if not specified. */
+  layout?: LayoutType;
+};
+
+/**
+ * AppContent - Wrapper component that switches between different layout types
+ */
+const AppContent: React.FC<{
+  routes: RouteConfig[];
+  isLoading: boolean;
+  message: string | null;
+  headerButtons: React.ReactNode;
+}> = ({ routes, isLoading, message, headerButtons }) => {
+  const location = useLocation();
+
+  // Find the current route configuration
+  const currentRoute = routes.find(route => {
+    const pattern = route.path.replace(/:\w+/g, '[^/]+');
+    const regex = new RegExp(`^${pattern}$`);
+    return regex.test(location.pathname);
+  });
+
+  // Get layout type, defaulting to DEFAULT if not specified
+  const layoutType = currentRoute?.layout ?? LayoutType.DEFAULT;
+
+  // Common loading overlay
+  const loadingOverlay = isLoading && (
+    <div className="fixed inset-0 bg-white dark:bg-gray-900 z-50 flex items-center justify-center">
+      <LoadingSpinner />
+    </div>
+  );
+
+  // Common routes component
+  const routesComponent = (
+    <Routes>
+      {routes.map((route) => (
+        <Route
+          key={route.path}
+          path={route.path}
+          element={route.element}
+        />
+      ))}
+    </Routes>
+  );
+
+  // Render based on layout type
+  switch (layoutType) {
+    case LayoutType.PASSKEY:
+      // Passkey layout - minimal UI with just logo header
+      return (
+        <PasskeyLayout>
+          {loadingOverlay}
+          {message && (
+            <p className="text-red-500 mb-4">{message}</p>
+          )}
+          {routesComponent}
+        </PasskeyLayout>
+      );
+
+    case LayoutType.DEFAULT:
+    default:
+      // Default layout with full header, footer, navigation
+      return (
+        <>
+          {loadingOverlay}
+          <DefaultLayout
+            routes={routes}
+            headerButtons={headerButtons}
+            message={message}
+          >
+            {routesComponent}
+          </DefaultLayout>
+        </>
+      );
+  }
 };
 
 /**
@@ -73,8 +157,8 @@ const App: React.FC = () => {
     { path: '/credentials/:id', element: <CredentialDetails />, showBackButton: true, title: t('credentials.credentialDetails') },
     { path: '/credentials/:id/edit', element: <CredentialAddEdit />, showBackButton: true, title: t('credentials.editCredential') },
     { path: '/credentials/passkeys', element: <PasskeysList />, showBackButton: false },
-    { path: '/credentials/passkeys/create', element: <PasskeyCreate />, showBackButton: true, title: 'Create Passkey' },
-    { path: '/credentials/passkeys/authenticate', element: <PasskeyAuthenticate />, showBackButton: true, title: 'Sign in with Passkey' },
+    { path: '/passkeys/create', element: <PasskeyCreate />, layout: LayoutType.PASSKEY },
+    { path: '/passkeys/authenticate', element: <PasskeyAuthenticate />, layout: LayoutType.PASSKEY },
     { path: '/emails', element: <EmailsList />, showBackButton: false },
     { path: '/emails/:id', element: <EmailDetails />, showBackButton: true, title: t('emails.title') },
     { path: '/settings', element: <Settings />, showBackButton: false },
@@ -129,43 +213,12 @@ const App: React.FC = () => {
   return (
     <Router>
       <NavigationProvider>
-        <div className="min-h-screen min-w-[350px] bg-white dark:bg-gray-900 flex flex-col max-h-[600px]">
-          {isLoading && (
-            <div className="fixed inset-0 bg-white dark:bg-gray-900 z-50 flex items-center justify-center">
-              <LoadingSpinner />
-            </div>
-          )}
-
-          <ClipboardCountdownBar />
-          <Header
-            routes={routes}
-            rightButtons={headerButtons}
-          />
-
-          <main
-            className="flex-1 overflow-y-auto bg-gray-100 dark:bg-gray-900"
-            style={{
-              paddingTop: '64px',
-              height: 'calc(100% - 120px)',
-            }}
-          >
-            <div className="p-4 mb-16">
-              {message && (
-                <p className="text-red-500 mb-4">{message}</p>
-              )}
-              <Routes>
-                {routes.map((route) => (
-                  <Route
-                    key={route.path}
-                    path={route.path}
-                    element={route.element}
-                  />
-                ))}
-              </Routes>
-            </div>
-          </main>
-          <BottomNav />
-        </div>
+        <AppContent
+          routes={routes}
+          isLoading={isLoading}
+          message={message}
+          headerButtons={headerButtons}
+        />
       </NavigationProvider>
     </Router>
   );
