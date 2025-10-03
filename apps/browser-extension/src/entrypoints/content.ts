@@ -7,7 +7,7 @@ import { onMessage } from "webext-bridge/content-script";
 
 import { injectIcon, popupDebounceTimeHasPassed, validateInputField } from '@/entrypoints/contentScript/Form';
 import { isAutoShowPopupEnabled, openAutofillPopup, removeExistingPopup, createUpgradeRequiredPopup } from '@/entrypoints/contentScript/Popup';
-import { initializeWebAuthnInterceptor, isWebAuthnInterceptionEnabled } from '@/entrypoints/contentScript/WebAuthnInterceptor';
+import { initializeWebAuthnInterceptor } from '@/entrypoints/contentScript/WebAuthnInterceptor';
 
 import { FormDetector } from '@/utils/formDetector/FormDetector';
 import { BoolResponse as messageBoolResponse } from '@/utils/types/messaging/BoolResponse';
@@ -31,14 +31,8 @@ export default defineContentScript({
       return;
     }
 
-    /*
-     * Initialize WebAuthn interceptor early (before page scripts run)
-     * TODO: is this actually configurable?
-     */
-    const webAuthnEnabled = await isWebAuthnInterceptionEnabled();
-    if (webAuthnEnabled) {
-      await initializeWebAuthnInterceptor(ctx);
-    }
+    // Initialize WebAuthn interceptor for passkey support
+    await initializeWebAuthnInterceptor(ctx);
 
     // Wait for 750ms to give the host page time to load and to increase the chance that the body is available and ready.
     await new Promise(resolve => setTimeout(resolve, 750));

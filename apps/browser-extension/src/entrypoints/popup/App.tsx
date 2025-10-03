@@ -31,6 +31,7 @@ import AutoLockSettings from '@/entrypoints/popup/pages/settings/AutoLockSetting
 import ClipboardSettings from '@/entrypoints/popup/pages/settings/ClipboardSettings';
 import ContextMenuSettings from '@/entrypoints/popup/pages/settings/ContextMenuSettings';
 import LanguageSettings from '@/entrypoints/popup/pages/settings/LanguageSettings';
+import PasskeySettings from '@/entrypoints/popup/pages/settings/PasskeySettings';
 import Settings from '@/entrypoints/popup/pages/settings/Settings';
 
 import { useMinDurationLoading } from '@/hooks/useMinDurationLoading';
@@ -167,6 +168,7 @@ const App: React.FC = () => {
     { path: '/settings/clipboard', element: <ClipboardSettings />, showBackButton: true, title: t('settings.clipboardSettings') },
     { path: '/settings/language', element: <LanguageSettings />, showBackButton: true, title: t('settings.language') },
     { path: '/settings/auto-lock', element: <AutoLockSettings />, showBackButton: true, title: t('settings.autoLockTimeout') },
+    { path: '/settings/passkeys', element: <PasskeySettings />, showBackButton: true, title: t('settings.passkeySettings') },
     { path: '/logout', element: <Logout />, showBackButton: false },
   ], [t]);
 

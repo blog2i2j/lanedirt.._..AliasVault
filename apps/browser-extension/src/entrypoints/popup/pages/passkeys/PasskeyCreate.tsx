@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { sendMessage } from 'webext-bridge/popup';
 
@@ -18,6 +19,7 @@ import type { CreateRequest, PasskeyCreateCredentialResponse, PendingPasskeyCrea
  * PasskeyCreate
  */
 const PasskeyCreate: React.FC = () => {
+  const { t } = useTranslation();
   const location = useLocation();
   const { setIsInitialLoading } = useLoading();
   const dbContext = useDb();
@@ -59,7 +61,7 @@ const PasskeyCreate: React.FC = () => {
           }
         } catch (error) {
           console.error('Failed to fetch request data:', error);
-          setError('Failed to load passkey request');
+          setError(t('common.errors.unknownError'));
         }
       }
 
@@ -67,7 +69,7 @@ const PasskeyCreate: React.FC = () => {
     };
 
     fetchRequestData();
-  }, [location, setIsInitialLoading, dbContext.dbInitialized, isLocked]);
+  }, [location, setIsInitialLoading, dbContext.dbInitialized, isLocked, t]);
 
   /**
    * Handle passkey creation
@@ -178,13 +180,13 @@ const PasskeyCreate: React.FC = () => {
            */
           onError: (err) => {
             console.error('PasskeyCreate: Error storing passkey', err);
-            setError(`Failed to store passkey: ${err.message}`);
+            setError(t('common.errors.unknownError'));
           }
         }
       );
     } catch (error) {
       console.error('PasskeyCreate: Error creating passkey', error);
-      setError(`Failed to create passkey: ${error instanceof Error ? error.message : String(error)}`);
+      setError(t('common.errors.unknownError'));
     }
   };
 
@@ -234,10 +236,10 @@ const PasskeyCreate: React.FC = () => {
     <div className="space-y-6">
       <div className="text-center">
         <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-          Create Passkey
+          {t('passkeys.create.title')}
         </h1>
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          Create a new passkey for <strong>{request.origin}</strong>
+          {t('passkeys.create.createFor')} <strong>{request.origin}</strong>
         </p>
       </div>
 
@@ -256,10 +258,10 @@ const PasskeyCreate: React.FC = () => {
       <div className="space-y-4">
         <FormInput
           id="displayName"
-          label="Display Name"
+          label={t('passkeys.create.displayNameLabel')}
           value={displayName}
           onChange={setDisplayName}
-          placeholder="Enter a name for this passkey"
+          placeholder={t('passkeys.create.displayNamePlaceholder')}
         />
       </div>
 
@@ -268,21 +270,21 @@ const PasskeyCreate: React.FC = () => {
           variant="primary"
           onClick={handleCreate}
         >
-          {isMutating ? 'Creating...' : 'Create Passkey'}
+          {isMutating ? t('passkeys.create.creatingButton') : t('passkeys.create.createButton')}
         </Button>
 
         <Button
           variant="secondary"
           onClick={handleFallback}
         >
-          Use Browser Passkey
+          {t('passkeys.create.useBrowserPasskey')}
         </Button>
 
         <Button
           variant="secondary"
           onClick={handleCancel}
         >
-          Cancel
+          {t('common.cancel')}
         </Button>
       </div>
     </div>

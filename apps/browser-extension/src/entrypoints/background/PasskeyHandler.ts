@@ -4,6 +4,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { PASSKEY_PROVIDER_ENABLED_KEY } from '@/utils/Constants';
 import type {
   PasskeyPopupResponse,
   WebAuthnCreateRequest,
@@ -16,7 +17,7 @@ import type {
   WebAuthnPublicKeyGetPayload
 } from '@/utils/passkey/types';
 
-import { browser } from '#imports';
+import { browser, storage } from '#imports';
 
 // Pending popup requests
 const pendingRequests = new Map<string, {
@@ -31,8 +32,9 @@ const pendingRequestData = new Map<string, PendingPasskeyRequest>();
  * Handle WebAuthn settings request
  */
 export async function handleGetWebAuthnSettings(): Promise<WebAuthnSettingsResponse> {
-  // Always enabled
-  return { enabled: true };
+  // Check if passkey provider is enabled in settings (default to true if not set)
+  const enabled = await storage.getItem(PASSKEY_PROVIDER_ENABLED_KEY);
+  return { enabled: enabled !== false };
 }
 
 /**

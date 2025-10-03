@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { sendMessage } from 'webext-bridge/popup';
 
@@ -17,6 +18,7 @@ import type { GetRequest, PasskeyGetCredentialResponse, PendingPasskeyGetRequest
  * PasskeyAuthenticate
  */
 const PasskeyAuthenticate: React.FC = () => {
+  const { t } = useTranslation();
   const location = useLocation();
   const { setIsInitialLoading } = useLoading();
   const dbContext = useDb();
@@ -85,7 +87,7 @@ const PasskeyAuthenticate: React.FC = () => {
           }
         } catch (error) {
           console.error('Failed to fetch request data:', error);
-          setError('Failed to load authentication request');
+          setError(t('common.errors.unknownError'));
         }
       }
 
@@ -94,7 +96,7 @@ const PasskeyAuthenticate: React.FC = () => {
     };
 
     fetchRequestData();
-  }, [location, setIsInitialLoading, dbContext.dbInitialized, isLocked, dbContext.sqliteClient]);
+  }, [location, setIsInitialLoading, dbContext.dbInitialized, isLocked, dbContext.sqliteClient, t]);
 
   /**
    * Handle passkey authentication
@@ -111,7 +113,7 @@ const PasskeyAuthenticate: React.FC = () => {
       // Get the stored passkey from vault
       const storedPasskey = dbContext.sqliteClient.getPasskeyById(passkeyId);
       if (!storedPasskey) {
-        throw new Error('Passkey not found');
+        throw new Error(t('common.errors.unknownError'));
       }
 
       // Parse the stored keys
@@ -159,7 +161,7 @@ const PasskeyAuthenticate: React.FC = () => {
     } catch (error) {
       console.error('PasskeyAuthenticate: Error during authentication', error);
       setLoading(false);
-      setError(`Failed to authenticate: ${error instanceof Error ? error.message : String(error)}`);
+      setError(t('common.errors.unknownError'));
     }
   };
 
@@ -169,7 +171,7 @@ const PasskeyAuthenticate: React.FC = () => {
   const handleDeletePasskey = async (passkeyId: string, event: React.MouseEvent) : Promise<void> => {
     event.stopPropagation(); // Prevent triggering authentication
 
-    if (!confirm('Are you sure you want to delete this passkey?')) {
+    if (!confirm(t('passkeys.authenticate.deleteConfirm'))) {
       return;
     }
 
@@ -201,13 +203,13 @@ const PasskeyAuthenticate: React.FC = () => {
            */
           onError: (err) => {
             console.error('Failed to delete passkey:', err);
-            setError(`Failed to delete passkey: ${err.message}`);
+            setError(t('common.errors.unknownError'));
           }
         }
       );
     } catch (error) {
       console.error('Failed to delete passkey:', error);
-      setError(`Failed to delete passkey: ${error instanceof Error ? error.message : String(error)}`);
+      setError(t('common.errors.unknownError'));
     }
   };
 
@@ -257,10 +259,10 @@ const PasskeyAuthenticate: React.FC = () => {
     <div className="space-y-6">
       <div className="text-center">
         <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-          Sign in with Passkey
+          {t('passkeys.authenticate.title')}
         </h1>
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          Sign in with passkey for <strong>{request.origin}</strong>
+          {t('passkeys.authenticate.signInFor')} <strong>{request.origin}</strong>
         </p>
       </div>
 
@@ -274,7 +276,7 @@ const PasskeyAuthenticate: React.FC = () => {
         {availablePasskeys && availablePasskeys.length > 0 ? (
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Select a passkey to sign in:
+              {t('passkeys.authenticate.selectPasskey')}
             </label>
             <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-2 bg-gray-50 dark:bg-gray-800">
               {availablePasskeys.map((pk) => (
@@ -297,7 +299,7 @@ const PasskeyAuthenticate: React.FC = () => {
                     <button
                       onClick={(e) => handleDeletePasskey(pk.id, e)}
                       className="flex-shrink-0 p-1.5 text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
-                      title="Delete passkey"
+                      title={t('passkeys.authenticate.deletePasskey')}
                       disabled={loading}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -312,7 +314,7 @@ const PasskeyAuthenticate: React.FC = () => {
         ) : (
           <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg">
             <p className="text-gray-600 dark:text-gray-400">
-              No passkeys found for this site
+              {t('passkeys.authenticate.noPasskeysFound')}
             </p>
           </div>
         )}
@@ -323,14 +325,14 @@ const PasskeyAuthenticate: React.FC = () => {
           variant="secondary"
           onClick={handleFallback}
         >
-          Use Browser Passkey
+          {t('passkeys.authenticate.useBrowserPasskey')}
         </Button>
 
         <Button
           variant="secondary"
           onClick={handleCancel}
         >
-          Cancel
+          {t('common.cancel')}
         </Button>
       </div>
     </div>

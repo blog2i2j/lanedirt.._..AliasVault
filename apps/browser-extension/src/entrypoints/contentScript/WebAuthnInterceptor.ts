@@ -25,6 +25,19 @@ export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
     const { requestId, publicKey, origin } = event.detail;
 
     try {
+      // Check if passkey provider is enabled
+      const enabled = await isWebAuthnInterceptionEnabled();
+      if (!enabled) {
+        // If disabled, signal fallback to native browser implementation
+        window.dispatchEvent(new CustomEvent('aliasvault:webauthn:create:response', {
+          detail: {
+            requestId,
+            fallback: true
+          }
+        }));
+        return;
+      }
+
       // Send to background script to handle
       const result = await sendMessage('WEBAUTHN_CREATE', {
         publicKey,
@@ -53,6 +66,19 @@ export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
     const { requestId, publicKey, origin } = event.detail;
 
     try {
+      // Check if passkey provider is enabled
+      const enabled = await isWebAuthnInterceptionEnabled();
+      if (!enabled) {
+        // If disabled, signal fallback to native browser implementation
+        window.dispatchEvent(new CustomEvent('aliasvault:webauthn:get:response', {
+          detail: {
+            requestId,
+            fallback: true
+          }
+        }));
+        return;
+      }
+
       // Send to background script to handle
       const result = await sendMessage('WEBAUTHN_GET', {
         publicKey,
