@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { sendMessage } from 'webext-bridge/popup';
 
 import Button from '@/entrypoints/popup/components/Button';
 import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
+import { useVaultLockRedirect } from '@/entrypoints/popup/hooks/useVaultLockRedirect';
 import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
 import { PasskeyAuthenticator } from '@/utils/passkey/PasskeyAuthenticator';
@@ -17,7 +18,6 @@ import type { GetRequest, PasskeyGetCredentialResponse, PendingPasskeyGetRequest
  */
 const PasskeyAuthenticate: React.FC = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const { setIsInitialLoading } = useLoading();
   const dbContext = useDb();
   const { executeVaultMutation } = useVaultMutate();
@@ -26,6 +26,7 @@ const PasskeyAuthenticate: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [availablePasskeys, setAvailablePasskeys] = useState<Array<{ id: string; displayName: string; username?: string | null }>>([]);
+  const { isLocked } = useVaultLockRedirect();
 
   useEffect(() => {
     /**
@@ -37,12 +38,8 @@ const PasskeyAuthenticate: React.FC = () => {
         return;
       }
 
-      // Check if vault is unlocked
-      if (!dbContext.dbAvailable) {
-        // Vault is locked, redirect to unlock
-        const params = new URLSearchParams(location.search);
-        const requestId = params.get('requestId');
-        navigate(`/unlock?redirect=/credentials/passkeys/authenticate&requestId=${requestId}`);
+      // If vault is locked, the hook will handle redirect, we just return
+      if (isLocked) {
         return;
       }
 
@@ -97,7 +94,7 @@ const PasskeyAuthenticate: React.FC = () => {
     };
 
     fetchRequestData();
-  }, [location, setIsInitialLoading, dbContext.dbInitialized, dbContext.dbAvailable, dbContext.sqliteClient, navigate]);
+  }, [location, setIsInitialLoading, dbContext.dbInitialized, isLocked, dbContext.sqliteClient]);
 
   /**
    * Handle passkey authentication

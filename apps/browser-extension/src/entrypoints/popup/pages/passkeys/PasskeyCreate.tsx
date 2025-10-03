@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { sendMessage } from 'webext-bridge/popup';
 
 import Button from '@/entrypoints/popup/components/Button';
@@ -7,6 +7,7 @@ import { FormInput } from '@/entrypoints/popup/components/FormInput';
 import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
+import { useVaultLockRedirect } from '@/entrypoints/popup/hooks/useVaultLockRedirect';
 import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
 import { PasskeyAuthenticator } from '@/utils/passkey/PasskeyAuthenticator';
@@ -18,13 +19,13 @@ import type { CreateRequest, PasskeyCreateCredentialResponse, PendingPasskeyCrea
  */
 const PasskeyCreate: React.FC = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const { setIsInitialLoading } = useLoading();
   const dbContext = useDb();
   const { executeVaultMutation, isLoading: isMutating, syncStatus } = useVaultMutate();
   const [request, setRequest] = useState<PendingPasskeyCreateRequest | null>(null);
   const [displayName, setDisplayName] = useState('My Passkey');
   const [error, setError] = useState<string | null>(null);
+  const { isLocked } = useVaultLockRedirect();
 
   useEffect(() => {
     /**
@@ -36,12 +37,8 @@ const PasskeyCreate: React.FC = () => {
         return;
       }
 
-      // Check if vault is unlocked
-      if (!dbContext.dbAvailable) {
-        // Vault is locked, redirect to unlock
-        const params = new URLSearchParams(location.search);
-        const requestId = params.get('requestId');
-        navigate(`/unlock?redirect=/credentials/passkeys/create&requestId=${requestId}`);
+      // If vault is locked, the hook will handle redirect, we just return
+      if (isLocked) {
         return;
       }
 
@@ -70,7 +67,7 @@ const PasskeyCreate: React.FC = () => {
     };
 
     fetchRequestData();
-  }, [location, setIsInitialLoading, dbContext.dbInitialized, dbContext.dbAvailable, navigate]);
+  }, [location, setIsInitialLoading, dbContext.dbInitialized, isLocked]);
 
   /**
    * Handle passkey creation
