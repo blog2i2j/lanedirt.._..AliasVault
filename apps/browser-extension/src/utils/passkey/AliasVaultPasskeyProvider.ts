@@ -94,8 +94,17 @@ export class AliasVaultPasskeyProvider {
 
     const signCount = new Uint8Array([0, 0, 0, 0]); // 0 for syncable credentials
 
-    // 7) AttestedCredentialData = AAGUID(16 zeros) + credIdLen(2) + credId + COSEKey
-    const aaguid = new Uint8Array(16); // all zeros in "none" attestation
+    /*
+     * 7) AttestedCredentialData = AAGUID + credIdLen(2) + credId + COSEKey
+     * Note: The AAGUID uses custom formatting where 'v'=vault, 'u'=uuid in the brand name
+     * AliasVault AAGUID: a11a5vau-9f32-4b8c-8c5d-2f7d13e8c942
+     */
+    const aaguidStr = 'a11a5vau-9f32-4b8c-8c5d-2f7d13e8c942';
+    const aaguidHex = aaguidStr.replace(/-/g, '').replace(/v/g, 'f').replace(/u/g, 'a');
+    const aaguid = new Uint8Array(16);
+    for (let i = 0; i < 16; i++) {
+      aaguid[i] = parseInt(aaguidHex.substr(i * 2, 2), 16);
+    }
     const credIdLenBytes = new Uint8Array([(credentialIdBytes.length >> 8) & 0xff, credentialIdBytes.length & 0xff]);
     const attestedCredData = AliasVaultPasskeyProvider.concat(aaguid, credIdLenBytes, credentialIdBytes, coseKey);
 
