@@ -36,6 +36,7 @@ import Settings from '@/entrypoints/popup/pages/settings/Settings';
 import { useMinDurationLoading } from '@/hooks/useMinDurationLoading';
 
 import '@/entrypoints/popup/style.css';
+import { clearPendingRedirectUrl } from './hooks/useVaultLockRedirect';
 
 /**
  * Available layout types for different page contexts.
@@ -197,6 +198,16 @@ const App: React.FC = () => {
     return () : void => {
       clearInterval(heartbeatInterval);
     };
+  }, []);
+
+  /**
+   * On initial load, clear any stale pending redirect URL if popup was not opened with a specific hash path.
+   */
+  useEffect(() => {
+    const hasHashPath = window.location.hash && window.location.hash !== '#/' && window.location.hash !== '#';
+    if (!hasHashPath) {
+      clearPendingRedirectUrl();
+    }
   }, []);
 
   /**

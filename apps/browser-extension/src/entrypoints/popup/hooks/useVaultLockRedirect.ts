@@ -3,9 +3,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 
-import { storage } from '#imports';
+import { PENDING_REDIRECT_URL_KEY } from '@/utils/Constants';
 
-const PENDING_REDIRECT_URL_KEY = 'session:pendingRedirectUrl';
+import { storage } from '#imports';
 
 /**
  * Hook to handle vault lock redirects.
@@ -51,4 +51,12 @@ export async function consumePendingRedirectUrl(): Promise<string | null> {
     await storage.removeItem(PENDING_REDIRECT_URL_KEY);
   }
   return url;
+}
+
+/**
+ * Clear the pending redirect URL from storage.
+ * Used when popup is opened without a specific hash path to clear stale redirects.
+ */
+export async function clearPendingRedirectUrl(): Promise<void> {
+  await storage.removeItem(PENDING_REDIRECT_URL_KEY);
 }
