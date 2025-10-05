@@ -52,8 +52,10 @@
     "error": "Error",
     "success": "Success",
     "cancel": "Cancel",
+    "back": "Back",
     "use": "Use",
     "delete": "Delete",
+    "or": "Or",
     "close": "Close",
     "copied": "Copied!",
     "openInNewWindow": "Open in new window",
@@ -374,7 +376,12 @@
       "displayNamePlaceholder": "Enter a name for this passkey",
       "createButton": "Create Passkey",
       "creatingButton": "Creating...",
-      "useBrowserPasskey": "Use Browser Passkey"
+      "useBrowserPasskey": "Use Browser Passkey",
+      "existingPasskeysFound": "{{count}} existing passkey(s) found for this site and user.",
+      "selectPasskeyToReplace": "Select a passkey to replace:",
+      "createNewPasskey": "Create New Passkey",
+      "replacingPasskey": "Replacing passkey: {{displayName}}",
+      "confirmReplace": "Confirm Replace"
     },
     "settings": {
       "passkeyProvider": "Passkey Provider",
