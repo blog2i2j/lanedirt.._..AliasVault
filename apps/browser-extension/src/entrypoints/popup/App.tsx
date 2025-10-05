@@ -24,7 +24,6 @@ import EmailsList from '@/entrypoints/popup/pages/emails/EmailsList';
 import Index from '@/entrypoints/popup/pages/Index';
 import PasskeyAuthenticate from '@/entrypoints/popup/pages/passkeys/PasskeyAuthenticate';
 import PasskeyCreate from '@/entrypoints/popup/pages/passkeys/PasskeyCreate';
-import PasskeysList from '@/entrypoints/popup/pages/passkeys/PasskeysList';
 import Reinitialize from '@/entrypoints/popup/pages/Reinitialize';
 import AutofillSettings from '@/entrypoints/popup/pages/settings/AutofillSettings';
 import AutoLockSettings from '@/entrypoints/popup/pages/settings/AutoLockSettings';
@@ -157,7 +156,6 @@ const App: React.FC = () => {
     { path: '/credentials/add', element: <CredentialAddEdit />, showBackButton: true, title: t('credentials.addCredential') },
     { path: '/credentials/:id', element: <CredentialDetails />, showBackButton: true, title: t('credentials.credentialDetails') },
     { path: '/credentials/:id/edit', element: <CredentialAddEdit />, showBackButton: true, title: t('credentials.editCredential') },
-    { path: '/credentials/passkeys', element: <PasskeysList />, showBackButton: false },
     { path: '/passkeys/create', element: <PasskeyCreate />, layout: LayoutType.PASSKEY },
     { path: '/passkeys/authenticate', element: <PasskeyAuthenticate />, layout: LayoutType.PASSKEY },
     { path: '/emails', element: <EmailsList />, showBackButton: false },

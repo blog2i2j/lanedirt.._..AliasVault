@@ -29,7 +29,9 @@ const FILTER_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 const getStoredFilter = (): FilterType => {
   try {
     const stored = localStorage.getItem(FILTER_STORAGE_KEY);
-    if (!stored) return 'all';
+    if (!stored) {
+      return 'all';
+    }
 
     const { filter, timestamp } = JSON.parse(stored);
     const now = Date.now();
