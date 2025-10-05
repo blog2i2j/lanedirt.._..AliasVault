@@ -372,6 +372,12 @@
     "helpText": "Passkeys are created on the website when prompted. They cannot be manually edited. To remove this passkey, you can delete it from this credential. To replace this passkey or create a new one, visit the website and follow its prompts.",
     "passkeyMarkedForDeletion": "Passkey marked for deletion",
     "passkeyWillBeDeleted": "This passkey will be deleted when you save this credential.",
+    "bypass": {
+      "title": "Use Browser Passkey",
+      "description": "How long would you like to use the browser's passkey provider for {{origin}}?",
+      "thisTimeOnly": "This time only",
+      "alwaysForSite": "Always for this site"
+    },
     "authenticate": {
       "title": "Sign in with Passkey",
       "signInFor": "Sign in with passkey for",
@@ -395,6 +401,7 @@
     },
     "settings": {
       "passkeyProvider": "Passkey Provider",
+      "passkeyProviderOn": "Passkey Provider on ",
       "enable": "Enable AliasVault as passkey provider",
       "description": "When enabled, AliasVault will handle passkey requests from websites. When a website requests a passkey, the AliasVault popup will be shown instead of the native browser or OS passkey interface."
     }

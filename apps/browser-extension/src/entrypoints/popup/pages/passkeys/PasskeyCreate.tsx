@@ -5,20 +5,25 @@ import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { sendMessage } from 'webext-bridge/popup';
 
+import { extractDomain, extractRootDomain } from '@/entrypoints/contentScript/Filter';
 import Alert from '@/entrypoints/popup/components/Alert';
 import Button from '@/entrypoints/popup/components/Button';
 import { FormInput } from '@/entrypoints/popup/components/FormInput';
 import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
+import PasskeyBypassDialog from '@/entrypoints/popup/components/PasskeyBypassDialog';
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 import { useWebApi } from '@/entrypoints/popup/context/WebApiContext';
 import { useVaultLockRedirect } from '@/entrypoints/popup/hooks/useVaultLockRedirect';
 import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
+import { PASSKEY_DISABLED_SITES_KEY } from '@/utils/Constants';
 import type { Passkey } from '@/utils/dist/shared/models/vault';
 import { PasskeyAuthenticator } from '@/utils/passkey/PasskeyAuthenticator';
 import { PasskeyHelper } from '@/utils/passkey/PasskeyHelper';
 import type { CreateRequest, PasskeyCreateCredentialResponse, PendingPasskeyCreateRequest } from '@/utils/passkey/types';
+
+import { storage } from "#imports";
 
 /**
  * PasskeyCreate
@@ -38,6 +43,7 @@ const PasskeyCreate: React.FC = () => {
   const [selectedPasskeyToReplace, setSelectedPasskeyToReplace] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [localLoading, setLocalLoading] = useState(false);
+  const [showBypassDialog, setShowBypassDialog] = useState(false);
 
   useEffect(() => {
     /**
@@ -326,12 +332,32 @@ const PasskeyCreate: React.FC = () => {
   };
 
   /**
-   * Handle fallback
+   * Handle fallback - show bypass dialog first
    */
   const handleFallback = async () : Promise<void> => {
+    setShowBypassDialog(true);
+  };
+
+  /**
+   * Handle bypass choice
+   */
+  const handleBypassChoice = async (choice: 'once' | 'always') : Promise<void> => {
     if (!request) {
       return;
     }
+
+    if (choice === 'always') {
+      // Add to permanent disabled list
+      const hostname = new URL(request.origin).hostname;
+      const baseDomain = extractRootDomain(extractDomain(hostname));
+
+      const disabledSites = await storage.getItem(PASSKEY_DISABLED_SITES_KEY) as string[] ?? [];
+      if (!disabledSites.includes(baseDomain)) {
+        disabledSites.push(baseDomain);
+        await storage.setItem(PASSKEY_DISABLED_SITES_KEY, disabledSites);
+      }
+    }
+    // For 'once', we don't store anything - just bypass this one time
 
     // Tell background to use native implementation
     await sendMessage('PASSKEY_POPUP_RESPONSE', {
@@ -369,6 +395,14 @@ const PasskeyCreate: React.FC = () => {
 
   return (
     <>
+      {showBypassDialog && request && (
+        <PasskeyBypassDialog
+          origin={new URL(request.origin).hostname}
+          onChoice={handleBypassChoice}
+          onCancel={() => setShowBypassDialog(false)}
+        />
+      )}
+
       {(localLoading || isMutating) && (
         <div className="fixed inset-0 flex flex-col justify-center items-center bg-white dark:bg-gray-900 bg-opacity-90 dark:bg-opacity-90 z-50">
           <LoadingSpinner />

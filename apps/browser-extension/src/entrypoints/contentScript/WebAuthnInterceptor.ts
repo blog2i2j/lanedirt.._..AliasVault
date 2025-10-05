@@ -124,11 +124,13 @@ export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
 }
 
 /**
- * Check if WebAuthn interception is enabled
+ * Check if WebAuthn interception is enabled for the current site
  */
 export async function isWebAuthnInterceptionEnabled(): Promise<boolean> {
   try {
-    const response = await sendMessage('GET_WEBAUTHN_SETTINGS', {}, 'background') as unknown as WebAuthnSettingsResponse;
+    const response = await sendMessage('GET_WEBAUTHN_SETTINGS', {
+      hostname: window.location.hostname
+    }, 'background') as unknown as WebAuthnSettingsResponse;
     return response.enabled ?? false;
   } catch {
     return false;

@@ -3,8 +3,12 @@
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { extractDomain, extractRootDomain } from '@/entrypoints/contentScript/Filter';
 
-import { PASSKEY_PROVIDER_ENABLED_KEY } from '@/utils/Constants';
+import {
+  PASSKEY_PROVIDER_ENABLED_KEY,
+  PASSKEY_DISABLED_SITES_KEY
+} from '@/utils/Constants';
 import type {
   PasskeyPopupResponse,
   WebAuthnCreateRequest,
@@ -31,10 +35,27 @@ const pendingRequestData = new Map<string, PendingPasskeyRequest>();
 /**
  * Handle WebAuthn settings request
  */
-export async function handleGetWebAuthnSettings(): Promise<WebAuthnSettingsResponse> {
+export async function handleGetWebAuthnSettings(data: any): Promise<WebAuthnSettingsResponse> {
   // Check if passkey provider is enabled in settings (default to true if not set)
-  const enabled = await storage.getItem(PASSKEY_PROVIDER_ENABLED_KEY);
-  return { enabled: enabled !== false };
+  const globalEnabled = await storage.getItem(PASSKEY_PROVIDER_ENABLED_KEY);
+  if (globalEnabled === false) {
+    return { enabled: false };
+  }
+
+  // If hostname is provided, check if it's disabled for that site
+  const { hostname } = data || {};
+  if (hostname) {
+    // Extract base domain for matching
+    const baseDomain = extractRootDomain(extractDomain(hostname));
+
+    // Check disabled sites
+    const disabledSites = await storage.getItem(PASSKEY_DISABLED_SITES_KEY) as string[] ?? [];
+    if (disabledSites.includes(baseDomain)) {
+      return { enabled: false };
+    }
+  }
+
+  return { enabled: true };
 }
 
 /**

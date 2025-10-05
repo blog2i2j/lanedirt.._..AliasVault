@@ -3,15 +3,20 @@ import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { sendMessage } from 'webext-bridge/popup';
 
+import { extractDomain, extractRootDomain } from '@/entrypoints/contentScript/Filter';
 import Button from '@/entrypoints/popup/components/Button';
 import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
+import PasskeyBypassDialog from '@/entrypoints/popup/components/PasskeyBypassDialog';
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 import { useVaultLockRedirect } from '@/entrypoints/popup/hooks/useVaultLockRedirect';
 
+import { PASSKEY_DISABLED_SITES_KEY } from '@/utils/Constants';
 import { PasskeyAuthenticator } from '@/utils/passkey/PasskeyAuthenticator';
 import { PasskeyHelper } from '@/utils/passkey/PasskeyHelper';
 import type { GetRequest, PasskeyGetCredentialResponse, PendingPasskeyGetRequest, StoredPasskeyRecord } from '@/utils/passkey/types';
+
+import { storage } from "#imports";
 
 /**
  * PasskeyAuthenticate
@@ -25,6 +30,7 @@ const PasskeyAuthenticate: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [availablePasskeys, setAvailablePasskeys] = useState<Array<{ id: string; displayName: string; username?: string | null }>>([]);
+  const [showBypassDialog, setShowBypassDialog] = useState(false);
   const { isLocked } = useVaultLockRedirect();
 
   useEffect(() => {
@@ -163,12 +169,32 @@ const PasskeyAuthenticate: React.FC = () => {
   };
 
   /**
-   * Handle fallback
+   * Handle fallback - show bypass dialog first
    */
   const handleFallback = async () : Promise<void> => {
+    setShowBypassDialog(true);
+  };
+
+  /**
+   * Handle bypass choice
+   */
+  const handleBypassChoice = async (choice: 'once' | 'always') : Promise<void> => {
     if (!request) {
       return;
     }
+
+    if (choice === 'always') {
+      // Add to permanent disabled list
+      const hostname = new URL(request.origin).hostname;
+      const baseDomain = extractRootDomain(extractDomain(hostname));
+
+      const disabledSites = await storage.getItem(PASSKEY_DISABLED_SITES_KEY) as string[] ?? [];
+      if (!disabledSites.includes(baseDomain)) {
+        disabledSites.push(baseDomain);
+        await storage.setItem(PASSKEY_DISABLED_SITES_KEY, disabledSites);
+      }
+    }
+    // For 'once', we don't store anything - just bypass this one time
 
     // Tell background to use native implementation
     await sendMessage('PASSKEY_POPUP_RESPONSE', {
@@ -205,72 +231,82 @@ const PasskeyAuthenticate: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-          {t('passkeys.authenticate.title')}
-        </h1>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          {t('passkeys.authenticate.signInFor')} <strong>{request.origin}</strong>
-        </p>
-      </div>
-
-      {error && (
-        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-          <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
-        </div>
+    <>
+      {showBypassDialog && request && (
+        <PasskeyBypassDialog
+          origin={new URL(request.origin).hostname}
+          onChoice={handleBypassChoice}
+          onCancel={() => setShowBypassDialog(false)}
+        />
       )}
 
-      <div className="space-y-4">
-        {availablePasskeys && availablePasskeys.length > 0 ? (
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t('passkeys.authenticate.selectPasskey')}
-            </label>
-            <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-2 bg-gray-50 dark:bg-gray-800">
-              {availablePasskeys.map((pk) => (
-                <div
-                  key={pk.id}
-                  className="p-3 rounded-lg border cursor-pointer transition-colors bg-white border-gray-200 hover:bg-blue-50 hover:border-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-blue-900 dark:hover:border-blue-700"
-                  onClick={() => !loading && handleUsePasskey(pk.id)}
-                >
-                  <div className="font-medium text-gray-900 dark:text-white text-sm truncate">
-                    {pk.displayName}
-                  </div>
-                  {pk.username && (
-                    <div className="text-xs text-gray-600 dark:text-gray-400">
-                      {pk.username}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <p className="text-gray-600 dark:text-gray-400">
-              {t('passkeys.authenticate.noPasskeysFound')}
-            </p>
+      <div className="space-y-6">
+        <div className="text-center">
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            {t('passkeys.authenticate.title')}
+          </h1>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            {t('passkeys.authenticate.signInFor')} <strong>{request.origin}</strong>
+          </p>
+        </div>
+
+        {error && (
+          <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
           </div>
         )}
-      </div>
 
-      <div className="space-y-3">
-        <Button
-          variant="secondary"
-          onClick={handleFallback}
-        >
-          {t('passkeys.authenticate.useBrowserPasskey')}
-        </Button>
+        <div className="space-y-4">
+          {availablePasskeys && availablePasskeys.length > 0 ? (
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('passkeys.authenticate.selectPasskey')}
+              </label>
+              <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-2 bg-gray-50 dark:bg-gray-800">
+                {availablePasskeys.map((pk) => (
+                  <div
+                    key={pk.id}
+                    className="p-3 rounded-lg border cursor-pointer transition-colors bg-white border-gray-200 hover:bg-blue-50 hover:border-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-blue-900 dark:hover:border-blue-700"
+                    onClick={() => !loading && handleUsePasskey(pk.id)}
+                  >
+                    <div className="font-medium text-gray-900 dark:text-white text-sm truncate">
+                      {pk.displayName}
+                    </div>
+                    {pk.username && (
+                      <div className="text-xs text-gray-600 dark:text-gray-400">
+                        {pk.username}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <p className="text-gray-600 dark:text-gray-400">
+                {t('passkeys.authenticate.noPasskeysFound')}
+              </p>
+            </div>
+          )}
+        </div>
 
-        <Button
-          variant="secondary"
-          onClick={handleCancel}
-        >
-          {t('common.cancel')}
-        </Button>
+        <div className="space-y-3">
+          <Button
+            variant="secondary"
+            onClick={handleFallback}
+          >
+            {t('passkeys.authenticate.useBrowserPasskey')}
+          </Button>
+
+          <Button
+            variant="secondary"
+            onClick={handleCancel}
+          >
+            {t('common.cancel')}
+          </Button>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

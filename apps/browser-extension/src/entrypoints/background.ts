@@ -68,7 +68,7 @@ export default defineBackground({
     onMessage('CLIPBOARD_COPIED_FROM_CONTEXT', () => handleClipboardCopied());
 
     // Passkey/WebAuthn management messages
-    onMessage('GET_WEBAUTHN_SETTINGS', () => handleGetWebAuthnSettings());
+    onMessage('GET_WEBAUTHN_SETTINGS', ({ data }) => handleGetWebAuthnSettings(data));
     onMessage('WEBAUTHN_CREATE', ({ data }) => handleWebAuthnCreate(data));
     onMessage('WEBAUTHN_GET', ({ data }) => handleWebAuthnGet(data));
     onMessage('PASSKEY_POPUP_RESPONSE', ({ data }) => handlePasskeyPopupResponse(data));
