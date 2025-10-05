@@ -1,3 +1,5 @@
+import { B } from "vitest/dist/chunks/worker.d.CHGSOG0s.js";
+
 /**
  * Encryption key SQLite database type.
  */
@@ -64,7 +66,9 @@ type Credential = {
     Logo?: Uint8Array | number[];
     Notes?: string;
     Alias: Alias;
+    HasPasskey: boolean;
 };
+
 /**
  * Alias SQLite database type.
  */
