@@ -216,7 +216,16 @@ export class SqliteClient {
             a.BirthDate,
             a.Gender,
             a.Email,
-            p.Value as Password
+            p.Value as Password,
+            CASE
+                WHEN EXISTS (
+                    SELECT 1 FROM Passkeys pk
+                    WHERE pk.CredentialId = c.Id AND pk.IsDeleted = 0
+                ) THEN 1
+                ELSE 0
+            END as HasPasskey,
+            (SELECT pk.RpId FROM Passkeys pk WHERE pk.CredentialId = c.Id AND pk.IsDeleted = 0 LIMIT 1) as PasskeyRpId,
+            (SELECT pk.DisplayName FROM Passkeys pk WHERE pk.CredentialId = c.Id AND pk.IsDeleted = 0 LIMIT 1) as PasskeyDisplayName
         FROM Credentials c
         LEFT JOIN Services s ON c.ServiceId = s.Id
         LEFT JOIN Aliases a ON c.AliasId = a.Id
@@ -241,6 +250,9 @@ export class SqliteClient {
       ServiceUrl: row.ServiceUrl,
       Logo: row.Logo,
       Notes: row.Notes,
+      HasPasskey: row.HasPasskey === 1,
+      PasskeyRpId: row.PasskeyRpId,
+      PasskeyDisplayName: row.PasskeyDisplayName,
       Alias: {
         FirstName: row.FirstName,
         LastName: row.LastName,
@@ -272,7 +284,14 @@ export class SqliteClient {
                 a.BirthDate,
                 a.Gender,
                 a.Email,
-                p.Value as Password
+                p.Value as Password,
+                CASE
+                    WHEN EXISTS (
+                        SELECT 1 FROM Passkeys pk
+                        WHERE pk.CredentialId = c.Id AND pk.IsDeleted = 0
+                    ) THEN 1
+                    ELSE 0
+                END as HasPasskey
             FROM Credentials c
             LEFT JOIN Services s ON c.ServiceId = s.Id
             LEFT JOIN Aliases a ON c.AliasId = a.Id
@@ -291,6 +310,7 @@ export class SqliteClient {
       ServiceUrl: row.ServiceUrl,
       Logo: row.Logo,
       Notes: row.Notes,
+      HasPasskey: row.HasPasskey === 1,
       Alias: {
         FirstName: row.FirstName,
         LastName: row.LastName,
@@ -1342,6 +1362,42 @@ export class SqliteClient {
     } catch (error) {
       this.rollbackTransaction();
       console.error('Error deleting passkey:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete all passkeys for a specific credential (soft delete)
+   * @param credentialId - The ID of the credential
+   * @returns The number of rows updated
+   */
+  public async deletePasskeysByCredentialId(credentialId: string): Promise<number> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      this.beginTransaction();
+
+      const currentDateTime = new Date().toISOString()
+        .replace('T', ' ')
+        .replace('Z', '')
+        .substring(0, 23);
+
+      const query = `
+        UPDATE Passkeys
+        SET IsDeleted = 1,
+            UpdatedAt = ?
+        WHERE CredentialId = ?
+      `;
+
+      const result = this.executeUpdate(query, [currentDateTime, credentialId]);
+
+      await this.commitTransaction();
+      return result;
+    } catch (error) {
+      this.rollbackTransaction();
+      console.error('Error deleting passkeys for credential:', error);
       throw error;
     }
   }
