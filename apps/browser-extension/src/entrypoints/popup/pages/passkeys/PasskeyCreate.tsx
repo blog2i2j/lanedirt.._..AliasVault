@@ -491,15 +491,33 @@ const PasskeyCreate: React.FC = () => {
                 {selectedPasskeyToReplace ? t('passkeys.create.confirmReplace') : t('passkeys.create.createButton')}
               </Button>
 
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setShowCreateForm(false);
-                  setSelectedPasskeyToReplace(null);
-                }}
-              >
-                {t('common.back')}
-              </Button>
+              {existingPasskeys.length > 0 ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setShowCreateForm(false);
+                    setSelectedPasskeyToReplace(null);
+                  }}
+                >
+                  {t('common.back')}
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    variant="secondary"
+                    onClick={handleFallback}
+                  >
+                    {t('passkeys.create.useBrowserPasskey')}
+                  </Button>
+
+                  <Button
+                    variant="secondary"
+                    onClick={handleCancel}
+                  >
+                    {t('common.cancel')}
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         )}

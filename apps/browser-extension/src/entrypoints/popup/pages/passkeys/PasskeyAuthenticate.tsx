@@ -8,7 +8,6 @@ import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 import { useVaultLockRedirect } from '@/entrypoints/popup/hooks/useVaultLockRedirect';
-import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
 import { PasskeyAuthenticator } from '@/utils/passkey/PasskeyAuthenticator';
 import { PasskeyHelper } from '@/utils/passkey/PasskeyHelper';
@@ -22,9 +21,7 @@ const PasskeyAuthenticate: React.FC = () => {
   const location = useLocation();
   const { setIsInitialLoading } = useLoading();
   const dbContext = useDb();
-  const { executeVaultMutation } = useVaultMutate();
   const [request, setRequest] = useState<PendingPasskeyGetRequest | null>(null);
-  const [selectedPasskey, setSelectedPasskey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [availablePasskeys, setAvailablePasskeys] = useState<Array<{ id: string; displayName: string; username?: string | null }>>([]);
@@ -166,54 +163,6 @@ const PasskeyAuthenticate: React.FC = () => {
   };
 
   /**
-   * Handle passkey deletion
-   */
-  const handleDeletePasskey = async (passkeyId: string, event: React.MouseEvent) : Promise<void> => {
-    event.stopPropagation(); // Prevent triggering authentication
-
-    if (!confirm(t('passkeys.authenticate.deleteConfirm'))) {
-      return;
-    }
-
-    if (!dbContext.sqliteClient) {
-      return;
-    }
-
-    try {
-      // Delete via vault mutation to sync changes
-      await executeVaultMutation(
-        async () => {
-          await dbContext.sqliteClient!.deletePasskeyById(passkeyId);
-        },
-        {
-          /**
-           * onSuccess
-           */
-          onSuccess: () => {
-            // Remove from UI
-            setAvailablePasskeys(prev => prev.filter(pk => pk.id !== passkeyId));
-
-            // Clear selection if the deleted passkey was selected
-            if (selectedPasskey === passkeyId) {
-              setSelectedPasskey(null);
-            }
-          },
-          /**
-           * onError
-           */
-          onError: (err) => {
-            console.error('Failed to delete passkey:', err);
-            setError(t('common.errors.unknownError'));
-          }
-        }
-      );
-    } catch (error) {
-      console.error('Failed to delete passkey:', error);
-      setError(t('common.errors.unknownError'));
-    }
-  };
-
-  /**
    * Handle fallback
    */
   const handleFallback = async () : Promise<void> => {
@@ -282,31 +231,17 @@ const PasskeyAuthenticate: React.FC = () => {
               {availablePasskeys.map((pk) => (
                 <div
                   key={pk.id}
-                  className="relative group p-3 rounded-lg border cursor-pointer transition-colors bg-white border-gray-200 hover:bg-blue-50 hover:border-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-blue-900 dark:hover:border-blue-700"
+                  className="p-3 rounded-lg border cursor-pointer transition-colors bg-white border-gray-200 hover:bg-blue-50 hover:border-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-blue-900 dark:hover:border-blue-700"
                   onClick={() => !loading && handleUsePasskey(pk.id)}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-gray-900 dark:text-white text-sm truncate">
-                        {pk.displayName}
-                      </div>
-                      {pk.username && (
-                        <div className="text-xs text-gray-600 dark:text-gray-400">
-                          {pk.username}
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      onClick={(e) => handleDeletePasskey(pk.id, e)}
-                      className="flex-shrink-0 p-1.5 text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
-                      title={t('passkeys.authenticate.deletePasskey')}
-                      disabled={loading}
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+                  <div className="font-medium text-gray-900 dark:text-white text-sm truncate">
+                    {pk.displayName}
                   </div>
+                  {pk.username && (
+                    <div className="text-xs text-gray-600 dark:text-gray-400">
+                      {pk.username}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

@@ -365,9 +365,7 @@
       "signInFor": "Sign in with passkey for",
       "selectPasskey": "Select a passkey to sign in:",
       "noPasskeysFound": "No passkeys found for this site",
-      "useBrowserPasskey": "Use Browser Passkey",
-      "deletePasskey": "Delete passkey",
-      "deleteConfirm": "Are you sure you want to delete this passkey?"
+      "useBrowserPasskey": "Use Browser Passkey"
     },
     "create": {
       "title": "Create Passkey",
