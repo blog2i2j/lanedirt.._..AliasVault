@@ -91,4 +91,16 @@ export class PasskeyHelper {
   public static base64urlToGuid(base64url: string): string {
     return this.bytesToGuid(this.base64UrlToBytes(base64url));
   }
+
+  /**
+   * Convert ArrayBuffer to base64 string (standard base64, not URL-safe)
+   */
+  public static arrayBufferToBase64(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
 }

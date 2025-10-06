@@ -42,7 +42,7 @@ export class PasskeyAuthenticator {
   public static async createPasskey(
     credentialIdBytes: Uint8Array,
     req: CreateRequest,
-    opts?: { uvPerformed?: boolean; credentialIdBytes?: number } // uvPerformed: only set to true if your app did real UV
+    opts?: { uvPerformed?: boolean; credentialIdBytes?: number; enablePrf?: boolean } // uvPerformed: only set to true if your app did real UV
   ): Promise<{
     credential: {
       id: string;
@@ -54,6 +54,7 @@ export class PasskeyAuthenticator {
       type: 'public-key';
     };
     stored: StoredPasskeyRecord;
+    prfEnabled?: boolean; // Indicates if PRF was enabled for this credential
   }> {
     // 1) Validate and resolve algorithm (-7 = ES256)
     PasskeyAuthenticator.pickSupportedAlgorithm(req.publicKey.pubKeyCredParams);
@@ -139,6 +140,17 @@ export class PasskeyAuthenticator {
         : PasskeyAuthenticator.toB64(req.publicKey.user.id instanceof Uint8Array ? req.publicKey.user.id : new Uint8Array(req.publicKey.user.id));
     }
 
+    // 11.5) PRF support: Generate PRF secret if requested
+    let prfSecret: string | undefined;
+    let prfEnabled = false;
+    if (opts?.enablePrf) {
+      // Generate a 32-byte random secret for PRF (hmac-secret extension)
+      const prfSecretBytes = new Uint8Array(32);
+      crypto.getRandomValues(prfSecretBytes);
+      prfSecret = PasskeyAuthenticator.toB64u(prfSecretBytes);
+      prfEnabled = true;
+    }
+
     const stored: StoredPasskeyRecord = {
       rpId,
       credentialId: credentialIdB64u,
@@ -146,7 +158,8 @@ export class PasskeyAuthenticator {
       privateKey: prvJwk,
       userId: userIdB64,
       userName: req.publicKey.user?.name,
-      userDisplayName: req.publicKey.user?.displayName
+      userDisplayName: req.publicKey.user?.displayName,
+      prfSecret
     };
 
     // 12) Return a credential-like object (base64url-encoded fields for transport per RFC 4648 §5)
@@ -160,7 +173,7 @@ export class PasskeyAuthenticator {
       type: 'public-key' as const
     };
 
-    return { credential, stored };
+    return { credential, stored, prfEnabled };
   }
 
   /**
@@ -178,7 +191,7 @@ export class PasskeyAuthenticator {
   public static async getAssertion(
     req: GetRequest,
     storedRecord: StoredPasskeyRecord,
-    opts?: { uvPerformed?: boolean; includeBEBS?: boolean }
+    opts?: { uvPerformed?: boolean; includeBEBS?: boolean; prfInputs?: { first: ArrayBuffer | Uint8Array; second?: ArrayBuffer | Uint8Array } }
   ): Promise<{
     id: string;
     rawId: string;
@@ -186,6 +199,7 @@ export class PasskeyAuthenticator {
     authenticatorData: string; // base64
     signature: string;         // base64 (DER)
     userHandle: string | null; // base64 (if you choose to return it)
+    prfResults?: { first: ArrayBuffer; second?: ArrayBuffer }; // PRF outputs if requested
   }> {
     // Use the provided stored record
     const rec = storedRecord;
@@ -252,14 +266,31 @@ export class PasskeyAuthenticator {
       console.warn('PasskeyAuthenticator.getAssertion: No userId found in stored passkey record');
     }
 
-    // 9) Return object in the flat shape (base64url strings per RFC 4648 §5)
+    // 9) PRF evaluation if requested and supported
+    let prfResults: { first: ArrayBuffer; second?: ArrayBuffer } | undefined;
+    if (opts?.prfInputs && rec.prfSecret) {
+      const prfSecretBytes = PasskeyAuthenticator.fromB64u(rec.prfSecret);
+
+      // Evaluate first salt
+      const firstResult = await PasskeyAuthenticator.evaluatePrf(prfSecretBytes, opts.prfInputs.first);
+      prfResults = { first: firstResult };
+
+      // Evaluate second salt if provided
+      if (opts.prfInputs.second) {
+        const secondResult = await PasskeyAuthenticator.evaluatePrf(prfSecretBytes, opts.prfInputs.second);
+        prfResults.second = secondResult;
+      }
+    }
+
+    // 10) Return object in the flat shape (base64url strings per RFC 4648 §5)
     return {
       id: rec.credentialId,
       rawId: rec.credentialId,
       clientDataJSON: PasskeyAuthenticator.toB64u(clientDataJSONBytes),
       authenticatorData: PasskeyAuthenticator.toB64u(authenticatorData),
       signature: PasskeyAuthenticator.toB64u(derSig),
-      userHandle: userHandleB64u
+      userHandle: userHandleB64u,
+      prfResults
     };
   }
 
@@ -268,6 +299,36 @@ export class PasskeyAuthenticator {
    * Internal helpers (encoding, CBOR/COSE, DER, utils)
    * ------------------------------------------------------------------------------------
    */
+
+  /**
+   * Evaluate PRF (hmac-secret extension) for a given salt input.
+   * Implements the WebAuthn PRF extension algorithm:
+   * 1. Hash the salt with domain separation: SHA-256("WebAuthn PRF\x00" || salt)
+   * 2. Compute HMAC-SHA256(prfSecret, hashedSalt)
+   * 3. Return the 32-byte output
+   */
+  private static async evaluatePrf(prfSecretBytes: Uint8Array, salt: ArrayBuffer | Uint8Array): Promise<ArrayBuffer> {
+    const saltBytes = salt instanceof Uint8Array ? salt : new Uint8Array(salt);
+
+    // Step 1: Domain separation - hash salt with "WebAuthn PRF\x00" prefix
+    const prefix = PasskeyAuthenticator.te('WebAuthn PRF\x00');
+    const domainSeparatedSalt = PasskeyAuthenticator.concat(prefix, saltBytes);
+    const hashedSalt = await crypto.subtle.digest('SHA-256', domainSeparatedSalt as BufferSource);
+
+    // Step 2: Import PRF secret as HMAC key
+    const hmacKey = await crypto.subtle.importKey(
+      'raw',
+      prfSecretBytes,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+
+    // Step 3: Compute HMAC-SHA256(prfSecret, hashedSalt)
+    const prfOutput = await crypto.subtle.sign('HMAC', hmacKey, hashedSalt);
+
+    return prfOutput;
+  }
 
   /** Ensure ES256 (-7) is available; else throw (or extend to support others). */
   private static pickSupportedAlgorithm(params?: Array<{ type: 'public-key'; alg: number }>): number {

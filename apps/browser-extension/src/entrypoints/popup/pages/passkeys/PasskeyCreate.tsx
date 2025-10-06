@@ -1,5 +1,3 @@
-import { Buffer } from 'buffer';
-
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
@@ -169,7 +167,12 @@ const PasskeyCreate: React.FC = () => {
           const faviconResponse = await Promise.race([faviconPromise, timeoutPromise]) as { image: string };
 
           if (faviconResponse?.image) {
-            const decodedImage = Uint8Array.from(Buffer.from(faviconResponse.image, 'base64'));
+            // Use browser-compatible base64 decoding
+            const binaryString = atob(faviconResponse.image);
+            const decodedImage = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+              decodedImage[i] = binaryString.charCodeAt(i);
+            }
             faviconLogo = decodedImage;
           }
         } catch {
@@ -202,10 +205,11 @@ const PasskeyCreate: React.FC = () => {
       // Create passkey using static method (generates keys and credential ID)
       const result = await PasskeyAuthenticator.createPasskey(newPasskeyGuidBytes, createRequest, {
         uvPerformed: true,
-        credentialIdBytes: 16
+        credentialIdBytes: 16,
+        enablePrf: !!(request.publicKey?.extensions?.prf) // Enable PRF if requested by the website
       });
 
-      const { credential, stored } = result;
+      const { credential, stored, prfEnabled } = result;
 
       // Use vault mutation to store both credential and passkey
       await executeVaultMutation(
@@ -251,7 +255,7 @@ const PasskeyCreate: React.FC = () => {
                 PublicKey: JSON.stringify(stored.publicKey),
                 PrivateKey: JSON.stringify(stored.privateKey),
                 DisplayName: displayName,
-                AdditionalData: null
+                AdditionalData: stored.prfSecret ? btoa(JSON.stringify({ prfSecret: stored.prfSecret })) : null
               });
             }
           } else {
@@ -289,7 +293,7 @@ const PasskeyCreate: React.FC = () => {
               PublicKey: JSON.stringify(stored.publicKey),
               PrivateKey: JSON.stringify(stored.privateKey),
               DisplayName: displayName,
-              AdditionalData: null
+              AdditionalData: stored.prfSecret ? btoa(JSON.stringify({ prfSecret: stored.prfSecret })) : null
             });
           }
         },
@@ -304,7 +308,8 @@ const PasskeyCreate: React.FC = () => {
               id: newPasskeyGuidBase64url,
               rawId: newPasskeyGuidBase64url,
               clientDataJSON: credential.response.clientDataJSON,
-              attestationObject: credential.response.attestationObject
+              attestationObject: credential.response.attestationObject,
+              extensions: prfEnabled ? { prf: { enabled: true } } : undefined
             };
 
             // Send response back to background

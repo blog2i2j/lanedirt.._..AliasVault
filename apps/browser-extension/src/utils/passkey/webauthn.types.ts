@@ -11,6 +11,7 @@ export type ProviderCreateCredential = {
   rawId: string;
   clientDataJSON: string;
   attestationObject: string;
+  extensions?: ProviderCreateCredentialExtensions;
 };
 
 export type ProviderGetCredential = {
@@ -20,6 +21,16 @@ export type ProviderGetCredential = {
   authenticatorData: string;
   signature: string;
   userHandle: string | null;
+  prfResults?: {
+    first: string; // base64-encoded PRF output
+    second?: string; // optional second PRF output
+  };
+};
+
+export type ProviderCreateCredentialExtensions = {
+  prf?: {
+    enabled: boolean;
+  };
 };
 
 /**
@@ -58,7 +69,15 @@ export type WebAuthnGetEventDetail = {
     rpId?: string;
     allowCredentials?: Array<{ type: string; id: string; transports?: string[] }>;
     userVerification?: UserVerificationRequirement;
-    extensions?: AuthenticationExtensionsClientInputs;
+    extensions?: {
+      prf?: {
+        eval?: {
+          first: string; // base64 encoded salt
+          second?: string; // optional base64 encoded salt
+        };
+      };
+      [key: string]: unknown;
+    };
   };
   origin: string;
 };

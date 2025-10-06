@@ -11,6 +11,11 @@ export type PasskeyCreateCredentialResponse = {
   rawId: string;                 // base64url (same as id for compatibility)
   clientDataJSON: string;        // base64url encoded client data JSON
   attestationObject: string;     // base64url encoded attestation object (CBOR)
+  extensions?: {
+    prf?: {
+      enabled: boolean;
+    };
+  };
 };
 
 export type PasskeyGetCredentialResponse = {
@@ -20,6 +25,10 @@ export type PasskeyGetCredentialResponse = {
   authenticatorData: string;     // base64url encoded authenticator data
   signature: string;             // base64url encoded DER signature
   userHandle: string | null;     // base64url encoded user ID (null if not provided during creation)
+  prfResults?: {
+    first: string;               // base64 encoded PRF output
+    second?: string;             // optional second PRF output
+  };
 };
 
 export type StoredPasskeyRecord = {
@@ -30,6 +39,7 @@ export type StoredPasskeyRecord = {
   userId?: string | null;             // standard base64 encoded user.id (used for userHandle in authentication)
   userName?: string;
   userDisplayName?: string;
+  prfSecret?: string;                 // base64url encoded 32-byte PRF secret (optional, for hmac-secret extension support)
 };
 
 /**
@@ -102,6 +112,15 @@ export type WebAuthnPublicKeyGetPayload = {
   }[];
   userVerification?: "required" | "preferred" | "discouraged";
   hints?: string[];
+  extensions?: {
+    prf?: {
+      eval?: {
+        first: ArrayBuffer | Uint8Array; // Salt for PRF evaluation
+        second?: ArrayBuffer | Uint8Array; // Optional second salt
+      };
+    };
+    [key: string]: unknown;
+  };
 };
 
 /**
@@ -163,6 +182,7 @@ export type WebAuthnCreationPayload = {
   hints: string[];
   extensions?: {
     credProps?: boolean;
+    prf?: Record<string, never>; // Empty object to enable PRF
     [key: string]: unknown;
   };
 };

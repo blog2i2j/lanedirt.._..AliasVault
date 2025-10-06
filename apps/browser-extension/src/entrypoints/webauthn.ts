@@ -80,7 +80,8 @@ export default defineUnlistedScript(() => {
         excludeCredentials: options.publicKey.excludeCredentials?.map(cred => ({
           ...cred,
           id: bufferToBase64(cred.id)
-        }))
+        })),
+        extensions: options.publicKey.extensions
       },
       origin: window.location.origin
     };
@@ -197,7 +198,11 @@ export default defineUnlistedScript(() => {
                * getClientExtensionResults
                */
               getClientExtensionResults() : any {
-                return {};
+                const extensions: any = {};
+                if (cred.extensions?.prf) {
+                  extensions.prf = cred.extensions.prf;
+                }
+                return extensions;
               }
             };
             console.debug('[AliasVault] Page: Returned created credential object:', credential);
@@ -228,6 +233,20 @@ export default defineUnlistedScript(() => {
 
     // Send event to content script
     const requestId = Math.random().toString(36).substr(2, 9);
+
+    // Serialize PRF extensions if present (convert ArrayBuffers to base64)
+    let serializedExtensions: any = undefined;
+    if (options.publicKey.extensions) {
+      serializedExtensions = { ...options.publicKey.extensions };
+      if (serializedExtensions.prf?.eval) {
+        const prfEval: any = { first: bufferToBase64(serializedExtensions.prf.eval.first) };
+        if (serializedExtensions.prf.eval.second) {
+          prfEval.second = bufferToBase64(serializedExtensions.prf.eval.second);
+        }
+        serializedExtensions.prf = { eval: prfEval };
+      }
+    }
+
     const eventDetail: WebAuthnGetEventDetail = {
       requestId,
       publicKey: {
@@ -236,10 +255,12 @@ export default defineUnlistedScript(() => {
         allowCredentials: options.publicKey.allowCredentials?.map(cred => ({
           ...cred,
           id: bufferToBase64(cred.id)
-        }))
+        })),
+        extensions: serializedExtensions
       },
       origin: window.location.origin
     };
+    console.debug('[AliasVault] Page: Sending GET request with serialized extensions:', eventDetail);
     const event = new CustomEvent<WebAuthnGetEventDetail>('aliasvault:webauthn:get', {
       detail: eventDetail
     });
@@ -280,6 +301,7 @@ export default defineUnlistedScript(() => {
           // Create a proper credential object with required methods
           const cred: ProviderGetCredential = e.detail.credential;
           console.debug('[AliasVault] Page: Returned GET credential readable object:', cred);
+          console.debug('[AliasVault] Page: PRF Results from credential:', cred.prfResults);
           const credential = {
             id: cred.id,
             type: 'public-key',
@@ -295,9 +317,21 @@ export default defineUnlistedScript(() => {
              * getClientExtensionResults
              */
             getClientExtensionResults() : any {
-              return {};
+              const extensions: any = {};
+              if (cred.prfResults) {
+                extensions.prf = {
+                  results: {
+                    first: base64ToBuffer(cred.prfResults.first)
+                  }
+                };
+                if (cred.prfResults.second) {
+                  extensions.prf.results.second = base64ToBuffer(cred.prfResults.second);
+                }
+              }
+              return extensions;
             }
           };
+
           console.debug('[AliasVault] Page: Returned GET credential raw object:', credential);
           resolve(credential as any);
         } else {

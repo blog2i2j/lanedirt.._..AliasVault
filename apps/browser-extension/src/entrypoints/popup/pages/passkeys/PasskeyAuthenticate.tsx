@@ -123,6 +123,20 @@ const PasskeyAuthenticate: React.FC = () => {
       const publicKey = JSON.parse(storedPasskey.PublicKey) as JsonWebKey;
       const privateKey = JSON.parse(storedPasskey.PrivateKey) as JsonWebKey;
 
+      // Extract PRF secret from AdditionalData if available
+      let prfSecret: string | undefined;
+
+      if (storedPasskey.AdditionalData) {
+        try {
+          // Use browser-compatible base64 decoding (not Node.js Buffer)
+          const additionalDataJson = atob(storedPasskey.AdditionalData);
+          const additionalData = JSON.parse(additionalDataJson);
+          prfSecret = additionalData.prfSecret;
+        } catch (e) {
+          console.warn('Failed to parse AdditionalData for PRF secret', e);
+        }
+      }
+
       // Build the stored record for the provider
       const storedRecord: StoredPasskeyRecord = {
         rpId: storedPasskey.RpId,
@@ -131,7 +145,8 @@ const PasskeyAuthenticate: React.FC = () => {
         privateKey,
         userId: storedPasskey.UserId,
         userName: storedPasskey.Username ?? undefined,
-        userDisplayName: storedPasskey.ServiceName ?? undefined
+        userDisplayName: storedPasskey.ServiceName ?? undefined,
+        prfSecret
       };
 
       // Build the GetRequest
@@ -145,13 +160,85 @@ const PasskeyAuthenticate: React.FC = () => {
         }
       };
 
+      // Extract PRF inputs if requested
+      let prfInputs: { first: ArrayBuffer | Uint8Array; second?: ArrayBuffer | Uint8Array } | undefined;
+      if (request.publicKey.extensions?.prf?.eval) {
+        // Handle numeric object format (serialized Uint8Array through events)
+        const firstInput = request.publicKey.extensions.prf.eval.first;
+        let firstBytes: Uint8Array;
+
+        if (typeof firstInput === 'object' && firstInput !== null && !Array.isArray(firstInput)) {
+          // Numeric object format: {0: 68, 1: 204, ...}
+          const keys = Object.keys(firstInput).map(Number).sort((a, b) => a - b);
+          firstBytes = new Uint8Array(keys.length);
+          for (let i = 0; i < keys.length; i++) {
+            firstBytes[i] = (firstInput as unknown as Record<string, number>)[i];
+          }
+        } else if (typeof firstInput === 'string') {
+          // Base64 string format
+          const firstDecoded = atob(firstInput);
+          firstBytes = new Uint8Array(firstDecoded.length);
+          for (let i = 0; i < firstDecoded.length; i++) {
+            firstBytes[i] = firstDecoded.charCodeAt(i);
+          }
+        } else {
+          throw new Error('Unknown PRF input format');
+        }
+
+        prfInputs = { first: firstBytes };
+
+        if (request.publicKey.extensions.prf.eval.second) {
+          const secondInput = request.publicKey.extensions.prf.eval.second;
+          let secondBytes: Uint8Array;
+
+          if (typeof secondInput === 'object' && secondInput !== null && !Array.isArray(secondInput)) {
+            const keys = Object.keys(secondInput).map(Number).sort((a, b) => a - b);
+            secondBytes = new Uint8Array(keys.length);
+            for (let i = 0; i < keys.length; i++) {
+              secondBytes[i] = (secondInput as unknown as Record<string, number>)[i];
+            }
+          } else if (typeof secondInput === 'string') {
+            const secondDecoded = atob(secondInput);
+            secondBytes = new Uint8Array(secondDecoded.length);
+            for (let i = 0; i < secondDecoded.length; i++) {
+              secondBytes[i] = secondDecoded.charCodeAt(i);
+            }
+          } else {
+            console.error('[PasskeyAuth] Unknown PRF second input type:', typeof secondInput);
+            throw new Error('Unknown PRF second input format');
+          }
+
+          prfInputs.second = secondBytes;
+        }
+      }
+
       // Get the assertion using the static method
-      const credential: PasskeyGetCredentialResponse = await PasskeyAuthenticator.getAssertion(getRequest, storedRecord, {
+      const assertion = await PasskeyAuthenticator.getAssertion(getRequest, storedRecord, {
         uvPerformed: true, // TODO: implement explicit user verification check
-        includeBEBS: true // Backup eligible/state - defaults to true
+        includeBEBS: true, // Backup eligible/state - defaults to true
+        prfInputs
       });
 
-      console.info('PasskeyAuthenticate: Received assertion successfully', credential);
+      // Convert PRF results to base64 for transport
+      let prfResults: { first: string; second?: string } | undefined;
+      if (assertion.prfResults) {
+        prfResults = {
+          first: PasskeyHelper.arrayBufferToBase64(assertion.prfResults.first)
+        };
+        if (assertion.prfResults.second) {
+          prfResults.second = PasskeyHelper.arrayBufferToBase64(assertion.prfResults.second);
+        }
+      }
+
+      const credential: PasskeyGetCredentialResponse = {
+        id: assertion.id,
+        rawId: assertion.rawId,
+        clientDataJSON: assertion.clientDataJSON,
+        authenticatorData: assertion.authenticatorData,
+        signature: assertion.signature,
+        userHandle: assertion.userHandle,
+        prfResults
+      };
 
       // Send response back
       await sendMessage('PASSKEY_POPUP_RESPONSE', {
