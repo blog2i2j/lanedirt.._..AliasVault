@@ -64,6 +64,12 @@ type Credential = {
     Logo?: Uint8Array | number[];
     Notes?: string;
     Alias: Alias;
+    /** Indicates if this credential has an associated passkey */
+    HasPasskey?: boolean;
+    /** The relying party ID (domain) of the associated passkey */
+    PasskeyRpId?: string;
+    /** The display name of the associated passkey */
+    PasskeyDisplayName?: string;
 };
 /**
  * Alias SQLite database type.

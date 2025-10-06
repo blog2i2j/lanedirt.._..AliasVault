@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { sendMessage } from 'webext-bridge/popup';
@@ -42,6 +42,8 @@ const PasskeyCreate: React.FC = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [localLoading, setLocalLoading] = useState(false);
   const [showBypassDialog, setShowBypassDialog] = useState(false);
+  const createNewButtonRef = useRef<HTMLButtonElement>(null);
+  const displayNameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     /**
@@ -126,6 +128,33 @@ const PasskeyCreate: React.FC = () => {
 
     fetchRequestData();
   }, [location, setIsInitialLoading, dbContext.dbInitialized, dbContext.sqliteClient, isLocked, t]);
+
+  // Auto-focus create new button or input field
+  useEffect(() => {
+    if (showCreateForm && displayNameInputRef.current) {
+      displayNameInputRef.current.focus();
+    } else if (!showCreateForm && existingPasskeys.length > 0 && createNewButtonRef.current) {
+      createNewButtonRef.current.focus();
+    }
+  }, [showCreateForm, existingPasskeys.length]);
+
+  // Handle Enter key to submit
+  useEffect(() => {
+    /**
+     * Handle Enter key to submit
+     */
+    const handleKeyDown = (e: KeyboardEvent) : void => {
+      if (e.key === 'Enter' && !localLoading && !isMutating) {
+        if (showCreateForm) {
+          handleCreate();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () : void => window.removeEventListener('keydown', handleKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showCreateForm, localLoading, isMutating]);
 
   /**
    * Handle when user clicks "Create New Passkey" button
@@ -237,7 +266,7 @@ const PasskeyCreate: React.FC = () => {
                     BirthDate: '0001-01-01 00:00:00',
                     Gender: '',
                     Email: ''
-                  }
+                  },
                 },
                 [],
                 []
@@ -436,38 +465,20 @@ const PasskeyCreate: React.FC = () => {
         {/* Step 1: Show existing passkeys selection or create new option */}
         {!showCreateForm && existingPasskeys.length > 0 && (
           <div className="space-y-4">
-            <Alert variant="info">
-              {t('passkeys.create.existingPasskeysFound', { count: existingPasskeys.length })}
-            </Alert>
+            <Button
+              variant="primary"
+              onClick={handleCreateNew}
+              ref={createNewButtonRef}
+            >
+              {t('passkeys.create.createNewPasskey')}
+            </Button>
 
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {t('passkeys.create.selectPasskeyToReplace')}
-              </h3>
-              {existingPasskeys.map((passkey) => (
-                <button
-                  key={passkey.Id}
-                  onClick={() => handleSelectReplace(passkey.Id)}
-                  className="w-full p-3 text-left border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900 dark:text-white">
-                        {passkey.DisplayName}
-                      </div>
-                      {passkey.Username && (
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {passkey.Username}
-                        </div>
-                      )}
-                    </div>
-                    <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </button>
-              ))}
-            </div>
+            <Button
+              variant="secondary"
+              onClick={handleFallback}
+            >
+              {t('passkeys.create.useBrowserPasskey')}
+            </Button>
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -480,19 +491,39 @@ const PasskeyCreate: React.FC = () => {
               </div>
             </div>
 
-            <Button
-              variant="primary"
-              onClick={handleCreateNew}
-            >
-              {t('passkeys.create.createNewPasskey')}
-            </Button>
-
-            <Button
-              variant="secondary"
-              onClick={handleFallback}
-            >
-              {t('passkeys.create.useBrowserPasskey')}
-            </Button>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t('passkeys.create.selectPasskeyToReplace')}
+              </label>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                {t('passkeys.create.existingPasskeysFound', { count: existingPasskeys.length })}
+              </p>
+              <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-2 bg-gray-50 dark:bg-gray-800">
+                {existingPasskeys.map((passkey) => (
+                  <button
+                    key={passkey.Id}
+                    onClick={() => handleSelectReplace(passkey.Id)}
+                    className="w-full p-3 text-left rounded-lg border cursor-pointer transition-colors bg-white border-gray-200 hover:bg-gray-100 hover:border-gray-300 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:hover:border-gray-500 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900 dark:text-white text-sm truncate">
+                          {passkey.DisplayName}
+                        </div>
+                        {passkey.Username && (
+                          <div className="text-xs text-gray-600 dark:text-gray-400">
+                            {passkey.Username}
+                          </div>
+                        )}
+                      </div>
+                      <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <Button
               variant="secondary"
@@ -520,6 +551,7 @@ const PasskeyCreate: React.FC = () => {
               value={displayName}
               onChange={setDisplayName}
               placeholder={t('passkeys.create.displayNamePlaceholder')}
+              ref={displayNameInputRef}
             />
 
             <div className="space-y-3">

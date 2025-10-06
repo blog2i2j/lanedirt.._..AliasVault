@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { sendMessage } from 'webext-bridge/popup';
@@ -32,6 +32,7 @@ const PasskeyAuthenticate: React.FC = () => {
   const [availablePasskeys, setAvailablePasskeys] = useState<Array<{ id: string; displayName: string; username?: string | null }>>([]);
   const [showBypassDialog, setShowBypassDialog] = useState(false);
   const { isLocked } = useVaultLockRedirect();
+  const firstPasskeyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     /**
@@ -100,6 +101,36 @@ const PasskeyAuthenticate: React.FC = () => {
 
     fetchRequestData();
   }, [location, setIsInitialLoading, dbContext.dbInitialized, isLocked, dbContext.sqliteClient, t]);
+
+  // Auto-focus first passkey
+  useEffect(() => {
+    if (availablePasskeys.length > 0 && firstPasskeyRef.current) {
+      firstPasskeyRef.current.focus();
+    }
+  }, [availablePasskeys.length]);
+
+  // Handle Enter key to select first passkey
+  useEffect(() => {
+    /**
+     * Handle Enter key to select first passkey
+     */
+    const handleKeyDown = (e: KeyboardEvent) : void => {
+      if (e.key === 'Enter' && !loading && availablePasskeys.length > 0) {
+        handleUsePasskey(availablePasskeys[0].id);
+      }
+    };
+
+    /**
+     * Handle Enter key to select first passkey
+     */
+    window.addEventListener('keydown', handleKeyDown);
+    return () : void => window.removeEventListener('keydown', handleKeyDown);
+
+    /**
+     * Handle Enter key to select first passkey
+     */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, availablePasskeys]);
 
   /**
    * Handle passkey authentication
@@ -350,11 +381,18 @@ const PasskeyAuthenticate: React.FC = () => {
                 {t('passkeys.authenticate.selectPasskey')}
               </label>
               <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-2 bg-gray-50 dark:bg-gray-800">
-                {availablePasskeys.map((pk) => (
+                {availablePasskeys.map((pk, index) => (
                   <div
                     key={pk.id}
-                    className="p-3 rounded-lg border cursor-pointer transition-colors bg-white border-gray-200 hover:bg-blue-50 hover:border-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-blue-900 dark:hover:border-blue-700"
+                    ref={index === 0 ? firstPasskeyRef : null}
+                    tabIndex={0}
+                    className="p-3 rounded-lg border cursor-pointer transition-colors bg-white border-gray-200 hover:bg-gray-100 hover:border-gray-300 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:hover:border-gray-500 focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                     onClick={() => !loading && handleUsePasskey(pk.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !loading) {
+                        handleUsePasskey(pk.id);
+                      }
+                    }}
                   >
                     <div className="font-medium text-gray-900 dark:text-white text-sm truncate">
                       {pk.displayName}
