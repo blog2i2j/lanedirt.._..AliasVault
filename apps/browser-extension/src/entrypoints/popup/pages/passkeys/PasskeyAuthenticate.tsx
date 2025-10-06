@@ -5,8 +5,8 @@ import { sendMessage } from 'webext-bridge/popup';
 
 import { extractDomain, extractRootDomain } from '@/entrypoints/contentScript/Filter';
 import Button from '@/entrypoints/popup/components/Button';
+import PasskeyBypassDialog from '@/entrypoints/popup/components/Dialogs/PasskeyBypassDialog';
 import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
-import PasskeyBypassDialog from '@/entrypoints/popup/components/PasskeyBypassDialog';
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 import { useVaultLockRedirect } from '@/entrypoints/popup/hooks/useVaultLockRedirect';

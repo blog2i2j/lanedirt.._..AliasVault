@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import Button from './Button';
+import Button from '../Button';
 
 type PasskeyBypassDialogProps = {
   origin: string;
@@ -34,7 +34,6 @@ const PasskeyBypassDialog: React.FC<PasskeyBypassDialogProps> = ({
           <Button
             variant="primary"
             onClick={() => onChoice('once')}
-            className="w-full"
           >
             {t('passkeys.bypass.thisTimeOnly')}
           </Button>
@@ -42,7 +41,6 @@ const PasskeyBypassDialog: React.FC<PasskeyBypassDialogProps> = ({
           <Button
             variant="secondary"
             onClick={() => onChoice('always')}
-            className="w-full"
           >
             {t('passkeys.bypass.alwaysForSite')}
           </Button>
@@ -50,7 +48,6 @@ const PasskeyBypassDialog: React.FC<PasskeyBypassDialogProps> = ({
           <Button
             variant="secondary"
             onClick={onCancel}
-            className="w-full"
           >
             {t('common.cancel')}
           </Button>
