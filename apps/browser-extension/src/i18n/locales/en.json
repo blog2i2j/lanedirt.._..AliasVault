@@ -393,7 +393,6 @@
       "createButton": "Create Passkey",
       "creatingButton": "Creating...",
       "useBrowserPasskey": "Use Browser Passkey",
-      "existingPasskeysFound": "{{count}} existing passkey(s) found for this site and user.",
       "selectPasskeyToReplace": "Select a passkey to replace:",
       "createNewPasskey": "Create New Passkey",
       "replacingPasskey": "Replacing passkey: {{displayName}}",

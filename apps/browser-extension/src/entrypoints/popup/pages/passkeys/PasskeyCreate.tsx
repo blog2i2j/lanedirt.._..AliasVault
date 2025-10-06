@@ -495,9 +495,6 @@ const PasskeyCreate: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t('passkeys.create.selectPasskeyToReplace')}
               </label>
-              <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                {t('passkeys.create.existingPasskeysFound', { count: existingPasskeys.length })}
-              </p>
               <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-2 bg-gray-50 dark:bg-gray-800">
                 {existingPasskeys.map((passkey) => (
                   <button
@@ -510,11 +507,9 @@ const PasskeyCreate: React.FC = () => {
                         <div className="font-medium text-gray-900 dark:text-white text-sm truncate">
                           {passkey.DisplayName}
                         </div>
-                        {passkey.Username && (
-                          <div className="text-xs text-gray-600 dark:text-gray-400">
-                            {passkey.Username}
-                          </div>
-                        )}
+                        <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+                          <span className="truncate">{passkey.ServiceName}</span>
+                        </div>
                       </div>
                       <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

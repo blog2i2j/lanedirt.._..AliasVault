@@ -29,7 +29,7 @@ const PasskeyAuthenticate: React.FC = () => {
   const [request, setRequest] = useState<PendingPasskeyGetRequest | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [availablePasskeys, setAvailablePasskeys] = useState<Array<{ id: string; displayName: string; username?: string | null }>>([]);
+  const [availablePasskeys, setAvailablePasskeys] = useState<Array<{ id: string; displayName: string; rpId: string; serviceName?: string | null }>>([]);
   const [showBypassDialog, setShowBypassDialog] = useState(false);
   const { isLocked } = useVaultLockRedirect();
   const firstPasskeyRef = useRef<HTMLDivElement>(null);
@@ -86,6 +86,8 @@ const PasskeyAuthenticate: React.FC = () => {
             setAvailablePasskeys(filteredPasskeys.map(pk => ({
               id: pk.Id,
               displayName: pk.DisplayName,
+              serviceName: pk.ServiceName,
+              rpId: pk.RpId,
               username: pk.Username
             })));
           }
@@ -397,11 +399,9 @@ const PasskeyAuthenticate: React.FC = () => {
                     <div className="font-medium text-gray-900 dark:text-white text-sm truncate">
                       {pk.displayName}
                     </div>
-                    {pk.username && (
-                      <div className="text-xs text-gray-600 dark:text-gray-400">
-                        {pk.username}
-                      </div>
-                    )}
+                    <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+                      <span className="truncate">{pk.serviceName}</span>
+                    </div>
                   </div>
                 ))}
               </div>
