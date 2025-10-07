@@ -766,9 +766,16 @@ export class SqliteClient {
           WHERE Id = ?
         )`;
 
+      const passkeyQuery = `
+        UPDATE Passkeys
+        SET IsDeleted = 1,
+            UpdatedAt = ?
+        WHERE CredentialId = ?`;
+
       const results = this.executeUpdate(query, [currentDateTime, credentialId]);
       this.executeUpdate(aliasQuery, [currentDateTime, credentialId]);
       this.executeUpdate(serviceQuery, [currentDateTime, credentialId]);
+      this.executeUpdate(passkeyQuery, [currentDateTime, credentialId]);
 
       await this.commitTransaction();
       return results;

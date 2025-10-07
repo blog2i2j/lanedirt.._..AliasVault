@@ -184,7 +184,7 @@ const PasskeyCreate: React.FC = () => {
 
     try {
       // Extract favicon from origin URL
-      let faviconLogo: Uint8Array = new Uint8Array();
+      let faviconLogo: Uint8Array | undefined = undefined;
       if (request.origin) {
         setLocalLoading(true);
         try {
@@ -249,7 +249,7 @@ const PasskeyCreate: React.FC = () => {
             // Replace existing passkey: update the credential and passkey
             const existingPasskey = dbContext.sqliteClient!.getPasskeyById(selectedPasskeyToReplace);
             if (existingPasskey) {
-              // Update the parent credential with new favicon
+              // Update the parent credential with new favicon (only if we successfully fetched one)
               await dbContext.sqliteClient!.updateCredentialById(
                 {
                   Id: existingPasskey.CredentialId,
@@ -258,7 +258,7 @@ const PasskeyCreate: React.FC = () => {
                   Username: request.publicKey.user.name,
                   Password: '',
                   Notes: '',
-                  Logo: faviconLogo,
+                  Logo: faviconLogo ?? undefined,
                   Alias: {
                     FirstName: '',
                     LastName: '',
@@ -297,7 +297,7 @@ const PasskeyCreate: React.FC = () => {
                 Username: request.publicKey.user.name,
                 Password: '',
                 Notes: '',
-                Logo: faviconLogo,
+                Logo: faviconLogo ?? undefined,
                 Alias: {
                   FirstName: '',
                   LastName: '',
