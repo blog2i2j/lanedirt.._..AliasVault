@@ -156,17 +156,15 @@ const PasskeyAuthenticate: React.FC = () => {
       const publicKey = JSON.parse(storedPasskey.PublicKey) as JsonWebKey;
       const privateKey = JSON.parse(storedPasskey.PrivateKey) as JsonWebKey;
 
-      // Extract PRF secret from AdditionalData if available
+      // Extract PRF secret from PrfKey if available
       let prfSecret: string | undefined;
 
-      if (storedPasskey.AdditionalData) {
+      if (storedPasskey.PrfKey) {
         try {
-          // Use browser-compatible base64 decoding (not Node.js Buffer)
-          const additionalDataJson = atob(storedPasskey.AdditionalData);
-          const additionalData = JSON.parse(additionalDataJson);
-          prfSecret = additionalData.prfSecret;
+          // Convert PrfKey bytes to base64url string
+          prfSecret = PasskeyHelper.bytesToBase64url(storedPasskey.PrfKey);
         } catch (e) {
-          console.warn('Failed to parse AdditionalData for PRF secret', e);
+          console.warn('Failed to convert PrfKey to base64url', e);
         }
       }
 

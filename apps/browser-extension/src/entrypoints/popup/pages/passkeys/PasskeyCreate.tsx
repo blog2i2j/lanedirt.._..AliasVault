@@ -243,8 +243,6 @@ const PasskeyCreate: React.FC = () => {
       // Use vault mutation to store both credential and passkey
       await executeVaultMutation(
         async () => {
-          setLocalLoading(false);
-
           if (selectedPasskeyToReplace) {
             // Replace existing passkey: update the credential and passkey
             const existingPasskey = dbContext.sqliteClient!.getPasskeyById(selectedPasskeyToReplace);
@@ -284,7 +282,8 @@ const PasskeyCreate: React.FC = () => {
                 PublicKey: JSON.stringify(stored.publicKey),
                 PrivateKey: JSON.stringify(stored.privateKey),
                 DisplayName: displayName,
-                AdditionalData: stored.prfSecret ? btoa(JSON.stringify({ prfSecret: stored.prfSecret })) : null
+                PrfKey: stored.prfSecret ? PasskeyHelper.base64urlToBytes(stored.prfSecret) : undefined,
+                AdditionalData: null
               });
             }
           } else {
@@ -322,7 +321,8 @@ const PasskeyCreate: React.FC = () => {
               PublicKey: JSON.stringify(stored.publicKey),
               PrivateKey: JSON.stringify(stored.privateKey),
               DisplayName: displayName,
-              AdditionalData: stored.prfSecret ? btoa(JSON.stringify({ prfSecret: stored.prfSecret })) : null
+              PrfKey: stored.prfSecret ? PasskeyHelper.base64urlToBytes(stored.prfSecret) : undefined,
+              AdditionalData: null
             });
           }
         },

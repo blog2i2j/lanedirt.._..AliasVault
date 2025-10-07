@@ -103,4 +103,19 @@ export class PasskeyHelper {
     }
     return btoa(binary);
   }
+
+  /**
+   * Convert byte array to base64url string (public wrapper)
+   */
+  public static bytesToBase64url(bytes: Uint8Array | number[]): string {
+    const uint8Array = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+    return this.bytesToBase64Url(uint8Array);
+  }
+
+  /**
+   * Convert base64url string to byte array (public wrapper)
+   */
+  public static base64urlToBytes(base64url: string): Uint8Array {
+    return this.base64UrlToBytes(base64url);
+  }
 }
