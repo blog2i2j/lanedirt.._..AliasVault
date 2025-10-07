@@ -23,18 +23,6 @@ public class Passkey : SyncableEntity
     public Guid Id { get; set; }
 
     /// <summary>
-    /// Gets or sets the credential ID foreign key.
-    /// </summary>
-    [Required]
-    public Guid CredentialId { get; set; }
-
-    /// <summary>
-    /// Gets or sets the credential object.
-    /// </summary>
-    [ForeignKey("CredentialId")]
-    public virtual Credential Credential { get; set; } = null!;
-
-    /// <summary>
     /// Gets or sets the relying party identifier.
     /// </summary>
     [Required]
@@ -73,4 +61,15 @@ public class Passkey : SyncableEntity
     /// Gets or sets the additional data as JSON blob.
     /// </summary>
     public byte[]? AdditionalData { get; set; }
+
+    /// <summary>
+    /// Gets or sets the credential ID.
+    /// </summary>
+    public Guid CredentialId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the credential object.
+    /// </summary>
+    [ForeignKey("CredentialId")]
+    public virtual Credential Credential { get; set; } = null!;
 }

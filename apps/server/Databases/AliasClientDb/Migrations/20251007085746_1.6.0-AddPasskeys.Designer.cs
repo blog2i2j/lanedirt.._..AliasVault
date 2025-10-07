@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AliasClientDb.Migrations
 {
     [DbContext(typeof(AliasClientDbContext))]
-    [Migration("20251007084230_1.6.0-AddPasskeys")]
+    [Migration("20251007085746_1.6.0-AddPasskeys")]
     partial class _160AddPasskeys
     {
         /// <inheritdoc />
