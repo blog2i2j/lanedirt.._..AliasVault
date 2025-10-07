@@ -16,13 +16,16 @@ public class CredentialIdentityStore {
 
     /// Save credentials into the native iOS credential store.
     public func saveCredentialIdentities(_ credentials: [Credential]) async throws {
-        let identities: [ASPasswordCredentialIdentity] = credentials.compactMap { credential in
+        var allIdentities: [ASCredentialIdentity] = []
+
+        // Create password identities
+        let passwordIdentities: [ASPasswordCredentialIdentity] = credentials.compactMap { credential in
             guard let urlString = credential.service.url,
                   let url = URL(string: urlString),
                   let host = url.host else {
                 return nil
             }
-            
+
             // Use the same logic as the UI for determining the identifier
             let identifier = usernameOrEmail(credential: credential)
             guard !identifier.isEmpty else {
@@ -38,19 +41,47 @@ public class CredentialIdentityStore {
             )
         }
 
-        guard !identities.isEmpty else {
+        allIdentities.append(contentsOf: passwordIdentities)
+
+        // Create passkey identities
+        let passkeyIdentities: [ASPasskeyCredentialIdentity] = credentials.flatMap { credential -> [ASPasskeyCredentialIdentity] in
+            guard let passkeys = credential.passkeys,
+                  let urlString = credential.service.url,
+                  let url = URL(string: urlString),
+                  let host = url.host else {
+                return []
+            }
+
+            let effectiveDomain = Self.effectiveDomain(from: host)
+
+            return passkeys.compactMap { passkey in
+                guard !passkey.isDeleted else { return nil }
+
+                return ASPasskeyCredentialIdentity(
+                    relyingPartyIdentifier: passkey.rpId,
+                    userName: passkey.userName ?? usernameOrEmail(credential: credential),
+                    credentialID: passkey.credentialId,
+                    userHandle: passkey.userId ?? Data(),
+                    recordIdentifier: passkey.id.uuidString
+                )
+            }
+        }
+
+        allIdentities.append(contentsOf: passkeyIdentities)
+
+        guard !allIdentities.isEmpty else {
             print("No valid identities to save.")
             return
         }
 
         let state = await storeState()
-            guard state.isEnabled else {
-              print("Credential identity store is not enabled.")
-              return
+        guard state.isEnabled else {
+            print("Credential identity store is not enabled.")
+            return
         }
 
         do {
-            try await store.saveCredentialIdentities(identities)
+            try await store.saveCredentialIdentities(allIdentities)
         } catch {
             print("Failed to save credential identities to native iOS storage: \(error)")
         }
