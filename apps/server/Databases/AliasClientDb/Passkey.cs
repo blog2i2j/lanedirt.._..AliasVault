@@ -58,6 +58,12 @@ public class Passkey : SyncableEntity
     public string PrivateKey { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the PRF encryption key associated with the passkey (optional, only set if PRF was requested by RP).
+    /// </summary>
+    [MaxLength(64)]
+    public byte[]? PrfKey { get; set; }
+
+    /// <summary>
     /// Gets or sets the display name for the passkey.
     /// </summary>
     [MaxLength(255)]

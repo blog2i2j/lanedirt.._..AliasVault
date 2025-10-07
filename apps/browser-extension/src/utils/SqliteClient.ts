@@ -1155,6 +1155,7 @@ export class SqliteClient {
         p.PublicKey,
         p.PrivateKey,
         p.DisplayName,
+        p.PrfKey,
         p.AdditionalData,
         p.CreatedAt,
         p.UpdatedAt,
@@ -1179,6 +1180,7 @@ export class SqliteClient {
       PublicKey: row.PublicKey,
       PrivateKey: row.PrivateKey,
       DisplayName: row.DisplayName,
+      PrfKey: row.PrfKey,
       AdditionalData: row.AdditionalData,
       CreatedAt: row.CreatedAt,
       UpdatedAt: row.UpdatedAt,
@@ -1207,6 +1209,7 @@ export class SqliteClient {
         p.PublicKey,
         p.PrivateKey,
         p.DisplayName,
+        p.PrfKey,
         p.AdditionalData,
         p.CreatedAt,
         p.UpdatedAt,
@@ -1235,6 +1238,7 @@ export class SqliteClient {
       PublicKey: row.PublicKey,
       PrivateKey: row.PrivateKey,
       DisplayName: row.DisplayName,
+      PrfKey: row.PrfKey,
       AdditionalData: row.AdditionalData,
       CreatedAt: row.CreatedAt,
       UpdatedAt: row.UpdatedAt,
@@ -1263,6 +1267,7 @@ export class SqliteClient {
         p.PublicKey,
         p.PrivateKey,
         p.DisplayName,
+        p.PrfKey,
         p.AdditionalData,
         p.CreatedAt,
         p.UpdatedAt,
@@ -1283,6 +1288,7 @@ export class SqliteClient {
       PublicKey: row.PublicKey,
       PrivateKey: row.PrivateKey,
       DisplayName: row.DisplayName,
+      PrfKey: row.PrfKey,
       AdditionalData: row.AdditionalData,
       CreatedAt: row.CreatedAt,
       UpdatedAt: row.UpdatedAt,
@@ -1310,10 +1316,16 @@ export class SqliteClient {
       const query = `
         INSERT INTO Passkeys (
           Id, CredentialId, RpId, UserId, PublicKey, PrivateKey,
-          DisplayName, AdditionalData, CreatedAt, UpdatedAt, IsDeleted
+          PrfKey, DisplayName, AdditionalData, CreatedAt, UpdatedAt, IsDeleted
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
+
+      // Convert PrfKey to Uint8Array if it's a number array
+      let prfKeyData: Uint8Array | null = null;
+      if (passkey.PrfKey) {
+        prfKeyData = passkey.PrfKey instanceof Uint8Array ? passkey.PrfKey : new Uint8Array(passkey.PrfKey);
+      }
 
       this.executeUpdate(query, [
         passkey.Id,
@@ -1322,6 +1334,7 @@ export class SqliteClient {
         passkey.UserId ?? null,
         passkey.PublicKey,
         passkey.PrivateKey,
+        prfKeyData,
         passkey.DisplayName,
         passkey.AdditionalData ?? null,
         currentDateTime,

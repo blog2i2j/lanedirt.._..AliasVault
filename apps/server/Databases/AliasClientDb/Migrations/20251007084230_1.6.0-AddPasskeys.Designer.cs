@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AliasClientDb.Migrations
 {
     [DbContext(typeof(AliasClientDbContext))]
-    [Migration("20251003045732_1.6.0-AddPasskeys")]
+    [Migration("20251007084230_1.6.0-AddPasskeys")]
     partial class _160AddPasskeys
     {
         /// <inheritdoc />
@@ -194,6 +194,10 @@ namespace AliasClientDb.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
+                    b.Property<byte[]>("PrfKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("BLOB");
+
                     b.Property<string>("PrivateKey")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -375,7 +379,7 @@ namespace AliasClientDb.Migrations
             modelBuilder.Entity("AliasClientDb.Passkey", b =>
                 {
                     b.HasOne("AliasClientDb.Credential", "Credential")
-                        .WithMany()
+                        .WithMany("Passkeys")
                         .HasForeignKey("CredentialId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -413,6 +417,8 @@ namespace AliasClientDb.Migrations
             modelBuilder.Entity("AliasClientDb.Credential", b =>
                 {
                     b.Navigation("Attachments");
+
+                    b.Navigation("Passkeys");
 
                     b.Navigation("Passwords");
 

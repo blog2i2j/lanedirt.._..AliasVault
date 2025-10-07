@@ -191,6 +191,10 @@ namespace AliasClientDb.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
+                    b.Property<byte[]>("PrfKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("BLOB");
+
                     b.Property<string>("PrivateKey")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -372,7 +376,7 @@ namespace AliasClientDb.Migrations
             modelBuilder.Entity("AliasClientDb.Passkey", b =>
                 {
                     b.HasOne("AliasClientDb.Credential", "Credential")
-                        .WithMany()
+                        .WithMany("Passkeys")
                         .HasForeignKey("CredentialId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -410,6 +414,8 @@ namespace AliasClientDb.Migrations
             modelBuilder.Entity("AliasClientDb.Credential", b =>
                 {
                     b.Navigation("Attachments");
+
+                    b.Navigation("Passkeys");
 
                     b.Navigation("Passwords");
 

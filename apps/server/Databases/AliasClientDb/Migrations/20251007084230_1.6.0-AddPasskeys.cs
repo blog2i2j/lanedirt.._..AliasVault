@@ -22,6 +22,7 @@ namespace AliasClientDb.Migrations
                     UserId = table.Column<string>(type: "TEXT", maxLength: 255, nullable: true),
                     PublicKey = table.Column<string>(type: "TEXT", nullable: false),
                     PrivateKey = table.Column<string>(type: "TEXT", nullable: false),
+                    PrfKey = table.Column<byte[]>(type: "BLOB", maxLength: 64, nullable: true),
                     DisplayName = table.Column<string>(type: "TEXT", maxLength: 255, nullable: false),
                     AdditionalData = table.Column<byte[]>(type: "BLOB", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),

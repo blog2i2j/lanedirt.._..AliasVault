@@ -161,7 +161,7 @@ public class AliasClientDbContext : DbContext
         // Configure Passkey - Credential relationship
         modelBuilder.Entity<Passkey>()
             .HasOne(p => p.Credential)
-            .WithMany()
+            .WithMany(c => c.Passkeys)
             .HasForeignKey(p => p.CredentialId)
             .OnDelete(DeleteBehavior.Cascade);
 

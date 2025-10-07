@@ -318,7 +318,7 @@ export class PasskeyAuthenticator {
     // Step 2: Import PRF secret as HMAC key
     const hmacKey = await crypto.subtle.importKey(
       'raw',
-      prfSecretBytes,
+      prfSecretBytes as BufferSource,
       { name: 'HMAC', hash: 'SHA-256' },
       false,
       ['sign']

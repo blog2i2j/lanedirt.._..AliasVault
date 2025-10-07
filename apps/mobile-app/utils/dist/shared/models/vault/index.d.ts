@@ -112,6 +112,8 @@ type Passkey = {
     PublicKey: string;
     /** The private key */
     PrivateKey: string;
+    /** The PRF encryption key associated with the passkey (optional, only set if PRF was requested by RP) */
+    PrfKey?: Uint8Array | number[];
     /** The display name for the passkey */
     DisplayName: string;
     /** Additional data as JSON blob (Base64 encoded) */
