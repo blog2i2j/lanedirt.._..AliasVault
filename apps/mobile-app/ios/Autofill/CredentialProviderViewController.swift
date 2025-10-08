@@ -14,13 +14,21 @@ import VaultModels
  * logins in the keyboard).
  */
 public class CredentialProviderViewController: ASCredentialProviderViewController {
-    private var hostingController: UIHostingController<CredentialProviderView>?
+    internal var hostingController: UIHostingController<CredentialProviderView>?
+    internal var passkeyHostingController: UIViewController?
+    internal var isPasskeyRegistrationMode = false
     private var viewModel: CredentialProviderViewModel?
     private var isChoosingTextToInsert = false
     private var initialServiceUrl: String?
 
     override public func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+
+        // Don't set up credential view if we're in passkey registration mode
+        // TODO: make this more clear by design which action is taken for which mode in the viewWillAppear for autofill vs passkey
+        if isPasskeyRegistrationMode {
+            return
+        }
 
         // Check if there is a stored vault. If not, it means the user has not logged in yet and we
         // should redirect to the main app login screen automatically.
@@ -129,6 +137,15 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
     override public func provideCredentialWithoutUserInteraction(for credentialIdentity: ASPasswordCredentialIdentity) {
         do {
             let vaultStore = VaultStore()
+
+            // Check vault state
+            guard sanityChecks(vaultStore: vaultStore) else {
+                return
+            }
+
+            // Unlock vault
+            try vaultStore.unlockVault()
+
             let credentials = try vaultStore.getAllCredentials()
 
             if let matchingCredential = credentials.first(where: { credential in
@@ -150,6 +167,7 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
                 )
             }
         } catch {
+            print("provideCredentialWithoutUserInteraction error: \(error)")
             self.extensionContext.cancelRequest(
                 withError: NSError(
                     domain: ASExtensionErrorDomain,
@@ -163,20 +181,7 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
     // MARK: - Passkey Support
 
     override public func prepareInterface(forPasskeyRegistration registrationRequest: ASCredentialRequest) {
-        guard let passkeyRequest = registrationRequest as? ASPasskeyCredentialRequest else {
-            extensionContext.cancelRequest(withError: NSError(
-                domain: ASExtensionErrorDomain,
-                code: ASExtensionError.failed.rawValue
-            ))
-            return
-        }
-
-        // TODO: Implement passkey registration UI
-        // For now, cancel the request
-        extensionContext.cancelRequest(withError: NSError(
-            domain: ASExtensionErrorDomain,
-            code: ASExtensionError.userCanceled.rawValue
-        ))
+        handlePasskeyRegistration(registrationRequest)
     }
 
     override public func prepareInterfaceToProvideCredential(for credentialRequest: ASCredentialRequest) {
@@ -190,24 +195,49 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
         // The existing prepareCredentialList method will be called by the system
     }
 
-    private func handlePasskeyAuthentication(_ request: ASPasskeyCredentialRequest) {
+    @available(iOS 17.0, *)
+    override public func provideCredentialWithoutUserInteraction(for credentialRequest: ASCredentialRequest) {
+        // Check if this is a passkey request
+        if let passkeyRequest = credentialRequest as? ASPasskeyCredentialRequest {
+            providePasskeyCredentialWithoutUserInteraction(for: passkeyRequest)
+            return
+        }
+
+        // For password credentials, call the legacy method
+        if let credentialIdentity = credentialRequest.credentialIdentity as? ASPasswordCredentialIdentity {
+            provideCredentialWithoutUserInteraction(for: credentialIdentity)
+            return
+        }
+
+        // Unknown credential type
+        self.extensionContext.cancelRequest(withError: NSError(
+            domain: ASExtensionErrorDomain,
+            code: ASExtensionError.userInteractionRequired.rawValue
+        ))
+    }
+
+    /**
+     * Provide passkey credential without user interaction
+     */
+    private func providePasskeyCredentialWithoutUserInteraction(for request: ASPasskeyCredentialRequest) {
         do {
             let vaultStore = VaultStore()
 
-            // Check sanity before proceeding
+            // Check vault state
             guard sanityChecks(vaultStore: vaultStore) else {
                 return
             }
 
-            // Unlock the vault
+            // Unlock vault
             try vaultStore.unlockVault()
 
             let clientDataHash = request.clientDataHash
             let credentialIdentity = request.credentialIdentity as? ASPasskeyCredentialIdentity
             let rpId = credentialIdentity?.relyingPartyIdentifier ?? ""
+            let credentialID = credentialIdentity?.credentialID ?? Data()
 
-            // Load passkey from vault using the credential ID
-            guard let passkey = try vaultStore.getPasskey(byCredentialId: credentialIdentity?.credentialID ?? Data()) else {
+            // Look up passkey by credential ID
+            guard let passkey = try vaultStore.getPasskey(byCredentialId: credentialID) else {
                 extensionContext.cancelRequest(withError: NSError(
                     domain: ASExtensionErrorDomain,
                     code: ASExtensionError.credentialIdentityNotFound.rawValue
@@ -215,19 +245,19 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
                 return
             }
 
-            // Generate assertion using PasskeyAuthenticator
+            // Generate assertion
             let assertion = try PasskeyAuthenticator.getAssertion(
                 credentialId: passkey.credentialId,
                 clientDataHash: clientDataHash,
                 rpId: rpId,
                 privateKeyJWK: passkey.privateKey,
                 userId: passkey.userId,
-                uvPerformed: true,  // We verified user with Face ID/Touch ID
-                prfInputs: nil,  // TODO: Extract PRF inputs from request if needed
+                uvPerformed: true,
+                prfInputs: nil,
                 prfSecret: passkey.prfKey
             )
 
-            // Complete the request with passkey assertion credential
+            // Complete the request
             let credential = ASPasskeyAssertionCredential(
                 userHandle: assertion.userHandle ?? Data(),
                 relyingParty: rpId,
@@ -240,22 +270,13 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
             extensionContext.completeAssertionRequest(using: credential)
 
         } catch {
-            print("PasskeyAuthentication error: \(error)")
+            print("Passkey authentication without UI error: \(error)")
+            // Require user interaction if we can't authenticate silently
             extensionContext.cancelRequest(withError: NSError(
                 domain: ASExtensionErrorDomain,
-                code: ASExtensionError.failed.rawValue,
-                userInfo: [NSLocalizedDescriptionKey: error.localizedDescription]
+                code: ASExtensionError.userInteractionRequired.rawValue
             ))
         }
-    }
-
-    public func providePasskeyCredentialWithoutUserInteraction(for credentialIdentity: ASPasskeyCredentialIdentity) {
-        // TODO: Implement silent passkey authentication
-        // For now, fall back to requiring user interaction
-        extensionContext.cancelRequest(withError: NSError(
-            domain: ASExtensionErrorDomain,
-            code: ASExtensionError.userInteractionRequired.rawValue
-        ))
     }
 
     /// This registers all known AliasVault credentials into iOS native credential storage, which iOS can then use to
@@ -274,7 +295,7 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
     /// - Returns
     ///  true if sanity checks succeeded and view can open
     ///  false if sanity checks failed and a notice windows has been shown.
-    private func sanityChecks(vaultStore: VaultStore) -> Bool {
+    func sanityChecks(vaultStore: VaultStore) -> Bool {
         if !vaultStore.hasEncryptedDatabase {
             let alert = UIAlertController(
                 title: NSLocalizedString("login_required", comment: ""),
@@ -379,7 +400,7 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
     }
 
     /// Handle autofill view cancel action.
-    private func handleCancel() {
+    internal func handleCancel() {
         self.extensionContext.cancelRequest(withError: NSError(
             domain: ASExtensionErrorDomain,
             code: ASExtensionError.userCanceled.rawValue
