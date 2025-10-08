@@ -14,7 +14,7 @@ protocol CredentialProviderDelegate: AnyObject {
 }
 
 protocol PasskeyProviderDelegate: AnyObject {
-    func setupPasskeyView(vaultStore: VaultStore, rpId: String?, clientDataHash: Data?) throws -> UIViewController
+    func setupPasskeyView(vaultStore: VaultStore, rpId: String, clientDataHash: Data) throws -> UIViewController
     func handlePasskeySelection(credential: Credential, clientDataHash: Data, rpId: String)
     func loadPasskeyCredentials(vaultStore: VaultStore, rpId: String?) async throws -> [Credential]
 }
@@ -29,8 +29,14 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
     internal var isPasskeyRegistrationMode = false
     internal var isPasskeyAuthenticationMode = false
     internal var isChoosingTextToInsert = false
+    internal var currentPasskeyRequest: ASPasskeyCredentialRequestParameters?
+
+    // Credential-specific properties
     private var initialServiceUrl: String?
-    private var currentPasskeyRequest: ASPasskeyCredentialRequest?
+
+    // Passkey-specific properties
+    private var initialRpId: String?
+    private var clientDataHash: Data?
 
     // Delegates for specific credential types
     weak var credentialDelegate: CredentialProviderDelegate?
@@ -62,16 +68,6 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
         // Don't set up credential view if we're in passkey registration mode
         if isPasskeyRegistrationMode {
             return
-        }
-
-        // If passkey authentication mode is set (from prepareCredentialList detecting passkeys),
-        // show the passkey picker instead of the normal credential list
-        if isPasskeyAuthenticationMode {
-            // If we have a full passkey request (from prepareInterfaceToProvideCredential), use it
-            if let passkeyRequest = currentPasskeyRequest {
-                // This already handled in prepareInterfaceToProvideCredential, just return
-                return
-            }
         }
 
         // Check if there is a stored vault. If not, it means the user has not logged in yet and we
@@ -129,7 +125,7 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
             guard let passkeyDelegate = passkeyDelegate else {
                 throw NSError(domain: "CredentialProviderViewController", code: -1, userInfo: [NSLocalizedDescriptionKey: "Passkey delegate not set"])
             }
-            hostingController = try passkeyDelegate.setupPasskeyView(vaultStore: vaultStore, rpId: initialServiceUrl, clientDataHash: nil)
+            hostingController = try passkeyDelegate.setupPasskeyView(vaultStore: vaultStore, rpId: initialRpId ?? "", clientDataHash: clientDataHash ?? Data())
         } else {
             // Use credential delegate to setup credential view
             guard let credentialDelegate = credentialDelegate else {
@@ -157,6 +153,9 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
         print("CredentialProviderViewController: prepareCredentialList called for passkey")
 
         self.isPasskeyAuthenticationMode = true
+        self.currentPasskeyRequest = requestParameters
+        self.initialRpId = requestParameters.relyingPartyIdentifier
+        self.clientDataHash = requestParameters.clientDataHash
     }
 
     override public func prepareCredentialList(for serviceIdentifiers: [ASCredentialServiceIdentifier]) {
