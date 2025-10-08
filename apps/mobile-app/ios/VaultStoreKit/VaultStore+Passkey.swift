@@ -181,6 +181,91 @@ extension VaultStore {
     }
 
     /**
+     * Get all passkeys for a specific relying party identifier (RP ID)
+     */
+    public func getPasskeys(forRpId rpId: String) throws -> [Passkey] {
+        guard let dbConn = dbConnection else {
+            throw VaultStoreError.vaultNotUnlocked
+        }
+
+        let query = """
+            SELECT
+                Id,
+                CredentialId,
+                RpId,
+                UserId,
+                PublicKey,
+                PrivateKey,
+                PrfKey,
+                DisplayName,
+                AdditionalData,
+                CreatedAt,
+                UpdatedAt,
+                IsDeleted
+            FROM Passkeys
+            WHERE RpId = ? AND IsDeleted = 0
+            ORDER BY CreatedAt DESC
+        """
+
+        var passkeys: [Passkey] = []
+        for row in try dbConn.prepare(query, [rpId]) {
+            guard let idString = row[0] as? String,
+                  let credentialIdString = row[1] as? String,
+                  let rpId = row[2] as? String,
+                  let publicKeyString = row[4] as? String,
+                  let privateKeyString = row[5] as? String,
+                  let displayName = row[7] as? String,
+                  let createdAtString = row[9] as? String,
+                  let updatedAtString = row[10] as? String,
+                  let isDeletedInt64 = row[11] as? Int64,
+                  let id = UUID(uuidString: idString),
+                  let parentCredentialId = UUID(uuidString: credentialIdString),
+                  let publicKeyData = publicKeyString.data(using: .utf8),
+                  let privateKeyData = privateKeyString.data(using: .utf8) else {
+                continue
+            }
+
+            guard let createdAt = parseDateString(createdAtString),
+                  let updatedAt = parseDateString(updatedAtString) else {
+                continue
+            }
+
+            let userId = (row[3] as? String)?.data(using: .utf8)
+            let prfKey = (row[6] as? SQLite.Blob).map { Data($0.bytes) }
+            let isDeleted = isDeletedInt64 == 1
+
+            // Get the actual WebAuthn credential ID from AdditionalData column
+            let webauthnCredentialId: Data
+            if let additionalDataBlob = row[8] as? SQLite.Blob {
+                webauthnCredentialId = Data(additionalDataBlob.bytes)
+            } else {
+                // Fallback: use the passkey ID as a GUID and convert to bytes
+                webauthnCredentialId = (try? PasskeyHelper.guidToBytes(idString)) ?? Data()
+            }
+
+            let passkey = Passkey(
+                id: id,
+                credentialId: webauthnCredentialId,
+                credentialIdString: parentCredentialId.uuidString,
+                rpId: rpId,
+                userId: userId,
+                userName: nil,
+                publicKey: publicKeyData,
+                privateKey: privateKeyData,
+                prfKey: prfKey,
+                displayName: displayName,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                isDeleted: isDeleted
+            )
+
+            passkeys.append(passkey)
+        }
+
+        return passkeys
+    }
+
+    /**
      * Get all credentials that have passkeys attached
      */
     // swiftlint:disable:next function_body_length

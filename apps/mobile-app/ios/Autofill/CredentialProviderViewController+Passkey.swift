@@ -255,8 +255,9 @@ extension CredentialProviderViewController {
      * Handle passkey authentication request
      */
     func handlePasskeyAuthentication(_ request: ASPasskeyCredentialRequest) {
-        // Set flag to indicate passkey authentication mode
+        // Set flags to indicate passkey authentication mode (not registration, not password)
         self.isPasskeyRegistrationMode = false
+        self.isPasskeyAuthenticationMode = true
 
         do {
             let vaultStore = VaultStore()
@@ -273,10 +274,14 @@ extension CredentialProviderViewController {
             let credentialIdentity = request.credentialIdentity as? ASPasskeyCredentialIdentity
             let rpId = credentialIdentity?.relyingPartyIdentifier ?? ""
 
+            print("PasskeyAuthentication: rpId=\(rpId)")
+
             // Check if we have a specific credential ID provided by the system
             if let credentialID = credentialIdentity?.credentialID, !credentialID.isEmpty {
+                print("PasskeyAuthentication: Direct credential lookup with ID")
                 // Direct credential ID lookup - authenticate immediately
                 guard let passkey = try vaultStore.getPasskey(byCredentialId: credentialID) else {
+                    print("PasskeyAuthentication: Credential not found")
                     extensionContext.cancelRequest(withError: NSError(
                         domain: ASExtensionErrorDomain,
                         code: ASExtensionError.credentialIdentityNotFound.rawValue
@@ -284,8 +289,10 @@ extension CredentialProviderViewController {
                     return
                 }
 
+                print("PasskeyAuthentication: Found passkey, authenticating")
                 try authenticateWithPasskey(passkey, clientDataHash: clientDataHash, rpId: rpId)
             } else {
+                print("PasskeyAuthentication: No specific credential ID, showing picker")
                 // No specific credential - show picker for user to select
                 showPasskeyPickerView(rpId: rpId, clientDataHash: clientDataHash, vaultStore: vaultStore)
             }
@@ -378,7 +385,8 @@ extension CredentialProviderViewController {
      * Load credentials with passkeys for the specified RP ID
      */
     private func loadPasskeyCredentials(vaultStore: VaultStore, rpId: String) async throws -> [Credential] {
-        let credentials = try vaultStore.getAllCredentialsWithPasskeys()
+        // getAllCredentials now includes passkeys for each credential
+        let credentials = try vaultStore.getAllCredentials()
 
         // Filter by RP ID if specified
         if !rpId.isEmpty {

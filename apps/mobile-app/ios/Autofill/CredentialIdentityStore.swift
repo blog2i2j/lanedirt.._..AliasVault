@@ -16,6 +16,8 @@ public class CredentialIdentityStore {
 
     /// Save credentials into the native iOS credential store.
     public func saveCredentialIdentities(_ credentials: [Credential]) async throws {
+        // TODO: improve implementation to better separate password and passkey identities.
+        // As if a record has both a password and passkey, it will not only show up as a password identity.
         var allIdentities: [ASCredentialIdentity] = []
 
         // Create password identities
@@ -30,6 +32,10 @@ public class CredentialIdentityStore {
             let identifier = usernameOrEmail(credential: credential)
             guard !identifier.isEmpty else {
                 return nil // Skip credentials with no identifier
+            }
+
+            guard let password = credential.password, !password.value.isEmpty else {
+                return nil // Skip credentials with no password (e.g. applies when this record is a passkey)
             }
 
             let effectiveDomain = Self.effectiveDomain(from: host)
@@ -99,7 +105,7 @@ public class CredentialIdentityStore {
                 identifier: credential.service.name ?? "",
                 type: .domain
             )
-            
+
             // Use the same logic as the UI for determining the identifier
             let identifier = usernameOrEmail(credential: credential)
             guard !identifier.isEmpty else {

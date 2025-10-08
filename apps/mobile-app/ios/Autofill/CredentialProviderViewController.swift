@@ -17,6 +17,7 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
     internal var hostingController: UIHostingController<CredentialProviderView>?
     internal var passkeyHostingController: UIViewController?
     internal var isPasskeyRegistrationMode = false
+    internal var isPasskeyAuthenticationMode = false
     private var viewModel: CredentialProviderViewModel?
     private var isChoosingTextToInsert = false
     private var initialServiceUrl: String?
@@ -24,9 +25,10 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
     override public func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
 
-        // Don't set up credential view if we're in passkey registration mode
-        // TODO: make this more clear by design which action is taken for which mode in the viewWillAppear for autofill vs passkey
-        if isPasskeyRegistrationMode {
+        // Don't set up credential view if we're in passkey registration or authentication mode
+        // These modes are handled by prepareInterface(forPasskeyRegistration:) and
+        // prepareInterfaceToProvideCredential(for:) respectively
+        if isPasskeyRegistrationMode || isPasskeyAuthenticationMode {
             return
         }
 
@@ -298,9 +300,9 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
         }
     }
 
-    /// This registers all known AliasVault credentials into iOS native credential storage, which iOS can then use to
-    /// suggest autofill credentials when a user focuses an input field on a login form. These suggestions will then be s
-    /// hown above the iOS keyboard, which saves the user one step.
+    /// This registers all known AliasVault credentials (both passwords and passkeys) into iOS native credential storage,
+    /// which iOS can then use to suggest autofill credentials when a user focuses an input field on a login form.
+    /// These suggestions will then be shown above the iOS keyboard, which saves the user one step.
     ///
     /// Note: QuickType bar suggestions are only enabled on iOS 26+ due to biometric authentication limitations
     /// in iOS 17 and 18 where background authentication doesn't work reliably.
@@ -310,7 +312,7 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
         if #available(iOS 26.0, *) {
             do {
                 try await CredentialIdentityStore.shared.saveCredentialIdentities(credentials)
-                print("Registered credential identities for QuickType on iOS 26+")
+                print("Registered credential identities (passwords + passkeys) for QuickType on iOS 26+")
             } catch {
                 print("Failed to save credential identities: \(error)")
             }
@@ -404,10 +406,14 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
     }
 
     /// Load credentials from the vault store and register them as credential identities
-    /// and then return them to the caller (view model).
+    /// (including both passwords and passkeys) and then return them to the caller (view model).
     private func loadCredentials(vaultStore: VaultStore) async throws -> [Credential] {
+        // getAllCredentials now includes passkeys for each credential
         let credentials = try vaultStore.getAllCredentials()
+
+        // Register all credential identities (passwords and passkeys)
         await self.registerCredentialIdentities(credentials: credentials)
+
         return credentials
     }
 
