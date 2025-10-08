@@ -349,24 +349,9 @@ extension VaultStore {
 
         let isDeleted = isDeletedInt64 == 1
 
-        // Parse WebAuthn credential ID from AdditionalData (stored as blob containing 16-byte GUID)
-        // This is the actual passkey credential ID that iOS expects for matching
-        let webauthnCredentialId: Data
-        if let additionalDataBlob = try? row.get(Self.colAdditionalData) {
-            webauthnCredentialId = Data(additionalDataBlob.bytes)
-        } else {
-            // Fallback: use the passkey record ID as a GUID and convert to bytes
-            do {
-                webauthnCredentialId = try PasskeyHelper.guidToBytes(idString)
-            } catch {
-                print("VaultStore+Passkey: Failed to convert passkey ID to bytes: \(error)")
-                webauthnCredentialId = Data()
-            }
-        }
-
         return Passkey(
             id: id,
-            credentialId: webauthnCredentialId,
+            parentCredentialId: parentCredentialId,  // Parent Credential UUID
             rpId: rpId,
             userHandle: userId,
             userName: nil,  // userName not stored in DB, derived from parent credential

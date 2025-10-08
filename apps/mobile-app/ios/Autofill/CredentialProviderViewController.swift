@@ -265,10 +265,11 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
                 ))
                 return
             }
-
+            
             // Generate assertion
+            let credentialId = try? PasskeyHelper.guidToBytes(passkey.id.uuidString)
             let assertion = try PasskeyAuthenticator.getAssertion(
-                credentialId: passkey.credentialId,
+                credentialId: credentialId ?? Data(),
                 clientDataHash: clientDataHash,
                 rpId: rpId,
                 privateKeyJWK: passkey.privateKey,

@@ -1,5 +1,6 @@
 import AuthenticationServices
 import VaultModels
+import VaultStoreKit
 import VaultUI
 
 /**
@@ -63,19 +64,16 @@ public class CredentialIdentityStore {
                     // Get the userName for display in iOS AutoFill UI
                     // Passkeys don't store userName in the database, so we use the credential's username or email
                     let userName = passkey.userName ?? usernameOrEmail(credential: credential)
-
-                    // iOS requires a non-empty userName to display the passkey in AutoFill
-                    if userName.isEmpty {
-                        print("CredentialIdentityStore: Skipping passkey \(passkey.id) - userName is empty")
-                        return nil
-                    }
+                    
+                    // Convert passkey.Id to bytes for credentialID
+                    let credentialId = try? PasskeyHelper.guidToBytes(passkey.id.uuidString)
 
                     // For passkeys, we use the rpId from the passkey itself, not the service URL
                     // This is because passkeys are tied to the RP ID, which may differ from the service URL
                     return ASPasskeyCredentialIdentity(
                         relyingPartyIdentifier: passkey.rpId,
                         userName: userName,
-                        credentialID: passkey.credentialId,
+                        credentialID: credentialId ?? Data(),  // WebAuthn credential ID (16-byte GUID)
                         userHandle: passkey.userHandle ?? Data(),
                         recordIdentifier: passkey.id.uuidString
                     )

@@ -312,8 +312,10 @@ extension CredentialProviderViewController {
      */
     private func authenticateWithPasskey(_ passkey: Passkey, clientDataHash: Data, rpId: String) throws {
         // Generate assertion using PasskeyAuthenticator
+        let credentialId = try? PasskeyHelper.guidToBytes(passkey.id.uuidString)
+        
         let assertion = try PasskeyAuthenticator.getAssertion(
-            credentialId: passkey.credentialId,
+            credentialId: credentialId ?? Data(),
             clientDataHash: clientDataHash,
             rpId: rpId,
             privateKeyJWK: passkey.privateKey,
