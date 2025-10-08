@@ -6,10 +6,9 @@ import Foundation
  */
 public struct Passkey: Codable, Hashable, Equatable {
     public let id: UUID
-    public let credentialId: Data  // 16-byte GUID, converted to base64url for WebAuthn
-    public let credentialIdString: String  // Parent credential UUID
+    public let credentialId: Data  // Credential ID as supplied originally by the RP
     public let rpId: String  // Relying party identifier (domain)
-    public let userId: Data?  // User identifier from RP (optional)
+    public let userHandle: Data?  // User ID/handle from RP (optional)
     public let userName: String?  // User-visible identifier (typically email)
     public let publicKey: Data  // JWK format (JSON)
     public let privateKey: Data  // JWK format (JSON), encrypted in storage
@@ -22,9 +21,8 @@ public struct Passkey: Codable, Hashable, Equatable {
     public init(
         id: UUID,
         credentialId: Data,
-        credentialIdString: String,
         rpId: String,
-        userId: Data?,
+        userHandle: Data?,
         userName: String?,
         publicKey: Data,
         privateKey: Data,
@@ -36,9 +34,8 @@ public struct Passkey: Codable, Hashable, Equatable {
     ) {
         self.id = id
         self.credentialId = credentialId
-        self.credentialIdString = credentialIdString
         self.rpId = rpId
-        self.userId = userId
+        self.userHandle = userHandle
         self.userName = userName
         self.publicKey = publicKey
         self.privateKey = privateKey

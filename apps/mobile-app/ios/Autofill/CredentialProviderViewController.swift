@@ -272,7 +272,7 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
                 clientDataHash: clientDataHash,
                 rpId: rpId,
                 privateKeyJWK: passkey.privateKey,
-                userId: passkey.userId,
+                userId: passkey.userHandle,
                 uvPerformed: true,
                 prfInputs: nil,
                 prfSecret: passkey.prfKey
@@ -304,26 +304,27 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
     /// which iOS can then use to suggest autofill credentials when a user focuses an input field on a login form.
     /// These suggestions will then be shown above the iOS keyboard, which saves the user one step.
     ///
-    /// Note: QuickType bar suggestions are only enabled on iOS 26+ due to biometric authentication limitations
-    /// in iOS 17 and 18 where background authentication doesn't work reliably.
+    /// Note: Password QuickType bar suggestions are only enabled on iOS 26+ due to biometric authentication limitations
+    /// in iOS 17 and 18 where background authentication doesn't work reliably. However, PASSKEY identities must be
+    /// registered on all iOS versions (17+) so iOS knows to call this extension for passkey authentication requests.
     private func registerCredentialIdentities(credentials: [Credential]) async {
-        // Only register credentials for QuickType on iOS 26+
-        // iOS 17 and 18 have issues with background biometric authentication, so we disable QuickType there
-        if #available(iOS 26.0, *) {
-            do {
+        do {
+            if #available(iOS 26.0, *) {
+                // iOS 26+: Register both passwords and passkeys for QuickType and manual selection
                 try await CredentialIdentityStore.shared.saveCredentialIdentities(credentials)
                 print("Registered credential identities (passwords + passkeys) for QuickType on iOS 26+")
-            } catch {
-                print("Failed to save credential identities: \(error)")
+            } else {
+                // iOS 17-25: Only register passkeys (skip passwords for QuickType to avoid biometric issues)
+                // But passkeys MUST be registered so iOS knows to offer this extension for passkey authentication
+                let passkeyOnlyCredentials = credentials.filter { credential in
+                    guard let passkeys = credential.passkeys else { return false }
+                    return !passkeys.isEmpty
+                }
+                try await CredentialIdentityStore.shared.saveCredentialIdentities(passkeyOnlyCredentials, passkeyOnly: true)
+                print("Registered \(passkeyOnlyCredentials.count) passkey identities on iOS <26 (password QuickType disabled)")
             }
-        } else {
-            // On iOS 17-18, clear any existing identities to ensure nothing shows in QuickType
-            do {
-                try await CredentialIdentityStore.shared.removeAllCredentialIdentities()
-                print("Cleared credential identities on iOS <26 to disable QuickType suggestions")
-            } catch {
-                print("Failed to clear credential identities: \(error)")
-            }
+        } catch {
+            print("Failed to save credential identities: \(error)")
         }
     }
 

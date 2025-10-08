@@ -15,13 +15,16 @@ public class CredentialIdentityStore {
     private init() {}
 
     /// Save credentials into the native iOS credential store.
-    public func saveCredentialIdentities(_ credentials: [Credential]) async throws {
+    /// - Parameters:
+    ///   - credentials: The credentials to register
+    ///   - passkeyOnly: If true, only register passkey identities (skip passwords). Default is false.
+    public func saveCredentialIdentities(_ credentials: [Credential], passkeyOnly: Bool = false) async throws {
         // TODO: improve implementation to better separate password and passkey identities.
         // As if a record has both a password and passkey, it will not only show up as a password identity.
         var allIdentities: [ASCredentialIdentity] = []
 
-        // Create password identities
-        let passwordIdentities: [ASPasswordCredentialIdentity] = credentials.compactMap { credential in
+        // Create password identities (skip if passkeyOnly mode)
+        let passwordIdentities: [ASPasswordCredentialIdentity] = passkeyOnly ? [] : credentials.compactMap { credential in
             guard let urlString = credential.service.url,
                   let url = URL(string: urlString),
                   let host = url.host else {
@@ -51,45 +54,56 @@ public class CredentialIdentityStore {
 
         // Create passkey identities
         let passkeyIdentities: [ASPasskeyCredentialIdentity] = credentials.flatMap { credential -> [ASPasskeyCredentialIdentity] in
-            guard let passkeys = credential.passkeys,
-                  let urlString = credential.service.url,
-                  let url = URL(string: urlString),
-                  let host = url.host else {
+            guard let passkeys = credential.passkeys else {
                 return []
             }
 
-            let effectiveDomain = Self.effectiveDomain(from: host)
+            return passkeys.filter { !($0.isDeleted) }
+                .compactMap { passkey in
+                    // Get the userName for display in iOS AutoFill UI
+                    // Passkeys don't store userName in the database, so we use the credential's username or email
+                    let userName = passkey.userName ?? usernameOrEmail(credential: credential)
 
-            return passkeys.compactMap { passkey in
-                guard !passkey.isDeleted else { return nil }
+                    // iOS requires a non-empty userName to display the passkey in AutoFill
+                    if userName.isEmpty {
+                        print("CredentialIdentityStore: Skipping passkey \(passkey.id) - userName is empty")
+                        return nil
+                    }
 
-                return ASPasskeyCredentialIdentity(
-                    relyingPartyIdentifier: passkey.rpId,
-                    userName: passkey.userName ?? usernameOrEmail(credential: credential),
-                    credentialID: passkey.credentialId,
-                    userHandle: passkey.userId ?? Data(),
-                    recordIdentifier: passkey.id.uuidString
-                )
-            }
+                    // For passkeys, we use the rpId from the passkey itself, not the service URL
+                    // This is because passkeys are tied to the RP ID, which may differ from the service URL
+                    return ASPasskeyCredentialIdentity(
+                        relyingPartyIdentifier: passkey.rpId,
+                        userName: userName,
+                        credentialID: passkey.credentialId,
+                        userHandle: passkey.userHandle ?? Data(),
+                        recordIdentifier: passkey.id.uuidString
+                    )
+                }
         }
 
         allIdentities.append(contentsOf: passkeyIdentities)
 
+        print("CredentialIdentityStore: Registering \(passwordIdentities.count) password identities and \(passkeyIdentities.count) passkey identities")
+
         guard !allIdentities.isEmpty else {
-            print("No valid identities to save.")
+            print("CredentialIdentityStore: No valid identities to save.")
             return
         }
 
         let state = await storeState()
         guard state.isEnabled else {
-            print("Credential identity store is not enabled.")
+            print("CredentialIdentityStore: Credential identity store is not enabled. Please enable AutoFill in iOS Settings.")
             return
         }
 
+        print("CredentialIdentityStore: Store is enabled, saving \(allIdentities.count) total identities")
+
         do {
             try await store.saveCredentialIdentities(allIdentities)
+            print("CredentialIdentityStore: Successfully saved all identities")
         } catch {
-            print("Failed to save credential identities to native iOS storage: \(error)")
+            print("CredentialIdentityStore: Failed to save credential identities: \(error)")
         }
     }
 

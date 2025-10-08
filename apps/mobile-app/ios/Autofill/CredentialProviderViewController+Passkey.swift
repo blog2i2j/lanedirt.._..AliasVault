@@ -317,7 +317,7 @@ extension CredentialProviderViewController {
             clientDataHash: clientDataHash,
             rpId: rpId,
             privateKeyJWK: passkey.privateKey,
-            userId: passkey.userId,
+            userId: passkey.userHandle,
             uvPerformed: true,
             prfInputs: nil,
             prfSecret: passkey.prfKey
