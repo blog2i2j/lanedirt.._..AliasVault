@@ -135,15 +135,35 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
     }
 
     override public func provideCredentialWithoutUserInteraction(for credentialIdentity: ASPasswordCredentialIdentity) {
+        // QuickType bar suggestions are disabled on iOS <26, so this should only be called on iOS 26+
+        if #available(iOS 26.0, *) {
+            // iOS 26+ - proceed with background authentication
+        } else {
+            print("provideCredentialWithoutUserInteraction called on iOS <26 (unexpected)")
+            self.extensionContext.cancelRequest(
+                withError: NSError(
+                    domain: ASExtensionErrorDomain,
+                    code: ASExtensionError.userInteractionRequired.rawValue
+                )
+            )
+            return
+        }
+
         do {
             let vaultStore = VaultStore()
 
-            // Check vault state
-            guard sanityChecks(vaultStore: vaultStore) else {
+            // Check if vault database exists
+            guard vaultStore.hasEncryptedDatabase else {
+                self.extensionContext.cancelRequest(
+                    withError: NSError(
+                        domain: ASExtensionErrorDomain,
+                        code: ASExtensionError.userInteractionRequired.rawValue
+                    )
+                )
                 return
             }
 
-            // Unlock vault
+            // Unlock vault with biometrics (iOS 26+ works reliably)
             try vaultStore.unlockVault()
 
             let credentials = try vaultStore.getAllCredentials()
@@ -168,11 +188,11 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
             }
         } catch {
             print("provideCredentialWithoutUserInteraction error: \(error)")
+            // On any error, request user interaction
             self.extensionContext.cancelRequest(
                 withError: NSError(
                     domain: ASExtensionErrorDomain,
-                    code: ASExtensionError.failed.rawValue,
-                    userInfo: [NSLocalizedDescriptionKey: error.localizedDescription]
+                    code: ASExtensionError.userInteractionRequired.rawValue
                 )
             )
         }
@@ -195,7 +215,6 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
         // The existing prepareCredentialList method will be called by the system
     }
 
-    @available(iOS 17.0, *)
     override public func provideCredentialWithoutUserInteraction(for credentialRequest: ASCredentialRequest) {
         // Check if this is a passkey request
         if let passkeyRequest = credentialRequest as? ASPasskeyCredentialRequest {
@@ -282,13 +301,29 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
     /// This registers all known AliasVault credentials into iOS native credential storage, which iOS can then use to
     /// suggest autofill credentials when a user focuses an input field on a login form. These suggestions will then be s
     /// hown above the iOS keyboard, which saves the user one step.
+    ///
+    /// Note: QuickType bar suggestions are only enabled on iOS 26+ due to biometric authentication limitations
+    /// in iOS 17 and 18 where background authentication doesn't work reliably.
     private func registerCredentialIdentities(credentials: [Credential]) async {
-       do {
-           try await CredentialIdentityStore.shared.saveCredentialIdentities(credentials)
-       } catch {
-           print("Failed to save credential identities: \(error)")
-       }
-   }
+        // Only register credentials for QuickType on iOS 26+
+        // iOS 17 and 18 have issues with background biometric authentication, so we disable QuickType there
+        if #available(iOS 26.0, *) {
+            do {
+                try await CredentialIdentityStore.shared.saveCredentialIdentities(credentials)
+                print("Registered credential identities for QuickType on iOS 26+")
+            } catch {
+                print("Failed to save credential identities: \(error)")
+            }
+        } else {
+            // On iOS 17-18, clear any existing identities to ensure nothing shows in QuickType
+            do {
+                try await CredentialIdentityStore.shared.removeAllCredentialIdentities()
+                print("Cleared credential identities on iOS <26 to disable QuickType suggestions")
+            } catch {
+                print("Failed to clear credential identities: \(error)")
+            }
+        }
+    }
 
     /// Run sanity checks on the vault store before opening the autofill view to check things like if user is logged in,
     /// vault is available etc.
