@@ -8,7 +8,103 @@ import VaultModels
  * Passkey-related functionality for CredentialProviderViewController
  * This extension handles all passkey registration and authentication operations
  */
-extension CredentialProviderViewController {
+extension CredentialProviderViewController: PasskeyProviderDelegate {
+
+    // MARK: - PasskeyProviderDelegate Implementation
+
+    func setupPasskeyView(vaultStore: VaultStore, rpId: String?, clientDataHash: Data?) throws -> UIViewController {
+        let viewModel = PasskeyProviderViewModel(
+            loader: {
+                return try await self.loadPasskeyCredentials(vaultStore: vaultStore, rpId: rpId)
+            },
+            selectionHandler: { credential in
+                if let clientDataHash = clientDataHash, let rpId = rpId {
+                    self.handlePasskeyCredentialSelection(credential: credential, clientDataHash: clientDataHash, rpId: rpId)
+                }
+            },
+            cancelHandler: {
+                self.handleCancel()
+            },
+            rpId: rpId
+        )
+
+        let passkeyView = PasskeyProviderView(viewModel: viewModel)
+        let hostingController = UIHostingController(rootView: passkeyView)
+
+        return hostingController
+    }
+
+    func handlePasskeySelection(credential: Credential, clientDataHash: Data, rpId: String) {
+        handlePasskeyCredentialSelection(credential: credential, clientDataHash: clientDataHash, rpId: rpId)
+    }
+
+    func loadPasskeyCredentials(vaultStore: VaultStore, rpId: String?) async throws -> [Credential] {
+        return try await loadPasskeyCredentials(vaultStore: vaultStore, rpId: rpId ?? "")
+    }
+
+    /**
+     * Provide passkey credential without user interaction
+     */
+    internal func providePasskeyCredentialWithoutUserInteraction(for request: ASPasskeyCredentialRequest) {
+        do {
+            let vaultStore = VaultStore()
+
+            // Check vault state
+            guard sanityChecks(vaultStore: vaultStore) else {
+                return
+            }
+
+            // Unlock vault
+            try vaultStore.unlockVault()
+
+            let clientDataHash = request.clientDataHash
+            let credentialIdentity = request.credentialIdentity as? ASPasskeyCredentialIdentity
+            let rpId = credentialIdentity?.relyingPartyIdentifier ?? ""
+            let credentialID = credentialIdentity?.credentialID ?? Data()
+
+            // Look up passkey by credential ID
+            guard let passkey = try vaultStore.getPasskey(byCredentialId: credentialID) else {
+                extensionContext.cancelRequest(withError: NSError(
+                    domain: ASExtensionErrorDomain,
+                    code: ASExtensionError.credentialIdentityNotFound.rawValue
+                ))
+                return
+            }
+
+            // Generate assertion
+            let credentialId = try? PasskeyHelper.guidToBytes(passkey.id.uuidString)
+            let assertion = try PasskeyAuthenticator.getAssertion(
+                credentialId: credentialId ?? Data(),
+                clientDataHash: clientDataHash,
+                rpId: rpId,
+                privateKeyJWK: passkey.privateKey,
+                userId: passkey.userHandle,
+                uvPerformed: true,
+                prfInputs: nil,
+                prfSecret: passkey.prfKey
+            )
+
+            // Complete the request
+            let credential = ASPasskeyAssertionCredential(
+                userHandle: assertion.userHandle ?? Data(),
+                relyingParty: rpId,
+                signature: assertion.signature,
+                clientDataHash: clientDataHash,
+                authenticatorData: assertion.authenticatorData,
+                credentialID: assertion.credentialId
+            )
+
+            extensionContext.completeAssertionRequest(using: credential)
+
+        } catch {
+            print("Passkey authentication without UI error: \(error)")
+            // Require user interaction if we can't authenticate silently
+            extensionContext.cancelRequest(withError: NSError(
+                domain: ASExtensionErrorDomain,
+                code: ASExtensionError.userInteractionRequired.rawValue
+            ))
+        }
+    }
 
     // MARK: - Passkey Registration
 
@@ -124,7 +220,7 @@ extension CredentialProviderViewController {
         let hostingController = UIHostingController(rootView: passkeyView)
 
         // Remove existing passkey hosting controller if present
-        if let existingController = self.passkeyHostingController {
+        if let existingController = self.currentHostingController {
             existingController.willMove(toParent: nil)
             existingController.view.removeFromSuperview()
             existingController.removeFromParent()
@@ -143,7 +239,7 @@ extension CredentialProviderViewController {
         ])
 
         hostingController.didMove(toParent: self)
-        self.passkeyHostingController = hostingController
+        self.currentHostingController = hostingController
     }
 
     /**
@@ -313,7 +409,7 @@ extension CredentialProviderViewController {
     private func authenticateWithPasskey(_ passkey: Passkey, clientDataHash: Data, rpId: String) throws {
         // Generate assertion using PasskeyAuthenticator
         let credentialId = try? PasskeyHelper.guidToBytes(passkey.id.uuidString)
-        
+
         let assertion = try PasskeyAuthenticator.getAssertion(
             credentialId: credentialId ?? Data(),
             clientDataHash: clientDataHash,
@@ -361,7 +457,7 @@ extension CredentialProviderViewController {
         let hostingController = UIHostingController(rootView: passkeyView)
 
         // Remove existing passkey hosting controller if present
-        if let existingController = self.passkeyHostingController {
+        if let existingController = self.currentHostingController {
             existingController.willMove(toParent: nil)
             existingController.view.removeFromSuperview()
             existingController.removeFromParent()
@@ -380,15 +476,22 @@ extension CredentialProviderViewController {
         ])
 
         hostingController.didMove(toParent: self)
-        self.passkeyHostingController = hostingController
+        self.currentHostingController = hostingController
     }
 
     /**
      * Load credentials with passkeys for the specified RP ID
      */
-    private func loadPasskeyCredentials(vaultStore: VaultStore, rpId: String) async throws -> [Credential] {
+    internal func loadPasskeyCredentials(vaultStore: VaultStore, rpId: String) async throws -> [Credential] {
         // getAllCredentials now includes passkeys for each credential
-        let credentials = try vaultStore.getAllCredentials()
+        // TODO: call a separate method for only retrieving passkeys?
+        var credentials = try vaultStore.getAllCredentials()
+
+        // Filter to only include credentials that actually have passkeys
+        credentials = credentials.filter { credential in
+            guard let passkeys = credential.passkeys else { return false }
+            return !passkeys.isEmpty
+        }
 
         // Filter by RP ID if specified
         if !rpId.isEmpty {
@@ -423,7 +526,7 @@ extension CredentialProviderViewController {
     /**
      * Handle passkey credential selection from picker
      */
-    private func handlePasskeyCredentialSelection(credential: Credential, clientDataHash: Data, rpId: String) {
+    internal func handlePasskeyCredentialSelection(credential: Credential, clientDataHash: Data, rpId: String) {
         do {
             // Get the first matching passkey for the RP ID
             guard let passkeys = credential.passkeys,
