@@ -37,9 +37,14 @@ extension VaultStore {
 
         print("VaultStore+Passkey: Looking up passkey by credentialId: \(credentialId.base64EncodedString().prefix(20))...")
 
-        let credentialIdBlob = Blob(bytes: [UInt8](credentialId))
+        // The Passkeys.Id column is a string UUID (not a blob), so we need to convert the credentialId bytes to a UUID string.
+        // Use PasskeyHelper to convert the credentialId (Data) to a UUID string for lookup.
+        guard let credentialIdString = try? PasskeyHelper.bytesToGuid(credentialId) else {
+            print("VaultStore+Passkey: Failed to convert credentialId bytes to UUID string")
+            return nil
+        }
         let query = Self.passkeysTable
-            .filter(Self.colAdditionalData == credentialIdBlob)
+            .filter(Self.colId == credentialIdString)
             .filter(Self.colIsDeleted == 0)
             .limit(1)
 

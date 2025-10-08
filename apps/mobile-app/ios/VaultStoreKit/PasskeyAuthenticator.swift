@@ -249,8 +249,8 @@ public class PasskeyAuthenticator {
      * Import private key from JWK format
      */
     private static func importPrivateKeyFromJWK(jwkData: Data) throws -> P256.Signing.PrivateKey {
-        guard let jwk = try JSONSerialization.jsonObject(with: jwkData) as? [String: String],
-              let dBase64url = jwk["d"] else {
+        guard let jwk = try JSONSerialization.jsonObject(with: jwkData) as? [String: Any],
+              let dBase64url = jwk["d"] as? String else {
             throw PasskeyError.invalidJWK
         }
 
@@ -389,8 +389,9 @@ public class PasskeyAuthenticator {
             throw PasskeyError.invalidSignature
         }
 
-        let rVal = rawSig[0..<32]
-        let sVal = rawSig[32..<64]
+        // Convert SubSequence to Data to avoid indexing issues
+        let rVal = Data(rawSig[0..<32])
+        let sVal = Data(rawSig[32..<64])
 
         let rDER = derInteger(rVal)
         let sDER = derInteger(sVal)
@@ -408,16 +409,16 @@ public class PasskeyAuthenticator {
      * Encode a positive big integer as DER INTEGER
      */
     private static func derInteger(_ bytes: Data) -> Data {
-        var trimmed = bytes
-
-        // Trim leading zeros
-        while trimmed.count > 1 && trimmed[0] == 0x00 {
-            trimmed = trimmed.dropFirst()
+        // Trim leading zeros, but keep at least 1 byte
+        var startIndex = 0
+        while startIndex < bytes.count - 1 && bytes[startIndex] == 0x00 {
+            startIndex += 1
         }
+        var trimmed = bytes.suffix(from: startIndex)
 
         // If MSB is set, prepend 0x00 to keep it positive
         var value = trimmed
-        if (trimmed[0] & 0x80) != 0 {
+        if !trimmed.isEmpty && (trimmed[trimmed.startIndex] & 0x80) != 0 {
             value = Data([0x00]) + trimmed
         }
 
