@@ -123,6 +123,12 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
         // Set flag to prevent normal credential view from loading
         self.isPasskeyRegistrationMode = true
 
+
+    }
+
+    override public func prepareInterface(forPasskeyRegistration registrationRequest: any ASCredentialRequest) {
+        self.isPasskeyRegistrationMode = true
+
         guard let passkeyRequest = registrationRequest as? ASPasskeyCredentialRequest else {
             extensionContext.cancelRequest(withError: NSError(
                 domain: ASExtensionErrorDomain,
@@ -185,10 +191,11 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
         }
     }
 
+
     /**
      * Show the passkey registration view
      */
-    private func showPasskeyRegistrationView(
+    internal func showPasskeyRegistrationView(
         requestId: String,
         rpId: String,
         userName: String?,

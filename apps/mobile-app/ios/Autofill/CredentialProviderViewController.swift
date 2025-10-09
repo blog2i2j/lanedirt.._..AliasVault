@@ -201,8 +201,6 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
         ))
     }
 
-
-
     /// Run sanity checks on the vault store before opening the autofill view to check things like if user is logged in,
     /// vault is available etc.
     /// - Returns
