@@ -81,11 +81,11 @@ public struct PasskeyRegistrationView: View {
                         // Action buttons
                         VStack(spacing: 12) {
                             Button(action: {
-                                viewModel.openMainApp()
+                                viewModel.createPasskey()
                             }, label: {
                                 HStack {
-                                    Image(systemName: "arrow.right.circle.fill")
-                                    Text(NSLocalizedString("open_app_to_create", comment: ""))
+                                    Image(systemName: "key.fill")
+                                    Text("Create Passkey")
                                 }
                                 .padding()
                                 .frame(maxWidth: .infinity)
@@ -174,6 +174,12 @@ public class PasskeyRegistrationViewModel: ObservableObject {
         self.userDisplayName = userDisplayName
         self.completionHandler = completionHandler
         self.cancelHandler = cancelHandler
+    }
+
+    public func createPasskey() {
+        // Trigger passkey creation in Swift
+        print("PasskeyRegistration: Create passkey button clicked")
+        completionHandler(true)
     }
 
     public func openMainApp() {

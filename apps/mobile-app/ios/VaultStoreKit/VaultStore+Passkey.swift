@@ -370,6 +370,114 @@ extension VaultStore {
         )
     }
 
+    // MARK: - Passkey Storage
+
+    /**
+     * Create a credential with a passkey (proof of concept for passkey registration)
+     * This creates a minimal credential record and links the passkey to it
+     */
+    public func createCredentialWithPasskey(
+        rpId: String,
+        userName: String?,
+        userDisplayName: String?,
+        passkey: Passkey
+    ) throws -> Credential {
+        guard let dbConn = dbConnection else {
+            throw VaultStoreError.vaultNotUnlocked
+        }
+
+        print("VaultStore+Passkey: Creating credential with passkey for rpId=\(rpId)")
+
+        let credentialId = passkey.parentCredentialId
+        let now = Date()
+        let timestamp = ISO8601DateFormatter().string(from: now)
+
+        // Create a minimal service for the RP
+        let serviceId = UUID()
+        let serviceTable = Table("Services")
+        let serviceInsert = serviceTable.insert(
+            Expression<String>("Id") <- serviceId.uuidString,
+            Expression<String?>("Name") <- rpId,
+            Expression<String?>("Url") <- "https://\(rpId)",
+            Expression<SQLite.Blob?>("Logo") <- nil,
+            Expression<String>("CreatedAt") <- timestamp,
+            Expression<String>("UpdatedAt") <- timestamp,
+            Expression<Int64>("IsDeleted") <- 0
+        )
+        try dbConn.run(serviceInsert)
+
+        // Create the credential
+        let credentialsTable = Table("Credentials")
+        let credentialInsert = credentialsTable.insert(
+            Expression<String>("Id") <- credentialId.uuidString,
+            Expression<String>("ServiceId") <- serviceId.uuidString,
+            Expression<String?>("AliasId") <- nil,
+            Expression<String?>("Username") <- userName,
+            Expression<String?>("Notes") <- "Passkey for \(rpId)",
+            Expression<String>("CreatedAt") <- timestamp,
+            Expression<String>("UpdatedAt") <- timestamp,
+            Expression<Int64>("IsDeleted") <- 0
+        )
+        try dbConn.run(credentialInsert)
+
+        print("VaultStore+Passkey: Created credential \(credentialId.uuidString)")
+
+        // Insert the passkey
+        try insertPasskey(passkey)
+
+        // Return the credential
+        let service = Service(
+            id: serviceId,
+            name: rpId,
+            url: "https://\(rpId)",
+            logo: nil,
+            createdAt: now,
+            updatedAt: now,
+            isDeleted: false
+        )
+
+        return Credential(
+            id: credentialId,
+            alias: nil,
+            service: service,
+            username: userName,
+            notes: "Passkey for \(rpId)",
+            password: nil,
+            passkeys: [passkey],
+            createdAt: now,
+            updatedAt: now,
+            isDeleted: false
+        )
+    }
+
+    /**
+     * Insert a new passkey into the database
+     */
+    public func insertPasskey(_ passkey: Passkey) throws {
+        guard let dbConn = dbConnection else {
+            throw VaultStoreError.vaultNotUnlocked
+        }
+
+        print("VaultStore+Passkey: Inserting new passkey - id=\(passkey.id.uuidString), rpId=\(passkey.rpId)")
+
+        let insert = Self.passkeysTable.insert(
+            Self.colId <- passkey.id.uuidString,
+            Self.colCredentialId <- passkey.parentCredentialId.uuidString,
+            Self.colRpId <- passkey.rpId,
+            Self.colUserId <- passkey.userHandle?.base64EncodedString(),
+            Self.colPublicKey <- String(data: passkey.publicKey, encoding: .utf8)!,
+            Self.colPrivateKey <- String(data: passkey.privateKey, encoding: .utf8)!,
+            Self.colPrfKey <- passkey.prfKey.map { Blob(bytes: [UInt8]($0)) },
+            Self.colDisplayName <- passkey.displayName,
+            Self.colCreatedAt <- ISO8601DateFormatter().string(from: passkey.createdAt),
+            Self.colUpdatedAt <- ISO8601DateFormatter().string(from: passkey.updatedAt),
+            Self.colIsDeleted <- Int64(passkey.isDeleted ? 1 : 0)
+        )
+
+        try dbConn.run(insert)
+        print("VaultStore+Passkey: Successfully inserted passkey")
+    }
+
     /**
      * Parse a date string to a Date object for use in queries.
      */
