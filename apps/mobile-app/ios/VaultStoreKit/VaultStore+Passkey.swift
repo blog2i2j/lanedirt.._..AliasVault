@@ -373,6 +373,18 @@ extension VaultStore {
     // MARK: - Passkey Storage
 
     /**
+     * Format a date for database insertion
+     * Format: yyyy-MM-dd HH:mm:ss.SSS
+     */
+    private func formatDateForDatabase(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        return formatter.string(from: date)
+    }
+
+    /**
      * Create a credential with a passkey (proof of concept for passkey registration)
      * This creates a minimal credential record and links the passkey to it
      */
@@ -390,7 +402,7 @@ extension VaultStore {
 
         let credentialId = passkey.parentCredentialId
         let now = Date()
-        let timestamp = ISO8601DateFormatter().string(from: now)
+        let timestamp = formatDateForDatabase(now)
 
         // Create a minimal service for the RP
         let serviceId = UUID()
@@ -469,8 +481,8 @@ extension VaultStore {
             Self.colPrivateKey <- String(data: passkey.privateKey, encoding: .utf8)!,
             Self.colPrfKey <- passkey.prfKey.map { Blob(bytes: [UInt8]($0)) },
             Self.colDisplayName <- passkey.displayName,
-            Self.colCreatedAt <- ISO8601DateFormatter().string(from: passkey.createdAt),
-            Self.colUpdatedAt <- ISO8601DateFormatter().string(from: passkey.updatedAt),
+            Self.colCreatedAt <- formatDateForDatabase(passkey.createdAt),
+            Self.colUpdatedAt <- formatDateForDatabase(passkey.updatedAt),
             Self.colIsDeleted <- Int64(passkey.isDeleted ? 1 : 0)
         )
 

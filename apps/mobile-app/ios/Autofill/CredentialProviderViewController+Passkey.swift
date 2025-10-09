@@ -115,17 +115,6 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
     }
 
     // MARK: - Passkey Registration
-
-    /**
-     * Handle passkey registration request from the system
-     */
-    func handlePasskeyRegistration(_ registrationRequest: ASCredentialRequest) {
-        // Set flag to prevent normal credential view from loading
-        self.isPasskeyRegistrationMode = true
-
-
-    }
-
     override public func prepareInterface(forPasskeyRegistration registrationRequest: any ASCredentialRequest) {
         self.isPasskeyRegistrationMode = true
 
@@ -255,80 +244,94 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
         clientDataHash: Data,
         vaultStore: VaultStore
     ) {
-        do {
-            print("PasskeyRegistration: Creating passkey directly in Swift layer")
+        // Create a Task to handle async operations
+        Task {
+            do {
+                print("PasskeyRegistration: Creating passkey directly in Swift layer")
 
-            // Generate new credential ID (UUID that will be used as the passkey ID)
-            let passkeyId = UUID()
-            let credentialId = try PasskeyHelper.guidToBytes(passkeyId.uuidString)
+                // Generate new credential ID (UUID that will be used as the passkey ID)
+                let passkeyId = UUID()
+                let credentialId = try PasskeyHelper.guidToBytes(passkeyId.uuidString)
 
-            // Create the passkey using PasskeyAuthenticator
-            let passkeyResult = try PasskeyAuthenticator.createPasskey(
-                credentialId: credentialId,
-                clientDataHash: clientDataHash,
-                rpId: rpId,
-                userId: userId,
-                userName: userName,
-                userDisplayName: userDisplayName,
-                uvPerformed: true,
-                enablePrf: false
-            )
+                // Create the passkey using PasskeyAuthenticator
+                let passkeyResult = try PasskeyAuthenticator.createPasskey(
+                    credentialId: credentialId,
+                    clientDataHash: clientDataHash,
+                    rpId: rpId,
+                    userId: userId,
+                    userName: userName,
+                    userDisplayName: userDisplayName,
+                    uvPerformed: true,
+                    enablePrf: false
+                )
 
-            print("PasskeyRegistration: Passkey created successfully")
+                print("PasskeyRegistration: Passkey created successfully")
 
-            // Create a Passkey model object
-            let now = Date()
-            let passkey = Passkey(
-                id: passkeyId,
-                parentCredentialId: UUID(), // Will be set by createCredentialWithPasskey
-                rpId: rpId,
-                userHandle: userId,
-                userName: userName,
-                publicKey: passkeyResult.publicKey,
-                privateKey: passkeyResult.privateKey,
-                prfKey: passkeyResult.prfSecret,
-                displayName: userDisplayName ?? userName ?? rpId,
-                createdAt: now,
-                updatedAt: now,
-                isDeleted: false
-            )
+                // Create a Passkey model object
+                let now = Date()
+                let passkey = Passkey(
+                    id: passkeyId,
+                    parentCredentialId: UUID(), // Will be set by createCredentialWithPasskey
+                    rpId: rpId,
+                    userHandle: userId,
+                    userName: userName,
+                    publicKey: passkeyResult.publicKey,
+                    privateKey: passkeyResult.privateKey,
+                    prfKey: passkeyResult.prfSecret,
+                    displayName: userDisplayName ?? userName ?? rpId,
+                    createdAt: now,
+                    updatedAt: now,
+                    isDeleted: false
+                )
 
-            // Begin transaction
-            try vaultStore.beginTransaction()
+                // Begin transaction
+                try vaultStore.beginTransaction()
 
-            // Store credential with passkey in database
-            let credential = try vaultStore.createCredentialWithPasskey(
-                rpId: rpId,
-                userName: userName,
-                userDisplayName: userDisplayName,
-                passkey: passkey
-            )
+                // Store credential with passkey in database
+                let credential = try vaultStore.createCredentialWithPasskey(
+                    rpId: rpId,
+                    userName: userName,
+                    userDisplayName: userDisplayName,
+                    passkey: passkey
+                )
 
-            // Commit transaction to persist the data
-            try vaultStore.commitTransaction()
+                // Commit transaction to persist the data
+                try vaultStore.commitTransaction()
 
-            print("PasskeyRegistration: Credential and passkey stored in database - credentialId=\(credential.id.uuidString)")
+                print("PasskeyRegistration: Credential and passkey stored in database - credentialId=\(credential.id.uuidString)")
 
-            // Create the ASPasskeyRegistrationCredential to return to the system
-            let asCredential = ASPasskeyRegistrationCredential(
-                relyingParty: rpId,
-                clientDataHash: clientDataHash,
-                credentialID: credentialId,
-                attestationObject: passkeyResult.attestationObject
-            )
+                // Update the IdentityStore with the new credential (async call)
+                let credentials = try vaultStore.getAllCredentials()
+                try await CredentialIdentityStore.shared.saveCredentialIdentities(credentials)
 
-            print("PasskeyRegistration: Completing registration request")
+                print("PasskeyRegistration: Updated CredentialIdentityStore")
 
-            // Complete the registration request
-            extensionContext.completeRegistrationRequest(using: asCredential)
+                // Create the ASPasskeyRegistrationCredential to return to the system
+                let asCredential = ASPasskeyRegistrationCredential(
+                    relyingParty: rpId,
+                    clientDataHash: clientDataHash,
+                    credentialID: credentialId,
+                    attestationObject: passkeyResult.attestationObject
+                )
 
-        } catch {
-            print("PasskeyRegistration error: \(error)")
-            extensionContext.cancelRequest(withError: NSError(
-                domain: ASExtensionErrorDomain,
-                code: ASExtensionError.failed.rawValue,
-                userInfo: [NSLocalizedDescriptionKey: "Failed to create passkey: \(error.localizedDescription)"]
-            ))
+                print("PasskeyRegistration: Completing registration request")
+
+                // Complete the registration request (must be on main thread)
+                await MainActor.run {
+                    self.extensionContext.completeRegistrationRequest(using: asCredential)
+                }
+
+            } catch {
+                print("PasskeyRegistration error: \(error)")
+                // Cancel request (must be on main thread)
+                await MainActor.run {
+                    self.extensionContext.cancelRequest(withError: NSError(
+                        domain: ASExtensionErrorDomain,
+                        code: ASExtensionError.failed.rawValue,
+                        userInfo: [NSLocalizedDescriptionKey: "Failed to create passkey: \(error.localizedDescription)"]
+                    ))
+                }
+            }
         }
     }
 
