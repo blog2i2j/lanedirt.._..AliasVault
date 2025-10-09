@@ -1,7 +1,5 @@
 import AuthenticationServices
 import VaultModels
-import VaultStoreKit
-import VaultUI
 
 /**
  * Native iOS implementation of the CredentialIdentityStore protocol.
@@ -10,7 +8,8 @@ import VaultUI
  * It is used to provide credentials to the system when the user is autocompleting a password.
  */
 public class CredentialIdentityStore {
-    static let shared = CredentialIdentityStore()
+    /// Get global credential store instance
+    public static let shared = CredentialIdentityStore()
     private let store = ASCredentialIdentityStore.shared
 
     private init() {}
@@ -64,7 +63,7 @@ public class CredentialIdentityStore {
                     // Get the userName for display in iOS AutoFill UI
                     // Passkeys don't store userName in the database, so we use the credential's username or email
                     let userName = passkey.userName ?? usernameOrEmail(credential: credential)
-                    
+
                     // Convert passkey.Id to bytes for credentialID
                     let credentialId = try? PasskeyHelper.guidToBytes(passkey.id.uuidString)
 
@@ -95,13 +94,22 @@ public class CredentialIdentityStore {
             return
         }
 
-        print("CredentialIdentityStore: Store is enabled, saving \(allIdentities.count) total identities")
+        print("CredentialIdentityStore: Store is enabled, replacing all identities with \(allIdentities.count) new identities")
 
         do {
+            // First, remove all existing credential identities to ensure a clean replacement
+            print("CredentialIdentityStore: Removing all existing credential identities...")
+            try await store.removeAllCredentialIdentities()
+            print("CredentialIdentityStore: Successfully removed all existing identities")
+
+            // Then save the new credential identities
+            print("CredentialIdentityStore: Saving \(allIdentities.count) new credential identities...")
             try await store.saveCredentialIdentities(allIdentities)
-            print("CredentialIdentityStore: Successfully saved all identities")
+            print("CredentialIdentityStore: Successfully saved all new identities")
         } catch {
-            print("CredentialIdentityStore: Failed to save credential identities: \(error)")
+            print("CredentialIdentityStore: Failed to replace credential identities: \(error)")
+            // Re-throw the error so the caller knows the operation failed
+            throw error
         }
     }
 
@@ -147,4 +155,15 @@ public class CredentialIdentityStore {
         guard parts.count >= 2 else { return host }
         return parts.suffix(2).joined(separator: ".")
     }
+}
+
+/// Returns username or email depending on if they are not null
+public func usernameOrEmail(credential: Credential) -> String {
+    if let username = credential.username, !username.isEmpty {
+        return username
+    }
+    if let email = credential.alias?.email, !email.isEmpty {
+        return email
+    }
+    return ""
 }

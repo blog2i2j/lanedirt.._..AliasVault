@@ -167,4 +167,8 @@
     resolve(@"Not applicable on iOS");
 }
 
+- (void)registerCredentialIdentities:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager registerCredentialIdentities:resolve rejecter:reject];
+}
+
 @end

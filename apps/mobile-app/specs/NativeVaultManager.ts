@@ -52,6 +52,9 @@ export interface Spec extends TurboModule {
   // Battery optimization management
   isIgnoringBatteryOptimizations(): Promise<boolean>;
   requestIgnoreBatteryOptimizations(): Promise<string>;
+
+  // Credential identity management
+  registerCredentialIdentities(): Promise<void>;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>('NativeVaultManager');

@@ -14,7 +14,17 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
     func setupPasskeyView(vaultStore: VaultStore, rpId: String, clientDataHash: Data) throws -> UIViewController {
         let viewModel = PasskeyProviderViewModel(
             loader: {
-                return try await self.loadPasskeyCredentials(vaultStore: vaultStore, rpId: rpId)
+                // getAllCredentials now includes passkeys for each credential
+                // TODO: call a separate method for only retrieving passkeys?
+                var credentials = try vaultStore.getAllCredentials()
+
+                // Filter to only include credentials that actually have passkeys
+                credentials = credentials.filter { credential in
+                    guard let passkeys = credential.passkeys else { return false }
+                    return !passkeys.isEmpty
+                }
+
+                return credentials
             },
             selectionHandler: { credential in
                 // For passkey authentication, we assume the data is available
@@ -378,11 +388,22 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
 
     /**
      * Show passkey picker view for user selection
+     * TODO: check usages
      */
     private func showPasskeyPickerView(rpId: String, clientDataHash: Data, vaultStore: VaultStore) {
         let viewModel = PasskeyProviderViewModel(
             loader: {
-                return try await self.loadPasskeyCredentials(vaultStore: vaultStore, rpId: rpId)
+                // getAllCredentials now includes passkeys for each credential
+                // TODO: call a separate method for only retrieving passkeys?
+                var credentials = try vaultStore.getAllCredentials()
+
+                // Filter to only include credentials that actually have passkeys
+                credentials = credentials.filter { credential in
+                    guard let passkeys = credential.passkeys else { return false }
+                    return !passkeys.isEmpty
+                }
+
+                return credentials
             },
             selectionHandler: { [weak self, clientDataHash, rpId] credential in
                 guard let self = self else { return }
@@ -434,33 +455,6 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
             guard let passkeys = credential.passkeys else { return false }
             return !passkeys.isEmpty
         }
-
-        // Filter by RP ID if specified
-        /*if !rpId.isEmpty {
-            let lowercasedRpId = rpId.lowercased()
-            return credentials.filter { credential in
-                guard let passkeys = credential.passkeys else { return false }
-                // Match exact RP ID or check if RP ID is a suffix of the credential's service domain
-                return passkeys.contains { passkey in
-                    let passkeyRpId = passkey.rpId.lowercased()
-                    // Exact match
-                    if passkeyRpId == lowercasedRpId {
-                        return true
-                    }
-                    // Check if they are related domains (e.g., rpId="example.com", passkey.rpId="www.example.com")
-                    if passkeyRpId.hasSuffix(lowercasedRpId) || lowercasedRpId.hasSuffix(passkeyRpId) {
-                        return true
-                    }
-                    // Check against service URL domain as well
-                    if let serviceUrl = credential.service.url?.lowercased(),
-                       let url = URL(string: serviceUrl),
-                       let host = url.host?.lowercased() {
-                        return host == lowercasedRpId || host.hasSuffix(".\(lowercasedRpId)") || lowercasedRpId.hasSuffix(".\(host)")
-                    }
-                    return false
-                }
-            }
-        }*/
 
         return credentials
     }

@@ -132,6 +132,16 @@ export const useVaultSync = () : {
           }
 
           onSuccess?.(true);
+
+          // Register credential identities after successful vault sync
+          try {
+            await NativeVaultManager.registerCredentialIdentities();
+            console.log('Vault sync: Successfully registered credential identities');
+          } catch (error) {
+            console.warn('Vault sync: Failed to register credential identities:', error);
+            // Don't fail the sync if credential registration fails
+          }
+
           return true;
         } catch (err) {
           if (err instanceof VaultVersionIncompatibleError) {
@@ -151,6 +161,16 @@ export const useVaultSync = () : {
       }
 
       await withMinimumDelay(() => Promise.resolve(onSuccess?.(false)), 300, enableDelay);
+
+      // Register credential identities even when vault is up to date
+      try {
+        await NativeVaultManager.registerCredentialIdentities();
+        console.log('Vault sync: Successfully registered credential identities (vault up to date)');
+      } catch (error) {
+        console.warn('Vault sync: Failed to register credential identities:', error);
+        // Don't fail the sync if credential registration fails
+      }
+
       return false;
     } catch (err) {
       console.error('Vault sync error:', err);

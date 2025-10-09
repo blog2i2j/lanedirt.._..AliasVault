@@ -11,7 +11,7 @@ import VaultModels
  */
 @objc(VaultManager)
 public class VaultManager: NSObject {
-    private let vaultStore = VaultStore.shared
+    private let vaultStore = VaultStore()
     private var backgroundTaskIdentifier: UIBackgroundTaskIdentifier = .invalid
     private var clipboardClearTimer: DispatchSourceTimer?
 
@@ -405,12 +405,12 @@ public class VaultManager: NSObject {
                                       resolver resolve: @escaping RCTPromiseResolveBlock,
                                       rejecter reject: @escaping RCTPromiseRejectBlock) {
         NSLog("VaultManager: Copying to clipboard with expiration of %.0f seconds", expirationSeconds)
-        
+
         DispatchQueue.main.async {
             if expirationSeconds > 0 {
                 // Create expiration date
                 let expirationDate = Date().addingTimeInterval(expirationSeconds)
-                
+
                 // Set clipboard with expiration and local-only options
                 UIPasteboard.general.setItems(
                     [[UIPasteboard.typeAutomatic: text]],
@@ -419,7 +419,7 @@ public class VaultManager: NSObject {
                         .localOnly: true  // Prevent sync to Universal Clipboard/iCloud
                     ]
                 )
-                
+
                 NSLog("VaultManager: Text copied to clipboard with expiration at %@", expirationDate.description)
             } else {
                 // No expiration, just copy normally
@@ -427,6 +427,42 @@ public class VaultManager: NSObject {
                 NSLog("VaultManager: Text copied to clipboard without expiration")
             }
             resolve(nil)
+        }
+    }
+
+    @objc
+    func registerCredentialIdentities(_ resolve: @escaping RCTPromiseResolveBlock,
+                                    rejecter reject: @escaping RCTPromiseRejectBlock) {
+        Task {
+            do {
+                // Get all credentials from the vault
+                let credentials = try vaultStore.getAllCredentials()
+
+                // Register credential identities using the same logic as the autofill extension
+                if #available(iOS 26.0, *) {
+                    // iOS 26+: Register both passwords and passkeys for QuickType and manual selection
+                    try await CredentialIdentityStore.shared.saveCredentialIdentities(credentials)
+                    print("VaultManager: Registered credential identities (passwords + passkeys) for QuickType on iOS 26+")
+                } else {
+                    // iOS 17-25: Only register passkeys (skip passwords for QuickType to avoid biometric issues)
+                    // But passkeys MUST be registered so iOS knows to offer this extension for passkey authentication
+                    let passkeyOnlyCredentials = credentials.filter { credential in
+                        guard let passkeys = credential.passkeys else { return false }
+                        return !passkeys.isEmpty
+                    }
+                    try await CredentialIdentityStore.shared.saveCredentialIdentities(passkeyOnlyCredentials, passkeyOnly: true)
+                    print("VaultManager: Registered \(passkeyOnlyCredentials.count) passkey identities on iOS <26 (password QuickType disabled)")
+                }
+
+                await MainActor.run {
+                    resolve(nil)
+                }
+            } catch {
+                print("VaultManager: Failed to register credential identities: \(error)")
+                await MainActor.run {
+                    reject("CREDENTIAL_REGISTRATION_ERROR", "Failed to register credential identities: \(error.localizedDescription)", error)
+                }
+            }
         }
     }
 

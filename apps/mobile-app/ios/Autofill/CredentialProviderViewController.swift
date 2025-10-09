@@ -10,13 +10,11 @@ import VaultModels
 protocol CredentialProviderDelegate: AnyObject {
     func setupCredentialView(vaultStore: VaultStore, serviceUrl: String?) throws -> UIViewController
     func handleCredentialSelection(identifier: String, password: String)
-    func loadCredentials(vaultStore: VaultStore) async throws -> [Credential]
 }
 
 protocol PasskeyProviderDelegate: AnyObject {
     func setupPasskeyView(vaultStore: VaultStore, rpId: String, clientDataHash: Data) throws -> UIViewController
     func handlePasskeySelection(credential: Credential, clientDataHash: Data, rpId: String)
-    func loadPasskeyCredentials(vaultStore: VaultStore, rpId: String?) async throws -> [Credential]
 }
 
 /**
@@ -204,33 +202,6 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
     }
 
 
-    /// This registers all known AliasVault credentials (both passwords and passkeys) into iOS native credential storage,
-    /// which iOS can then use to suggest autofill credentials when a user focuses an input field on a login form.
-    /// These suggestions will then be shown above the iOS keyboard, which saves the user one step.
-    ///
-    /// Note: Password QuickType bar suggestions are only enabled on iOS 26+ due to biometric authentication limitations
-    /// in iOS 17 and 18 where background authentication doesn't work reliably. However, PASSKEY identities must be
-    /// registered on all iOS versions (17+) so iOS knows to call this extension for passkey authentication requests.
-    private func registerCredentialIdentities(credentials: [Credential]) async {
-        do {
-            if #available(iOS 26.0, *) {
-                // iOS 26+: Register both passwords and passkeys for QuickType and manual selection
-                try await CredentialIdentityStore.shared.saveCredentialIdentities(credentials)
-                print("Registered credential identities (passwords + passkeys) for QuickType on iOS 26+")
-            } else {
-                // iOS 17-25: Only register passkeys (skip passwords for QuickType to avoid biometric issues)
-                // But passkeys MUST be registered so iOS knows to offer this extension for passkey authentication
-                let passkeyOnlyCredentials = credentials.filter { credential in
-                    guard let passkeys = credential.passkeys else { return false }
-                    return !passkeys.isEmpty
-                }
-                try await CredentialIdentityStore.shared.saveCredentialIdentities(passkeyOnlyCredentials, passkeyOnly: true)
-                print("Registered \(passkeyOnlyCredentials.count) passkey identities on iOS <26 (password QuickType disabled)")
-            }
-        } catch {
-            print("Failed to save credential identities: \(error)")
-        }
-    }
 
     /// Run sanity checks on the vault store before opening the autofill view to check things like if user is logged in,
     /// vault is available etc.
