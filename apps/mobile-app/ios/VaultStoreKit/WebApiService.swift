@@ -308,7 +308,7 @@ public class WebApiService {
                 endpoint: "Favicon/Extract?url=\(encodedUrl)",
                 body: nil,
                 headers: [:],
-                requiresAuth: false
+                requiresAuth: true
             )
 
             guard response.statusCode == 200 else {
