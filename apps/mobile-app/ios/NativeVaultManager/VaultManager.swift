@@ -585,6 +585,91 @@ public class VaultManager: NSObject {
         }
     }
 
+    // MARK: - Username Management
+
+    @objc
+    func setUsername(_ username: String,
+                    resolver resolve: @escaping RCTPromiseResolveBlock,
+                    rejecter reject: @escaping RCTPromiseRejectBlock) {
+        vaultStore.setUsername(username)
+        resolve(nil)
+    }
+
+    @objc
+    func getUsername(_ resolve: @escaping RCTPromiseResolveBlock,
+                    rejecter reject: @escaping RCTPromiseRejectBlock) {
+        if let username = vaultStore.getUsername() {
+            resolve(username)
+        } else {
+            resolve(nil)
+        }
+    }
+
+    @objc
+    func clearUsername(_ resolve: @escaping RCTPromiseResolveBlock,
+                      rejecter reject: @escaping RCTPromiseRejectBlock) {
+        vaultStore.clearUsername()
+        resolve(nil)
+    }
+
+    // MARK: - Offline Mode Management
+
+    @objc
+    func setOfflineMode(_ isOffline: Bool,
+                       resolver resolve: @escaping RCTPromiseResolveBlock,
+                       rejecter reject: @escaping RCTPromiseRejectBlock) {
+        vaultStore.setOfflineMode(isOffline)
+        resolve(nil)
+    }
+
+    @objc
+    func getOfflineMode(_ resolve: @escaping RCTPromiseResolveBlock,
+                       rejecter reject: @escaping RCTPromiseRejectBlock) {
+        resolve(vaultStore.getOfflineMode())
+    }
+
+    // MARK: - Vault Sync and Mutate
+
+    @objc
+    func syncVault(_ resolve: @escaping RCTPromiseResolveBlock,
+                  rejecter reject: @escaping RCTPromiseRejectBlock) {
+        Task {
+            do {
+                print("VaultManager: Starting vault sync")
+                let hasNewVault = try await vaultStore.syncVault(using: webApiService)
+                print("VaultManager: Vault sync succeeded, hasNewVault: \(hasNewVault)")
+                await MainActor.run {
+                    resolve(hasNewVault)
+                }
+            } catch {
+                print("VaultManager: Vault sync failed: \(error)")
+                await MainActor.run {
+                    reject("SYNC_ERROR", "Failed to sync vault: \(error.localizedDescription)", error)
+                }
+            }
+        }
+    }
+
+    @objc
+    func mutateVault(_ resolve: @escaping RCTPromiseResolveBlock,
+                    rejecter reject: @escaping RCTPromiseRejectBlock) {
+        Task {
+            do {
+                print("VaultManager: Starting vault mutation")
+                try await vaultStore.mutateVault(using: webApiService)
+                print("VaultManager: Vault mutation succeeded")
+                await MainActor.run {
+                    resolve(true)  // Return explicit success
+                }
+            } catch {
+                print("VaultManager: Vault mutation failed: \(error)")
+                await MainActor.run {
+                    reject("MUTATE_ERROR", "Failed to mutate vault: \(error.localizedDescription)", error)
+                }
+            }
+        }
+    }
+
     @objc
     func requiresMainQueueSetup() -> Bool {
         return false

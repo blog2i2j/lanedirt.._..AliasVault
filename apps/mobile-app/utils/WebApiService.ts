@@ -12,14 +12,6 @@ import NativeVaultManager from '@/specs/NativeVaultManager';
 type RequestInit = globalThis.RequestInit;
 
 /**
- * Type for the token response from the API.
- */
-type TokenResponse = {
-  token: string;
-  refreshToken: string;
-}
-
-/**
  * Type for the native WebAPI response.
  */
 type NativeWebApiResponse = {
@@ -380,22 +372,24 @@ export class WebApiService {
    * TODO: This can be removed in a future version (e.g., after some time that 0.24.0 is released)
    * and once most if not all active users have migrated.
    */
-    private async syncLegacyConfigToNative(): Promise<void> {
-      try {
-        // Sync API URL from AsyncStorage to native (migration only)
-        const apiUrl = await AsyncStorage.getItem('apiUrl');
-        if (apiUrl) {
-          await NativeVaultManager.setApiUrl(apiUrl);
-        }
-
-        // Sync tokens from AsyncStorage to native (migration only)
-        const accessToken = await AsyncStorage.getItem('accessToken');
-        const refreshToken = await AsyncStorage.getItem('refreshToken');
-        if (accessToken && refreshToken) {
-          await NativeVaultManager.setAuthTokens(accessToken, refreshToken);
-        }
-      } catch (error) {
-        console.error('Failed to sync config to native layer:', error);
+  private async syncLegacyConfigToNative(): Promise<void> {
+    try {
+      // Migrate API URL from AsyncStorage to native on first launch, then remove to prevent repeated syncs
+      const apiUrl = await AsyncStorage.getItem('apiUrl');
+      if (apiUrl) {
+        await NativeVaultManager.setApiUrl(apiUrl);
+        await AsyncStorage.removeItem('apiUrl');
       }
+
+      // Migrate tokens from AsyncStorage to native on first launch, then remove to prevent repeated syncs
+      const accessToken = await AsyncStorage.getItem('accessToken');
+      const refreshToken = await AsyncStorage.getItem('refreshToken');
+      if (accessToken && refreshToken) {
+        await NativeVaultManager.setAuthTokens(accessToken, refreshToken);
+        await AsyncStorage.multiRemove(['accessToken', 'refreshToken']);
+      }
+    } catch (error) {
+      console.error('Failed to sync config to native layer:', error);
     }
+  }
 }

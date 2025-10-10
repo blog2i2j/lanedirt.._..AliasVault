@@ -72,6 +72,19 @@ export interface Spec extends TurboModule {
     headers: string,
     requiresAuth: boolean
   ): Promise<string>;
+
+  // Username management
+  setUsername(username: string): Promise<void>;
+  getUsername(): Promise<string | null>;
+  clearUsername(): Promise<void>;
+
+  // Offline mode management
+  setOfflineMode(isOffline: boolean): Promise<void>;
+  getOfflineMode(): Promise<boolean>;
+
+  // Vault sync and mutate
+  syncVault(): Promise<boolean>;
+  mutateVault(): Promise<boolean>;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>('NativeVaultManager');

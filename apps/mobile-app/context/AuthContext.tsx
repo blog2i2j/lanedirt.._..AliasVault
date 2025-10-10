@@ -126,6 +126,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * Set auth tokens in storage as part of the login process. After db is initialized, the login method should be called as well.
    */
   const setAuthTokens = useCallback(async (username: string, accessToken: string, refreshToken: string): Promise<void> => {
+    // Store username in native layer (new approach)
+    await NativeVaultManager.setUsername(username);
+
+    // Keep AsyncStorage for backward compatibility / migration
+    // TODO: Remove AsyncStorage username storage in future version
     await AsyncStorage.setItem('username', username);
     await AsyncStorage.setItem('accessToken', accessToken);
     await AsyncStorage.setItem('refreshToken', refreshToken);
@@ -147,7 +152,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const initializeAuth = useCallback(async (): Promise<{ isLoggedIn: boolean; enabledAuthMethods: AuthMethod[] }> => {
     const accessToken = await AsyncStorage.getItem('accessToken') as string;
     const refreshToken = await AsyncStorage.getItem('refreshToken') as string;
-    const username = await AsyncStorage.getItem('username') as string;
+
+    // Try to get username from native layer first (new approach)
+    let username = await NativeVaultManager.getUsername();
+
+    // Fallback to AsyncStorage for migration
+    if (!username) {
+      username = await AsyncStorage.getItem('username');
+      // Migrate to native storage
+      if (username) {
+        await NativeVaultManager.setUsername(username);
+      }
+    }
+
+    // Load offline mode from native layer
+    const offline = await NativeVaultManager.getOfflineMode();
+    setIsOffline(offline);
+
     let isAuthenticated = false;
     let methods: AuthMethod[] = ['password'];
 
@@ -173,18 +194,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * This is called by AppContext after revoking tokens on the server.
    */
   const clearAuth = useCallback(async (errorMessage?: string): Promise<void> => {
+    // Clear from native layer
+    await NativeVaultManager.clearUsername();
+    await NativeVaultManager.clearAuthTokens();
+
+    // Clear from AsyncStorage (for backward compatibility)
+    // TODO: Remove AsyncStorage cleanup in future version
     await AsyncStorage.removeItem('username');
     await AsyncStorage.removeItem('accessToken');
     await AsyncStorage.removeItem('refreshToken');
     await AsyncStorage.removeItem('authMethods');
-    dbContext?.clearDatabase();
 
-    // Clear tokens from native layer
-    try {
-      await NativeVaultManager.clearAuthTokens();
-    } catch (error) {
-      console.error('Failed to clear auth tokens from native layer:', error);
-    }
+    dbContext?.clearDatabase();
 
     if (errorMessage) {
       // Show alert
@@ -433,6 +454,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadAutofillState();
   }, [loadAutofillState]);
 
+  /**
+   * Set offline mode and sync to native layer
+   */
+  const setOfflineMode = useCallback(async (offline: boolean) => {
+    setIsOffline(offline);
+    await NativeVaultManager.setOfflineMode(offline);
+  }, []);
+
   const contextValue = useMemo(() => ({
     isLoggedIn,
     isInitialized,
@@ -458,7 +487,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setReturnUrl,
     verifyPassword,
     getEncryptionKeyDerivationParams,
-    setOfflineMode: setIsOffline,
+    setOfflineMode,
   }), [
     isLoggedIn,
     isInitialized,
@@ -484,6 +513,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setReturnUrl,
     verifyPassword,
     getEncryptionKeyDerivationParams,
+    setOfflineMode,
   ]);
 
   return (
