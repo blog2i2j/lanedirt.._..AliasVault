@@ -233,16 +233,31 @@ extension VaultStore {
 
     // MARK: - Helper Methods
 
-    /// Get the database version from the DatabaseVersion table
+    /// Get the database version from the __EFMigrationsHistory table
+    /// Extracts version from migration ID pattern like "20240917191243_1.4.1-RenameAttachmentsPlural"
     private func getDatabaseVersion() throws -> String {
-        let query = "SELECT version FROM DatabaseVersion LIMIT 1"
+        let query = "SELECT MigrationId FROM __EFMigrationsHistory ORDER BY MigrationId DESC LIMIT 1"
         let results = try executeQuery(query, params: [])
 
-        if let firstRow = results.first,
-           let version = firstRow["version"] as? String {
+        guard let firstRow = results.first,
+              let migrationId = firstRow["MigrationId"] as? String else {
+            print("VaultStore: No migrations found in database, returning default version")
+            return "0.0.0"
+        }
+
+        // Extract version using regex - matches patterns like "_1.4.1-"
+        let versionRegex = try NSRegularExpression(pattern: "_(\\d+\\.\\d+\\.\\d+)-")
+        let nsString = migrationId as NSString
+        let matches = versionRegex.matches(in: migrationId, range: NSRange(location: 0, length: nsString.length))
+
+        if let match = matches.first, match.numberOfRanges > 1 {
+            let versionRange = match.range(at: 1)
+            let version = nsString.substring(with: versionRange)
+            print("VaultStore: Extracted database version '\(version)' from migration ID '\(migrationId)'")
             return version
         }
 
+        print("VaultStore: Could not extract version from migration ID '\(migrationId)', returning default")
         return "0.0.0"
     }
 }
