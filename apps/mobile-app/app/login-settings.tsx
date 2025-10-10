@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from 'expo-router';
 import { useState, useEffect, useCallback, useMemo, useLayoutEffect } from 'react';
 import { StyleSheet, View, Text, TextInput, ActivityIndicator } from 'react-native';
@@ -86,8 +85,6 @@ export default function SettingsScreen() : React.ReactNode {
    */
   const handleCustomUrlChange = async (value: string) : Promise<void> => {
     setCustomUrl(value);
-    // Sync to both AsyncStorage and native layer
-    await AsyncStorage.setItem('apiUrl', value);
     try {
       await NativeVaultManager.setApiUrl(value);
     } catch (error) {
