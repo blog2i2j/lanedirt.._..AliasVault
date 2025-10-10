@@ -1,5 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 import { AppInfo } from '@/utils/AppInfo';
 import type { StatusResponse, VaultResponse, AuthLogModel, RefreshToken } from '@/utils/dist/shared/models/webapi';
 
@@ -25,14 +23,6 @@ type NativeWebApiResponse = {
  * This class now acts as a proxy to the native layer, where all WebAPI calls are executed.
  */
 export class WebApiService {
-  /**
-   * Constructor for the WebApiService class.
-   */
-  public constructor() {
-    // Initialize API URL and tokens from AsyncStorage if they exist
-    this.syncLegacyConfigToNative();
-  }
-
   /**
    * Get the base URL for the API from settings.
    */
@@ -352,44 +342,7 @@ export class WebApiService {
       return apiUrl || AppInfo.DEFAULT_API_URL;
     } catch (error) {
       console.error('Failed to get API URL from native layer:', error);
-      // Fallback to AsyncStorage
-      const result = await AsyncStorage.getItem('apiUrl') as string;
-      if (result && result.length > 0) {
-        return result;
-      }
       return AppInfo.DEFAULT_API_URL;
-    }
-  }
-
-  /**
-   * Sync configuration from AsyncStorage to native layer on initialization.
-   *
-   * This is primarily for backward compatibility / migration purposes:
-   * - Existing users who upgraded from a version without native WebAPI will have tokens in AsyncStorage
-   * - This ensures those tokens are migrated to the native layer on first launch after upgrade
-   * - For new installations, all tokens/config go directly to native layer, so this becomes a no-op
-   *
-   * TODO: This can be removed in a future version (e.g., after some time that 0.24.0 is released)
-   * and once most if not all active users have migrated.
-   */
-  private async syncLegacyConfigToNative(): Promise<void> {
-    try {
-      // Migrate API URL from AsyncStorage to native on first launch, then remove to prevent repeated syncs
-      const apiUrl = await AsyncStorage.getItem('apiUrl');
-      if (apiUrl) {
-        await NativeVaultManager.setApiUrl(apiUrl);
-        await AsyncStorage.removeItem('apiUrl');
-      }
-
-      // Migrate tokens from AsyncStorage to native on first launch, then remove to prevent repeated syncs
-      const accessToken = await AsyncStorage.getItem('accessToken');
-      const refreshToken = await AsyncStorage.getItem('refreshToken');
-      if (accessToken && refreshToken) {
-        await NativeVaultManager.setAuthTokens(accessToken, refreshToken);
-        await AsyncStorage.multiRemove(['accessToken', 'refreshToken']);
-      }
-    } catch (error) {
-      console.error('Failed to sync config to native layer:', error);
     }
   }
 }

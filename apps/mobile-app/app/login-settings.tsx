@@ -47,17 +47,8 @@ export default function SettingsScreen() : React.ReactNode {
    */
   const loadStoredSettings = useCallback(async () : Promise<void> => {
     try {
-      // Try to get API URL from native layer first, fallback to AsyncStorage
-      let apiUrl: string | null = null;
-      try {
-        apiUrl = await NativeVaultManager.getApiUrl();
-      } catch (nativeError) {
-        console.warn('Failed to get API URL from native layer, falling back to AsyncStorage:', nativeError);
-        apiUrl = await AsyncStorage.getItem('apiUrl');
-      }
-
+      const apiUrl = await NativeVaultManager.getApiUrl();
       const matchingOption = DEFAULT_OPTIONS.find(opt => opt.value === apiUrl);
-
       if (matchingOption) {
         setSelectedOption(matchingOption.value);
       } else if (apiUrl) {
@@ -81,8 +72,6 @@ export default function SettingsScreen() : React.ReactNode {
   const handleOptionChange = async (value: string) : Promise<void> => {
     setSelectedOption(value);
     if (value !== 'custom') {
-      // Sync to both AsyncStorage and native layer
-      await AsyncStorage.setItem('apiUrl', value);
       try {
         await NativeVaultManager.setApiUrl(value);
       } catch (error) {

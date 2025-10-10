@@ -126,22 +126,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * Set auth tokens in storage as part of the login process. After db is initialized, the login method should be called as well.
    */
   const setAuthTokens = useCallback(async (username: string, accessToken: string, refreshToken: string): Promise<void> => {
-    // Store username in native layer (new approach)
     await NativeVaultManager.setUsername(username);
+    await NativeVaultManager.setAuthTokens(accessToken, refreshToken);
 
-    // Keep AsyncStorage for backward compatibility / migration
-    // TODO: Remove AsyncStorage username storage in future version
-    await AsyncStorage.setItem('username', username);
-    await AsyncStorage.setItem('accessToken', accessToken);
-    await AsyncStorage.setItem('refreshToken', refreshToken);
-
-    // Sync tokens to native layer
-    try {
-      await NativeVaultManager.setAuthTokens(accessToken, refreshToken);
-    } catch (error) {
-      console.error('Failed to sync auth tokens to native layer:', error);
-    }
-
+    // Update React state
     setUsername(username);
   }, []);
 
@@ -150,37 +138,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * @returns object containing whether the user is logged in and enabled auth methods
    */
   const initializeAuth = useCallback(async (): Promise<{ isLoggedIn: boolean; enabledAuthMethods: AuthMethod[] }> => {
-    const accessToken = await AsyncStorage.getItem('accessToken') as string;
-    const refreshToken = await AsyncStorage.getItem('refreshToken') as string;
+    // Sync legacy config to native layer (can be removed in future version 0.25.0+)
+    syncLegacyConfigToNative();
 
-    // Try to get username from native layer first (new approach)
-    let username = await NativeVaultManager.getUsername();
+    const accessToken = await NativeVaultManager.getAccessToken();
+    const username = await NativeVaultManager.getUsername();
 
-    // Fallback to AsyncStorage for migration
-    if (!username) {
-      username = await AsyncStorage.getItem('username');
-      // Migrate to native storage
-      if (username) {
-        await NativeVaultManager.setUsername(username);
-      }
-    }
-
-    // Load offline mode from native layer
-    const offline = await NativeVaultManager.getOfflineMode();
-    setIsOffline(offline);
-
+    // Update local React state
     let isAuthenticated = false;
     let methods: AuthMethod[] = ['password'];
 
-    if (accessToken && refreshToken && username) {
+    // Check if user is logged in (has both access token and username)
+    if (accessToken && username) {
       setUsername(username);
       setIsLoggedIn(true);
       isAuthenticated = true;
       methods = await getEnabledAuthMethods();
     }
+
+    const offline = await NativeVaultManager.getOfflineMode();
+
     setIsInitialized(true);
+    setIsOffline(offline);
     return { isLoggedIn: isAuthenticated, enabledAuthMethods: methods };
   }, [getEnabledAuthMethods]);
+
+  /**
+   * Sync legacy config to native layer
+   */
+  const syncLegacyConfigToNative = useCallback(async (): Promise<void> => {
+    // Migrate tokens from AsyncStorage to native on first launch, then remove to prevent repeated syncs
+    const accessToken = await AsyncStorage.getItem('accessToken');
+    const refreshToken = await AsyncStorage.getItem('refreshToken');
+
+    if (accessToken && refreshToken) {
+      await NativeVaultManager.setAuthTokens(accessToken, refreshToken);
+      await AsyncStorage.multiRemove(['accessToken', 'refreshToken']);
+    }
+
+    const username = await AsyncStorage.getItem('username');
+    if (username) {
+      await NativeVaultManager.setUsername(username);
+      await AsyncStorage.removeItem('username');
+    }
+  }, []);
 
   /**
    * Set logged in status to true which refreshes the app.
@@ -199,7 +200,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await NativeVaultManager.clearAuthTokens();
 
     // Clear from AsyncStorage (for backward compatibility)
-    // TODO: Remove AsyncStorage cleanup in future version
+    // TODO: Remove AsyncStorage cleanup in future version 0.25.0+
     await AsyncStorage.removeItem('username');
     await AsyncStorage.removeItem('accessToken');
     await AsyncStorage.removeItem('refreshToken');
