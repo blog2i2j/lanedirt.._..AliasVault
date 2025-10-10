@@ -12,6 +12,7 @@ import VaultModels
 @objc(VaultManager)
 public class VaultManager: NSObject {
     private let vaultStore = VaultStore()
+    private let webApiService = WebApiService()
     private var backgroundTaskIdentifier: UIBackgroundTaskIdentifier = .invalid
     private var clipboardClearTimer: DispatchSourceTimer?
 
@@ -461,6 +462,124 @@ public class VaultManager: NSObject {
                 print("VaultManager: Failed to register credential identities: \(error)")
                 await MainActor.run {
                     reject("CREDENTIAL_REGISTRATION_ERROR", "Failed to register credential identities: \(error.localizedDescription)", error)
+                }
+            }
+        }
+    }
+
+    // MARK: - WebAPI Configuration
+
+    @objc
+    func setApiUrl(_ url: String,
+                   resolver resolve: @escaping RCTPromiseResolveBlock,
+                   rejecter reject: @escaping RCTPromiseRejectBlock) {
+        do {
+            try webApiService.setApiUrl(url)
+            resolve(nil)
+        } catch {
+            reject("API_URL_ERROR", "Failed to set API URL: \(error.localizedDescription)", error)
+        }
+    }
+
+    @objc
+    func getApiUrl(_ resolve: @escaping RCTPromiseResolveBlock,
+                   rejecter reject: @escaping RCTPromiseRejectBlock) {
+        let apiUrl = webApiService.getApiUrl()
+        resolve(apiUrl)
+    }
+
+    // MARK: - WebAPI Token Management
+
+    @objc
+    func setAuthTokens(_ accessToken: String,
+                      refreshToken: String,
+                      resolver resolve: @escaping RCTPromiseResolveBlock,
+                      rejecter reject: @escaping RCTPromiseRejectBlock) {
+        do {
+            try webApiService.setAuthTokens(accessToken: accessToken, refreshToken: refreshToken)
+            resolve(nil)
+        } catch {
+            reject("AUTH_TOKEN_ERROR", "Failed to set auth tokens: \(error.localizedDescription)", error)
+        }
+    }
+
+    @objc
+    func getAccessToken(_ resolve: @escaping RCTPromiseResolveBlock,
+                       rejecter reject: @escaping RCTPromiseRejectBlock) {
+        if let accessToken = webApiService.getAccessToken() {
+            resolve(accessToken)
+        } else {
+            resolve(nil)
+        }
+    }
+
+    @objc
+    func clearAuthTokens(_ resolve: @escaping RCTPromiseResolveBlock,
+                        rejecter reject: @escaping RCTPromiseRejectBlock) {
+        webApiService.clearAuthTokens()
+        resolve(nil)
+    }
+
+    @objc
+    func revokeTokens(_ resolve: @escaping RCTPromiseResolveBlock,
+                     rejecter reject: @escaping RCTPromiseRejectBlock) {
+        Task {
+            do {
+                try await webApiService.revokeTokens()
+                resolve(nil)
+            } catch {
+                reject("REVOKE_ERROR", "Failed to revoke tokens: \(error.localizedDescription)", error)
+            }
+        }
+    }
+
+    // MARK: - WebAPI Request Execution
+
+    @objc
+    func executeWebApiRequest(_ method: String,
+                             endpoint: String,
+                             body: String?,
+                             headers: String,
+                             requiresAuth: Bool,
+                             resolver resolve: @escaping RCTPromiseResolveBlock,
+                             rejecter reject: @escaping RCTPromiseRejectBlock) {
+        Task {
+            do {
+                // Parse headers from JSON string
+                guard let headersData = headers.data(using: .utf8),
+                      let headersDict = try? JSONSerialization.jsonObject(with: headersData) as? [String: String] else {
+                    reject("HEADERS_ERROR", "Failed to parse headers", nil)
+                    return
+                }
+
+                // Execute the request
+                let response = try await webApiService.executeRequest(
+                    method: method,
+                    endpoint: endpoint,
+                    body: body,
+                    headers: headersDict,
+                    requiresAuth: requiresAuth
+                )
+
+                // Build response JSON
+                let responseDict: [String: Any] = [
+                    "statusCode": response.statusCode,
+                    "body": response.body,
+                    "headers": response.headers
+                ]
+
+                guard let responseData = try? JSONSerialization.data(withJSONObject: responseDict),
+                      let responseJson = String(data: responseData, encoding: .utf8) else {
+                    reject("RESPONSE_ERROR", "Failed to serialize response", nil)
+                    return
+                }
+
+                await MainActor.run {
+                    resolve(responseJson)
+                }
+            } catch {
+                await MainActor.run {
+                    reject("WEB_API_ERROR", "Failed to execute WebAPI request: \(error.localizedDescription)", error)
                 }
             }
         }

@@ -171,4 +171,38 @@
     [vaultManager registerCredentialIdentities:resolve rejecter:reject];
 }
 
+// MARK: - WebAPI Configuration
+
+- (void)setApiUrl:(NSString *)url resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager setApiUrl:url resolver:resolve rejecter:reject];
+}
+
+- (void)getApiUrl:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager getApiUrl:resolve rejecter:reject];
+}
+
+// MARK: - WebAPI Token Management
+
+- (void)setAuthTokens:(NSString *)accessToken refreshToken:(NSString *)refreshToken resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager setAuthTokens:accessToken refreshToken:refreshToken resolver:resolve rejecter:reject];
+}
+
+- (void)getAccessToken:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager getAccessToken:resolve rejecter:reject];
+}
+
+- (void)clearAuthTokens:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager clearAuthTokens:resolve rejecter:reject];
+}
+
+- (void)revokeTokens:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager revokeTokens:resolve rejecter:reject];
+}
+
+// MARK: - WebAPI Request Execution
+
+- (void)executeWebApiRequest:(NSString *)method endpoint:(NSString *)endpoint body:(NSString *)body headers:(NSString *)headers requiresAuth:(BOOL)requiresAuth resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager executeWebApiRequest:method endpoint:endpoint body:body headers:headers requiresAuth:requiresAuth resolver:resolve rejecter:reject];
+}
+
 @end

@@ -19,8 +19,15 @@ import com.facebook.react.turbomodule.core.interfaces.TurboModule
 import net.aliasvault.app.vaultstore.VaultStore
 import net.aliasvault.app.vaultstore.keystoreprovider.AndroidKeystoreProvider
 import net.aliasvault.app.vaultstore.storageprovider.AndroidStorageProvider
+import net.aliasvault.app.webapi.WebApiService
 import net.aliasvault.nativevaultmanager.NativeVaultManagerSpec
 import org.json.JSONArray
+import org.json.JSONObject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 
 /**
  * The native vault manager that manages the vault store and all input/output operations on it.
@@ -49,6 +56,8 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
         AndroidKeystoreProvider(reactContext) { getFragmentActivity() },
         AndroidStorageProvider(reactContext),
     )
+
+    private val webApiService = WebApiService(reactContext)
 
     init {
         // Register for lifecycle callbacks
@@ -846,5 +855,180 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
      */
     private fun getFragmentActivity(): FragmentActivity? {
         return currentActivity as? FragmentActivity
+    }
+
+    // MARK: - WebAPI Configuration
+
+    /**
+     * Set the API URL
+     * @param url The API URL to set
+     * @param promise The promise to resolve
+     */
+    @ReactMethod
+    override fun setApiUrl(url: String, promise: Promise) {
+        try {
+            // TODO: Implement when WebApiService is complete
+            webApiService.setApiUrl(url)
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting API URL", e)
+            promise.reject("ERR_SET_API_URL", "Failed to set API URL: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Get the API URL
+     * @param promise The promise to resolve
+     */
+    @ReactMethod
+    override fun getApiUrl(promise: Promise) {
+        try {
+            // TODO: Implement when WebApiService is complete
+            val apiUrl = webApiService.getApiUrl()
+            promise.resolve(apiUrl)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting API URL", e)
+            promise.reject("ERR_GET_API_URL", "Failed to get API URL: ${e.message}", e)
+        }
+    }
+
+    // MARK: - WebAPI Token Management
+
+    /**
+     * Set both access and refresh tokens
+     * @param accessToken The access token
+     * @param refreshToken The refresh token
+     * @param promise The promise to resolve
+     */
+    @ReactMethod
+    override fun setAuthTokens(accessToken: String, refreshToken: String, promise: Promise) {
+        try {
+            // TODO: Implement when WebApiService is complete
+            webApiService.setAuthTokens(accessToken, refreshToken)
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting auth tokens", e)
+            promise.reject("ERR_SET_AUTH_TOKENS", "Failed to set auth tokens: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Get the access token
+     * @param promise The promise to resolve
+     */
+    @ReactMethod
+    override fun getAccessToken(promise: Promise) {
+        try {
+            // TODO: Implement when WebApiService is complete
+            val accessToken = webApiService.getAccessToken()
+            promise.resolve(accessToken)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting access token", e)
+            promise.reject("ERR_GET_ACCESS_TOKEN", "Failed to get access token: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Clear both access and refresh tokens
+     * @param promise The promise to resolve
+     */
+    @ReactMethod
+    override fun clearAuthTokens(promise: Promise) {
+        try {
+            // TODO: Implement when WebApiService is complete
+            webApiService.clearAuthTokens()
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error clearing auth tokens", e)
+            promise.reject("ERR_CLEAR_AUTH_TOKENS", "Failed to clear auth tokens: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Revoke tokens via WebAPI (called when logging out)
+     * @param promise The promise to resolve
+     */
+    @ReactMethod
+    override fun revokeTokens(promise: Promise) {
+        // TODO: Implement when WebApiService is complete
+        // This should call webApiService.revokeTokens() which is an async suspend function
+        // For now, we'll use a coroutine scope to handle it
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                webApiService.revokeTokens()
+                withContext(Dispatchers.Main) {
+                    promise.resolve(null)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Log.e(TAG, "Error revoking tokens", e)
+                    promise.reject("ERR_REVOKE_TOKENS", "Failed to revoke tokens: ${e.message}", e)
+                }
+            }
+        }
+    }
+
+    // MARK: - WebAPI Request Execution
+
+    /**
+     * Execute a WebAPI request
+     * @param method The HTTP method
+     * @param endpoint The API endpoint
+     * @param body The request body (nullable)
+     * @param headers The request headers as JSON string
+     * @param requiresAuth Whether authentication is required
+     * @param promise The promise to resolve
+     */
+    @ReactMethod
+    override fun executeWebApiRequest(
+        method: String,
+        endpoint: String,
+        body: String?,
+        headers: String,
+        requiresAuth: Boolean,
+        promise: Promise
+    ) {
+        try {
+            // TODO: Implement when WebApiService is complete
+            // Parse headers from JSON string
+            val headersMap = mutableMapOf<String, String>()
+            val headersJson = JSONObject(headers)
+            headersJson.keys().forEach { key ->
+                headersMap[key] = headersJson.getString(key)
+            }
+
+            // Execute request using coroutines
+            runBlocking {
+                val response = webApiService.executeRequest(
+                    method = method,
+                    endpoint = endpoint,
+                    body = body,
+                    headers = headersMap,
+                    requiresAuth = requiresAuth
+                )
+
+                // Build response JSON
+                val responseJson = JSONObject()
+                responseJson.put("statusCode", response.statusCode)
+                responseJson.put("body", response.body)
+                responseJson.put("headers", JSONObject(response.headers))
+
+                promise.resolve(responseJson.toString())
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error executing WebAPI request", e)
+            promise.reject("ERR_WEB_API_REQUEST", "Failed to execute WebAPI request: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Register credential identities (Android stub - not yet implemented)
+     * @param promise The promise to resolve
+     */
+    @ReactMethod
+    override fun registerCredentialIdentities(promise: Promise) {
+        // TODO: Implement Android credential identity registration
+        Log.d(TAG, "registerCredentialIdentities: Not yet implemented on Android")
+        promise.resolve(null)
     }
 }

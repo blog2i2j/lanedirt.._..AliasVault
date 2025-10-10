@@ -7,6 +7,7 @@ import i18n from '@/i18n';
 
 import { LocalAuthError } from './types/errors/LocalAuthError';
 import { logoutEventEmitter } from '@/events/LogoutEventEmitter';
+import NativeVaultManager from '@/specs/NativeVaultManager';
 
 type RequestInit = globalThis.RequestInit;
 
@@ -19,13 +20,26 @@ type TokenResponse = {
 }
 
 /**
+ * Type for the native WebAPI response.
+ */
+type NativeWebApiResponse = {
+  statusCode: number;
+  body: string;
+  headers: Record<string, string>;
+}
+
+/**
  * Service class for interacting with the web API.
+ * This class now acts as a proxy to the native layer, where all WebAPI calls are executed.
  */
 export class WebApiService {
   /**
    * Constructor for the WebApiService class.
    */
-  public constructor() { }
+  public constructor() {
+    // Initialize API URL and tokens from AsyncStorage if they exist
+    this.syncLegacyConfigToNative();
+  }
 
   /**
    * Get the base URL for the API from settings.
@@ -47,6 +61,7 @@ export class WebApiService {
 
   /**
    * Fetch data from the API with authentication headers and access token refresh retry.
+   * This method now proxies to the native layer which handles auth and token refresh.
    */
   public async authFetch<T>(
     endpoint: string,
@@ -54,47 +69,53 @@ export class WebApiService {
     parseJson: boolean = true,
     throwOnError: boolean = true
   ): Promise<T> {
-    const headers = new Headers(options.headers ?? {});
-
-    // Add authorization header if we have an access token
-    const accessToken = await this.getAccessToken();
-    if (accessToken) {
-      headers.set('Authorization', `Bearer ${accessToken}`);
-    }
-
-    const requestOptions: RequestInit = {
-      ...options,
-      headers,
-    };
-
     try {
-      const response = await this.rawFetch(endpoint, requestOptions);
+      const method = options.method || 'GET';
+      const headers: Record<string, string> = {};
 
-      if (response.status === 401) {
-        const newToken = await this.refreshAccessToken();
-        if (newToken) {
-          headers.set('Authorization', `Bearer ${newToken}`);
-          const retryResponse = await this.rawFetch(endpoint, {
-            ...requestOptions,
-            headers,
+      // Extract headers from options
+      if (options.headers) {
+        if (options.headers instanceof Headers) {
+          options.headers.forEach((value, key) => {
+            headers[key] = value;
           });
-
-          if (!retryResponse.ok) {
-            throw new Error(i18n.t('auth.errors.httpError', { status: retryResponse.status }));
-          }
-
-          return parseJson ? retryResponse.json() : retryResponse as unknown as T;
+        } else if (Array.isArray(options.headers)) {
+          options.headers.forEach(([key, value]) => {
+            headers[key] = value;
+          });
         } else {
-          logoutEventEmitter.emit('auth.errors.sessionExpired');
-          throw new Error(i18n.t('auth.errors.sessionExpired'));
+          Object.assign(headers, options.headers);
         }
       }
 
-      if (!response.ok && throwOnError) {
-        throw new Error(i18n.t('auth.errors.httpError', { status: response.status }));
+      // Execute request through native layer with auth
+      const responseJson = await NativeVaultManager.executeWebApiRequest(
+        method,
+        endpoint,
+        options.body as string | null ?? null,
+        JSON.stringify(headers),
+        true // requiresAuth
+      );
+
+      const response: NativeWebApiResponse = JSON.parse(responseJson);
+
+      // Handle 401 specially to trigger session expired
+      if (response.statusCode === 401) {
+        logoutEventEmitter.emit('auth.errors.sessionExpired');
+        throw new Error(i18n.t('auth.errors.sessionExpired'));
       }
 
-      return parseJson ? response.json() : response as unknown as T;
+      if (response.statusCode >= 400 && throwOnError) {
+        throw new Error(i18n.t('auth.errors.httpError', { status: response.statusCode }));
+      }
+
+      // Parse response body if requested
+      if (parseJson && response.body) {
+        return JSON.parse(response.body) as T;
+      }
+
+      // Return raw response as object with status for non-JSON responses
+      return { status: response.statusCode, ...response } as unknown as T;
     } catch (error) {
       console.error('API request failed:', error);
       throw error;
@@ -103,31 +124,55 @@ export class WebApiService {
 
   /**
    * Fetch data from the API without authentication headers and without access token refresh retry.
+   * This method now proxies to the native layer.
    */
   public async rawFetch(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<Response> {
-    const baseUrl = await this.getBaseUrl();
-    const url = baseUrl + endpoint;
-    const headers = new Headers(options.headers ?? {});
-
-    // Add client version header (using API_VERSION for server compatibility)
-    headers.set('X-AliasVault-Client', `${AppInfo.CLIENT_NAME}-${AppInfo.API_VERSION}`);
-
-    const requestOptions: RequestInit = {
-      ...options,
-      headers,
-    };
-
     try {
-      const response = await fetch(url, requestOptions);
-      return response;
+      const method = options.method || 'GET';
+      const headers: Record<string, string> = {};
+
+      // Extract headers from options
+      if (options.headers) {
+        if (options.headers instanceof Headers) {
+          options.headers.forEach((value, key) => {
+            headers[key] = value;
+          });
+        } else if (Array.isArray(options.headers)) {
+          options.headers.forEach(([key, value]) => {
+            headers[key] = value;
+          });
+        } else {
+          Object.assign(headers, options.headers);
+        }
+      }
+
+      // Execute request through native layer without auth
+      const responseJson = await NativeVaultManager.executeWebApiRequest(
+        method,
+        endpoint,
+        options.body as string | null ?? null,
+        JSON.stringify(headers),
+        false // requiresAuth = false
+      );
+
+      const nativeResponse: NativeWebApiResponse = JSON.parse(responseJson);
+
+      // Convert native response to Response object
+      const responseInit: ResponseInit = {
+        status: nativeResponse.statusCode,
+        statusText: nativeResponse.statusCode >= 200 && nativeResponse.statusCode < 300 ? 'OK' : 'Error',
+        headers: nativeResponse.headers,
+      };
+
+      return new Response(nativeResponse.body, responseInit);
     } catch (error) {
       console.error('API request failed:', error);
 
       // Detect SSL certificate errors
-      if (error instanceof TypeError) {
+      if (error instanceof Error) {
         const errorMessage = error.message.toLowerCase();
 
         // Common SSL/TLS error patterns on iOS and Android
@@ -154,41 +199,6 @@ export class WebApiService {
 
       // Re-throw the original error if it's not SSL-related
       throw error;
-    }
-  }
-
-  /**
-   * Refresh the access token.
-   */
-  private async refreshAccessToken(): Promise<string | null> {
-    const refreshToken = await this.getRefreshToken();
-    if (!refreshToken) {
-      return null;
-    }
-
-    try {
-      const response = await this.rawFetch('Auth/refresh', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Ignore-Failure': 'true',
-        },
-        body: JSON.stringify({
-          token: await this.getAccessToken(),
-          refreshToken: refreshToken,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(i18n.t('auth.errors.tokenRefreshFailed'));
-      }
-
-      const tokenResponse: TokenResponse = await response.json();
-      this.updateTokens(tokenResponse.token, tokenResponse.refreshToken);
-      return tokenResponse.token;
-    } catch {
-      logoutEventEmitter.emit('auth.errors.sessionExpired');
-      return null;
     }
   }
 
@@ -259,17 +269,12 @@ export class WebApiService {
 
   /**
    * Revoke tokens via WebApi called when logging out.
+   * This is now fully handled by the native layer to ensure token consistency.
    */
   public async revokeTokens(): Promise<void> {
-    // Revoke tokens via WebApi.
     try {
-      const refreshToken = await this.getRefreshToken();
-      if (refreshToken) {
-        await this.post('Auth/revoke', {
-          token: await this.getAccessToken(),
-          refreshToken: refreshToken,
-        }, false);
-      }
+      // Delegate to native layer which handles token revocation and cleanup
+      await NativeVaultManager.revokeTokens();
     } catch (err) {
       console.error('WebApi revoke tokens error:', err);
     }
@@ -347,38 +352,50 @@ export class WebApiService {
   }
 
   /**
-   * Get the currently configured API URL from async storage.
+   * Get the currently configured API URL from native storage.
    */
   private async getApiUrl(): Promise<string> {
-    const result = await AsyncStorage.getItem('apiUrl') as string;
-    if (result && result.length > 0) {
-      return result;
+    try {
+      const apiUrl = await NativeVaultManager.getApiUrl();
+      return apiUrl || AppInfo.DEFAULT_API_URL;
+    } catch (error) {
+      console.error('Failed to get API URL from native layer:', error);
+      // Fallback to AsyncStorage
+      const result = await AsyncStorage.getItem('apiUrl') as string;
+      if (result && result.length > 0) {
+        return result;
+      }
+      return AppInfo.DEFAULT_API_URL;
     }
-
-    return AppInfo.DEFAULT_API_URL;
   }
 
   /**
-   * Get the current access token from storage.
+   * Sync configuration from AsyncStorage to native layer on initialization.
+   *
+   * This is primarily for backward compatibility / migration purposes:
+   * - Existing users who upgraded from a version without native WebAPI will have tokens in AsyncStorage
+   * - This ensures those tokens are migrated to the native layer on first launch after upgrade
+   * - For new installations, all tokens/config go directly to native layer, so this becomes a no-op
+   *
+   * TODO: This can be removed in a future version (e.g., after some time that 0.24.0 is released)
+   * and once most if not all active users have migrated.
    */
-  private async getAccessToken(): Promise<string | null> {
-    const token = await AsyncStorage.getItem('accessToken') as string;
-    return token ?? null;
-  }
+    private async syncLegacyConfigToNative(): Promise<void> {
+      try {
+        // Sync API URL from AsyncStorage to native (migration only)
+        const apiUrl = await AsyncStorage.getItem('apiUrl');
+        if (apiUrl) {
+          await NativeVaultManager.setApiUrl(apiUrl);
+        }
 
-  /**
-   * Get the current refresh token from storage.
-   */
-  private async getRefreshToken(): Promise<string | null> {
-    const token = await AsyncStorage.getItem('refreshToken') as string;
-    return token ?? null;
-  }
-
-  /**
-   * Update both access and refresh tokens in storage.
-   */
-  private async updateTokens(accessToken: string, refreshToken: string): Promise<void> {
-    await AsyncStorage.setItem('accessToken', accessToken);
-    await AsyncStorage.setItem('refreshToken', refreshToken);
-  }
+        // Sync tokens from AsyncStorage to native (migration only)
+        const accessToken = await AsyncStorage.getItem('accessToken');
+        const refreshToken = await AsyncStorage.getItem('refreshToken');
+        if (accessToken && refreshToken) {
+          await NativeVaultManager.setAuthTokens(accessToken, refreshToken);
+        }
+      } catch (error) {
+        console.error('Failed to sync config to native layer:', error);
+      }
+    }
 }

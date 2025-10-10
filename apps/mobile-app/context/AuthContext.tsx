@@ -130,6 +130,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await AsyncStorage.setItem('accessToken', accessToken);
     await AsyncStorage.setItem('refreshToken', refreshToken);
 
+    // Sync tokens to native layer
+    try {
+      await NativeVaultManager.setAuthTokens(accessToken, refreshToken);
+    } catch (error) {
+      console.error('Failed to sync auth tokens to native layer:', error);
+    }
+
     setUsername(username);
   }, []);
 
@@ -171,6 +178,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await AsyncStorage.removeItem('refreshToken');
     await AsyncStorage.removeItem('authMethods');
     dbContext?.clearDatabase();
+
+    // Clear tokens from native layer
+    try {
+      await NativeVaultManager.clearAuthTokens();
+    } catch (error) {
+      console.error('Failed to clear auth tokens from native layer:', error);
+    }
 
     if (errorMessage) {
       // Show alert

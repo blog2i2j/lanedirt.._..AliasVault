@@ -55,6 +55,23 @@ export interface Spec extends TurboModule {
 
   // Credential identity management
   registerCredentialIdentities(): Promise<void>;
+
+  // WebAPI configuration and token management
+  setApiUrl(url: string): Promise<void>;
+  getApiUrl(): Promise<string>;
+  setAuthTokens(accessToken: string, refreshToken: string): Promise<void>;
+  getAccessToken(): Promise<string | null>;
+  clearAuthTokens(): Promise<void>;
+  revokeTokens(): Promise<void>;
+
+  // WebAPI request execution
+  executeWebApiRequest(
+    method: string,
+    endpoint: string,
+    body: string | null,
+    headers: string,
+    requiresAuth: boolean
+  ): Promise<string>;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>('NativeVaultManager');

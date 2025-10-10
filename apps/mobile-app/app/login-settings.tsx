@@ -12,6 +12,7 @@ import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedScrollView } from '@/components/themed/ThemedScrollView';
 import { ThemedView } from '@/components/themed/ThemedView';
 import { RobustPressable } from '@/components/ui/RobustPressable';
+import NativeVaultManager from '@/specs/NativeVaultManager';
 
 type ApiOption = {
   label: string;
@@ -42,11 +43,19 @@ export default function SettingsScreen() : React.ReactNode {
   }, [navigation, t]);
 
   /**
-   * Load the stored settings.
+   * Load the stored settings from native layer.
    */
   const loadStoredSettings = useCallback(async () : Promise<void> => {
     try {
-      const apiUrl = await AsyncStorage.getItem('apiUrl');
+      // Try to get API URL from native layer first, fallback to AsyncStorage
+      let apiUrl: string | null = null;
+      try {
+        apiUrl = await NativeVaultManager.getApiUrl();
+      } catch (nativeError) {
+        console.warn('Failed to get API URL from native layer, falling back to AsyncStorage:', nativeError);
+        apiUrl = await AsyncStorage.getItem('apiUrl');
+      }
+
       const matchingOption = DEFAULT_OPTIONS.find(opt => opt.value === apiUrl);
 
       if (matchingOption) {
@@ -72,7 +81,13 @@ export default function SettingsScreen() : React.ReactNode {
   const handleOptionChange = async (value: string) : Promise<void> => {
     setSelectedOption(value);
     if (value !== 'custom') {
+      // Sync to both AsyncStorage and native layer
       await AsyncStorage.setItem('apiUrl', value);
+      try {
+        await NativeVaultManager.setApiUrl(value);
+      } catch (error) {
+        console.error('Failed to sync API URL to native layer:', error);
+      }
       setCustomUrl('');
     }
   };
@@ -82,7 +97,13 @@ export default function SettingsScreen() : React.ReactNode {
    */
   const handleCustomUrlChange = async (value: string) : Promise<void> => {
     setCustomUrl(value);
+    // Sync to both AsyncStorage and native layer
     await AsyncStorage.setItem('apiUrl', value);
+    try {
+      await NativeVaultManager.setApiUrl(value);
+    } catch (error) {
+      console.error('Failed to sync API URL to native layer:', error);
+    }
   };
 
   const styles = StyleSheet.create({
