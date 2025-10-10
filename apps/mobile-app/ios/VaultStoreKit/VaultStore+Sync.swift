@@ -61,11 +61,13 @@ extension VaultStore {
             requiresAuth: true
         )
 
-        // Check if we got a successful response (token refresh may have occurred)
+        // Check response status
+        // Note: WebApiService already handles 401 with automatic token refresh and retry
+        // If we still get a 401 here, it means the refresh failed and we should logout
         guard statusResponse.statusCode == 200 else {
-            // If still unauthorized after token refresh attempt
             if statusResponse.statusCode == 401 {
-                print("VaultStore: Authentication failed (401), tokens may be expired")
+                // Authentication failed even after token refresh attempt
+                print("VaultStore: Authentication failed (401) - token refresh also failed")
                 throw NSError(
                     domain: "VaultStore",
                     code: 401,
@@ -73,11 +75,12 @@ extension VaultStore {
                 )
             }
 
+            // Other error (5xx, network, etc.) - go offline
             setOfflineMode(true)
             throw NSError(
                 domain: "VaultStore",
-                code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Server not available"]
+                code: statusResponse.statusCode,
+                userInfo: [NSLocalizedDescriptionKey: "Server returned status \(statusResponse.statusCode)"]
             )
         }
 

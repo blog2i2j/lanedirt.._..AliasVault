@@ -392,7 +392,8 @@ extension VaultStore {
         rpId: String,
         userName: String?,
         userDisplayName: String?,
-        passkey: Passkey
+        passkey: Passkey,
+        logo: Data? = nil
     ) throws -> Credential {
         guard let dbConn = dbConnection else {
             throw VaultStoreError.vaultNotUnlocked
@@ -407,11 +408,15 @@ extension VaultStore {
         // Create a minimal service for the RP
         let serviceId = UUID()
         let serviceTable = Table("Services")
+
+        // Convert logo Data to SQLite Blob if present
+        let logoBlob = logo.map { Blob(bytes: [UInt8]($0)) }
+
         let serviceInsert = serviceTable.insert(
             Expression<String>("Id") <- serviceId.uuidString,
             Expression<String?>("Name") <- rpId,
             Expression<String?>("Url") <- "https://\(rpId)",
-            Expression<SQLite.Blob?>("Logo") <- nil,
+            Expression<SQLite.Blob?>("Logo") <- logoBlob,
             Expression<String>("CreatedAt") <- timestamp,
             Expression<String>("UpdatedAt") <- timestamp,
             Expression<Int64>("IsDeleted") <- 0
@@ -442,7 +447,7 @@ extension VaultStore {
             id: serviceId,
             name: rpId,
             url: "https://\(rpId)",
-            logo: nil,
+            logo: logo,
             createdAt: now,
             updatedAt: now,
             isDeleted: false

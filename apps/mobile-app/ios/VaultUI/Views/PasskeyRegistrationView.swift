@@ -17,6 +17,7 @@ public struct PasskeyRegistrationView: View {
                 (colorScheme == .dark ? ColorConstants.Dark.background : ColorConstants.Light.background)
                     .ignoresSafeArea()
 
+                // Main content
                 ScrollView {
                     VStack(spacing: 24) {
                         // Header
@@ -107,8 +108,66 @@ public struct PasskeyRegistrationView: View {
                         .padding(.bottom, 20)
                     }
                 }
+                .opacity(viewModel.isLoading ? 0.3 : 1.0)
+                .disabled(viewModel.isLoading)
+
+                // Loading overlay
+                if viewModel.isLoading {
+                    LoadingOverlayView(message: viewModel.loadingMessage)
+                }
             }
             .navigationBarHidden(true)
+        }
+    }
+}
+
+/// Loading overlay component with AliasVault branding
+private struct LoadingOverlayView: View {
+    let message: String
+    @State private var isAnimating = false
+
+    var body: some View {
+        ZStack {
+            // Semi-transparent background
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+
+            // Loading card
+            VStack(spacing: 20) {
+                // AliasVault logo animation
+                Image(systemName: "shield.fill")
+                    .font(.system(size: 60))
+                    .foregroundColor(ColorConstants.Light.primary)
+                    .rotationEffect(Angle(degrees: isAnimating ? 360 : 0))
+                    .animation(
+                        Animation.linear(duration: 2.0)
+                            .repeatForever(autoreverses: false),
+                        value: isAnimating
+                    )
+                    .onAppear {
+                        isAnimating = true
+                    }
+
+                // Loading message
+                if !message.isEmpty {
+                    Text(message)
+                        .font(.body)
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
+
+                // Progress indicator
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    .scaleEffect(1.2)
+            }
+            .padding(30)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(white: 0.2, opacity: 0.95))
+            )
+            .shadow(radius: 20)
         }
     }
 }
@@ -154,6 +213,8 @@ public class PasskeyRegistrationViewModel: ObservableObject {
     @Published public var origin: String
     @Published public var userName: String?
     @Published public var userDisplayName: String?
+    @Published public var isLoading: Bool = false
+    @Published public var loadingMessage: String = ""
 
     private let completionHandler: (Bool) -> Void
     private let cancelHandler: () -> Void
@@ -174,6 +235,13 @@ public class PasskeyRegistrationViewModel: ObservableObject {
         self.userDisplayName = userDisplayName
         self.completionHandler = completionHandler
         self.cancelHandler = cancelHandler
+    }
+
+    /// Update loading state (called from main thread)
+    @MainActor
+    public func setLoading(_ loading: Bool, message: String = "") {
+        self.isLoading = loading
+        self.loadingMessage = message
     }
 
     public func createPasskey() {

@@ -178,8 +178,18 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
         clientDataHash: Data,
         vaultStore: VaultStore
     ) {
+        // Store parameters for closure capture
+        let capturedRpId = rpId
+        let capturedUserName = userName
+        let capturedUserDisplayName = userDisplayName
+        let capturedUserId = userId
+        let capturedClientDataHash = clientDataHash
+        let capturedVaultStore = vaultStore
+
         // Create view model with handlers
-        let viewModel = PasskeyRegistrationViewModel(
+        // Use lazy initialization to avoid capturing viewModel before it's assigned
+        var viewModel: PasskeyRegistrationViewModel!
+        viewModel = PasskeyRegistrationViewModel(
             requestId: "",  // Not needed for direct creation
             rpId: rpId,
             origin: "https://\(rpId)",
@@ -190,12 +200,13 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
 
                 // Button was clicked - create the passkey directly in Swift
                 self.createPasskeyInSwift(
-                    rpId: rpId,
-                    userName: userName,
-                    userDisplayName: userDisplayName,
-                    userId: userId,
-                    clientDataHash: clientDataHash,
-                    vaultStore: vaultStore
+                    rpId: capturedRpId,
+                    userName: capturedUserName,
+                    userDisplayName: capturedUserDisplayName,
+                    userId: capturedUserId,
+                    clientDataHash: capturedClientDataHash,
+                    vaultStore: capturedVaultStore,
+                    viewModel: viewModel
                 )
             },
             cancelHandler: { [weak self] in
@@ -242,11 +253,37 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
         userDisplayName: String?,
         userId: Data?,
         clientDataHash: Data,
-        vaultStore: VaultStore
+        vaultStore: VaultStore,
+        viewModel: PasskeyRegistrationViewModel
     ) {
         // Create a Task to handle async operations
         Task {
             do {
+                // Initialize WebApiService for vault sync/mutate and favicon extraction
+                let webApiService = WebApiService()
+
+                // Step 1: Sync vault before creating passkey (to avoid conflicts)
+                await viewModel.setLoading(true, message: NSLocalizedString("vault_syncing", comment: "Syncing vault..."))
+                
+                try await vaultStore.syncVault(using: webApiService)
+                
+                // Step 2: Extract favicon from service URL
+                await viewModel.setLoading(true, message: NSLocalizedString("vault_syncing", comment: "Syncing vault..."))
+                print("PasskeyRegistration: Extracting favicon for \(rpId)...")
+                var logo: Data?
+                do {
+                    logo = try await webApiService.extractFavicon(url: "https://\(rpId)")
+                    if logo != nil {
+                        print("PasskeyRegistration: Favicon extracted successfully")
+                    } else {
+                        print("PasskeyRegistration: No favicon found")
+                    }
+                } catch {
+                    print("PasskeyRegistration: Favicon extraction failed (continuing without logo): \(error)")
+                }
+
+                // Step 3: Create passkey credentials
+                await viewModel.setLoading(true, message: NSLocalizedString("creating_passkey", comment: "Creating passkey..."))
                 print("PasskeyRegistration: Creating passkey directly in Swift layer")
 
                 // Generate new credential ID (UUID that will be used as the passkey ID)
@@ -284,15 +321,18 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                     isDeleted: false
                 )
 
+                // Step 4: Store credential with passkey in database
+                await viewModel.setLoading(true, message: NSLocalizedString("saving_to_vault", comment: "Saving to vault..."))
                 // Begin transaction
                 try vaultStore.beginTransaction()
 
-                // Store credential with passkey in database
+                // Store credential with passkey and logo in database
                 let credential = try vaultStore.createCredentialWithPasskey(
                     rpId: rpId,
                     userName: userName,
                     userDisplayName: userDisplayName,
-                    passkey: passkey
+                    passkey: passkey,
+                    logo: logo
                 )
 
                 // Commit transaction to persist the data
@@ -300,13 +340,24 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
 
                 print("PasskeyRegistration: Credential and passkey stored in database - credentialId=\(credential.id.uuidString)")
 
-                // Update the IdentityStore with the new credential (async call)
+                // Step 5: Upload vault changes to server
+                await viewModel.setLoading(true, message: NSLocalizedString("uploading_vault", comment: "Uploading vault..."))
+                print("PasskeyRegistration: Uploading vault changes to server...")
+                do {
+                    try await vaultStore.mutateVault(using: webApiService)
+                    print("PasskeyRegistration: Vault uploaded successfully")
+                } catch {
+                    print("PasskeyRegistration: Vault upload failed (passkey saved locally): \(error)")
+                    // Continue even if upload fails - passkey is saved locally
+                }
+
+                // Step 6: Update the IdentityStore with the new credential (async call)
                 let credentials = try vaultStore.getAllCredentials()
                 try await CredentialIdentityStore.shared.saveCredentialIdentities(credentials)
 
                 print("PasskeyRegistration: Updated CredentialIdentityStore")
 
-                // Create the ASPasskeyRegistrationCredential to return to the system
+                // Step 7: Create the ASPasskeyRegistrationCredential to return to the system
                 let asCredential = ASPasskeyRegistrationCredential(
                     relyingParty: rpId,
                     clientDataHash: clientDataHash,
@@ -316,6 +367,9 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
 
                 print("PasskeyRegistration: Completing registration request")
 
+                // Hide loading overlay
+                await viewModel.setLoading(false)
+
                 // Complete the registration request (must be on main thread)
                 await MainActor.run {
                     self.extensionContext.completeRegistrationRequest(using: asCredential)
@@ -323,6 +377,10 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
 
             } catch {
                 print("PasskeyRegistration error: \(error)")
+
+                // Hide loading overlay
+                await viewModel.setLoading(false)
+
                 // Cancel request (must be on main thread)
                 await MainActor.run {
                     self.extensionContext.cancelRequest(withError: NSError(
@@ -332,109 +390,6 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                     ))
                 }
             }
-        }
-    }
-
-    /**
-     * Cancel passkey registration
-     */
-    private func cancelPasskeyRegistration(requestId: String, vaultStore: VaultStore) {
-        print("PasskeyRegistration: User cancelled registration")
-        vaultStore.cleanupPasskeyRegistrationRequest(requestId)
-        extensionContext.cancelRequest(withError: NSError(
-            domain: ASExtensionErrorDomain,
-            code: ASExtensionError.userCanceled.rawValue
-        ))
-    }
-
-    /**
-     * Poll for passkey registration result from the React Native app
-     */
-    func pollForPasskeyRegistrationResult(requestId: String, vaultStore: VaultStore, pollCount: Int = 0) {
-        // Check if cancelled
-        if vaultStore.isPasskeyRegistrationCancelled(requestId) {
-            vaultStore.cleanupPasskeyRegistrationRequest(requestId)
-            extensionContext.cancelRequest(withError: NSError(
-                domain: ASExtensionErrorDomain,
-                code: ASExtensionError.userCanceled.rawValue
-            ))
-            return
-        }
-
-        // Check if result is available
-        if let resultJson = try? vaultStore.getPasskeyRegistrationResult(requestId),
-           let resultData = resultJson.data(using: .utf8),
-           let result = try? JSONSerialization.jsonObject(with: resultData) as? [String: Any] {
-
-            // Parse result
-            guard let credentialIdString = result["credentialId"] as? String,
-                  let attestationObjectB64 = result["attestationObject"] as? String,
-                  let attestationObject = Data(base64Encoded: attestationObjectB64) else {
-                vaultStore.cleanupPasskeyRegistrationRequest(requestId)
-                extensionContext.cancelRequest(withError: NSError(
-                    domain: ASExtensionErrorDomain,
-                    code: ASExtensionError.failed.rawValue,
-                    userInfo: [NSLocalizedDescriptionKey: "Invalid result data"]
-                ))
-                return
-            }
-
-            do {
-                let credentialId = try PasskeyHelper.guidToBytes(credentialIdString)
-
-                // Get client data hash and RP ID from original request
-                guard let passkeyRequest = self.extensionContext as? ASPasskeyCredentialRequest,
-                      let credentialIdentity = passkeyRequest.credentialIdentity as? ASPasskeyCredentialIdentity else {
-                    vaultStore.cleanupPasskeyRegistrationRequest(requestId)
-                    extensionContext.cancelRequest(withError: NSError(
-                        domain: ASExtensionErrorDomain,
-                        code: ASExtensionError.failed.rawValue
-                    ))
-                    return
-                }
-
-                let clientDataHash = passkeyRequest.clientDataHash
-                let rpId = credentialIdentity.relyingPartyIdentifier
-
-                // Create passkey registration credential
-                let credential = ASPasskeyRegistrationCredential(
-                    relyingParty: rpId,
-                    clientDataHash: clientDataHash,
-                    credentialID: credentialId,
-                    attestationObject: attestationObject
-                )
-
-                // Clean up stored data
-                vaultStore.cleanupPasskeyRegistrationRequest(requestId)
-
-                // Complete the request
-                extensionContext.completeRegistrationRequest(using: credential)
-                return
-            } catch {
-                vaultStore.cleanupPasskeyRegistrationRequest(requestId)
-                extensionContext.cancelRequest(withError: NSError(
-                    domain: ASExtensionErrorDomain,
-                    code: ASExtensionError.failed.rawValue,
-                    userInfo: [NSLocalizedDescriptionKey: "Failed to parse credential ID: \(error.localizedDescription)"]
-                ))
-                return
-            }
-        }
-
-        // Timeout after 60 seconds (120 polls * 0.5 seconds)
-        if pollCount >= 120 {
-            vaultStore.cleanupPasskeyRegistrationRequest(requestId)
-            extensionContext.cancelRequest(withError: NSError(
-                domain: ASExtensionErrorDomain,
-                code: ASExtensionError.userCanceled.rawValue,
-                userInfo: [NSLocalizedDescriptionKey: "Registration timed out"]
-            ))
-            return
-        }
-
-        // Poll again after 0.5 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.pollForPasskeyRegistrationResult(requestId: requestId, vaultStore: vaultStore, pollCount: pollCount + 1)
         }
     }
 

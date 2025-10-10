@@ -30,6 +30,9 @@ public class WebApiService {
     // Default API URL
     private let defaultApiUrl = "https://app.aliasvault.net/api"
 
+    /// Shared UserDefaults for communication between main app and extension
+    private let userDefaults = UserDefaults(suiteName: VaultConstants.userDefaultsSuite)!
+
     public init() {}
 
     // MARK: - Configuration Management
@@ -38,14 +41,15 @@ public class WebApiService {
      * Set the API URL
      */
     public func setApiUrl(_ url: String) throws {
-        UserDefaults.standard.set(url, forKey: apiUrlKey)
+        userDefaults.set(url, forKey: apiUrlKey)
+        userDefaults.synchronize()
     }
 
     /**
      * Get the API URL
      */
     public func getApiUrl() -> String {
-        return UserDefaults.standard.string(forKey: apiUrlKey) ?? defaultApiUrl
+        return userDefaults.string(forKey: apiUrlKey) ?? defaultApiUrl
     }
 
     /**
@@ -63,30 +67,32 @@ public class WebApiService {
      * Set both access and refresh tokens
      */
     public func setAuthTokens(accessToken: String, refreshToken: String) throws {
-        UserDefaults.standard.set(accessToken, forKey: accessTokenKey)
-        UserDefaults.standard.set(refreshToken, forKey: refreshTokenKey)
+        userDefaults.set(accessToken, forKey: accessTokenKey)
+        userDefaults.set(refreshToken, forKey: refreshTokenKey)
+        userDefaults.synchronize()
     }
 
     /**
      * Get the access token
      */
     public func getAccessToken() -> String? {
-        return UserDefaults.standard.string(forKey: accessTokenKey)
+        return userDefaults.string(forKey: accessTokenKey)
     }
 
     /**
      * Get the refresh token
      */
     public func getRefreshToken() -> String? {
-        return UserDefaults.standard.string(forKey: refreshTokenKey)
+        return userDefaults.string(forKey: refreshTokenKey)
     }
 
     /**
      * Clear both access and refresh tokens
      */
     public func clearAuthTokens() {
-        UserDefaults.standard.removeObject(forKey: accessTokenKey)
-        UserDefaults.standard.removeObject(forKey: refreshTokenKey)
+        userDefaults.removeObject(forKey: accessTokenKey)
+        userDefaults.removeObject(forKey: refreshTokenKey)
+        userDefaults.synchronize()
     }
 
     // MARK: - HTTP Request Execution
@@ -121,19 +127,26 @@ public class WebApiService {
 
         // Handle 401 Unauthorized - attempt token refresh
         if response.statusCode == 401 && requiresAuth {
+            print("WebApiService: Got 401 response, attempting token refresh...")
+
             if let newToken = try await refreshAccessToken() {
+                print("WebApiService: Token refresh successful, retrying original request")
                 // Retry the request with the new token
                 var retryHeaders = headers
                 retryHeaders["Authorization"] = "Bearer \(newToken)"
                 retryHeaders["X-AliasVault-Client"] = getClientVersionHeader()
 
-                return try await executeRawRequest(
+                let retryResponse = try await executeRawRequest(
                     method: method,
                     endpoint: endpoint,
                     body: body,
                     headers: retryHeaders
                 )
+
+                print("WebApiService: Retry completed with status \(retryResponse.statusCode)")
+                return retryResponse
             } else {
+                print("WebApiService: Token refresh failed, returning 401")
                 // Token refresh failed, return 401 response
                 return response
             }
@@ -273,6 +286,57 @@ public class WebApiService {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
         let baseVersion = version.split(separator: "-").first ?? ""
         return "ios-\(baseVersion)"
+    }
+
+    // MARK: - Favicon Extraction
+
+    /**
+     * Extract favicon from a URL
+     * Returns the favicon image data as base64-decoded bytes, or nil if extraction failed
+     */
+    public func extractFavicon(url: String) async throws -> Data? {
+        // URL encode the service URL parameter
+        guard let encodedUrl = url.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            print("WebApiService: Failed to encode URL for favicon extraction")
+            return nil
+        }
+
+        do {
+            // Make request with 5 second timeout
+            let response = try await executeRequest(
+                method: "GET",
+                endpoint: "Favicon/Extract?url=\(encodedUrl)",
+                body: nil,
+                headers: [:],
+                requiresAuth: false
+            )
+
+            guard response.statusCode == 200 else {
+                print("WebApiService: Favicon extraction failed with status \(response.statusCode)")
+                return nil
+            }
+
+            // Parse JSON response
+            guard let responseData = response.body.data(using: .utf8),
+                  let json = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
+                  let imageBase64 = json["image"] as? String else {
+                print("WebApiService: Failed to parse favicon response")
+                return nil
+            }
+
+            // Decode base64 image
+            guard let imageData = Data(base64Encoded: imageBase64) else {
+                print("WebApiService: Failed to decode base64 favicon image")
+                return nil
+            }
+
+            print("WebApiService: Successfully extracted favicon (\(imageData.count) bytes)")
+            return imageData
+
+        } catch {
+            print("WebApiService: Favicon extraction error: \(error)")
+            return nil
+        }
     }
 
     // MARK: - Token Revocation

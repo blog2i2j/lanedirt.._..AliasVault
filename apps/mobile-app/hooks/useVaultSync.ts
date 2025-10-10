@@ -91,6 +91,8 @@ export const useVaultSync = () : {
         onStatus?.(t('vault.syncingUpdatedVault'));
         hasNewVault = await NativeVaultManager.syncVault();
 
+        console.log(`VaultSync: syncVault completed, hasNewVault=${hasNewVault}`);
+
         // Add artificial delay for initial sync UX
         if (enableDelay && hasNewVault) {
           await new Promise(resolve => setTimeout(resolve, 1000));
@@ -129,63 +131,44 @@ export const useVaultSync = () : {
         throw err;
       }
 
-      // If a new vault was downloaded, we need to unlock it
-      if (hasNewVault) {
-        try {
-          // Vault was already stored by native layer, now unlock it
-          await NativeVaultManager.unlockVault();
-
-          // Check if the current vault version is known and up to date
-          if (await NativeVaultManager.isVaultUnlocked() && await dbContext.hasPendingMigrations()) {
-            onUpgradeRequired?.();
-            return false;
-          }
-
-          onSuccess?.(true);
-
-          // Register credential identities after successful vault sync
-          try {
-            await NativeVaultManager.registerCredentialIdentities();
-          } catch (error) {
-            // Don't fail the sync if credential registration fails
-          }
-
-          return true;
-        } catch (err) {
-          if (err instanceof VaultVersionIncompatibleError) {
-            await app.logout(t(err.message));
-            return false;
-          }
-
-          // Vault could not be unlocked
-          throw new Error(t('vault.errors.vaultDecryptFailed'));
-        }
-      }
-
-      // Vault already up to date
-      // Check if the vault needs migration
-      if (await NativeVaultManager.isVaultUnlocked() && await dbContext.hasPendingMigrations()) {
-        onUpgradeRequired?.();
-        return false;
-      }
-
-      // Add artificial delay for initial sync UX
-      if (enableDelay) {
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-
-      onSuccess?.(false);
-
-      // Register credential identities even when vault is up to date
       try {
-        await NativeVaultManager.registerCredentialIdentities();
-        console.log('Vault sync: Successfully registered credential identities (vault up to date)');
-      } catch (error) {
-        console.warn('Vault sync: Failed to register credential identities:', error);
-        // Don't fail the sync if credential registration fails
-      }
+        // We always re-unlock the vault to force reload of database connection
+        // This ensures React Native's SQLite connection sees changes made by native layer
+        console.log('VaultSync: Re-unlocking vault to refresh database connection');
+        await NativeVaultManager.unlockVault();
 
-      return false;
+        // Check if the vault needs migration
+        if (await dbContext.hasPendingMigrations()) {
+          onUpgradeRequired?.();
+          return false;
+        }
+
+        // Add artificial delay for initial sync UX
+        if (enableDelay) {
+          await new Promise(resolve => setTimeout(resolve, hasNewVault ? 1000 : 300));
+        }
+
+        onSuccess?.(hasNewVault);
+
+        // Register credential identities after sync
+        try {
+          await NativeVaultManager.registerCredentialIdentities();
+          console.log('Vault sync: Successfully registered credential identities');
+        } catch (error) {
+          console.warn('Vault sync: Failed to register credential identities:', error);
+          // Don't fail the sync if credential registration fails
+        }
+
+        return hasNewVault;
+      } catch (err) {
+        if (err instanceof VaultVersionIncompatibleError) {
+          await app.logout(t(err.message));
+          return false;
+        }
+
+        // Vault could not be unlocked
+        throw new Error(t('vault.errors.vaultDecryptFailed'));
+      }
     } catch (err) {
       console.error('Vault sync error:', err);
 
