@@ -263,12 +263,12 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 let webApiService = WebApiService()
 
                 // Step 1: Sync vault before creating passkey (to avoid conflicts)
-                await viewModel.setLoading(true, message: NSLocalizedString("vault_syncing", comment: "Syncing vault..."))
-                
+                await viewModel.setLoading(true, message: NSLocalizedString("creating_passkey", comment: "Syncing vault..."))
+
                 try await vaultStore.syncVault(using: webApiService)
-                
+
                 // Step 2: Extract favicon from service URL
-                await viewModel.setLoading(true, message: NSLocalizedString("vault_syncing", comment: "Syncing vault..."))
+                await viewModel.setLoading(true, message: NSLocalizedString("creating_passkey", comment: "Syncing vault..."))
                 print("PasskeyRegistration: Extracting favicon for \(rpId)...")
                 var logo: Data?
                 do {
@@ -322,7 +322,7 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 )
 
                 // Step 4: Store credential with passkey in database
-                await viewModel.setLoading(true, message: NSLocalizedString("saving_to_vault", comment: "Saving to vault..."))
+                await viewModel.setLoading(true, message: NSLocalizedString("vault_syncing", comment: "Saving to vault..."))
                 // Begin transaction
                 try vaultStore.beginTransaction()
 
@@ -341,7 +341,7 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 print("PasskeyRegistration: Credential and passkey stored in database - credentialId=\(credential.id.uuidString)")
 
                 // Step 5: Upload vault changes to server
-                await viewModel.setLoading(true, message: NSLocalizedString("uploading_vault", comment: "Uploading vault..."))
+                await viewModel.setLoading(true, message: NSLocalizedString("vault_syncing", comment: "Uploading vault..."))
                 print("PasskeyRegistration: Uploading vault changes to server...")
                 do {
                     try await vaultStore.mutateVault(using: webApiService)
