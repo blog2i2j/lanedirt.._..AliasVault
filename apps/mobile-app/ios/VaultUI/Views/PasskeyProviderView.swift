@@ -116,7 +116,7 @@ private struct PasskeyCredentialCard: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    // Service logo or icon
+                    // Service logo (favicon) or fallback to passkey icon
                     if let logo = credential.service.logo, !logo.isEmpty,
                        let uiImage = UIImage(data: logo) {
                         Image(uiImage: uiImage)
@@ -125,10 +125,16 @@ private struct PasskeyCredentialCard: View {
                             .frame(width: 40, height: 40)
                             .cornerRadius(8)
                     } else {
-                        Image(systemName: "key.fill")
-                            .font(.system(size: 24))
-                            .foregroundColor(ColorConstants.Light.primary)
-                            .frame(width: 40, height: 40)
+                        // Fallback to passkey icon when favicon is not available
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(ColorConstants.Light.primary.opacity(0.1))
+                                .frame(width: 40, height: 40)
+                            Image(systemName: "key.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(ColorConstants.Light.primary)
+                        }
+                        .frame(width: 40, height: 40)
                     }
 
                     VStack(alignment: .leading, spacing: 4) {

@@ -22,17 +22,18 @@ public struct PasskeyRegistrationView: View {
                     VStack(spacing: 24) {
                         // Header
                         VStack(spacing: 12) {
-                            Image(systemName: "key.fill")
-                                .font(.system(size: 60))
-                                .foregroundColor(ColorConstants.Light.primary)
+                            Image("Logo", bundle: Bundle(for: PasskeyRegistrationViewModel.self))
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 80, height: 80)
                                 .padding(.top, 20)
 
-                            Text(NSLocalizedString("passkey_registration", comment: ""))
+                            Text(NSLocalizedString("create_passkey_title", comment: ""))
                                 .font(.title)
                                 .fontWeight(.bold)
                                 .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.text : ColorConstants.Light.text)
 
-                            Text(NSLocalizedString("passkey_registration_subtitle", comment: ""))
+                            Text(NSLocalizedString("create_passkey_subtitle", comment: ""))
                                 .font(.subheadline)
                                 .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.textMuted : ColorConstants.Light.textMuted)
                                 .multilineTextAlignment(.center)
@@ -43,14 +44,14 @@ public struct PasskeyRegistrationView: View {
                         // Request details
                         VStack(spacing: 16) {
                             InfoRow(
-                                label: "Website",
+                                label: NSLocalizedString("website", comment: ""),
                                 value: viewModel.rpId,
                                 icon: "globe"
                             )
 
                             if let userName = viewModel.userName {
                                 InfoRow(
-                                    label: "Username",
+                                    label: NSLocalizedString("username", comment: ""),
                                     value: userName,
                                     icon: "person.fill"
                                 )
@@ -67,7 +68,7 @@ public struct PasskeyRegistrationView: View {
                             }, label: {
                                 HStack {
                                     Image(systemName: "key.fill")
-                                    Text("Create Passkey")
+                                    Text(NSLocalizedString("create_passkey_button_confirm", comment: ""))
                                 }
                                 .padding()
                                 .frame(maxWidth: .infinity)
@@ -99,6 +100,15 @@ public struct PasskeyRegistrationView: View {
             }
             .navigationBarHidden(true)
         }
+    }
+}
+
+/// AliasVault logo view component - loads from xcassets
+private struct AliasVaultLogoView: View {
+    var body: some View {
+        Image("Logo", bundle: Bundle(for: PasskeyRegistrationViewModel.self))
+            .resizable()
+            .scaledToFit()
     }
 }
 
@@ -309,6 +319,7 @@ public class PasskeyRegistrationViewModel: ObservableObject {
         )
     )
     .preferredColorScheme(.light)
+    .environment(\.locale, Locale(identifier: "en"))
 }
 
 #Preview("Dark Mode - No Username") {
@@ -328,6 +339,7 @@ public class PasskeyRegistrationViewModel: ObservableObject {
         )
     )
     .preferredColorScheme(.dark)
+    .environment(\.locale, Locale(identifier: "en"))
 }
 
 #Preview("Loading State") {
@@ -344,5 +356,21 @@ public class PasskeyRegistrationViewModel: ObservableObject {
     viewModel.loadingMessage = "Creating passkey"
     return PasskeyRegistrationView(viewModel: viewModel)
         .preferredColorScheme(.light)
+        .environment(\.locale, Locale(identifier: "en"))
+}
+
+#Preview("Logo Only") {
+    VStack(spacing: 40) {
+        AliasVaultLogoView()
+            .frame(width: 80, height: 80)
+
+        AliasVaultLogoView()
+            .frame(width: 120, height: 120)
+
+        AliasVaultLogoView()
+            .frame(width: 60, height: 60)
+    }
+    .padding()
+    .preferredColorScheme(.light)
 }
 #endif
