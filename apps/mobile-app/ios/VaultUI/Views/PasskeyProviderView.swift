@@ -105,7 +105,7 @@ public struct PasskeyProviderView: View {
 
 // MARK: - Passkey Credential Card
 
-struct PasskeyCredentialCard: View {
+private struct PasskeyCredentialCard: View {
     let credential: Credential
     let rpId: String?
     let action: () -> Void
@@ -267,3 +267,238 @@ public class PasskeyProviderViewModel: ObservableObject {
         showError = false
     }
 }
+
+// MARK: - Previews
+#if DEBUG
+#Preview("Loading State") {
+    let viewModel = PasskeyProviderViewModel(
+        loader: {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            return []
+        },
+        selectionHandler: { _ in },
+        cancelHandler: { },
+        rpId: "example.com"
+    )
+    return PasskeyProviderView(viewModel: viewModel)
+        .preferredColorScheme(.light)
+}
+
+#Preview("Light Mode - With Passkeys") {
+    let mockPasskey1 = Passkey(
+        id: UUID(),
+        parentCredentialId: UUID(),
+        rpId: "github.com",
+        userHandle: Data(),
+        userName: "user@example.com",
+        publicKey: Data(),
+        privateKey: Data(),
+        prfKey: nil,
+        displayName: "GitHub",
+        createdAt: Date(),
+        updatedAt: Date(),
+        isDeleted: false
+    )
+
+    let mockPasskey2 = Passkey(
+        id: UUID(),
+        parentCredentialId: UUID(),
+        rpId: "google.com",
+        userHandle: Data(),
+        userName: "johndoe@gmail.com",
+        publicKey: Data(),
+        privateKey: Data(),
+        prfKey: nil,
+        displayName: "Google",
+        createdAt: Date(),
+        updatedAt: Date(),
+        isDeleted: false
+    )
+
+    let mockCredentials = [
+        Credential(
+            id: UUID(),
+            alias: Alias(
+                id: UUID(),
+                gender: "Not specified",
+                firstName: "John",
+                lastName: "Doe",
+                nickName: "JD",
+                birthDate: Date(),
+                email: "user@example.com",
+                createdAt: Date(),
+                updatedAt: Date(),
+                isDeleted: false
+            ),
+            service: Service(
+                id: UUID(),
+                name: "GitHub",
+                url: "https://github.com",
+                logo: nil,
+                createdAt: Date(),
+                updatedAt: Date(),
+                isDeleted: false
+            ),
+            username: "johndoe",
+            notes: nil,
+            password: Password(
+                id: UUID(),
+                credentialId: UUID(),
+                value: "password123",
+                createdAt: Date(),
+                updatedAt: Date(),
+                isDeleted: false
+            ),
+            passkeys: [mockPasskey1],
+            createdAt: Date(),
+            updatedAt: Date(),
+            isDeleted: false
+        ),
+        Credential(
+            id: UUID(),
+            alias: Alias(
+                id: UUID(),
+                gender: "Not specified",
+                firstName: "John",
+                lastName: "Doe",
+                nickName: "JD",
+                birthDate: Date(),
+                email: "johndoe@gmail.com",
+                createdAt: Date(),
+                updatedAt: Date(),
+                isDeleted: false
+            ),
+            service: Service(
+                id: UUID(),
+                name: "Google",
+                url: "https://google.com",
+                logo: nil,
+                createdAt: Date(),
+                updatedAt: Date(),
+                isDeleted: false
+            ),
+            username: nil,
+            notes: nil,
+            password: Password(
+                id: UUID(),
+                credentialId: UUID(),
+                value: "password456",
+                createdAt: Date(),
+                updatedAt: Date(),
+                isDeleted: false
+            ),
+            passkeys: [mockPasskey2],
+            createdAt: Date(),
+            updatedAt: Date(),
+            isDeleted: false
+        )
+    ]
+
+    let viewModel = PasskeyProviderViewModel(
+        loader: { mockCredentials },
+        selectionHandler: { _ in },
+        cancelHandler: { },
+        rpId: "github.com"
+    )
+    viewModel.credentials = mockCredentials
+    viewModel.filteredCredentials = mockCredentials
+    viewModel.isLoading = false
+
+    return PasskeyProviderView(viewModel: viewModel)
+        .preferredColorScheme(.light)
+}
+
+#Preview("Dark Mode - With Passkeys") {
+    let mockPasskey = Passkey(
+        id: UUID(),
+        parentCredentialId: UUID(),
+        rpId: "github.com",
+        userHandle: Data(),
+        userName: "user@example.com",
+        publicKey: Data(),
+        privateKey: Data(),
+        prfKey: nil,
+        displayName: "GitHub",
+        createdAt: Date(),
+        updatedAt: Date(),
+        isDeleted: false
+    )
+
+    let mockCredentials = [
+        Credential(
+            id: UUID(),
+            alias: Alias(
+                id: UUID(),
+                gender: "Not specified",
+                firstName: "John",
+                lastName: "Doe",
+                nickName: "JD",
+                birthDate: Date(),
+                email: "user@example.com",
+                createdAt: Date(),
+                updatedAt: Date(),
+                isDeleted: false
+            ),
+            service: Service(
+                id: UUID(),
+                name: "GitHub",
+                url: "https://github.com",
+                logo: nil,
+                createdAt: Date(),
+                updatedAt: Date(),
+                isDeleted: false
+            ),
+            username: "johndoe",
+            notes: nil,
+            password: nil,
+            passkeys: [mockPasskey],
+            createdAt: Date(),
+            updatedAt: Date(),
+            isDeleted: false
+        )
+    ]
+
+    let viewModel = PasskeyProviderViewModel(
+        loader: { mockCredentials },
+        selectionHandler: { _ in },
+        cancelHandler: { },
+        rpId: "github.com"
+    )
+    viewModel.credentials = mockCredentials
+    viewModel.filteredCredentials = mockCredentials
+    viewModel.isLoading = false
+
+    return PasskeyProviderView(viewModel: viewModel)
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Empty State") {
+    let viewModel = PasskeyProviderViewModel(
+        loader: { [] },
+        selectionHandler: { _ in },
+        cancelHandler: { },
+        rpId: "example.com"
+    )
+    viewModel.credentials = []
+    viewModel.filteredCredentials = []
+    viewModel.isLoading = false
+
+    return PasskeyProviderView(viewModel: viewModel)
+        .preferredColorScheme(.light)
+}
+
+#Preview("Error State") {
+    let viewModel = PasskeyProviderViewModel(
+        loader: { [] },
+        selectionHandler: { _ in },
+        cancelHandler: { },
+        rpId: "example.com"
+    )
+    viewModel.isLoading = false
+    viewModel.showError = true
+    viewModel.errorMessage = "Failed to load passkeys. Please open the AliasVault app to check for updates."
+
+    return PasskeyProviderView(viewModel: viewModel)
+        .preferredColorScheme(.light)
+}
+#endif

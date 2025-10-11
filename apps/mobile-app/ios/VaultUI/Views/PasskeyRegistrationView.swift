@@ -58,25 +58,6 @@ public struct PasskeyRegistrationView: View {
                         }
                         .padding(.horizontal)
 
-                        // Info box
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: "info.circle.fill")
-                                .foregroundColor(ColorConstants.Light.primary)
-                                .font(.system(size: 20))
-
-                            Text(NSLocalizedString("passkey_registration_info", comment: ""))
-                                .font(.footnote)
-                                .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.text : ColorConstants.Light.text)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .padding()
-                        .background(
-                            (colorScheme == .dark ? ColorConstants.Dark.accentBackground : ColorConstants.Light.accentBackground)
-                                .opacity(0.5)
-                        )
-                        .cornerRadius(12)
-                        .padding(.horizontal)
-
                         Spacer()
 
                         // Action buttons
@@ -311,41 +292,57 @@ public class PasskeyRegistrationViewModel: ObservableObject {
 
 // MARK: - Previews
 #if DEBUG
-private struct PasskeyRegistrationView_Previews: PreviewProvider {
-    static var previews: some View {
-        PasskeyRegistrationView(
-            viewModel: PasskeyRegistrationViewModel(
-                requestId: "12345678-1234-1234-1234-123456789012",
-                rpId: "example.com",
-                origin: "https://example.com",
-                userName: "user@example.com",
-                userDisplayName: "John Doe",
-                completionHandler: { success in
-                    print("Open app completed with success: \(success)")
-                },
-                cancelHandler: {
-                    print("Cancel tapped")
-                }
-            )
+#Preview("Light Mode - With Username") {
+    PasskeyRegistrationView(
+        viewModel: PasskeyRegistrationViewModel(
+            requestId: "12345678-1234-1234-1234-123456789012",
+            rpId: "example.com",
+            origin: "https://example.com",
+            userName: "user@example.com",
+            userDisplayName: "John Doe",
+            completionHandler: { success in
+                print("Open app completed with success: \(success)")
+            },
+            cancelHandler: {
+                print("Cancel tapped")
+            }
         )
-        .preferredColorScheme(.light)
+    )
+    .preferredColorScheme(.light)
+}
 
-        PasskeyRegistrationView(
-            viewModel: PasskeyRegistrationViewModel(
-                requestId: "12345678-1234-1234-1234-123456789012",
-                rpId: "example.com",
-                origin: "https://example.com",
-                userName: nil,
-                userDisplayName: nil,
-                completionHandler: { success in
-                    print("Open app completed with success: \(success)")
-                },
-                cancelHandler: {
-                    print("Cancel tapped")
-                }
-            )
+#Preview("Dark Mode - No Username") {
+    PasskeyRegistrationView(
+        viewModel: PasskeyRegistrationViewModel(
+            requestId: "12345678-1234-1234-1234-123456789012",
+            rpId: "example.com",
+            origin: "https://example.com",
+            userName: nil,
+            userDisplayName: nil,
+            completionHandler: { success in
+                print("Open app completed with success: \(success)")
+            },
+            cancelHandler: {
+                print("Cancel tapped")
+            }
         )
-        .preferredColorScheme(.dark)
-    }
+    )
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Loading State") {
+    let viewModel = PasskeyRegistrationViewModel(
+        requestId: "12345678-1234-1234-1234-123456789012",
+        rpId: "example.com",
+        origin: "https://example.com",
+        userName: "user@example.com",
+        userDisplayName: "John Doe",
+        completionHandler: { _ in },
+        cancelHandler: { }
+    )
+    viewModel.isLoading = true
+    viewModel.loadingMessage = "Creating passkey"
+    return PasskeyRegistrationView(viewModel: viewModel)
+        .preferredColorScheme(.light)
 }
 #endif
