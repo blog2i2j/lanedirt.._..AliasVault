@@ -107,11 +107,8 @@ public class PasskeyAuthenticator {
         
         // 10. Evaluate PRF values if requested during registration (some authenticators try this during registration already)
         var prfResults: PrfResults?
-        if let inputs = prfInputs, let secret = prfSecret {
-            var firstResult: Data?
-            if let firstSalt = inputs.first {
-                firstResult = try evaluatePrf(secret: secret, salt: firstSalt)
-            }
+        if let inputs = prfInputs, let firstSalt = inputs.first, let secret = prfSecret {
+            var firstResult = try evaluatePrf(secret: secret, salt: firstSalt)
             var secondResult: Data?
             if let secondSalt = inputs.second {
                 secondResult = try evaluatePrf(secret: secret, salt: secondSalt)
@@ -191,11 +188,8 @@ public class PasskeyAuthenticator {
 
         // 8. Evaluate PRF if requested
         var prfResults: PrfResults?
-        if let inputs = prfInputs, let secret = prfSecret {
-            var firstResult: Data?
-            if let firstSalt = inputs.first {
-                firstResult = try evaluatePrf(secret: secret, salt: firstSalt)
-            }
+        if let inputs = prfInputs, let firstSalt = inputs.first, let secret = prfSecret {
+            var firstResult = try evaluatePrf(secret: secret, salt: firstSalt)
             
             var secondResult: Data?
             if let secondSalt = inputs.second {
@@ -529,7 +523,7 @@ public struct PrfInputs {
 }
 
 public struct PrfResults {
-    public let first: Data?
+    public let first: Data
     public let second: Data?
 }
 

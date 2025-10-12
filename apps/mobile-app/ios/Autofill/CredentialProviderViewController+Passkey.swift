@@ -101,9 +101,9 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
             )
 
             // Build extension output if PRF results are available (iOS 18+)
-            if #available(iOS 18.0, *), let prfResults = assertion.prfResults, let prfFirst = prfResults.first {
+            if #available(iOS 18.0, *), let prfResults = assertion.prfResults {
                 // Convert Data to SymmetricKey for PRF output
-                let firstKey = SymmetricKey(data: prfFirst)
+                let firstKey = SymmetricKey(data: prfResults.first)
                 let secondKey = prfResults.second.map { SymmetricKey(data: $0) }
 
                 let prfOutput = ASAuthorizationPublicKeyCredentialPRFAssertionOutput(
@@ -419,37 +419,34 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 try await CredentialIdentityStore.shared.saveCredentialIdentities(credentials)
 
                 // Step 7: Create the ASPasskeyRegistrationCredential to return to the system
-                let asCredential: ASPasskeyRegistrationCredential
-                if #available(iOS 18.0, *), enablePrf, let prfFirst = passkeyResult.prfResults?.first {
-                    // Include PRF extension output to indicate PRF is enabled and include evaluated prfResults if available
-                    // TODO: fix this firstkey assumption null/non-null in authenticator logic itself so simplify return type and make these checks unnecessary.
-                    var firstKey: SymmetricKey!
-                    var secondKey: SymmetricKey?
-                    if let prfFirst = passkeyResult.prfResults?.first {
-                        firstKey = SymmetricKey(data: prfFirst)
-                    }
-                    if let prfSecond = passkeyResult.prfResults?.second {
-                        secondKey = SymmetricKey(data: prfSecond)
-                    }
+                var asCredential = ASPasskeyRegistrationCredential(
+                    relyingParty: rpId,
+                    clientDataHash: clientDataHash,
+                    credentialID: credentialId,
+                    attestationObject: passkeyResult.attestationObject
+                )
+                
+                if #available(iOS 18.0, *) {
+                    var prfOutput = ASPasskeyRegistrationCredentialExtensionOutput(prf: enablePrf ? .supported : .unsupported)
 
-                    let prf = ASAuthorizationPublicKeyCredentialPRFRegistrationOutput(first: firstKey, second: secondKey)
-                    let prfOutput = ASPasskeyRegistrationCredentialExtensionOutput(prf: prf)
-                    asCredential = ASPasskeyRegistrationCredential(
-                        relyingParty: rpId,
-                        clientDataHash: clientDataHash,
-                        credentialID: credentialId,
-                        attestationObject: passkeyResult.attestationObject,
-                        extensionOutput: prfOutput
-                    )
-                } else {
-                    asCredential = ASPasskeyRegistrationCredential(
-                        relyingParty: rpId,
-                        clientDataHash: clientDataHash,
-                        credentialID: credentialId,
-                        attestationObject: passkeyResult.attestationObject
-                    )
+                    if enablePrf {
+                        if let prfResults = passkeyResult.prfResults {
+                            // Include evaluated prfResults if available
+                            let firstKey = SymmetricKey(data: prfResults.first)
+                            
+                            var secondKey: SymmetricKey?
+                            if let prfSecond = passkeyResult.prfResults?.second {
+                                secondKey = SymmetricKey(data: prfSecond)
+                            }
+
+                            let prf = ASAuthorizationPublicKeyCredentialPRFRegistrationOutput(first: firstKey, second: secondKey)
+                            prfOutput = ASPasskeyRegistrationCredentialExtensionOutput(prf: prf)
+                        }
+                    }
+                    
+                    asCredential.extensionOutput = prfOutput
                 }
-
+                
                 // Hide loading overlay
                 await viewModel.setLoading(false)
 
@@ -500,9 +497,9 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
         )
 
         // Build extension output if PRF results are available (iOS 18+)
-        if #available(iOS 18.0, *), let prfResults = assertion.prfResults, let prfFirst = prfResults.first {
+        if #available(iOS 18.0, *), let prfResults = assertion.prfResults {
             // Convert Data to SymmetricKey for PRF output
-            let firstKey = SymmetricKey(data: prfFirst)
+            let firstKey = SymmetricKey(data: prfResults.first)
             let secondKey = prfResults.second.map { SymmetricKey(data: $0) }
 
             let prfOutput = ASAuthorizationPublicKeyCredentialPRFAssertionOutput(
