@@ -157,7 +157,7 @@ private struct PasskeyCredentialCard: View {
 
                         // Show passkey count
                         if let passkeys = credential.passkeys, !passkeys.isEmpty {
-                            Text("\(passkeys.count) passkey\(passkeys.count > 1 ? "s" : "")")
+                            Text(String(localized: "passkey", bundle: locBundle))
                                 .font(.caption)
                                 .foregroundColor(ColorConstants.Light.primary)
                         }
