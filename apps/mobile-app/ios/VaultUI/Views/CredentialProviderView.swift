@@ -83,11 +83,16 @@ public struct CredentialProviderView: View {
                             } else {
                                 LazyVStack(spacing: 8) {
                                     ForEach(viewModel.filteredCredentials, id: \.service) { credential in
-                                        CredentialCard(credential: credential, action: {
-                                            viewModel.selectCredential(credential)
-                                        }, onCopy: {
-                                            viewModel.cancel()
-                                        })
+                                        CredentialCardWithSelection(
+                                            credential: credential,
+                                            isChoosingTextToInsert: viewModel.isChoosingTextToInsert,
+                                            onSelect: { username, password in
+                                                viewModel.handleSelection(username: username, password: password)
+                                            },
+                                            onCopy: {
+                                                viewModel.cancel()
+                                            }
+                                        )
                                     }
                                 }
                                 .padding(.horizontal)
@@ -127,59 +132,6 @@ public struct CredentialProviderView: View {
                     }
                 }
             }
-            .actionSheet(isPresented: $viewModel.showSelectionOptions) {
-                // Define all text strings
-                guard let credential = viewModel.selectedCredential else {
-                    return ActionSheet(
-                        title: Text(String(localized: "choose_username", bundle: locBundle)),
-                        message: Text(String(localized: "no_credential_selected", bundle: locBundle)),
-                        buttons: [.cancel()]
-                    )
-                }
-
-                var buttons: [ActionSheet.Button] = []
-
-                if viewModel.isChoosingTextToInsert {
-                    if let username = credential.username, !username.isEmpty {
-                        buttons.append(.default(Text(String(localized: "username_prefix", bundle: locBundle) + username)) {
-                            viewModel.selectUsername()
-                        })
-                    }
-
-                    if let email = credential.alias?.email, !email.isEmpty {
-                        buttons.append(.default(Text(String(localized: "email_prefix", bundle: locBundle) + email)) {
-                            viewModel.selectEmail()
-                        })
-                    }
-
-                    buttons.append(.default(Text(String(localized: "password", bundle: locBundle))) {
-                        viewModel.selectPassword()
-                    })
-                } else {
-                    if let username = credential.username, !username.isEmpty {
-                        buttons.append(.default(Text("\(username)")) {
-                            viewModel.selectUsernamePassword()
-                        })
-                    }
-
-                    if let email = credential.alias?.email, !email.isEmpty {
-                        buttons.append(.default(Text("\(email)")) {
-                            viewModel.selectEmailPassword()
-                        })
-                    }
-                }
-
-                buttons.append(.cancel())
-
-                let titleKey = viewModel.isChoosingTextToInsert ? "select_text_to_insert" : "choose_username"
-                let messageKey = viewModel.isChoosingTextToInsert ? "select_text_to_insert_message" : "choose_username_message"
-
-                return ActionSheet(
-                    title: Text(NSLocalizedString(titleKey, bundle: locBundle, comment: "")),
-                    message: Text(NSLocalizedString(messageKey, bundle: locBundle, comment: "")),
-                    buttons: buttons
-                )
-            }
             .alert(String(localized: "error", bundle: locBundle), isPresented: $viewModel.showError) {
                 Button(String(localized: "ok", bundle: locBundle)) {
                     viewModel.dismissError()
@@ -198,6 +150,70 @@ public struct CredentialProviderView: View {
     }
 }
 
+// MARK: - CredentialCardWithSelection
+
+private struct CredentialCardWithSelection: View {
+    let credential: Credential
+    let isChoosingTextToInsert: Bool
+    let onSelect: (String, String) -> Void
+    let onCopy: () -> Void
+
+    @State private var showSelectionSheet = false
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        CredentialCard(credential: credential, action: {
+            if isChoosingTextToInsert {
+                showSelectionSheet = true
+            } else {
+                // For normal autofill, determine the best identifier and fill immediately
+                let username = credential.username?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let email = credential.alias?.email?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let hasUsername = !(username?.isEmpty ?? true)
+                let hasEmail = !(email?.isEmpty ?? true)
+
+                // Prefer username over email if both exist, or use whichever is available
+                let identifier: String
+                if hasUsername {
+                    identifier = username!
+                } else if hasEmail {
+                    identifier = email!
+                } else {
+                    identifier = ""
+                }
+
+                // Fill both username and password immediately for normal autofill
+                onSelect(identifier, credential.password?.value ?? "")
+            }
+        }, onCopy: onCopy)
+        .confirmationDialog(
+            String(localized: "select_text_to_insert", bundle: locBundle),
+            isPresented: $showSelectionSheet,
+            titleVisibility: .visible
+        ) {
+            if let username = credential.username, !username.isEmpty {
+                Button(String(localized: "username_prefix", bundle: locBundle) + username) {
+                    onSelect(username, "")
+                }
+            }
+
+            if let email = credential.alias?.email, !email.isEmpty {
+                Button(String(localized: "email_prefix", bundle: locBundle) + email) {
+                    onSelect(email, "")
+                }
+            }
+
+            Button(String(localized: "password", bundle: locBundle)) {
+                onSelect(credential.password?.value ?? "", "")
+            }
+
+            Button(String(localized: "cancel", bundle: locBundle), role: .cancel) {}
+        } message: {
+            Text(String(localized: "select_text_to_insert_message", bundle: locBundle))
+        }
+    }
+}
+
 // MARK: - ViewModel
 
 public class CredentialProviderViewModel: ObservableObject {
@@ -207,14 +223,8 @@ public class CredentialProviderViewModel: ObservableObject {
     @Published var isLoading = true
     @Published var showError = false
     @Published var errorMessage = ""
-    @Published var showSelectionOptions = false
-    @Published var selectedCredential: Credential?
     @Published public var isChoosingTextToInsert = false
     @Published public var serviceUrl: String?
-
-    @Published var newUsername = ""
-    @Published var newPassword = ""
-    @Published var newService = ""
 
     private let loader: () async throws -> [Credential]
     private let selectionHandler: (String, String) -> Void
@@ -259,63 +269,8 @@ public class CredentialProviderViewModel: ObservableObject {
         filteredCredentials = CredentialFilter.filterCredentials(credentials, searchText: searchText)
     }
 
-    func selectCredential(_ credential: Credential) {
-        selectedCredential = credential
-
-        // If we're in text insertion mode, always show the selection sheet
-        if isChoosingTextToInsert {
-            showSelectionOptions = true
-            return
-        }
-
-        // For normal autofill, determine the best identifier and fill immediately
-        let username = credential.username?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let email = credential.alias?.email?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let hasUsername = !(username?.isEmpty ?? true)
-        let hasEmail = !(email?.isEmpty ?? true)
-
-        // Prefer username over email if both exist, or use whichever is available
-        let identifier: String
-        if hasUsername {
-            identifier = username!
-        } else if hasEmail {
-            identifier = email!
-        } else {
-            identifier = ""
-        }
-
-        // Fill both username and password immediately for normal autofill
-        selectionHandler(identifier, credential.password?.value ?? "")
-    }
-
-    func selectUsername() {
-        guard let credential = selectedCredential else { return }
-        selectionHandler(credential.username ?? "", "")
-        showSelectionOptions = false
-    }
-
-    func selectEmail() {
-        guard let credential = selectedCredential else { return }
-        selectionHandler(credential.alias?.email ?? "", "")
-        showSelectionOptions = false
-    }
-
-    func selectPassword() {
-        guard let credential = selectedCredential else { return }
-        selectionHandler(credential.password?.value ?? "", "")
-        showSelectionOptions = false
-    }
-
-    func selectUsernamePassword() {
-        guard let credential = selectedCredential else { return }
-        selectionHandler(credential.username ?? "", credential.password?.value ?? "")
-        showSelectionOptions = false
-    }
-
-    func selectEmailPassword() {
-        guard let credential = selectedCredential else { return }
-        selectionHandler(credential.alias?.email ?? "", credential.password?.value ?? "")
-        showSelectionOptions = false
+    func handleSelection(username: String, password: String) {
+        selectionHandler(username, password)
     }
 
     func cancel() {
@@ -431,29 +386,23 @@ public class PreviewCredentialProviderViewModel: CredentialProviderViewModel {
 }
 
 public struct CredentialProviderView_Previews: PreviewProvider {
-    static func makePreview(isChoosing: Bool, showingSelection: Bool, colorScheme: ColorScheme) -> some View {
+    static func makePreview(isChoosing: Bool, colorScheme: ColorScheme) -> some View {
         let viewModel = PreviewCredentialProviderViewModel()
         viewModel.isChoosingTextToInsert = isChoosing
-        if showingSelection {
-            viewModel.selectedCredential = .preview
-            viewModel.showSelectionOptions = true
-        }
         return CredentialProviderView(viewModel: viewModel)
             .environment(\.colorScheme, colorScheme)
     }
 
     public static var previews: some View {
         Group {
-            makePreview(isChoosing: false, showingSelection: false, colorScheme: .light)
+            makePreview(isChoosing: false, colorScheme: .light)
                 .previewDisplayName("Light - Normal")
-            makePreview(isChoosing: false, showingSelection: false, colorScheme: .dark)
+            makePreview(isChoosing: false, colorScheme: .dark)
                 .previewDisplayName("Dark - Normal")
-            makePreview(isChoosing: true, showingSelection: false, colorScheme: .light)
+            makePreview(isChoosing: true, colorScheme: .light)
                 .previewDisplayName("Light - Insert Text Mode")
-            makePreview(isChoosing: true, showingSelection: true, colorScheme: .light)
-                .previewDisplayName("Light - Insert Text Mode Selection")
-            makePreview(isChoosing: false, showingSelection: true, colorScheme: .light)
-                .previewDisplayName("Light - Selection Sheet")
+            makePreview(isChoosing: true, colorScheme: .dark)
+                .previewDisplayName("Dark - Insert Text Mode")
         }
     }
 }
