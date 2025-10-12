@@ -2,6 +2,8 @@ import SwiftUI
 import AuthenticationServices
 import VaultModels
 
+private let locBundle = Bundle.vaultUI
+
 /// Credential provider view
 public struct CredentialProviderView: View {
     @ObservedObject public var viewModel: CredentialProviderViewModel
@@ -30,7 +32,7 @@ public struct CredentialProviderView: View {
 
                     if viewModel.isLoading {
                         Spacer()
-                        ProgressView(NSLocalizedString("loading_credentials", comment: ""))
+                        ProgressView(String(localized: "loading_credentials", bundle: locBundle))
                             .progressViewStyle(.circular)
                             .scaleEffect(1.5)
                         Spacer()
@@ -42,11 +44,11 @@ public struct CredentialProviderView: View {
                                         .font(.system(size: 50))
                                         .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.text : ColorConstants.Light.text)
 
-                                    Text(NSLocalizedString("no_credentials_found", comment: ""))
+                                    Text(String(localized: "no_credentials_found", bundle: locBundle))
                                         .font(.headline)
                                         .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.text : ColorConstants.Light.text)
 
-                                    Text(NSLocalizedString("no_credentials_match", comment: ""))
+                                    Text(String(localized: "no_credentials_match", bundle: locBundle))
                                         .font(.subheadline)
                                         .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.text : ColorConstants.Light.text)
                                         .multilineTextAlignment(.center)
@@ -65,7 +67,7 @@ public struct CredentialProviderView: View {
                                             }, label: {
                                                 HStack {
                                                     Image(systemName: "plus.circle.fill")
-                                                    Text(NSLocalizedString("create_new_credential", comment: ""))
+                                                    Text(String(localized: "create_new_credential", bundle: locBundle))
                                                 }
                                                 .padding()
                                                 .frame(maxWidth: .infinity)
@@ -98,11 +100,11 @@ public struct CredentialProviderView: View {
                     }
                 }
             }
-            .navigationTitle(viewModel.isChoosingTextToInsert ? NSLocalizedString("select_text_to_insert", comment: "") : NSLocalizedString("select_credential", comment: ""))
+            .navigationTitle(viewModel.isChoosingTextToInsert ? String(localized: "select_text_to_insert", bundle: locBundle) : String(localized: "select_credential", bundle: locBundle))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button(NSLocalizedString("cancel", comment: "")) {
+                    Button(String(localized: "cancel", bundle: locBundle)) {
                         viewModel.cancel()
                     }
                     .foregroundColor(ColorConstants.Light.primary)
@@ -128,25 +130,29 @@ public struct CredentialProviderView: View {
             .actionSheet(isPresented: $viewModel.showSelectionOptions) {
                 // Define all text strings
                 guard let credential = viewModel.selectedCredential else {
-                    return ActionSheet(title: Text(NSLocalizedString("choose_username", comment: "")), message: Text(NSLocalizedString("no_credential_selected", comment: "")), buttons: [.cancel()])
+                    return ActionSheet(
+                        title: Text(String(localized: "choose_username", bundle: locBundle)),
+                        message: Text(String(localized: "no_credential_selected", bundle: locBundle)),
+                        buttons: [.cancel()]
+                    )
                 }
 
                 var buttons: [ActionSheet.Button] = []
 
                 if viewModel.isChoosingTextToInsert {
                     if let username = credential.username, !username.isEmpty {
-                        buttons.append(.default(Text(NSLocalizedString("username_prefix", comment: "") + username)) {
+                        buttons.append(.default(Text(String(localized: "username_prefix", bundle: locBundle) + username)) {
                             viewModel.selectUsername()
                         })
                     }
 
                     if let email = credential.alias?.email, !email.isEmpty {
-                        buttons.append(.default(Text(NSLocalizedString("email_prefix", comment: "") + email)) {
+                        buttons.append(.default(Text(String(localized: "email_prefix", bundle: locBundle) + email)) {
                             viewModel.selectEmail()
                         })
                     }
 
-                    buttons.append(.default(Text(NSLocalizedString("password", comment: ""))) {
+                    buttons.append(.default(Text(String(localized: "password", bundle: locBundle))) {
                         viewModel.selectPassword()
                     })
                 } else {
@@ -165,14 +171,17 @@ public struct CredentialProviderView: View {
 
                 buttons.append(.cancel())
 
+                let titleKey = viewModel.isChoosingTextToInsert ? "select_text_to_insert" : "choose_username"
+                let messageKey = viewModel.isChoosingTextToInsert ? "select_text_to_insert_message" : "choose_username_message"
+
                 return ActionSheet(
-                    title: viewModel.isChoosingTextToInsert ? Text(NSLocalizedString("select_text_to_insert", comment: "")) : Text(NSLocalizedString("choose_username", comment: "")),
-                    message: viewModel.isChoosingTextToInsert ? Text(NSLocalizedString("select_text_to_insert_message", comment: "")) : Text(NSLocalizedString("choose_username_message", comment: "")),
+                    title: Text(NSLocalizedString(titleKey, bundle: locBundle, comment: "")),
+                    message: Text(NSLocalizedString(messageKey, bundle: locBundle, comment: "")),
                     buttons: buttons
                 )
             }
-            .alert(NSLocalizedString("error", comment: ""), isPresented: $viewModel.showError) {
-                Button(NSLocalizedString("ok", comment: "")) {
+            .alert(String(localized: "error", bundle: locBundle), isPresented: $viewModel.showError) {
+                Button(String(localized: "ok", bundle: locBundle)) {
                     viewModel.dismissError()
                 }
             } message: {
@@ -241,15 +250,14 @@ public class CredentialProviderViewModel: ObservableObject {
             isLoading = false
         } catch {
             isLoading = false
-            errorMessage = NSLocalizedString("credentials_load_error", comment: "")
+            errorMessage = String(localized: "credentials_load_error", bundle: locBundle)
             showError = true
         }
     }
 
-   func filterCredentials() {
+    func filterCredentials() {
         filteredCredentials = CredentialFilter.filterCredentials(credentials, searchText: searchText)
     }
-
 
     func selectCredential(_ credential: Credential) {
         selectedCredential = credential

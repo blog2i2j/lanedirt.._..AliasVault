@@ -2,6 +2,8 @@ import SwiftUI
 import AuthenticationServices
 import VaultModels
 
+private let locBundle = Bundle.vaultUI
+
 /// Passkey provider view for selecting passkeys during authentication
 /// TODO: review file
 public struct PasskeyProviderView: View {
@@ -31,7 +33,7 @@ public struct PasskeyProviderView: View {
 
                     if viewModel.isLoading {
                         Spacer()
-                        ProgressView(NSLocalizedString("loading_passkeys", comment: ""))
+                        ProgressView(String(localized: "loading_passkeys", bundle: locBundle))
                             .progressViewStyle(.circular)
                             .scaleEffect(1.5)
                         Spacer()
@@ -43,11 +45,11 @@ public struct PasskeyProviderView: View {
                                         .font(.system(size: 50))
                                         .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.text : ColorConstants.Light.text)
 
-                                    Text(NSLocalizedString("no_passkeys_found", comment: ""))
+                                    Text(String(localized: "no_passkeys_found", bundle: locBundle))
                                         .font(.headline)
                                         .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.text : ColorConstants.Light.text)
 
-                                    Text(NSLocalizedString("no_passkeys_match", comment: ""))
+                                    Text(String(localized: "no_passkeys_match", bundle: locBundle))
                                         .font(.subheadline)
                                         .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.text : ColorConstants.Light.text)
                                         .multilineTextAlignment(.center)
@@ -75,18 +77,18 @@ public struct PasskeyProviderView: View {
                     }
                 }
             }
-            .navigationTitle(NSLocalizedString("select_passkey", comment: ""))
+            .navigationTitle(String(localized: "select_passkey", bundle: locBundle))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button(NSLocalizedString("cancel", comment: "")) {
+                    Button(String(localized: "cancel", bundle: locBundle)) {
                         viewModel.cancel()
                     }
                     .foregroundColor(ColorConstants.Light.primary)
                 }
             }
-            .alert(NSLocalizedString("error", comment: ""), isPresented: $viewModel.showError) {
-                Button(NSLocalizedString("ok", comment: "")) {
+            .alert(String(localized: "error", bundle: locBundle), isPresented: $viewModel.showError) {
+                Button(String(localized: "ok", bundle: locBundle)) {
                     viewModel.dismissError()
                 }
             } message: {
@@ -135,6 +137,7 @@ private struct PasskeyCredentialCard: View {
                                 .foregroundColor(ColorConstants.Light.primary)
                         }
                         .frame(width: 40, height: 40)
+                        .padding()
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -219,7 +222,7 @@ public class PasskeyProviderViewModel: ObservableObject {
             isLoading = false
         } catch {
             isLoading = false
-            errorMessage = NSLocalizedString("passkeys_load_error", comment: "")
+            errorMessage = String(localized: "passkeys_load_error", bundle: locBundle)
             showError = true
         }
     }

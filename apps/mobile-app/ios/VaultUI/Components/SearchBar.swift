@@ -1,6 +1,8 @@
 import SwiftUI
 import Macaw
 
+private let locBundle = Bundle.vaultUI
+
 /// Search bar view
 public struct SearchBarView: View {
     @Binding var text: String
@@ -13,7 +15,7 @@ public struct SearchBarView: View {
                     .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.text : ColorConstants.Light.text)
                     .padding(.leading, 8)
 
-                TextField(NSLocalizedString("search_credentials", comment: "Search credentials placeholder"), text: $text)
+                TextField(String(localized: "search_credentials", bundle: locBundle), text: $text)
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
                     .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.text : ColorConstants.Light.text)

@@ -1,6 +1,8 @@
 import SwiftUI
 import AuthenticationServices
 
+private let locBundle = Bundle.vaultUI
+
 /// Passkey registration view for the autofill extension
 public struct PasskeyRegistrationView: View {
     @ObservedObject public var viewModel: PasskeyRegistrationViewModel
@@ -28,12 +30,12 @@ public struct PasskeyRegistrationView: View {
                                 .frame(width: 80, height: 80)
                                 .padding(.top, 20)
 
-                            Text(NSLocalizedString("create_passkey_title", comment: ""))
+                            Text(String(localized: "create_passkey_title", bundle: locBundle))
                                 .font(.title)
                                 .fontWeight(.bold)
                                 .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.text : ColorConstants.Light.text)
 
-                            Text(NSLocalizedString("create_passkey_subtitle", comment: ""))
+                            Text(String(localized: "create_passkey_subtitle", bundle: locBundle))
                                 .font(.subheadline)
                                 .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.textMuted : ColorConstants.Light.textMuted)
                                 .multilineTextAlignment(.center)
@@ -44,14 +46,14 @@ public struct PasskeyRegistrationView: View {
                         // Request details
                         VStack(spacing: 16) {
                             InfoRow(
-                                label: NSLocalizedString("website", comment: ""),
+                                label: String(localized: "website", bundle: locBundle),
                                 value: viewModel.rpId,
                                 icon: "globe"
                             )
 
                             if let userName = viewModel.userName {
                                 InfoRow(
-                                    label: NSLocalizedString("username", comment: ""),
+                                    label: String(localized: "username", bundle: locBundle),
                                     value: userName,
                                     icon: "person.fill"
                                 )
@@ -68,7 +70,7 @@ public struct PasskeyRegistrationView: View {
                             }, label: {
                                 HStack {
                                     Image(systemName: "key.fill")
-                                    Text(NSLocalizedString("create_passkey_button_confirm", comment: ""))
+                                    Text(String(localized: "create_passkey_button_confirm", bundle: locBundle))
                                 }
                                 .padding()
                                 .frame(maxWidth: .infinity)
@@ -80,7 +82,7 @@ public struct PasskeyRegistrationView: View {
                             Button(action: {
                                 viewModel.cancel()
                             }, label: {
-                                Text(NSLocalizedString("cancel", comment: ""))
+                                Text(String(localized: "cancel", bundle: locBundle))
                                     .padding()
                                     .frame(maxWidth: .infinity)
                                     .foregroundColor(ColorConstants.Light.primary)
