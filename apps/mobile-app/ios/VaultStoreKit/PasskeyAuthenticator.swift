@@ -48,7 +48,8 @@ public class PasskeyAuthenticator {
         userName: String?,
         userDisplayName: String?,
         uvPerformed: Bool = false,
-        enablePrf: Bool = false
+        enablePrf: Bool = false,
+        prfInputs: PrfInputs? = nil
     ) throws -> PasskeyCreationResult {
 
         // 1. Generate ES256 key pair
@@ -103,8 +104,22 @@ public class PasskeyAuthenticator {
                 prfSecret = prfBytes
             }
         }
+        
+        // 10. Evaluate PRF values if requested during registration (some authenticators try this during registration already)
+        var prfResults: PrfResults?
+        if let inputs = prfInputs, let secret = prfSecret {
+            var firstResult: Data?
+            if let firstSalt = inputs.first {
+                firstResult = try evaluatePrf(secret: secret, salt: firstSalt)
+            }
+            var secondResult: Data?
+            if let secondSalt = inputs.second {
+                secondResult = try evaluatePrf(secret: secret, salt: secondSalt)
+            }
+            prfResults = PrfResults(first: firstResult, second: secondResult)
+        }
 
-        // 10. Export keys for storage
+        // 11. Export keys for storage
         let publicKeyData = try exportPublicKeyAsJWK(publicKey: publicKey)
         let privateKeyData = try exportPrivateKeyAsJWK(privateKey: privateKey)
 
@@ -117,7 +132,8 @@ public class PasskeyAuthenticator {
             userId: userId,
             userName: userName,
             userDisplayName: userDisplayName,
-            prfSecret: prfSecret
+            prfSecret: prfSecret,
+            prfResults: prfResults
         )
     }
 
@@ -176,7 +192,11 @@ public class PasskeyAuthenticator {
         // 8. Evaluate PRF if requested
         var prfResults: PrfResults?
         if let inputs = prfInputs, let secret = prfSecret {
-            let firstResult = try evaluatePrf(secret: secret, salt: inputs.first)
+            var firstResult: Data?
+            if let firstSalt = inputs.first {
+                firstResult = try evaluatePrf(secret: secret, salt: firstSalt)
+            }
+            
             var secondResult: Data?
             if let secondSalt = inputs.second {
                 secondResult = try evaluatePrf(secret: secret, salt: secondSalt)
@@ -487,6 +507,7 @@ public struct PasskeyCreationResult {
     public let userName: String?
     public let userDisplayName: String?
     public let prfSecret: Data?
+    public let prfResults: PrfResults?
 }
 
 public struct PasskeyAssertionResult {
@@ -498,17 +519,17 @@ public struct PasskeyAssertionResult {
 }
 
 public struct PrfInputs {
-    public let first: Data
+    public let first: Data?
     public let second: Data?
 
-    public init(first: Data, second: Data? = nil) {
+    public init(first: Data? = nil, second: Data? = nil) {
         self.first = first
         self.second = second
     }
 }
 
 public struct PrfResults {
-    public let first: Data
+    public let first: Data?
     public let second: Data?
 }
 
