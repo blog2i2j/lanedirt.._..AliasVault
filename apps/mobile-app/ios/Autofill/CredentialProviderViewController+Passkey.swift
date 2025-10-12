@@ -29,7 +29,7 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
             },
             selectionHandler: { credential in
                 // For passkey authentication, we assume the data is available
-                self.handlePasskeyCredentialSelection(credential: credential, clientDataHash: clientDataHash, rpId: rpId)
+                self.handlePasskeySelection(credential: credential, clientDataHash: clientDataHash, rpId: rpId)
             },
             cancelHandler: {
                 self.handleCancel()
@@ -41,14 +41,6 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
         let hostingController = UIHostingController(rootView: passkeyView)
 
         return hostingController
-    }
-
-    func handlePasskeySelection(credential: Credential, clientDataHash: Data, rpId: String) {
-        handlePasskeyCredentialSelection(credential: credential, clientDataHash: clientDataHash, rpId: rpId)
-    }
-
-    func loadPasskeyCredentials(vaultStore: VaultStore, rpId: String?) async throws -> [Credential] {
-        return try await loadPasskeyCredentials(vaultStore: vaultStore, rpId: rpId ?? "")
     }
 
     /**
@@ -82,11 +74,11 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
 
             // Extract PRF inputs if available (iOS 18+)
             var prfInputs: PrfInputs? = nil
-            
+
             if #available(iOS 18.0, *) {
                 prfInputs = extractPrfInputs(from: request.extensionInput)
             }
-            
+
             // Generate assertion
             let credentialId = try? PasskeyHelper.guidToBytes(passkey.id.uuidString)
             let assertion = try PasskeyAuthenticator.getAssertion(
@@ -174,13 +166,13 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
         var prfInputs: PrfInputs? = nil
         if #available(iOS 18.0, *) {
             let extensionInput = passkeyRequest.extensionInput
-            
+
             if case .registration(let reg) = extensionInput {
                 if let prf = reg.prf {
                     prfEnabled = true
                 }
             }
-            
+
             prfInputs = extractPrfInputs(from: extensionInput)
         }
 
@@ -217,23 +209,6 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
             prfInputs: prfInputs
         )
     }
-
-    /**
-     * Check if PRF extension is requested in the registration request
-     */
-    @available(iOS 18.0, *)
-    private func checkPrfSupport(in requestParameters: ASPasskeyCredentialRequestParameters) -> Bool {
-        guard let supportedExtensions = requestParameters.extensionInput else {
-            return false
-        }
-
-        guard supportedExtensions.prf?.inputValues?.saltInput1 != nil else {
-            return false
-        }
-
-        return true
-    }
-
 
     /**
      * Show the passkey registration view
@@ -339,12 +314,12 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 let webApiService = WebApiService()
 
                 // Step 1: Sync vault before creating passkey (to avoid conflicts)
-                await viewModel.setLoading(true, message: NSLocalizedString("creating_passkey", comment: "Syncing vault..."))
+                viewModel.setLoading(true, message: NSLocalizedString("creating_passkey", comment: "Syncing vault..."))
 
-                try await vaultStore.syncVault(using: webApiService)
+                try _ = await vaultStore.syncVault(using: webApiService)
 
                 // Step 2: Extract favicon from service URL
-                await viewModel.setLoading(true, message: NSLocalizedString("creating_passkey", comment: "Syncing vault..."))
+                viewModel.setLoading(true, message: NSLocalizedString("creating_passkey", comment: "Syncing vault..."))
                 var logo: Data?
                 do {
                     logo = try await webApiService.extractFavicon(url: "https://\(rpId)")
@@ -353,7 +328,7 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 }
 
                 // Step 3: Create passkey credentials
-                await viewModel.setLoading(true, message: NSLocalizedString("creating_passkey", comment: "Creating passkey..."))
+                viewModel.setLoading(true, message: NSLocalizedString("creating_passkey", comment: "Creating passkey..."))
 
                 // Generate new credential ID (UUID that will be used as the passkey ID)
                 let passkeyId = UUID()
@@ -390,12 +365,12 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 )
 
                 // Step 4: Store credential with passkey in database
-                await viewModel.setLoading(true, message: NSLocalizedString("vault_syncing", comment: "Saving to vault..."))
+                viewModel.setLoading(true, message: NSLocalizedString("vault_syncing", comment: "Saving to vault..."))
                 // Begin transaction
                 try vaultStore.beginTransaction()
 
                 // Store credential with passkey and logo in database
-                let credential = try vaultStore.createCredentialWithPasskey(
+                _ = try vaultStore.createCredentialWithPasskey(
                     rpId: rpId,
                     userName: userName,
                     userDisplayName: userDisplayName,
@@ -407,7 +382,7 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 try vaultStore.commitTransaction()
 
                 // Step 5: Upload vault changes to server
-                await viewModel.setLoading(true, message: NSLocalizedString("vault_syncing", comment: "Uploading vault..."))
+                viewModel.setLoading(true, message: NSLocalizedString("vault_syncing", comment: "Uploading vault..."))
                 do {
                     try await vaultStore.mutateVault(using: webApiService)
                 } catch {
@@ -419,13 +394,13 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 try await CredentialIdentityStore.shared.saveCredentialIdentities(credentials)
 
                 // Step 7: Create the ASPasskeyRegistrationCredential to return to the system
-                var asCredential = ASPasskeyRegistrationCredential(
+                let asCredential = ASPasskeyRegistrationCredential(
                     relyingParty: rpId,
                     clientDataHash: clientDataHash,
                     credentialID: credentialId,
                     attestationObject: passkeyResult.attestationObject
                 )
-                
+
                 if #available(iOS 18.0, *) {
                     var prfOutput = ASPasskeyRegistrationCredentialExtensionOutput(prf: enablePrf ? .supported : .unsupported)
 
@@ -433,7 +408,7 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                         if let prfResults = passkeyResult.prfResults {
                             // Include evaluated prfResults if available
                             let firstKey = SymmetricKey(data: prfResults.first)
-                            
+
                             var secondKey: SymmetricKey?
                             if let prfSecond = passkeyResult.prfResults?.second {
                                 secondKey = SymmetricKey(data: prfSecond)
@@ -443,12 +418,12 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                             prfOutput = ASPasskeyRegistrationCredentialExtensionOutput(prf: prf)
                         }
                     }
-                    
+
                     asCredential.extensionOutput = prfOutput
                 }
-                
+
                 // Hide loading overlay
-                await viewModel.setLoading(false)
+                viewModel.setLoading(false)
 
                 // Complete the registration request (must be on main thread)
                 await MainActor.run {
@@ -457,7 +432,7 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
 
             } catch {
                 // Hide loading overlay
-                await viewModel.setLoading(false)
+                viewModel.setLoading(false)
 
                 // Cancel request (must be on main thread)
                 await MainActor.run {
@@ -537,82 +512,9 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
     }
 
     /**
-     * Show passkey picker view for user selection
-     * TODO: check usages
-     */
-    private func showPasskeyPickerView(rpId: String, clientDataHash: Data, vaultStore: VaultStore) {
-        let viewModel = PasskeyProviderViewModel(
-            loader: {
-                // getAllCredentials now includes passkeys for each credential
-                // TODO: call a separate method for only retrieving passkeys?
-                var credentials = try vaultStore.getAllCredentials()
-
-                // Filter to only include credentials that actually have passkeys
-                credentials = credentials.filter { credential in
-                    guard let passkeys = credential.passkeys else { return false }
-                    return !passkeys.isEmpty
-                }
-
-                return credentials
-            },
-            selectionHandler: { [weak self, clientDataHash, rpId] credential in
-                guard let self = self else { return }
-                self.handlePasskeyCredentialSelection(credential: credential, clientDataHash: clientDataHash, rpId: rpId)
-            },
-            cancelHandler: { [weak self] in
-                guard let self = self else { return }
-                self.handleCancel()
-            },
-            rpId: rpId
-        )
-
-        let passkeyView = PasskeyProviderView(viewModel: viewModel)
-        let hostingController = UIHostingController(rootView: passkeyView)
-
-        // Remove existing passkey hosting controller if present
-        if let existingController = self.currentHostingController {
-            existingController.willMove(toParent: nil)
-            existingController.view.removeFromSuperview()
-            existingController.removeFromParent()
-        }
-
-        // Add new hosting controller
-        addChild(hostingController)
-        view.addSubview(hostingController.view)
-
-        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            hostingController.view.topAnchor.constraint(equalTo: view.topAnchor),
-            hostingController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            hostingController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        ])
-
-        hostingController.didMove(toParent: self)
-        self.currentHostingController = hostingController
-    }
-
-    /**
-     * Load credentials with passkeys for the specified RP ID
-     */
-    internal func loadPasskeyCredentials(vaultStore: VaultStore, rpId: String) async throws -> [Credential] {
-        // getAllCredentials now includes passkeys for each credential
-        // TODO: call a separate method for only retrieving passkeys?
-        var credentials = try vaultStore.getAllCredentials()
-
-        // Filter to only include credentials that actually have passkeys
-        credentials = credentials.filter { credential in
-            guard let passkeys = credential.passkeys else { return false }
-            return !passkeys.isEmpty
-        }
-
-        return credentials
-    }
-
-    /**
      * Handle passkey credential selection from picker
      */
-    internal func handlePasskeyCredentialSelection(credential: Credential, clientDataHash: Data, rpId: String) {
+    internal func handlePasskeySelection(credential: Credential, clientDataHash: Data, rpId: String) {
         do {
             // Get the first matching passkey for the RP ID
             guard let passkeys = credential.passkeys,
@@ -662,10 +564,10 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 return nil
             }
         }
-        
+
         return nil
     }
-    
+
     /**
      * Extract PRF inputs from passkey credential request parameters
      * Returns nil if PRF extension is not requested or not available
@@ -675,7 +577,7 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
         if let prf = extensionInput.prf {
             return PrfInputs(first: prf.inputValues?.saltInput1, second: prf.inputValues?.saltInput2)
         }
-        
+
         return nil
     }
 }
