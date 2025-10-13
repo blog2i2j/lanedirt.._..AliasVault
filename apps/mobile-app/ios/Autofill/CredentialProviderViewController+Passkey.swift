@@ -334,10 +334,21 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 // Initialize WebApiService for vault sync/mutate and favicon extraction
                 let webApiService = WebApiService()
 
-                // Step 1: Sync vault before creating passkey (to avoid conflicts)
-                viewModel.setLoading(true, message: NSLocalizedString("creating_passkey", comment: "Syncing vault..."))
+                // Step 1: Check server connectivity by syncing vault before creating passkey
+                viewModel.setLoading(true, message: NSLocalizedString("checking_connection", comment: "Checking connection..."))
 
-                try _ = await vaultStore.syncVault(using: webApiService)
+                do {
+                    try _ = await vaultStore.syncVault(using: webApiService)
+                } catch {
+                    // Server connectivity check failed
+                    viewModel.setLoading(false)
+
+                    // Show error dialog to user
+                    await MainActor.run {
+                        self.showConnectivityErrorAlert(viewModel: viewModel)
+                    }
+                    return
+                }
 
                 // Step 2: Extract favicon from service URL
                 var logo: Data?
@@ -609,5 +620,31 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
         }
 
         return nil
+    }
+
+    /**
+     * Show connectivity error alert dialog
+     */
+    private func showConnectivityErrorAlert(viewModel: PasskeyRegistrationViewModel) {
+        let alert = UIAlertController(
+            title: NSLocalizedString("connection_error_title", comment: "Connection Error"),
+            message: NSLocalizedString("connection_error_message", comment: "No connection to the server can be made."),
+            preferredStyle: .alert
+        )
+
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("ok", comment: "OK"),
+            style: .default,
+            handler: { _ in
+                // User acknowledged the error - stay on the passkey registration screen
+            }
+        ))
+
+        // Present the alert
+        if let currentController = self.currentHostingController {
+            currentController.present(alert, animated: true)
+        } else {
+            self.present(alert, animated: true)
+        }
     }
 }
