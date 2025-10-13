@@ -233,6 +233,26 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
         let capturedEnablePrf = enablePrf
         let capturedPrfInputs = prfInputs
 
+        // Query for existing passkeys with this rpId and userName
+        var existingPasskeys: [PasskeyWithCredentialInfo] = []
+        do {
+            let results = try vaultStore.getPasskeysWithCredentialInfo(forRpId: rpId, userName: userName, userId: userId)
+            existingPasskeys = results.map { result in
+                PasskeyWithCredentialInfo(
+                    id: result.passkey.id,
+                    displayName: result.passkey.displayName,
+                    serviceName: result.serviceName,
+                    username: result.username,
+                    rpId: result.passkey.rpId,
+                    userId: result.passkey.userHandle
+                )
+            }
+            print("PasskeyRegistration: Found \(existingPasskeys.count) existing passkeys for rpId: \(rpId)")
+        } catch {
+            print("PasskeyRegistration: Failed to query existing passkeys: \(error)")
+            // Continue with empty list
+        }
+
         // Create view model with handlers
         // Use lazy initialization to avoid capturing viewModel before it's assigned
         var viewModel: PasskeyRegistrationViewModel!
@@ -242,6 +262,7 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
             origin: "https://\(rpId)",
             userName: userName,
             userDisplayName: userDisplayName,
+            existingPasskeys: existingPasskeys,
             completionHandler: { [weak self] success in
                 guard let self = self else { return }
 
@@ -319,7 +340,6 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 try _ = await vaultStore.syncVault(using: webApiService)
 
                 // Step 2: Extract favicon from service URL
-                viewModel.setLoading(true, message: NSLocalizedString("creating_passkey", comment: "Syncing vault..."))
                 var logo: Data?
                 do {
                     logo = try await webApiService.extractFavicon(url: "https://\(rpId)")
@@ -328,8 +348,6 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 }
 
                 // Step 3: Create passkey credentials
-                viewModel.setLoading(true, message: NSLocalizedString("creating_passkey", comment: "Creating passkey..."))
-
                 // Generate new credential ID (UUID that will be used as the passkey ID)
                 let passkeyId = UUID()
                 let credentialId = try PasskeyHelper.guidToBytes(passkeyId.uuidString)
@@ -369,15 +387,26 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 // Begin transaction
                 try vaultStore.beginTransaction()
 
-                // Store credential with passkey and logo in database
-                // Use viewModel.displayName as the title (Service.name)
-                _ = try vaultStore.createCredentialWithPasskey(
-                    rpId: rpId,
-                    userName: userName,
-                    displayName: viewModel.displayName,
-                    passkey: passkey,
-                    logo: logo
-                )
+                // Check if we're replacing an existing passkey
+                if let oldPasskeyId = viewModel.selectedPasskeyToReplace {
+                    // Replace existing passkey
+                    try vaultStore.replacePasskey(
+                        oldPasskeyId: oldPasskeyId,
+                        newPasskey: passkey,
+                        displayName: viewModel.displayName,
+                        logo: logo
+                    )
+                } else {
+                    // Store credential with passkey and logo in database
+                    // Use viewModel.displayName as the title (Service.name)
+                    _ = try vaultStore.createCredentialWithPasskey(
+                        rpId: rpId,
+                        userName: userName,
+                        displayName: viewModel.displayName,
+                        passkey: passkey,
+                        logo: logo
+                    )
+                }
 
                 // Commit transaction to persist the data
                 try vaultStore.commitTransaction()

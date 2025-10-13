@@ -109,6 +109,61 @@ extension VaultStore {
     }
 
     /**
+     * Get passkeys with credential info for a specific rpId and optionally username
+     * Used for finding existing passkeys that might be replaced during registration
+     */
+    public func getPasskeysWithCredentialInfo(forRpId rpId: String, userName: String? = nil, userId: Data? = nil) throws -> [(passkey: Passkey, serviceName: String?, username: String?)] {
+        guard let dbConn = dbConnection else {
+            throw VaultStoreError.vaultNotUnlocked
+        }
+
+        print("VaultStore+Passkey: Looking up passkeys with credential info for rpId: \(rpId), userName: \(userName ?? "nil")")
+
+        // Join passkeys with credentials and services to get display info
+        let passkeysTable = Table("Passkeys")
+        let credentialsTable = Table("Credentials")
+        let servicesTable = Table("Services")
+
+        let query = passkeysTable
+            .select(passkeysTable[*], credentialsTable[Expression<String?>("Username")], servicesTable[Expression<String?>("Name")])
+            .join(credentialsTable, on: passkeysTable[Expression<String>("CredentialId")] == credentialsTable[Expression<String>("Id")])
+            .join(servicesTable, on: credentialsTable[Expression<String>("ServiceId")] == servicesTable[Expression<String>("Id")])
+            .filter(passkeysTable[Expression<String>("RpId")] == rpId)
+            .filter(passkeysTable[Expression<Int64>("IsDeleted")] == 0)
+            .filter(credentialsTable[Expression<Int64>("IsDeleted")] == 0)
+            .order(passkeysTable[Expression<String>("CreatedAt")].desc)
+
+        var results: [(passkey: Passkey, serviceName: String?, username: String?)] = []
+
+        for row in try dbConn.prepare(query) {
+            if let passkey = try parsePasskeyRow(row) {
+                let credUsername = try? row.get(Expression<String?>("Username"))
+                let serviceName = try? row.get(Expression<String?>("Name"))
+
+                // Filter by username or userId if provided
+                var matches = true
+                if let userName = userName {
+                    if credUsername != userName {
+                        matches = false
+                    }
+                }
+                if let userId = userId {
+                    if passkey.userHandle != userId {
+                        matches = false
+                    }
+                }
+
+                if matches {
+                    results.append((passkey: passkey, serviceName: serviceName, username: credUsername))
+                }
+            }
+        }
+
+        print("VaultStore+Passkey: Found \(results.count) matching passkeys with credential info")
+        return results
+    }
+
+    /**
      * Get all credentials that have passkeys attached
      */
     // swiftlint:disable:next function_body_length
@@ -493,6 +548,91 @@ extension VaultStore {
 
         try dbConn.run(insert)
         print("VaultStore+Passkey: Successfully inserted passkey")
+    }
+
+    /**
+     * Replace an existing passkey with a new one
+     * This deletes the old passkey and creates a new one with the same credential
+     */
+    public func replacePasskey(oldPasskeyId: UUID, newPasskey: Passkey, displayName: String, logo: Data? = nil) throws {
+        guard let dbConn = dbConnection else {
+            throw VaultStoreError.vaultNotUnlocked
+        }
+
+        print("VaultStore+Passkey: Replacing passkey \(oldPasskeyId.uuidString) with new passkey \(newPasskey.id.uuidString)")
+
+        // Get the old passkey to find its credential
+        let oldPasskeyQuery = Self.passkeysTable
+            .filter(Self.colId == oldPasskeyId.uuidString)
+            .filter(Self.colIsDeleted == 0)
+            .limit(1)
+
+        guard let oldPasskeyRow = try dbConn.pluck(oldPasskeyQuery),
+              let oldPasskey = try parsePasskeyRow(oldPasskeyRow) else {
+            throw VaultStoreError.databaseError("Passkey not found")
+        }
+
+        let credentialId = oldPasskey.parentCredentialId
+        let now = Date()
+        let timestamp = formatDateForDatabase(now)
+
+        // Update the credential's service with new logo if provided
+        if let logo = logo {
+            let logoBlob = Blob(bytes: [UInt8](logo))
+            let credentialsTable = Table("Credentials")
+            let servicesTable = Table("Services")
+
+            // Get the service ID from the credential
+            let credQuery = credentialsTable
+                .filter(Expression<String>("Id") == credentialId.uuidString)
+                .limit(1)
+
+            if let credRow = try dbConn.pluck(credQuery) {
+                let serviceId = try credRow.get(Expression<String>("ServiceId"))
+
+                // Update the service with new logo and displayName
+                let serviceUpdate = servicesTable
+                    .filter(Expression<String>("Id") == serviceId)
+                    .update(
+                        Expression<SQLite.Blob?>("Logo") <- logoBlob,
+                        Expression<String?>("Name") <- displayName,
+                        Expression<String>("UpdatedAt") <- timestamp
+                    )
+
+                try dbConn.run(serviceUpdate)
+            }
+        }
+
+        // Delete the old passkey
+        let deleteQuery = Self.passkeysTable
+            .filter(Self.colId == oldPasskeyId.uuidString)
+            .update(
+                Self.colIsDeleted <- 1,
+                Self.colUpdatedAt <- timestamp
+            )
+
+        try dbConn.run(deleteQuery)
+
+        // Create the new passkey with the same credential ID
+        var updatedPasskey = newPasskey
+        updatedPasskey = Passkey(
+            id: newPasskey.id,
+            parentCredentialId: credentialId,  // Use the old credential ID
+            rpId: newPasskey.rpId,
+            userHandle: newPasskey.userHandle,
+            userName: newPasskey.userName,
+            publicKey: newPasskey.publicKey,
+            privateKey: newPasskey.privateKey,
+            prfKey: newPasskey.prfKey,
+            displayName: displayName,
+            createdAt: now,
+            updatedAt: now,
+            isDeleted: false
+        )
+
+        try insertPasskey(updatedPasskey)
+
+        print("VaultStore+Passkey: Successfully replaced passkey")
     }
 
     /**
