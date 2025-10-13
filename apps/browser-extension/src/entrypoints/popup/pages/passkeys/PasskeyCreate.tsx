@@ -562,10 +562,10 @@ const PasskeyCreate: React.FC = () => {
 
             <FormInput
               id="displayName"
-              label={t('passkeys.create.displayNameLabel')}
+              label={t('passkeys.create.titleLabel')}
               value={displayName}
               onChange={setDisplayName}
-              placeholder={t('passkeys.create.displayNamePlaceholder')}
+              placeholder={t('passkeys.create.titlePlaceholder')}
               ref={displayNameInputRef}
             />
 

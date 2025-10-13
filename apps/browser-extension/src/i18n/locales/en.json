@@ -388,8 +388,8 @@
     "create": {
       "title": "Create Passkey",
       "createFor": "Create a new passkey for",
-      "displayNameLabel": "Display Name",
-      "displayNamePlaceholder": "Enter a name for this passkey",
+      "titleLabel": "Title",
+      "titlePlaceholder": "Enter a name for this passkey",
       "createButton": "Create Passkey",
       "creatingButton": "Creating...",
       "useBrowserPasskey": "Use Browser Passkey",
