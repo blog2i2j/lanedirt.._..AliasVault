@@ -370,10 +370,11 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 try vaultStore.beginTransaction()
 
                 // Store credential with passkey and logo in database
+                // Use viewModel.displayName as the title (Service.name)
                 _ = try vaultStore.createCredentialWithPasskey(
                     rpId: rpId,
                     userName: userName,
-                    userDisplayName: userDisplayName,
+                    displayName: viewModel.displayName,
                     passkey: passkey,
                     logo: logo
                 )

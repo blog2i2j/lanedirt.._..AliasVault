@@ -391,7 +391,7 @@ extension VaultStore {
     public func createCredentialWithPasskey(
         rpId: String,
         userName: String?,
-        userDisplayName: String?,
+        displayName: String,
         passkey: Passkey,
         logo: Data? = nil
     ) throws -> Credential {
@@ -414,7 +414,7 @@ extension VaultStore {
 
         let serviceInsert = serviceTable.insert(
             Expression<String>("Id") <- serviceId.uuidString,
-            Expression<String?>("Name") <- rpId,
+            Expression<String?>("Name") <- displayName,  // Use displayName as the service name (title)
             Expression<String?>("Url") <- "https://\(rpId)",
             Expression<SQLite.Blob?>("Logo") <- logoBlob,
             Expression<String>("CreatedAt") <- timestamp,
@@ -430,7 +430,7 @@ extension VaultStore {
             Expression<String>("ServiceId") <- serviceId.uuidString,
             Expression<String?>("AliasId") <- nil,
             Expression<String?>("Username") <- userName,
-            Expression<String?>("Notes") <- "Passkey for \(rpId)",
+            Expression<String?>("Notes") <- nil,
             Expression<String>("CreatedAt") <- timestamp,
             Expression<String>("UpdatedAt") <- timestamp,
             Expression<Int64>("IsDeleted") <- 0

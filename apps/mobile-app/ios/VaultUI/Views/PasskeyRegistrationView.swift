@@ -8,6 +8,7 @@ public struct PasskeyRegistrationView: View {
     @ObservedObject public var viewModel: PasskeyRegistrationViewModel
 
     @Environment(\.colorScheme) private var colorScheme
+    @FocusState private var isTitleFocused: Bool
 
     public init(viewModel: PasskeyRegistrationViewModel) {
         self._viewModel = ObservedObject(wrappedValue: viewModel)
@@ -43,16 +44,37 @@ public struct PasskeyRegistrationView: View {
                         }
                         .padding(.bottom, 20)
 
-                        // Request details
-                        VStack(spacing: 16) {
-                            InfoRow(
+                        // Editable title field
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(String(localized: "title", bundle: locBundle))
+                                .font(.caption)
+                                .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.textMuted : ColorConstants.Light.textMuted)
+                                .padding(.horizontal)
+
+                            TextField("", text: $viewModel.displayName)
+                                .textFieldStyle(PlainTextFieldStyle())
+                                .font(.body)
+                                .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.text : ColorConstants.Light.text)
+                                .padding()
+                                .background(
+                                    (colorScheme == .dark ? ColorConstants.Dark.accentBackground : ColorConstants.Light.accentBackground)
+                                )
+                                .cornerRadius(8)
+                                .padding(.horizontal)
+                                .focused($isTitleFocused)
+                        }
+                        .padding(.bottom, 8)
+
+                        // Request details (compact, read-only)
+                        VStack(spacing: 8) {
+                            CompactInfoRow(
                                 label: String(localized: "website", bundle: locBundle),
                                 value: viewModel.rpId,
                                 icon: "globe"
                             )
 
                             if let userName = viewModel.userName {
-                                InfoRow(
+                                CompactInfoRow(
                                     label: String(localized: "username", bundle: locBundle),
                                     value: userName,
                                     icon: "person.fill"
@@ -101,6 +123,10 @@ public struct PasskeyRegistrationView: View {
                 }
             }
             .navigationBarHidden(true)
+            .onAppear {
+                // Auto-focus the title field
+                isTitleFocused = true
+            }
         }
     }
 }
@@ -191,8 +217,8 @@ private struct LoadingOverlayView: View {
     }
 }
 
-/// Info row component for displaying passkey registration details
-private struct InfoRow: View {
+/// Compact info row component for displaying read-only passkey details
+private struct CompactInfoRow: View {
     let label: String
     let value: String
     let icon: String
@@ -200,28 +226,23 @@ private struct InfoRow: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(spacing: 8) {
             Image(systemName: icon)
                 .foregroundColor(ColorConstants.Light.primary)
                 .frame(width: 24)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(label)
-                    .font(.caption)
-                    .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.textMuted : ColorConstants.Light.textMuted)
+            Text(label + ":")
+                .font(.subheadline)
+                .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.textMuted : ColorConstants.Light.textMuted)
 
-                Text(value)
-                    .font(.body)
-                    .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.text : ColorConstants.Light.text)
-            }
+            Text(value)
+                .font(.subheadline)
+                .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.text : ColorConstants.Light.text)
 
             Spacer()
         }
-        .padding()
-        .background(
-            (colorScheme == .dark ? ColorConstants.Dark.accentBackground : ColorConstants.Light.accentBackground)
-        )
-        .cornerRadius(8)
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
     }
 }
 
@@ -232,6 +253,7 @@ public class PasskeyRegistrationViewModel: ObservableObject {
     @Published public var origin: String
     @Published public var userName: String?
     @Published public var userDisplayName: String?
+    @Published public var displayName: String  // Editable title that defaults to rpId
     @Published public var isLoading: Bool = false
     @Published public var loadingMessage: String = ""
 
@@ -252,6 +274,8 @@ public class PasskeyRegistrationViewModel: ObservableObject {
         self.origin = origin
         self.userName = userName
         self.userDisplayName = userDisplayName
+        // Initialize displayName to rpId by default
+        self.displayName = rpId
         self.completionHandler = completionHandler
         self.cancelHandler = cancelHandler
     }
