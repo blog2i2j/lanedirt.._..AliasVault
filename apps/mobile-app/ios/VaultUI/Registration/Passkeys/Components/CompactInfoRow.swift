@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Compact info row component for displaying read-only information
-struct CompactInfoRow: View {
+/// Info row component for displaying read-only information
+struct InfoRow: View {
     let label: String
     let value: String
     let icon: String

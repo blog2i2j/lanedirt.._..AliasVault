@@ -56,7 +56,7 @@ public struct PasskeyRegistrationView: View {
     // MARK: - Selection Content (Inline)
 
     private var selectionContent: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 36) {
             // Create new button
             Button(action: {
                 viewModel.handleCreateNew()
@@ -73,23 +73,9 @@ public struct PasskeyRegistrationView: View {
                 .cornerRadius(8)
             })
 
-            // Divider
-            HStack {
-                Rectangle()
-                    .fill(colorScheme == .dark ? ColorConstants.Dark.textMuted : ColorConstants.Light.textMuted)
-                    .frame(height: 1)
-                Text(String(localized: "or", bundle: locBundle))
-                    .font(.caption)
-                    .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.textMuted : ColorConstants.Light.textMuted)
-                Rectangle()
-                    .fill(colorScheme == .dark ? ColorConstants.Dark.textMuted : ColorConstants.Light.textMuted)
-                    .frame(height: 1)
-            }
-            .padding(.horizontal)
-
             // Existing passkeys list
-            VStack(alignment: .leading, spacing: 8) {
-                Text(String(localized: "select_passkey_to_replace", bundle: locBundle))
+            VStack(alignment: .leading, spacing: 12) {
+                Text(String(localized: "select_passkey_to_replace", bundle: locBundle) + ":")
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.text : ColorConstants.Light.text)
@@ -131,21 +117,41 @@ public struct PasskeyRegistrationView: View {
 
     @FocusState private var isTitleFocused: Bool
 
+    private var isTitleValid: Bool {
+        !viewModel.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private var createFormContent: some View {
         VStack(spacing: 16) {
+            // Informational notice
+            VStack(spacing: 8) {
+                HStack(spacing: 12) {
+                    Image(systemName: "info.circle.fill")
+                        .foregroundColor(ColorConstants.Light.primary)
+                    Text(String(localized: "create_passkey_explanation", bundle: locBundle))
+                        .font(.caption)
+                        .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.textMuted : ColorConstants.Light.textMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding()
+                .background(ColorConstants.Light.primary.opacity(0.1))
+                .cornerRadius(8)
+            }
+            .padding(.horizontal)
+
             // Editable title field
             PasskeyTitleInput(title: $viewModel.displayName, focusState: $isTitleFocused)
 
             // Request details (compact, read-only)
             VStack(spacing: 8) {
-                CompactInfoRow(
+                InfoRow(
                     label: String(localized: "website", bundle: locBundle),
                     value: viewModel.rpId,
                     icon: "globe"
                 )
 
                 if let userName = viewModel.userName {
-                    CompactInfoRow(
+                    InfoRow(
                         label: String(localized: "username", bundle: locBundle),
                         value: userName,
                         icon: "person.fill"
@@ -167,10 +173,11 @@ public struct PasskeyRegistrationView: View {
                     }
                     .padding()
                     .frame(maxWidth: .infinity)
-                    .background(ColorConstants.Light.primary)
+                    .background(isTitleValid ? ColorConstants.Light.primary : Color.gray)
                     .foregroundColor(.white)
                     .cornerRadius(8)
                 })
+                .disabled(!isTitleValid)
 
                 Button(action: {
                     viewModel.cancel()
@@ -209,83 +216,6 @@ public struct PasskeyRegistrationView: View {
                 isReplaceMode: true,
                 replacingPasskeyId: passkeyId
             )
-        }
-    }
-}
-
-/// Loading overlay component with AliasVault branding
-private struct LoadingOverlayView: View {
-    let message: String
-    @Environment(\.colorScheme) private var colorScheme
-    @State private var animatingDots: [Bool] = [false, false, false, false]
-    @State private var textDots = ""
-    @State private var timer: Timer?
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-
-            VStack(spacing: 0) {
-                // AliasVault logo animation - four pulsing dots
-                HStack(spacing: 10) {
-                    ForEach(0..<4) { index in
-                        Circle()
-                            .fill(ColorConstants.Light.tertiary)
-                            .frame(width: 8, height: 8)
-                            .opacity(animatingDots[index] ? 1.0 : 0.3)
-                            .animation(
-                                Animation.easeInOut(duration: 0.7)
-                                    .repeatForever(autoreverses: true)
-                                    .delay(Double(index) * 0.2),
-                                value: animatingDots[index]
-                            )
-                    }
-                }
-                .padding(12)
-                .padding(.horizontal, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(colorScheme == .dark ? Color.clear : Color.white)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 20)
-                                .stroke(ColorConstants.Light.tertiary, lineWidth: 5)
-                        )
-                        .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
-                )
-
-                // Loading message with animated dots
-                if !message.isEmpty {
-                    Text(message + textDots)
-                        .font(.body)
-                        .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.text : ColorConstants.Light.text)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                        .padding(.top, 16)
-                }
-            }
-            .padding(20)
-
-            Spacer()
-        }
-        .onAppear {
-            // Start dot animations
-            for index in 0..<4 {
-                animatingDots[index] = true
-            }
-
-            // Start text dots animation
-            let textTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { _ in
-                if textDots.count >= 3 {
-                    textDots = ""
-                } else {
-                    textDots += "."
-                }
-            }
-            timer = textTimer
-        }
-        .onDisappear {
-            timer?.invalidate()
-            timer = nil
         }
     }
 }
@@ -349,6 +279,13 @@ public class PasskeyRegistrationViewModel: ObservableObject {
     }
 
     public func createPasskey() {
+        // Validate title is not empty
+        let trimmedTitle = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else {
+            print("PasskeyRegistration: Cannot create passkey with empty title")
+            return
+        }
+
         // Trigger passkey creation in Swift
         print("PasskeyRegistration: Create passkey button clicked, replace mode: \(selectedPasskeyToReplace != nil)")
         completionHandler(true)
