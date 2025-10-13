@@ -14,6 +14,10 @@ export type PasskeyCreateCredentialResponse = {
   extensions?: {
     prf?: {
       enabled: boolean;
+      results?: {
+        first: string;           // base64url encoded PRF output from registration
+        second?: string;         // optional second PRF output
+      };
     };
   };
 };
@@ -182,7 +186,12 @@ export type WebAuthnCreationPayload = {
   hints: string[];
   extensions?: {
     credProps?: boolean;
-    prf?: Record<string, never>; // Empty object to enable PRF
+    prf?: {
+      eval?: {
+        first: string; // Base64URL-encoded salt for PRF evaluation during registration
+        second?: string; // Optional second salt
+      };
+    };
     [key: string]: unknown;
   };
 };

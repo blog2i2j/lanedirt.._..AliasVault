@@ -231,14 +231,20 @@ const PasskeyCreate: React.FC = () => {
       const newPasskeyGuidBytes = PasskeyHelper.guidToBytes(newPasskeyGuid);
       const newPasskeyGuidBase64url = PasskeyHelper.guidToBase64url(newPasskeyGuid);
 
+      // Check if PRF evaluation is requested during registration
+      const prfExtension = request.publicKey?.extensions?.prf;
+      const enablePrf = !!prfExtension;
+      const prfEvalInputs = prfExtension?.eval;
+
       // Create passkey using static method (generates keys and credential ID)
       const result = await PasskeyAuthenticator.createPasskey(newPasskeyGuidBytes, createRequest, {
         uvPerformed: true,
         credentialIdBytes: 16,
-        enablePrf: !!(request.publicKey?.extensions?.prf) // Enable PRF if requested by the website
+        enablePrf,
+        prfInputs: prfEvalInputs // Pass PRF evaluation salts if provided
       });
 
-      const { credential, stored, prfEnabled } = result;
+      const { credential, stored, prfEnabled, prfResults } = result;
 
       // Use vault mutation to store both credential and passkey
       await executeVaultMutation(
@@ -332,13 +338,27 @@ const PasskeyCreate: React.FC = () => {
            * with the GUID-based credential ID.
            */
           onSuccess: async () => {
+            // Prepare PRF extension response if PRF was enabled
+            let prfExtensionResponse;
+            if (prfEnabled) {
+              prfExtensionResponse = {
+                prf: {
+                  enabled: true,
+                  results: prfResults ? {
+                    first: PasskeyHelper.bytesToBase64url(new Uint8Array(prfResults.first)),
+                    second: prfResults.second ? PasskeyHelper.bytesToBase64url(new Uint8Array(prfResults.second)) : undefined
+                  } : undefined
+                }
+              };
+            }
+
             // Use the GUID-based credential ID instead of the random one from the provider
             const flattenedCredential: PasskeyCreateCredentialResponse = {
               id: newPasskeyGuidBase64url,
               rawId: newPasskeyGuidBase64url,
               clientDataJSON: credential.response.clientDataJSON,
               attestationObject: credential.response.attestationObject,
-              extensions: prfEnabled ? { prf: { enabled: true } } : undefined
+              extensions: prfExtensionResponse
             };
 
             // Send response back to background

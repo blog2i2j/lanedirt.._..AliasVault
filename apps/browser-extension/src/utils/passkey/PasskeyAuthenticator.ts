@@ -42,7 +42,12 @@ export class PasskeyAuthenticator {
   public static async createPasskey(
     credentialIdBytes: Uint8Array,
     req: CreateRequest,
-    opts?: { uvPerformed?: boolean; credentialIdBytes?: number; enablePrf?: boolean } // uvPerformed: only set to true if your app did real UV
+    opts?: {
+      uvPerformed?: boolean;
+      credentialIdBytes?: number;
+      enablePrf?: boolean;
+      prfInputs?: { first: string; second?: string }; // Base64url encoded salts for PRF evaluation during registration
+    }
   ): Promise<{
     credential: {
       id: string;
@@ -55,6 +60,7 @@ export class PasskeyAuthenticator {
     };
     stored: StoredPasskeyRecord;
     prfEnabled?: boolean; // Indicates if PRF was enabled for this credential
+    prfResults?: { first: ArrayBuffer; second?: ArrayBuffer }; // PRF evaluation results if requested during registration
   }> {
     // 1) Validate and resolve algorithm (-7 = ES256)
     PasskeyAuthenticator.pickSupportedAlgorithm(req.publicKey.pubKeyCredParams);
@@ -140,15 +146,31 @@ export class PasskeyAuthenticator {
         : PasskeyAuthenticator.toB64(req.publicKey.user.id instanceof Uint8Array ? req.publicKey.user.id : new Uint8Array(req.publicKey.user.id));
     }
 
-    // 11.5) PRF support: Generate PRF secret if requested
+    // 11.5) PRF support: Generate PRF secret if requested and optionally evaluate during registration
     let prfSecret: string | undefined;
     let prfEnabled = false;
+    let prfResults: { first: ArrayBuffer; second?: ArrayBuffer } | undefined;
     if (opts?.enablePrf) {
       // Generate a 32-byte random secret for PRF (hmac-secret extension)
       const prfSecretBytes = new Uint8Array(32);
       crypto.getRandomValues(prfSecretBytes);
       prfSecret = PasskeyAuthenticator.toB64u(prfSecretBytes);
       prfEnabled = true;
+
+      // If the caller requested PRF evaluation during registration, evaluate it now
+      if (opts?.prfInputs) {
+        // Decode base64url salts to bytes
+        const firstSalt = PasskeyAuthenticator.fromB64u(opts.prfInputs.first);
+        prfResults = {
+          first: await PasskeyAuthenticator.evaluatePrf(prfSecretBytes, firstSalt)
+        };
+
+        // Evaluate second salt if provided
+        if (opts.prfInputs.second) {
+          const secondSalt = PasskeyAuthenticator.fromB64u(opts.prfInputs.second);
+          prfResults.second = await PasskeyAuthenticator.evaluatePrf(prfSecretBytes, secondSalt);
+        }
+      }
     }
 
     const stored: StoredPasskeyRecord = {
@@ -173,7 +195,7 @@ export class PasskeyAuthenticator {
       type: 'public-key' as const
     };
 
-    return { credential, stored, prfEnabled };
+    return { credential, stored, prfEnabled, prfResults };
   }
 
   /**

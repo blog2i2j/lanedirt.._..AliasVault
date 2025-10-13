@@ -68,6 +68,20 @@ export default defineUnlistedScript(() => {
 
     // Send event to content script
     const requestId = Math.random().toString(36).substr(2, 9);
+
+    // Serialize PRF extensions if present (convert ArrayBuffers to base64)
+    let serializedExtensions: any = undefined;
+    if (options.publicKey.extensions) {
+      serializedExtensions = { ...options.publicKey.extensions };
+      if (serializedExtensions.prf?.eval) {
+        const prfEval: any = { first: bufferToBase64(serializedExtensions.prf.eval.first) };
+        if (serializedExtensions.prf.eval.second) {
+          prfEval.second = bufferToBase64(serializedExtensions.prf.eval.second);
+        }
+        serializedExtensions.prf = { eval: prfEval };
+      }
+    }
+
     const eventDetail: WebAuthnCreateEventDetail = {
       requestId,
       publicKey: {
@@ -81,7 +95,7 @@ export default defineUnlistedScript(() => {
           ...cred,
           id: bufferToBase64(cred.id)
         })),
-        extensions: options.publicKey.extensions
+        extensions: serializedExtensions
       },
       origin: window.location.origin
     };
@@ -200,7 +214,16 @@ export default defineUnlistedScript(() => {
               getClientExtensionResults() : any {
                 const extensions: any = {};
                 if (cred.extensions?.prf) {
-                  extensions.prf = cred.extensions.prf;
+                  extensions.prf = { ...cred.extensions.prf };
+                  // Convert PRF results from base64url to ArrayBuffer if present
+                  if (cred.extensions.prf.results) {
+                    extensions.prf.results = {
+                      first: base64ToBuffer(cred.extensions.prf.results.first)
+                    };
+                    if (cred.extensions.prf.results.second) {
+                      extensions.prf.results.second = base64ToBuffer(cred.extensions.prf.results.second);
+                    }
+                  }
                 }
                 return extensions;
               }
