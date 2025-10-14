@@ -12,7 +12,7 @@ namespace AliasClientDb.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // Simple Database Constraint Repair Script
+             // Simple Database Constraint Repair Script
             // Recreates all tables with proper PK/FK constraints while preserving data
             migrationBuilder.Sql(@"
 PRAGMA foreign_keys = OFF;
@@ -197,7 +197,7 @@ PRAGMA foreign_keys = ON;
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
                     RpId = table.Column<string>(type: "TEXT", maxLength: 255, nullable: false, collation: "NOCASE"),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 255, nullable: true),
+                    UserHandle = table.Column<byte[]>(type: "BLOB", nullable: false),
                     PublicKey = table.Column<string>(type: "TEXT", nullable: false),
                     PrivateKey = table.Column<string>(type: "TEXT", nullable: false),
                     PrfKey = table.Column<byte[]>(type: "BLOB", maxLength: 64, nullable: true),

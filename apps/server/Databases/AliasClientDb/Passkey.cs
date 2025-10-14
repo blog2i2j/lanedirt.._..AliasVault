@@ -30,10 +30,10 @@ public class Passkey : SyncableEntity
     public string RpId { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the user ID provided by the relying party.
+    /// Gets or sets the user handle which represents the user ID provided by the relying party.
     /// </summary>
-    [MaxLength(255)]
-    public string? UserId { get; set; }
+    [Required]
+    public byte[] UserHandle { get; set; } = null!;
 
     /// <summary>
     /// Gets or sets the public key.

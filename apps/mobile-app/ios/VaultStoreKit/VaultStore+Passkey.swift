@@ -15,7 +15,7 @@ extension VaultStore {
     private static let colId = Expression<String>("Id")
     private static let colCredentialId = Expression<String>("CredentialId")
     private static let colRpId = Expression<String>("RpId")
-    private static let colUserId = Expression<String?>("UserId")
+    private static let colUserHandle = Expression<Blob?>("UserHandle")
     private static let colPublicKey = Expression<String>("PublicKey")
     private static let colPrivateKey = Expression<String>("PrivateKey")
     private static let colPrfKey = Expression<Blob?>("PrfKey")
@@ -347,7 +347,7 @@ extension VaultStore {
         let idString = try row.get(Self.colId)
         let parentCredentialIdString = try row.get(Self.colCredentialId)
         let rpId = try row.get(Self.colRpId)
-        let userIdBase64url = try? row.get(Self.colUserId)
+        let userHandleBlob = try? row.get(Self.colUserHandle)
         let publicKeyString = try row.get(Self.colPublicKey)
         let privateKeyString = try row.get(Self.colPrivateKey)
         let displayName = try row.get(Self.colDisplayName)
@@ -376,17 +376,12 @@ extension VaultStore {
             return nil
         }
 
-        // Parse userId (stored as base64url-encoded string in DB, decode to raw bytes for iOS)
-        let userId: Data?
-        if let userIdBase64url = userIdBase64url, !userIdBase64url.isEmpty {
-            do {
-                userId = try PasskeyHelper.base64urlToBytes(userIdBase64url)
-            } catch {
-                print("VaultStore+Passkey: Failed to decode userId from base64url: \(error)")
-                userId = nil
-            }
+        // Parse userHandle (stored as blob - raw bytes)
+        let userHandle: Data?
+        if let userHandleBlob = userHandleBlob {
+            userHandle = Data(userHandleBlob.bytes)
         } else {
-            userId = nil
+            userHandle = nil
         }
 
         // Parse PrfKey (stored as blob)
@@ -403,7 +398,7 @@ extension VaultStore {
             id: id,
             parentCredentialId: parentCredentialId,  // Parent Credential UUID
             rpId: rpId,
-            userHandle: userId,
+            userHandle: userHandle,
             userName: nil,  // userName not stored in DB, derived from parent credential
             publicKey: publicKeyData,
             privateKey: privateKeyData,
@@ -520,7 +515,7 @@ extension VaultStore {
             Self.colId <- passkey.id.uuidString,
             Self.colCredentialId <- passkey.parentCredentialId.uuidString,
             Self.colRpId <- passkey.rpId,
-            Self.colUserId <- passkey.userHandle?.base64EncodedString(),
+            Self.colUserHandle <- passkey.userHandle.map { Blob(bytes: [UInt8]($0)) },
             Self.colPublicKey <- String(data: passkey.publicKey, encoding: .utf8)!,
             Self.colPrivateKey <- String(data: passkey.privateKey, encoding: .utf8)!,
             Self.colPrfKey <- passkey.prfKey.map { Blob(bytes: [UInt8]($0)) },

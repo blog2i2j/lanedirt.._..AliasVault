@@ -168,13 +168,26 @@ const PasskeyAuthenticate: React.FC = () => {
         }
       }
 
-      // Build the stored record for the provider
+      /**
+       * Build the stored record for the provider
+       * Convert UserHandle from byte array to base64 string for serialization
+       */
+      let userIdBase64: string | null = null;
+      if (storedPasskey.UserHandle) {
+        try {
+          const userHandleBytes = storedPasskey.UserHandle instanceof Uint8Array ? storedPasskey.UserHandle : new Uint8Array(storedPasskey.UserHandle);
+          userIdBase64 = PasskeyHelper.bytesToBase64url(userHandleBytes);
+        } catch (e) {
+          console.warn('Failed to convert UserHandle to base64', e);
+        }
+      }
+
       const storedRecord: StoredPasskeyRecord = {
         rpId: storedPasskey.RpId,
         credentialId: PasskeyHelper.guidToBase64url(storedPasskey.Id),
         publicKey,
         privateKey,
-        userId: storedPasskey.UserId,
+        userId: userIdBase64,
         userName: storedPasskey.Username ?? undefined,
         userDisplayName: storedPasskey.ServiceName ?? undefined,
         prfSecret

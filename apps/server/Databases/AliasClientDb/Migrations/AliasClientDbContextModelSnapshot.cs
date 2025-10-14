@@ -212,9 +212,9 @@ namespace AliasClientDb.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("UserId")
-                        .HasMaxLength(255)
-                        .HasColumnType("TEXT");
+                    b.Property<byte[]>("UserHandle")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
 
                     b.HasKey("Id");
 

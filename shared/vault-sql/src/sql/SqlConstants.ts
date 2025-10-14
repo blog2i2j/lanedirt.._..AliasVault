@@ -436,7 +436,7 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE "Passkeys" (
     "Id" TEXT NOT NULL CONSTRAINT "PK_Passkeys" PRIMARY KEY,
     "RpId" TEXT COLLATE NOCASE NOT NULL,
-    "UserId" TEXT NULL,
+    "UserHandle" BLOB NOT NULL,
     "PublicKey" TEXT NOT NULL,
     "PrivateKey" TEXT NOT NULL,
     "PrfKey" BLOB NULL,
@@ -454,7 +454,7 @@ CREATE INDEX "IX_Passkeys_CredentialId" ON "Passkeys" ("CredentialId");
 CREATE INDEX "IX_Passkeys_RpId" ON "Passkeys" ("RpId");
 
 INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20251007085746_1.6.0-AddPasskeys', '9.0.4');
+VALUES ('20251014122838_1.6.0-AddPasskeys', '9.0.4');
 
 COMMIT;
 `;
@@ -827,7 +827,7 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE "Passkeys" (
     "Id" TEXT NOT NULL CONSTRAINT "PK_Passkeys" PRIMARY KEY,
     "RpId" TEXT COLLATE NOCASE NOT NULL,
-    "UserId" TEXT NULL,
+    "UserHandle" BLOB NOT NULL,
     "PublicKey" TEXT NOT NULL,
     "PrivateKey" TEXT NOT NULL,
     "PrfKey" BLOB NULL,
@@ -845,7 +845,7 @@ CREATE INDEX "IX_Passkeys_CredentialId" ON "Passkeys" ("CredentialId");
 CREATE INDEX "IX_Passkeys_RpId" ON "Passkeys" ("RpId");
 
 INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20251007085746_1.6.0-AddPasskeys', '9.0.4');
+VALUES ('20251014122838_1.6.0-AddPasskeys', '9.0.4');
 
 COMMIT;`,
 };

@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AliasClientDb.Migrations
 {
     [DbContext(typeof(AliasClientDbContext))]
-    [Migration("20251007085746_1.6.0-AddPasskeys")]
+    [Migration("20251014122838_1.6.0-AddPasskeys")]
     partial class _160AddPasskeys
     {
         /// <inheritdoc />
@@ -215,9 +215,9 @@ namespace AliasClientDb.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("UserId")
-                        .HasMaxLength(255)
-                        .HasColumnType("TEXT");
+                    b.Property<byte[]>("UserHandle")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
 
                     b.HasKey("Id");
 

@@ -1151,7 +1151,7 @@ export class SqliteClient {
         p.Id,
         p.CredentialId,
         p.RpId,
-        p.UserId,
+        p.UserHandle,
         p.PublicKey,
         p.PrivateKey,
         p.DisplayName,
@@ -1176,7 +1176,7 @@ export class SqliteClient {
       Id: row.Id,
       CredentialId: row.CredentialId,
       RpId: row.RpId,
-      UserId: row.UserId,
+      UserHandle: row.UserHandle,
       PublicKey: row.PublicKey,
       PrivateKey: row.PrivateKey,
       DisplayName: row.DisplayName,
@@ -1205,7 +1205,7 @@ export class SqliteClient {
         p.Id,
         p.CredentialId,
         p.RpId,
-        p.UserId,
+        p.UserHandle,
         p.PublicKey,
         p.PrivateKey,
         p.DisplayName,
@@ -1234,7 +1234,7 @@ export class SqliteClient {
       Id: row.Id,
       CredentialId: row.CredentialId,
       RpId: row.RpId,
-      UserId: row.UserId,
+      UserHandle: row.UserHandle,
       PublicKey: row.PublicKey,
       PrivateKey: row.PrivateKey,
       DisplayName: row.DisplayName,
@@ -1263,7 +1263,7 @@ export class SqliteClient {
         p.Id,
         p.CredentialId,
         p.RpId,
-        p.UserId,
+        p.UserHandle,
         p.PublicKey,
         p.PrivateKey,
         p.DisplayName,
@@ -1284,7 +1284,7 @@ export class SqliteClient {
       Id: row.Id,
       CredentialId: row.CredentialId,
       RpId: row.RpId,
-      UserId: row.UserId,
+      UserHandle: row.UserHandle,
       PublicKey: row.PublicKey,
       PrivateKey: row.PrivateKey,
       DisplayName: row.DisplayName,
@@ -1315,7 +1315,7 @@ export class SqliteClient {
 
       const query = `
         INSERT INTO Passkeys (
-          Id, CredentialId, RpId, UserId, PublicKey, PrivateKey,
+          Id, CredentialId, RpId, UserHandle, PublicKey, PrivateKey,
           PrfKey, DisplayName, AdditionalData, CreatedAt, UpdatedAt, IsDeleted
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -1327,11 +1327,17 @@ export class SqliteClient {
         prfKeyData = passkey.PrfKey instanceof Uint8Array ? passkey.PrfKey : new Uint8Array(passkey.PrfKey);
       }
 
+      // Convert UserHandle to Uint8Array if it's a number array
+      let userHandleData: Uint8Array | null = null;
+      if (passkey.UserHandle) {
+        userHandleData = passkey.UserHandle instanceof Uint8Array ? passkey.UserHandle : new Uint8Array(passkey.UserHandle);
+      }
+
       this.executeUpdate(query, [
         passkey.Id,
         passkey.CredentialId,
         passkey.RpId,
-        passkey.UserId ?? null,
+        userHandleData,
         passkey.PublicKey,
         passkey.PrivateKey,
         prfKeyData,

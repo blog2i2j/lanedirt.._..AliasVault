@@ -88,13 +88,22 @@ const PasskeyCreate: React.FC = () => {
               if (data.publicKey.user?.id || data.publicKey.user?.name) {
                 filtered = allPasskeysForRpId.filter(passkey => {
                   /**
-                   * Match by user ID if both are available
-                   * The request has base64url encoded user.id, passkey has base64 encoded UserId
-                   * For now, compare as strings (both should represent the same user identifier)
+                   * Match by user handle if both are available
+                   * The request has base64url encoded user.id, passkey has UserHandle as byte array
+                   * Convert request's user.id to bytes for comparison
                    */
-                  if (data.publicKey.user?.id && passkey.UserId) {
-                    if (passkey.UserId === data.publicKey.user.id) {
-                      return true;
+                  if (data.publicKey.user?.id && passkey.UserHandle) {
+                    try {
+                      const requestUserIdBytes = PasskeyHelper.base64urlToBytes(data.publicKey.user.id);
+                      const passkeyUserHandle = passkey.UserHandle instanceof Uint8Array ? passkey.UserHandle : new Uint8Array(passkey.UserHandle);
+
+                      // Compare byte arrays
+                      if (requestUserIdBytes.length === passkeyUserHandle.length &&
+                          requestUserIdBytes.every((byte, idx) => byte === passkeyUserHandle[idx])) {
+                        return true;
+                      }
+                    } catch {
+                      // If conversion fails, skip this passkey
                     }
                   }
 
@@ -279,12 +288,25 @@ const PasskeyCreate: React.FC = () => {
               // Delete the old passkey
               await dbContext.sqliteClient!.deletePasskeyById(selectedPasskeyToReplace);
 
-              // Create new passkey with same credential
+              /**
+               * Create new passkey with same credential
+               * Convert userId from base64 string to byte array for database storage
+               */
+              let userHandleBytes: Uint8Array | null = null;
+              if (stored.userId) {
+                try {
+                  userHandleBytes = PasskeyHelper.base64urlToBytes(stored.userId);
+                } catch {
+                  // If conversion fails, store as null
+                  userHandleBytes = null;
+                }
+              }
+
               await dbContext.sqliteClient!.createPasskey({
                 Id: newPasskeyGuid,
                 CredentialId: existingPasskey.CredentialId,
                 RpId: stored.rpId,
-                UserId: stored.userId ?? null,
+                UserHandle: userHandleBytes,
                 PublicKey: JSON.stringify(stored.publicKey),
                 PrivateKey: JSON.stringify(stored.privateKey),
                 DisplayName: displayName,
@@ -318,12 +340,23 @@ const PasskeyCreate: React.FC = () => {
             /**
              * Create the Passkey linked to the credential
              * Note: We let the database generate a GUID for Id, which we'll convert to base64url for the RP
+             * Convert userId from base64 string to byte array for database storage
              */
+            let userHandleBytes: Uint8Array | null = null;
+            if (stored.userId) {
+              try {
+                userHandleBytes = PasskeyHelper.base64urlToBytes(stored.userId);
+              } catch {
+                // If conversion fails, store as null
+                userHandleBytes = null;
+              }
+            }
+
             await dbContext.sqliteClient!.createPasskey({
               Id: newPasskeyGuid,
               CredentialId: credentialId,
               RpId: stored.rpId,
-              UserId: stored.userId ?? null,
+              UserHandle: userHandleBytes,
               PublicKey: JSON.stringify(stored.publicKey),
               PrivateKey: JSON.stringify(stored.privateKey),
               DisplayName: displayName,

@@ -106,8 +106,8 @@ type Passkey = {
     CredentialId: string;
     /** The relying party identifier */
     RpId: string;
-    /** The user ID provided by the relying party */
-    UserId?: string | null;
+    /** The user handle (user ID) provided by the relying party - stored as byte array (BLOB) */
+    UserHandle?: Uint8Array | number[] | null;
     /** The public key */
     PublicKey: string;
     /** The private key */
