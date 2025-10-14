@@ -232,6 +232,8 @@ export default function Initialize() : React.ReactNode {
              * Show modal with error message for other errors
              */
             Alert.alert(t('common.error'), error);
+            router.replace('/unlock');
+            return;
           },
           /**
            * On upgrade required.

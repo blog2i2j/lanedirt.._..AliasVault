@@ -644,7 +644,13 @@ public class VaultManager: NSObject {
             } catch {
                 print("VaultManager: Vault sync failed: \(error)")
                 await MainActor.run {
-                    reject("SYNC_ERROR", "Failed to sync vault: \(error.localizedDescription)", error)
+                    // Map VaultSyncError to proper error codes for React Native
+                    if let syncError = error as? VaultSyncError {
+                        reject(syncError.code, syncError.message, error)
+                    } else {
+                        // Fallback for unknown errors
+                        reject("VAULT_SYNC_UNKNOWN_ERROR", "Failed to sync vault: \(error.localizedDescription)", error)
+                    }
                 }
             }
         }

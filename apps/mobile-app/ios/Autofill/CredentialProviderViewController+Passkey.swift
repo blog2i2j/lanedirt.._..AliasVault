@@ -343,9 +343,9 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                     // Server connectivity check failed
                     viewModel.setLoading(false)
 
-                    // Show error dialog to user
+                    // Show appropriate error dialog based on error type
                     await MainActor.run {
-                        self.showConnectivityErrorAlert(viewModel: viewModel)
+                        self.showSyncErrorAlert(error: error)
                     }
                     return
                 }
@@ -623,7 +623,7 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
     }
 
     /**
-     * Show connectivity error alert dialog
+     * Show connectivity error alert dialog (kept for backward compatibility)
      */
     private func showConnectivityErrorAlert(viewModel: PasskeyRegistrationViewModel) {
         let alert = UIAlertController(

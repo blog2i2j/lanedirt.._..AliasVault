@@ -279,4 +279,65 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
         return true
     }
 
+    // MARK: - Error Handling
+
+    /**
+     * Show sync error alert dialog with appropriate message based on error type
+     * This method is internal so it can be used by both passkey and credential extensions
+     */
+    internal func showSyncErrorAlert(error: Error) {
+        var title = NSLocalizedString("connection_error_title", comment: "Connection Error")
+        var message = NSLocalizedString("connection_error_message", comment: "No connection to the server can be made.")
+
+        // Check if it's a VaultSyncError and customize message accordingly
+        if let syncError = error as? VaultSyncError {
+            switch syncError {
+            case .sessionExpired, .authenticationFailed:
+                title = NSLocalizedString("session_expired_title", comment: "Session Expired")
+                message = NSLocalizedString("session_expired_message", comment: "Your session has expired. Please sign in again.")
+
+            case .passwordChanged:
+                title = NSLocalizedString("password_changed_title", comment: "Password Changed")
+                message = NSLocalizedString("password_changed_message", comment: "Your password has been changed. Please sign in again.")
+
+            case .clientVersionNotSupported:
+                title = NSLocalizedString("version_not_supported_title", comment: "Update Required")
+                message = NSLocalizedString("version_not_supported_message", comment: "Your app version is no longer supported. Please update to the latest version.")
+
+            case .serverUnavailable:
+                title = NSLocalizedString("server_unavailable_title", comment: "Server Unavailable")
+                message = NSLocalizedString("server_unavailable_message", comment: "The server is currently unavailable. Please try again later.")
+
+            case .networkError, .timeout:
+                title = NSLocalizedString("network_error_title", comment: "Network Error")
+                message = NSLocalizedString("network_error_message", comment: "A network error occurred. Please check your connection and try again.")
+
+            default:
+                // Use default connectivity error message for other errors
+                break
+            }
+        }
+
+        let alert = UIAlertController(
+            title: title,
+            message: message,
+            preferredStyle: .alert
+        )
+
+        alert.addAction(UIAlertAction(
+            title: NSLocalizedString("ok", comment: "OK"),
+            style: .default,
+            handler: { _ in
+                // User acknowledged the error
+            }
+        ))
+
+        // Present the alert
+        if let currentController = self.currentHostingController {
+            currentController.present(alert, animated: true)
+        } else {
+            self.present(alert, animated: true)
+        }
+    }
+
 }

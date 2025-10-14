@@ -11,6 +11,7 @@ import { useDb } from '@/context/DbContext';
 import { useWebApi } from '@/context/WebApiContext';
 import NativeVaultManager from '@/specs/NativeVaultManager';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
+import { VaultSyncErrorCode, getVaultSyncErrorCode } from '@/utils/types/errors/VaultSyncErrorCodes';
 
 /**
  * Utility function to ensure a minimum time has elapsed for an operation
@@ -98,37 +99,41 @@ export const useVaultSync = () : {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : t('common.errors.unknownError');
+        console.error('VaultSync: syncVault error:', err);
 
-        // Check for authentication failure (401) - logout user
-        if (errorMessage.includes('Authentication failed') || errorMessage.includes('please login again')) {
-          await app.logout('Your session has expired. Please login again.');
-          return false;
+        // Get the error code from the native layer
+        const errorCode = getVaultSyncErrorCode(err);
+
+        console.log('VaultSync: errorCode:', errorCode);
+
+        // Handle specific error codes
+        switch (errorCode) {
+          case VaultSyncErrorCode.SESSION_EXPIRED:
+          case VaultSyncErrorCode.AUTHENTICATION_FAILED:
+            await app.logout('Your session has expired. Please login again.');
+            return false;
+
+          case VaultSyncErrorCode.PASSWORD_CHANGED:
+            await app.logout(t('vault.errors.passwordChanged'));
+            return false;
+
+          case VaultSyncErrorCode.CLIENT_VERSION_NOT_SUPPORTED:
+            await app.logout(t('vault.errors.versionNotSupported'));
+            return false;
+
+          case VaultSyncErrorCode.SERVER_UNAVAILABLE:
+            onOffline?.();
+            return false;
+
+          case VaultSyncErrorCode.NETWORK_ERROR:
+          case VaultSyncErrorCode.TIMEOUT:
+            onOffline?.();
+            return false;
+
+          default:
+            // Unknown error or no error code - rethrow
+            throw err;
         }
-
-        // Check for specific error conditions from native layer
-        if (errorMessage.includes('Server not available')) {
-          onOffline?.();
-          return false;
-        }
-
-        if (errorMessage.includes('Client version not supported')) {
-          onError?.(t('vault.errors.versionNotSupported'));
-          return false;
-        }
-
-        if (errorMessage.includes('Password has changed')) {
-          await app.logout(t('vault.errors.passwordChanged'));
-          return false;
-        }
-
-        // Network error - go offline but don't fail
-        if (errorMessage.includes('network') || errorMessage.includes('timeout')) {
-          await NativeVaultManager.setOfflineMode(true);
-          return true;
-        }
-
-        throw err;
       }
 
       try {
@@ -183,14 +188,35 @@ export const useVaultSync = () : {
         return false;
       }
 
-      const errorMessage = err instanceof Error ? err.message : t('common.errors.unknownError');
+      // Check if it's a vault sync error with error code
+      const errorCode = getVaultSyncErrorCode(err);
+      if (errorCode) {
+        switch (errorCode) {
+          case VaultSyncErrorCode.SESSION_EXPIRED:
+          case VaultSyncErrorCode.AUTHENTICATION_FAILED:
+            await app.logout('Your session has expired. Please login again.');
+            return false;
 
-      // Check if it's a network error
-      if (errorMessage.includes('network') || errorMessage.includes('timeout')) {
-        await NativeVaultManager.setOfflineMode(true);
-        return true;
+          case VaultSyncErrorCode.PASSWORD_CHANGED:
+            await app.logout(t('vault.errors.passwordChanged'));
+            return false;
+
+          case VaultSyncErrorCode.NETWORK_ERROR:
+          case VaultSyncErrorCode.TIMEOUT:
+            await NativeVaultManager.setOfflineMode(true);
+            return true;
+
+          case VaultSyncErrorCode.SERVER_UNAVAILABLE:
+            await NativeVaultManager.setOfflineMode(true);
+            return true;
+
+          default:
+            // Let the error be handled below
+            break;
+        }
       }
 
+      const errorMessage = err instanceof Error ? err.message : t('common.errors.unknownError');
       onError?.(errorMessage);
       return false;
     }

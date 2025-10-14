@@ -53,13 +53,19 @@ extension VaultStore {
 
     /// Fetch and validate server status
     private func fetchAndValidateStatus(using webApiService: WebApiService) async throws -> StatusResponse {
-        let statusResponse = try await webApiService.executeRequest(
-            method: "GET",
-            endpoint: "Auth/status",
-            body: nil,
-            headers: [:],
-            requiresAuth: true
-        )
+        let statusResponse: WebApiResponse
+        do {
+            statusResponse = try await webApiService.executeRequest(
+                method: "GET",
+                endpoint: "Auth/status",
+                body: nil,
+                headers: [:],
+                requiresAuth: true
+            )
+        } catch {
+            // Network error - convert to VaultSyncError
+            throw VaultSyncError.networkError(underlyingError: error)
+        }
 
         // Check response status
         // Note: WebApiService already handles 401 with automatic token refresh and retry
@@ -68,30 +74,18 @@ extension VaultStore {
             if statusResponse.statusCode == 401 {
                 // Authentication failed even after token refresh attempt
                 print("VaultStore: Authentication failed (401) - token refresh also failed")
-                throw NSError(
-                    domain: "VaultStore",
-                    code: 401,
-                    userInfo: [NSLocalizedDescriptionKey: "Authentication failed - please login again"]
-                )
+                throw VaultSyncError.sessionExpired
             }
 
             // Other error (5xx, network, etc.) - go offline
             setOfflineMode(true)
-            throw NSError(
-                domain: "VaultStore",
-                code: statusResponse.statusCode,
-                userInfo: [NSLocalizedDescriptionKey: "Server returned status \(statusResponse.statusCode)"]
-            )
+            throw VaultSyncError.serverUnavailable(statusCode: statusResponse.statusCode)
         }
 
         guard let statusData = statusResponse.body.data(using: .utf8) else {
             print("VaultStore: Failed to convert status response to data")
             print("VaultStore: Response body: '\(statusResponse.body)'")
-            throw NSError(
-                domain: "VaultStore",
-                code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Failed to convert status response to data"]
-            )
+            throw VaultSyncError.parseError(message: "Failed to convert status response to data")
         }
 
         let decoder = JSONDecoder()
@@ -101,19 +95,11 @@ extension VaultStore {
         } catch {
             print("VaultStore: Failed to decode status response: \(error)")
             print("VaultStore: Response body: '\(statusResponse.body)'")
-            throw NSError(
-                domain: "VaultStore",
-                code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Failed to parse status response: \(error.localizedDescription)"]
-            )
+            throw VaultSyncError.parseError(message: "Failed to decode status response: \(error.localizedDescription)")
         }
 
         guard status.clientVersionSupported else {
-            throw NSError(
-                domain: "VaultStore",
-                code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Client version not supported"]
-            )
+            throw VaultSyncError.clientVersionNotSupported
         }
 
         try validateSrpSalt(status.srpSalt)
@@ -129,30 +115,30 @@ extension VaultStore {
         }
 
         if !srpSalt.isEmpty && srpSalt != params.salt {
-            throw NSError(
-                domain: "VaultStore",
-                code: -2,
-                userInfo: [NSLocalizedDescriptionKey: "Password has changed, please login again"]
-            )
+            throw VaultSyncError.passwordChanged
         }
     }
 
     /// Download vault from server and store it locally
     private func downloadAndStoreVault(using webApiService: WebApiService, newRevision: Int) async throws {
-        let vaultResponse = try await webApiService.executeRequest(
-            method: "GET",
-            endpoint: "Vault",
-            body: nil,
-            headers: [:],
-            requiresAuth: true
-        )
+        let vaultResponse: WebApiResponse
+        do {
+            vaultResponse = try await webApiService.executeRequest(
+                method: "GET",
+                endpoint: "Vault",
+                body: nil,
+                headers: [:],
+                requiresAuth: true
+            )
+        } catch {
+            throw VaultSyncError.networkError(underlyingError: error)
+        }
 
         guard vaultResponse.statusCode == 200 else {
-            throw NSError(
-                domain: "VaultStore",
-                code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Failed to download vault"]
-            )
+            if vaultResponse.statusCode == 401 {
+                throw VaultSyncError.sessionExpired
+            }
+            throw VaultSyncError.serverUnavailable(statusCode: vaultResponse.statusCode)
         }
 
         let vault = try parseVaultResponse(vaultResponse.body)
@@ -168,11 +154,7 @@ extension VaultStore {
     /// Parse vault response from JSON
     private func parseVaultResponse(_ body: String) throws -> VaultResponse {
         guard let vaultData = body.data(using: .utf8) else {
-            throw NSError(
-                domain: "VaultStore",
-                code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Failed to convert vault response to data"]
-            )
+            throw VaultSyncError.parseError(message: "Failed to convert vault response to data")
         }
 
         do {
@@ -180,11 +162,7 @@ extension VaultStore {
         } catch {
             print("VaultStore: Failed to decode vault response: \(error)")
             print("VaultStore: Response body: \(body)")
-            throw NSError(
-                domain: "VaultStore",
-                code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Failed to parse vault response: \(error.localizedDescription)"]
-            )
+            throw VaultSyncError.parseError(message: "Failed to decode vault response: \(error.localizedDescription)")
         }
     }
 
@@ -194,23 +172,11 @@ extension VaultStore {
         case 0:
             return
         case 1:
-            throw NSError(
-                domain: "VaultStore",
-                code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Vault merge required"]
-            )
+            throw VaultSyncError.vaultMergeRequired
         case 2:
-            throw NSError(
-                domain: "VaultStore",
-                code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Vault outdated"]
-            )
+            throw VaultSyncError.vaultOutdated
         default:
-            throw NSError(
-                domain: "VaultStore",
-                code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Unknown vault status: \(status)"]
-            )
+            throw VaultSyncError.unknownError(message: "Unknown vault status: \(status)")
         }
     }
 }
