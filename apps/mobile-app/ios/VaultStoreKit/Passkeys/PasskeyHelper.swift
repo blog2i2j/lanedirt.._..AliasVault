@@ -4,8 +4,13 @@ import Foundation
  * PasskeyHelper
  * -------------------------
  * Utility class for passkey-related operations, including GUID/base64url conversions.
- * Port of the browser extension PasskeyHelper.ts to Swift.
- * TODO: review implementation and docs.
+ *
+ * This is a Swift port of the reference TypeScript implementation:
+ * - Reference: apps/browser-extension/src/utils/passkey/PasskeyHelper.ts
+ * - Android: apps/mobile-app/android/app/src/main/java/net/aliasvault/app/vaultstore/passkey/PasskeyHelper.kt
+ *
+ * IMPORTANT: Keep all implementations synchronized. Changes to the public interface must be
+ * reflected in all ports. Method names, parameters, and behavior should remain consistent.
  */
 public class PasskeyHelper {
 
@@ -62,64 +67,9 @@ public class PasskeyHelper {
         return parts.joined(separator: "-").uppercased()
     }
 
-    /**
-     * Convert GUID to base64url for WebAuthn credential ID
-     * Example: "3f2504e0-4f89-11d3-9a0c-0305e82c3301" → "PyUE4E-JEdOaDAPF6CwzAQ"
-     */
-    public static func guidToBase64url(_ guid: String) throws -> String {
-        let bytes = try guidToBytes(guid)
-        return bytes.base64URLEncodedString()
-    }
-
-    /**
-     * Convert base64url to GUID for database lookup
-     * Example: "PyUE4E-JEdOaDAPF6CwzAQ" → "3F2504E0-4F89-11D3-9A0C-0305E82C3301"
-     */
-    public static func base64urlToGuid(_ base64url: String) throws -> String {
-        let bytes = try Data(base64URLEncoded: base64url)
-        return try bytesToGuid(bytes)
-    }
-
-    /**
-     * Convert byte array to base64url string
-     */
-    public static func bytesToBase64url(_ bytes: Data) -> String {
-        return bytes.base64URLEncodedString()
-    }
-
-    /**
-     * Convert base64url string to byte array
-     */
-    public static func base64urlToBytes(_ base64url: String) throws -> Data {
-        return try Data(base64URLEncoded: base64url)
-    }
-
-    /**
-     * Generate a random GUID string
-     */
-    public static func generateGuid() -> String {
-        return UUID().uuidString.uppercased()
-    }
-
-    /**
-     * Generate random bytes for credential ID
-     */
-    public static func generateCredentialId(length: Int = 16) throws -> Data {
-        var bytes = Data(count: length)
-        let result = bytes.withUnsafeMutableBytes { bytesPtr in
-            SecRandomCopyBytes(kSecRandomDefault, length, bytesPtr.baseAddress!)
-        }
-
-        guard result == errSecSuccess else {
-            throw PasskeyHelperError.randomGenerationFailed
-        }
-
-        return bytes
-    }
 }
 
 public enum PasskeyHelperError: Error {
     case invalidGuidFormat
     case invalidByteLength
-    case randomGenerationFailed
 }

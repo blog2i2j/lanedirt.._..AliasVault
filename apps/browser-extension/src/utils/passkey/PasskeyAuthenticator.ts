@@ -8,6 +8,13 @@
  *   - Dynamic flags for UV/UP/AT/BE/BS
  *   - Consistent base64url/base64 handling
  *
+ * This is the reference implementation. Platform-specific ports of this class:
+ * - iOS: apps/mobile-app/ios/VaultStoreKit/Passkeys/PasskeyAuthenticator.swift
+ * - Android: apps/mobile-app/android/app/src/main/java/net/aliasvault/app/vaultstore/passkey/PasskeyAuthenticator.kt
+ *
+ * IMPORTANT: Keep all implementations synchronized. Changes to the public interface must be
+ * reflected in all ports. Method names, parameters, and behavior should remain consistent.
+ *
  * NOTE:
  * - By design, signCount is always 0 (clone detection disabled) for syncable passkeys.
  * - Attestation defaults to "none" (privacy-preserving). If an RP requests "direct", we do a

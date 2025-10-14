@@ -1,5 +1,14 @@
 /**
- * PasskeyHelper - Utility class for passkey-related operations
+ * PasskeyHelper
+ * -------------------------
+ * Utility class for passkey-related operations, including GUID/base64url conversions.
+ *
+ * This is the reference implementation. Platform-specific ports of this class:
+ * - iOS: apps/mobile-app/ios/VaultStoreKit/Passkeys/PasskeyHelper.swift
+ * - Android: apps/mobile-app/android/app/src/main/java/net/aliasvault/app/vaultstore/passkey/PasskeyHelper.kt
+ *
+ * IMPORTANT: Keep all implementations synchronized. Changes to the public interface must be
+ * reflected in all ports. Method names, parameters, and behavior should remain consistent.
  */
 export class PasskeyHelper {
   /**

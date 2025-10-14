@@ -9,8 +9,12 @@ import Security
  * Implements passkey creation (registration) and authentication (assertion) following
  * the WebAuthn Level 2 specification.
  *
- * This is a port of the browser extension PasskeyAuthenticator.ts to native Swift.
- * TODO: review implementation and docs.
+ * This is a Swift port of the reference TypeScript implementation:
+ * - Reference: apps/browser-extension/src/utils/passkey/PasskeyAuthenticator.ts
+ * - Android: apps/mobile-app/android/app/src/main/java/net/aliasvault/app/vaultstore/passkey/PasskeyAuthenticator.kt
+ *
+ * IMPORTANT: Keep all implementations synchronized. Changes to the public interface must be
+ * reflected in all ports. Method names, parameters, and behavior should remain consistent.
  *
  * Key features:
  * - ES256 (ECDSA P-256) key pair generation
