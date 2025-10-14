@@ -414,11 +414,11 @@ extension VaultStore {
 
     /**
      * Format a date for database insertion
-     * Format: yyyy-MM-dd HH:mm:ss.SSS
+     * Format: yyyy-MM-dd HH:mm:ss
      */
     private func formatDateForDatabase(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         return formatter.string(from: date)
@@ -461,12 +461,30 @@ extension VaultStore {
         )
         try dbConn.run(serviceInsert)
 
-        // Create the credential
+        // Create a minimal alias with empty fields and default birthdate
+        // TODO: once birthdate is made nullable in datamodel refactor, remove this.
+        let aliasId = UUID()
+        let aliasesTable = Table("Aliases")
+        let aliasInsert = aliasesTable.insert(
+            Expression<String>("Id") <- aliasId.uuidString,
+            Expression<String?>("FirstName") <- "",
+            Expression<String?>("LastName") <- "",
+            Expression<String?>("NickName") <- "",
+            Expression<String?>("BirthDate") <- "0001-01-01 00:00:00",
+            Expression<String?>("Gender") <- "",
+            Expression<String?>("Email") <- "",
+            Expression<String>("CreatedAt") <- timestamp,
+            Expression<String>("UpdatedAt") <- timestamp,
+            Expression<Int64>("IsDeleted") <- 0
+        )
+        try dbConn.run(aliasInsert)
+
+        // Create the credential with the alias
         let credentialsTable = Table("Credentials")
         let credentialInsert = credentialsTable.insert(
             Expression<String>("Id") <- credentialId.uuidString,
             Expression<String>("ServiceId") <- serviceId.uuidString,
-            Expression<String?>("AliasId") <- nil,
+            Expression<String?>("AliasId") <- aliasId.uuidString,
             Expression<String?>("Username") <- userName,
             Expression<String?>("Notes") <- nil,
             Expression<String>("CreatedAt") <- timestamp,
@@ -489,12 +507,32 @@ extension VaultStore {
             isDeleted: false
         )
 
+        // Create default birthdate (0001-01-01)
+        var defaultBirthDateComponents = DateComponents()
+        defaultBirthDateComponents.year = 1
+        defaultBirthDateComponents.month = 1
+        defaultBirthDateComponents.day = 1
+        let defaultBirthDate = Calendar(identifier: .gregorian).date(from: defaultBirthDateComponents)!
+
+        let alias = Alias(
+            id: aliasId,
+            gender: "",
+            firstName: "",
+            lastName: "",
+            nickName: "",
+            birthDate: defaultBirthDate,
+            email: "",
+            createdAt: now,
+            updatedAt: now,
+            isDeleted: false
+        )
+
         return Credential(
             id: credentialId,
-            alias: nil,
+            alias: alias,
             service: service,
             username: userName,
-            notes: "Passkey for \(rpId)",
+            notes: nil,
             password: nil,
             passkeys: [passkey],
             createdAt: now,

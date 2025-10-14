@@ -334,7 +334,7 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 let webApiService = WebApiService()
 
                 // Step 1: Check server connectivity by syncing vault before creating passkey
-                viewModel.setLoading(true, message: NSLocalizedString("checking_connection", comment: "Checking connection..."))
+                viewModel.setLoading(true, message: NSLocalizedString("vault_syncing", comment: "Checking connection..."))
 
                 do {
                     try _ = await vaultStore.syncVault(using: webApiService)
@@ -393,7 +393,6 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 )
 
                 // Step 4: Store credential with passkey in database
-                viewModel.setLoading(true, message: NSLocalizedString("vault_syncing", comment: "Saving to vault..."))
                 // Begin transaction
                 try vaultStore.beginTransaction()
 
