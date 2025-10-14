@@ -443,7 +443,6 @@ public class VaultManager: NSObject {
                 if #available(iOS 26.0, *) {
                     // iOS 26+: Register both passwords and passkeys for QuickType and manual selection
                     try await CredentialIdentityStore.shared.saveCredentialIdentities(credentials)
-                    print("VaultManager: Registered credential identities (passwords + passkeys) for QuickType on iOS 26+")
                 } else {
                     // iOS 17-25: Only register passkeys (skip passwords for QuickType to avoid biometric issues)
                     // But passkeys MUST be registered so iOS knows to offer this extension for passkey authentication
@@ -452,7 +451,6 @@ public class VaultManager: NSObject {
                         return !passkeys.isEmpty
                     }
                     try await CredentialIdentityStore.shared.saveCredentialIdentities(passkeyOnlyCredentials, passkeyOnly: true)
-                    print("VaultManager: Registered \(passkeyOnlyCredentials.count) passkey identities on iOS <26 (password QuickType disabled)")
                 }
 
                 await MainActor.run {
@@ -635,9 +633,7 @@ public class VaultManager: NSObject {
                   rejecter reject: @escaping RCTPromiseRejectBlock) {
         Task {
             do {
-                print("VaultManager: Starting vault sync")
                 let hasNewVault = try await vaultStore.syncVault(using: webApiService)
-                print("VaultManager: Vault sync succeeded, hasNewVault: \(hasNewVault)")
                 await MainActor.run {
                     resolve(hasNewVault)
                 }
@@ -661,9 +657,7 @@ public class VaultManager: NSObject {
                     rejecter reject: @escaping RCTPromiseRejectBlock) {
         Task {
             do {
-                print("VaultManager: Starting vault mutation")
                 try await vaultStore.mutateVault(using: webApiService)
-                print("VaultManager: Vault mutation succeeded")
                 await MainActor.run {
                     resolve(true)  // Return explicit success
                 }

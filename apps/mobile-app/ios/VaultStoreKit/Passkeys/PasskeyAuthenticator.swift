@@ -104,7 +104,7 @@ public class PasskeyAuthenticator {
                 prfSecret = prfBytes
             }
         }
-        
+
         // 10. Evaluate PRF values if requested during registration (some authenticators try this during registration already)
         var prfResults: PrfResults?
         if let inputs = prfInputs, let firstSalt = inputs.first, let secret = prfSecret {
@@ -190,7 +190,7 @@ public class PasskeyAuthenticator {
         var prfResults: PrfResults?
         if let inputs = prfInputs, let firstSalt = inputs.first, let secret = prfSecret {
             var firstResult = try evaluatePrf(secret: secret, salt: firstSalt)
-            
+
             var secondResult: Data?
             if let secondSalt = inputs.second {
                 secondResult = try evaluatePrf(secret: secret, salt: secondSalt)
@@ -220,12 +220,12 @@ public class PasskeyAuthenticator {
             print("PasskeyAuthenticator: exportPublicKeyAsJWK - Expected 64 bytes but got \(rawRepresentation.count)")
             throw PasskeyError.invalidPublicKey
         }
-        
+
         // Get bytes and normalize: accept 64 (x||y) or 65 (0x04||x||y)
         var bytes = [UInt8](publicKey.rawRepresentation)
         if bytes.count == 65, bytes[0] == 0x04 { bytes.removeFirst() }
         guard bytes.count == 64 else { throw PasskeyError.invalidPublicKey }
-        
+
         // Safe slicing without Data.subdata
         let xBytes = Data(bytes[0..<32])
         let yBytes = Data(bytes[32..<64])
@@ -246,12 +246,12 @@ public class PasskeyAuthenticator {
     private static func exportPrivateKeyAsJWK(privateKey: P256.Signing.PrivateKey) throws -> Data {
         let rawRepresentation = privateKey.rawRepresentation
         let publicKey = privateKey.publicKey
-        
+
         // Get bytes and normalize: accept 64 (x||y) or 65 (0x04||x||y)
         var bytes = [UInt8](publicKey.rawRepresentation)
         if bytes.count == 65, bytes[0] == 0x04 { bytes.removeFirst() }
         guard bytes.count == 64 else { throw PasskeyError.invalidPublicKey }
-        
+
         // Safe slicing without Data.subdata
         let xBytes = Data(bytes[0..<32])
         let yBytes = Data(bytes[32..<64])
@@ -291,9 +291,6 @@ public class PasskeyAuthenticator {
     private static func buildCoseEc2Es256(publicKey: P256.Signing.PublicKey) throws -> Data {
         let rawRepresentation = publicKey.rawRepresentation
 
-        print("PasskeyAuthenticator: rawRepresentation count = \(rawRepresentation.count)")
-        print("PasskeyAuthenticator: rawRepresentation hex = \(rawRepresentation.map { String(format: "%02x", $0) }.joined())")
-
         // CryptoKit's rawRepresentation is 64 bytes (x || y) without the 0x04 prefix
         // Unlike X9.63 format which is 65 bytes (0x04 || x || y)
         guard rawRepresentation.count == 64 else {
@@ -305,7 +302,7 @@ public class PasskeyAuthenticator {
         var bytes = [UInt8](publicKey.rawRepresentation)
         if bytes.count == 65, bytes[0] == 0x04 { bytes.removeFirst() }
         guard bytes.count == 64 else { throw PasskeyError.invalidPublicKey }
-        
+
         // Safe slicing without Data.subdata
         let xBytes = bytes[0..<32]
         let yBytes = bytes[32..<64]

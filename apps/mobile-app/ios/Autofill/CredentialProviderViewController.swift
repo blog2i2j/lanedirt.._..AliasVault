@@ -61,8 +61,6 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
     override public func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
 
-        print("CredentialProviderViewController: viewWillAppear called - isPasskeyRegistrationMode=\(isPasskeyRegistrationMode), isPasskeyAuthenticationMode=\(isPasskeyAuthenticationMode), domain=\(initialServiceUrl ?? "nil")")
-
         // Don't set up credential view if we're in passkey registration mode
         if isPasskeyRegistrationMode {
             return
@@ -148,8 +146,6 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
     }
 
     override public func prepareCredentialList(for: [ASCredentialServiceIdentifier], requestParameters: ASPasskeyCredentialRequestParameters) {
-        print("CredentialProviderViewController: prepareCredentialList called for passkey")
-
         self.isPasskeyAuthenticationMode = true
         self.currentPasskeyRequest = requestParameters
         self.initialRpId = requestParameters.relyingPartyIdentifier
@@ -157,8 +153,6 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
     }
 
     override public func prepareCredentialList(for serviceIdentifiers: [ASCredentialServiceIdentifier]) {
-        print("CredentialProviderViewController: prepareCredentialList called with \(serviceIdentifiers.count) identifiers")
-
         let matchedDomains = serviceIdentifiers.map { $0.identifier.lowercased() }
         if let firstDomain = matchedDomains.first {
             print("CredentialProviderViewController: First domain: \(firstDomain)")

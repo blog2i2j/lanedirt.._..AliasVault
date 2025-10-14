@@ -92,8 +92,6 @@ export const useVaultSync = () : {
         onStatus?.(t('vault.syncingUpdatedVault'));
         hasNewVault = await NativeVaultManager.syncVault();
 
-        console.log(`VaultSync: syncVault completed, hasNewVault=${hasNewVault}`);
-
         // Add artificial delay for initial sync UX
         if (enableDelay && hasNewVault) {
           await new Promise(resolve => setTimeout(resolve, 1000));
@@ -103,8 +101,6 @@ export const useVaultSync = () : {
 
         // Get the error code from the native layer
         const errorCode = getVaultSyncErrorCode(err);
-
-        console.log('VaultSync: errorCode:', errorCode);
 
         // Handle specific error codes
         switch (errorCode) {
@@ -143,7 +139,6 @@ export const useVaultSync = () : {
       try {
         // We always re-unlock the vault to force reload of database connection
         // This ensures React Native's SQLite connection sees changes made by native layer
-        console.log('VaultSync: Re-unlocking vault to refresh database connection');
         await NativeVaultManager.unlockVault();
 
         // Check if the vault needs migration
@@ -162,7 +157,6 @@ export const useVaultSync = () : {
         // Register credential identities after sync
         try {
           await NativeVaultManager.registerCredentialIdentities();
-          console.log('Vault sync: Successfully registered credential identities');
         } catch (error) {
           console.warn('Vault sync: Failed to register credential identities:', error);
           // Don't fail the sync if credential registration fails

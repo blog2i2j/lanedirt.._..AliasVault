@@ -104,7 +104,7 @@ extension VaultStore {
 
         // Validate server version meets minimum requirement
         guard VersionComparison.isServerVersionSupported(status.serverVersion) else {
-            print("VaultStore: Server version \(status.serverVersion) does not meet minimum requirement \(AppConfig.minServerVersion)")
+            print("VaultStore: Server version \(status.serverVersion) does not meet minimum requirement \(AppInfo.minServerVersion)")
             throw VaultSyncError.serverVersionNotSupported
         }
 

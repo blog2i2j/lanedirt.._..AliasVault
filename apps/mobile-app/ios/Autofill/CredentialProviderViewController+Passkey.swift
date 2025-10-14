@@ -247,7 +247,6 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                     userId: result.passkey.userHandle
                 )
             }
-            print("PasskeyRegistration: Found \(existingPasskeys.count) existing passkeys for rpId: \(rpId)")
         } catch {
             print("PasskeyRegistration: Failed to query existing passkeys: \(error)")
             // Continue with empty list

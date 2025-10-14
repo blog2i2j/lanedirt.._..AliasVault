@@ -1,21 +1,6 @@
 import Foundation
 
 /**
- * Response object from a WebAPI request containing status code, body, and headers
- */
-public struct WebApiResponse {
-    public let statusCode: Int
-    public let body: String
-    public let headers: [String: String]
-
-    public init(statusCode: Int, body: String, headers: [String: String]) {
-        self.statusCode = statusCode
-        self.body = body
-        self.headers = headers
-    }
-}
-
-/**
  * Native Swift WebAPI service for making HTTP requests to the AliasVault server.
  * This service handles authentication, token refresh, and all HTTP operations.
  */
@@ -33,9 +18,10 @@ public class WebApiService {
     /// Shared UserDefaults for communication between main app and extension
     private let userDefaults = UserDefaults(suiteName: VaultConstants.userDefaultsSuite)!
 
-    public init() {}
-
     // MARK: - Configuration Management
+
+    /// Initialize the WebApiService
+    public init() {}
 
     /**
      * Set the API URL
@@ -127,10 +113,8 @@ public class WebApiService {
 
         // Handle 401 Unauthorized - attempt token refresh
         if response.statusCode == 401 && requiresAuth {
-            print("WebApiService: Got 401 response, attempting token refresh...")
 
             if let newToken = try await refreshAccessToken() {
-                print("WebApiService: Token refresh successful, retrying original request")
                 // Retry the request with the new token
                 var retryHeaders = headers
                 retryHeaders["Authorization"] = "Bearer \(newToken)"
@@ -143,7 +127,6 @@ public class WebApiService {
                     headers: retryHeaders
                 )
 
-                print("WebApiService: Retry completed with status \(retryResponse.statusCode)")
                 return retryResponse
             } else {
                 print("WebApiService: Token refresh failed, returning 401")
@@ -330,7 +313,6 @@ public class WebApiService {
                 return nil
             }
 
-            print("WebApiService: Successfully extracted favicon (\(imageData.count) bytes)")
             return imageData
 
         } catch {

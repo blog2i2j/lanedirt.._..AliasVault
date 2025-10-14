@@ -72,7 +72,6 @@ extension CredentialProviderViewController: CredentialProviderDelegate {
         // QuickType bar suggestions are disabled on iOS <26, so this should only be called on iOS 26+
         if #unavailable(iOS 26.0) {
             // iOS < 26 - we do not support quick autofill due to buggy behavior
-            print("provideCredentialWithoutUserInteraction called on iOS <26 (unexpected)")
             self.extensionContext.cancelRequest(
                 withError: NSError(
                     domain: ASExtensionErrorDomain,

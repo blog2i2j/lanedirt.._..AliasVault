@@ -124,12 +124,8 @@ extension VaultStore {
     /// Note: The caller must wrap their database operations in beginTransaction()/commitTransaction()
     /// which will trigger the encryption and local storage of the database.
     public func mutateVault(using webApiService: WebApiService) async throws {
-        print("VaultStore: Starting vault mutation")
-
         // Prepare vault for upload
-        print("VaultStore: Preparing vault for upload")
         let vault = try prepareVault()
-        print("VaultStore: Vault prepared successfully, credentials count: \(vault.credentialsCount)")
 
         // Convert to JSON (use default key encoding which is camelCase)
         let encoder = JSONEncoder()
@@ -143,8 +139,6 @@ extension VaultStore {
             )
         }
 
-        print("VaultStore: Uploading vault to server (size: \(jsonString.count) bytes)")
-
         // Upload to server
         let response = try await webApiService.executeRequest(
             method: "POST",
@@ -153,8 +147,6 @@ extension VaultStore {
             headers: ["Content-Type": "application/json"],
             requiresAuth: true
         )
-
-        print("VaultStore: Server response status code: \(response.statusCode)")
 
         // Check response status
         guard response.statusCode == 200 else {
@@ -190,7 +182,6 @@ extension VaultStore {
         let vaultResponse: VaultPostResponse
         do {
             vaultResponse = try JSONDecoder().decode(VaultPostResponse.self, from: responseData)
-            print("VaultStore: Parsed upload response - status: \(vaultResponse.status), newRevision: \(vaultResponse.newRevisionNumber)")
         } catch {
             print("VaultStore: Failed to parse vault upload response: \(error)")
             print("VaultStore: Response body: \(response.body)")
@@ -253,7 +244,6 @@ extension VaultStore {
         if let match = matches.first, match.numberOfRanges > 1 {
             let versionRange = match.range(at: 1)
             let version = nsString.substring(with: versionRange)
-            print("VaultStore: Extracted database version '\(version)' from migration ID '\(migrationId)'")
             return version
         }
 

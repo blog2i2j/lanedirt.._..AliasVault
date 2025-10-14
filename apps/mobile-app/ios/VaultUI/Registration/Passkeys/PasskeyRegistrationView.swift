@@ -287,7 +287,6 @@ public class PasskeyRegistrationViewModel: ObservableObject {
         }
 
         // Trigger passkey creation in Swift
-        print("PasskeyRegistration: Create passkey button clicked, replace mode: \(selectedPasskeyToReplace != nil)")
         completionHandler(true)
     }
 

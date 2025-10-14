@@ -2,7 +2,7 @@ import Foundation
 
 /// Application configuration constants
 /// This file contains version requirements and other app-wide configuration values
-public enum AppConfig {
+public enum AppInfo {
     /// The minimum supported AliasVault server (API) version.
     ///
     /// If the server version is below this minimum, the client will reject the connection

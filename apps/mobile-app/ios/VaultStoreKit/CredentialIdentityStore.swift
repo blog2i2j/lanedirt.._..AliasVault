@@ -4,8 +4,8 @@ import VaultModels
 /**
  * Native iOS implementation of the CredentialIdentityStore protocol.
  *
- * This class is used to save and remove credential identities from the system.
- * It is used to provide credentials to the system when the user is autocompleting a password.
+ * This class is used to save and remove credential identities from the iOS password
+ * and passkey autosuggest store, which is shown inline in the keyboard amongst other places.
  */
 public class CredentialIdentityStore {
     /// Get global credential store instance
@@ -81,33 +81,22 @@ public class CredentialIdentityStore {
 
         allIdentities.append(contentsOf: passkeyIdentities)
 
-        print("CredentialIdentityStore: Registering \(passwordIdentities.count) password identities and \(passkeyIdentities.count) passkey identities")
-
         guard !allIdentities.isEmpty else {
-            print("CredentialIdentityStore: No valid identities to save.")
             return
         }
 
         let state = await storeState()
         guard state.isEnabled else {
-            print("CredentialIdentityStore: Credential identity store is not enabled. Please enable AutoFill in iOS Settings.")
             return
         }
 
-        print("CredentialIdentityStore: Store is enabled, replacing all identities with \(allIdentities.count) new identities")
-
         do {
             // First, remove all existing credential identities to ensure a clean replacement
-            print("CredentialIdentityStore: Removing all existing credential identities...")
             try await store.removeAllCredentialIdentities()
-            print("CredentialIdentityStore: Successfully removed all existing identities")
 
             // Then save the new credential identities
-            print("CredentialIdentityStore: Saving \(allIdentities.count) new credential identities...")
             try await store.saveCredentialIdentities(allIdentities)
-            print("CredentialIdentityStore: Successfully saved all new identities")
         } catch {
-            print("CredentialIdentityStore: Failed to replace credential identities: \(error)")
             // Re-throw the error so the caller knows the operation failed
             throw error
         }

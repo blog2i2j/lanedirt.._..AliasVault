@@ -157,8 +157,6 @@ extension VaultStore {
             throw NSError(domain: "VaultStore", code: 4, userInfo: [NSLocalizedDescriptionKey: "Database not initialized"])
         }
 
-        print("Executing get all credentials query..")
-
         let query = """
             WITH LatestPasswords AS (
                 SELECT
@@ -331,8 +329,6 @@ extension VaultStore {
             )
             result.append(credential)
         }
-
-        print("Found \(result.count) credentials")
 
         return result
     }

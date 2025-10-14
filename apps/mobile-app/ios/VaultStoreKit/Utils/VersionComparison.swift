@@ -66,9 +66,9 @@ public enum VersionComparison {
     ///
     /// - Parameters:
     ///   - serverVersion: The server version to validate
-    ///   - minimumVersion: The minimum required version (defaults to AppConfig.minServerVersion)
+    ///   - minimumVersion: The minimum required version (defaults to AppInfo.minServerVersion)
     /// - Returns: true if the server version is supported, false otherwise
-    public static func isServerVersionSupported(_ serverVersion: String, minimumVersion: String = AppConfig.minServerVersion) -> Bool {
+    public static func isServerVersionSupported(_ serverVersion: String, minimumVersion: String = AppInfo.minServerVersion) -> Bool {
         return isGreaterThanOrEqualTo(serverVersion, minimumVersion)
     }
 }

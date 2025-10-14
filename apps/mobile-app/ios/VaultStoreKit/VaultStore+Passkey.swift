@@ -35,8 +35,6 @@ extension VaultStore {
             throw VaultStoreError.vaultNotUnlocked
         }
 
-        print("VaultStore+Passkey: Looking up passkey by credentialId: \(credentialId.base64EncodedString().prefix(20))...")
-
         // The Passkeys.Id column is a string UUID (not a blob), so we need to convert the credentialId bytes to a UUID string.
         // Use PasskeyHelper to convert the credentialId (Data) to a UUID string for lookup.
         guard let credentialIdString = try? PasskeyHelper.bytesToGuid(credentialId) else {
@@ -50,12 +48,10 @@ extension VaultStore {
 
         for row in try dbConn.prepare(query) {
             if let passkey = try parsePasskeyRow(row) {
-                print("VaultStore+Passkey: Found passkey - rpId=\(passkey.rpId), displayName=\(passkey.displayName), userId=\(passkey.userHandle?.base64EncodedString().prefix(20) ?? "(nil)")...")
                 return passkey
             }
         }
 
-        print("VaultStore+Passkey: No passkey found with matching credentialId")
         return nil
     }
 
@@ -90,8 +86,6 @@ extension VaultStore {
             throw VaultStoreError.vaultNotUnlocked
         }
 
-        print("VaultStore+Passkey: Looking up passkeys for rpId: \(rpId)")
-
         let query = Self.passkeysTable
             .filter(Self.colRpId == rpId)
             .filter(Self.colIsDeleted == 0)
@@ -104,7 +98,6 @@ extension VaultStore {
             }
         }
 
-        print("VaultStore+Passkey: Found \(passkeys.count) passkeys for rpId: \(rpId)")
         return passkeys
     }
 
@@ -116,8 +109,6 @@ extension VaultStore {
         guard let dbConn = dbConnection else {
             throw VaultStoreError.vaultNotUnlocked
         }
-
-        print("VaultStore+Passkey: Looking up passkeys with credential info for rpId: \(rpId), userName: \(userName ?? "nil")")
 
         // Join passkeys with credentials and services to get display info
         let passkeysTable = Table("Passkeys")
@@ -159,7 +150,6 @@ extension VaultStore {
             }
         }
 
-        print("VaultStore+Passkey: Found \(results.count) matching passkeys with credential info")
         return results
     }
 
@@ -454,8 +444,6 @@ extension VaultStore {
             throw VaultStoreError.vaultNotUnlocked
         }
 
-        print("VaultStore+Passkey: Creating credential with passkey for rpId=\(rpId)")
-
         let credentialId = passkey.parentCredentialId
         let now = Date()
         let timestamp = formatDateForDatabase(now)
@@ -491,8 +479,6 @@ extension VaultStore {
             Expression<Int64>("IsDeleted") <- 0
         )
         try dbConn.run(credentialInsert)
-
-        print("VaultStore+Passkey: Created credential \(credentialId.uuidString)")
 
         // Insert the passkey
         try insertPasskey(passkey)
@@ -530,8 +516,6 @@ extension VaultStore {
             throw VaultStoreError.vaultNotUnlocked
         }
 
-        print("VaultStore+Passkey: Inserting new passkey - id=\(passkey.id.uuidString), rpId=\(passkey.rpId)")
-
         let insert = Self.passkeysTable.insert(
             Self.colId <- passkey.id.uuidString,
             Self.colCredentialId <- passkey.parentCredentialId.uuidString,
@@ -547,7 +531,6 @@ extension VaultStore {
         )
 
         try dbConn.run(insert)
-        print("VaultStore+Passkey: Successfully inserted passkey")
     }
 
     /**
@@ -558,8 +541,6 @@ extension VaultStore {
         guard let dbConn = dbConnection else {
             throw VaultStoreError.vaultNotUnlocked
         }
-
-        print("VaultStore+Passkey: Replacing passkey \(oldPasskeyId.uuidString) with new passkey \(newPasskey.id.uuidString)")
 
         // Get the old passkey to find its credential
         let oldPasskeyQuery = Self.passkeysTable
@@ -631,8 +612,6 @@ extension VaultStore {
         )
 
         try insertPasskey(updatedPasskey)
-
-        print("VaultStore+Passkey: Successfully replaced passkey")
     }
 
     /**
