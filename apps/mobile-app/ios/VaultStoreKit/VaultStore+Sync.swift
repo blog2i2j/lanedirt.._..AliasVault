@@ -102,6 +102,12 @@ extension VaultStore {
             throw VaultSyncError.clientVersionNotSupported
         }
 
+        // Validate server version meets minimum requirement
+        guard VersionComparison.isServerVersionSupported(status.serverVersion) else {
+            print("VaultStore: Server version \(status.serverVersion) does not meet minimum requirement \(AppConfig.minServerVersion)")
+            throw VaultSyncError.serverVersionNotSupported
+        }
+
         try validateSrpSalt(status.srpSalt)
         return status
     }

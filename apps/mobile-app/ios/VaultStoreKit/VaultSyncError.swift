@@ -15,6 +15,7 @@ public enum VaultSyncError: Error {
 
     // Version/compatibility errors
     case clientVersionNotSupported
+    case serverVersionNotSupported
     case vaultVersionIncompatible
 
     // Vault status errors
@@ -45,6 +46,8 @@ public enum VaultSyncError: Error {
             return "VAULT_SYNC_TIMEOUT"
         case .clientVersionNotSupported:
             return "VAULT_SYNC_CLIENT_VERSION_NOT_SUPPORTED"
+        case .serverVersionNotSupported:
+            return "VAULT_SYNC_SERVER_VERSION_NOT_SUPPORTED"
         case .vaultVersionIncompatible:
             return "VAULT_SYNC_VAULT_VERSION_INCOMPATIBLE"
         case .vaultMergeRequired:
@@ -77,6 +80,8 @@ public enum VaultSyncError: Error {
             return "Request timeout"
         case .clientVersionNotSupported:
             return "Client version not supported"
+        case .serverVersionNotSupported:
+            return "Server version not supported"
         case .vaultVersionIncompatible:
             return "Vault version incompatible"
         case .vaultMergeRequired:

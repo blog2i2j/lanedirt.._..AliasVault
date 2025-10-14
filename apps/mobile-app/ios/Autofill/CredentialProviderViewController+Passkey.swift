@@ -569,7 +569,6 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
 
             // Extract PRF inputs from the passkey request if available
             var prfInputs: PrfInputs?
-            // TODO: Enable prf inputs via this manual credential selection flow
             if #available(iOS 18.0, *), let extensionInput = self.currentPasskeyRequest?.extensionInput {
                 prfInputs = extractPrfInputs(from: extensionInput)
             }

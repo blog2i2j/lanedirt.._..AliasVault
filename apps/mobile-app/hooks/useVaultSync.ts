@@ -118,7 +118,11 @@ export const useVaultSync = () : {
             return false;
 
           case VaultSyncErrorCode.CLIENT_VERSION_NOT_SUPPORTED:
-            await app.logout(t('vault.errors.versionNotSupported'));
+            onError?.(t('vault.errors.versionNotSupported'));
+            return false;
+
+          case VaultSyncErrorCode.SERVER_VERSION_NOT_SUPPORTED:
+            await app.logout(t('vault.errors.serverVersionNotSupported'));
             return false;
 
           case VaultSyncErrorCode.SERVER_UNAVAILABLE:
@@ -201,12 +205,20 @@ export const useVaultSync = () : {
             await app.logout(t('vault.errors.passwordChanged'));
             return false;
 
-          case VaultSyncErrorCode.NETWORK_ERROR:
-          case VaultSyncErrorCode.TIMEOUT:
+          case VaultSyncErrorCode.CLIENT_VERSION_NOT_SUPPORTED:
+            onError?.(t('vault.errors.versionNotSupported'));
+            return false;
+
+          case VaultSyncErrorCode.SERVER_VERSION_NOT_SUPPORTED:
+            await app.logout(t('vault.errors.serverVersionNotSupported'));
+            return false;
+
+          case VaultSyncErrorCode.SERVER_UNAVAILABLE:
             await NativeVaultManager.setOfflineMode(true);
             return true;
 
-          case VaultSyncErrorCode.SERVER_UNAVAILABLE:
+          case VaultSyncErrorCode.NETWORK_ERROR:
+          case VaultSyncErrorCode.TIMEOUT:
             await NativeVaultManager.setOfflineMode(true);
             return true;
 

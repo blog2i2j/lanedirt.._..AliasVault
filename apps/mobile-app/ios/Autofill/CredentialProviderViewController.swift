@@ -304,6 +304,10 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
                 title = NSLocalizedString("version_not_supported_title", comment: "Update Required")
                 message = NSLocalizedString("version_not_supported_message", comment: "Your app version is no longer supported. Please update to the latest version.")
 
+            case .serverVersionNotSupported:
+                title = NSLocalizedString("server_version_not_supported_title", comment: "Server Update Required")
+                message = NSLocalizedString("server_version_not_supported_message", comment: "The server version is outdated. Please contact your administrator to update the server.")
+
             case .serverUnavailable:
                 title = NSLocalizedString("server_unavailable_title", comment: "Server Unavailable")
                 message = NSLocalizedString("server_unavailable_message", comment: "The server is currently unavailable. Please try again later.")
