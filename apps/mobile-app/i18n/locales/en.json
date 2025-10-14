@@ -152,7 +152,7 @@
     "emailPreview": "Email Preview",
     "switchBackToBrowser": "Switch back to your browser to continue.",
     "filters": {
-      "all": "All Credentials",
+      "all": "(All) Credentials",
       "passkeys": "Passkeys",
       "aliases": "Aliases",
       "userpass": "Passwords"
@@ -194,10 +194,11 @@
   },
   "settings": {
     "title": "Settings",
-    "iosAutofill": "iOS Autofill",
+    "iosAutofill": "Autofill & Passkeys",
     "iosAutofillSettings": {
-      "headerText": "You can configure AliasVault to provide native password autofill functionality in iOS. Follow the instructions below to enable it.",
-      "howToEnable": "How to enable:",
+      "headerText": "You can configure AliasVault to provide native password and passkey autofill functionality in iOS. Follow the instructions below to enable it.",
+      "passkeyNotice": "Passkeys are created and managed via iOS and require the autofill integration to be enabled in order for passkeys to work with AliasVault.",
+      "howToEnable": "How to enable Autofill & Passkeys:",
       "step1": "1. Open iOS Settings via the button below",
       "step2": "2. Go to \"General\"",
       "step3": "3. Tap \"AutoFill & Passwords\"",
