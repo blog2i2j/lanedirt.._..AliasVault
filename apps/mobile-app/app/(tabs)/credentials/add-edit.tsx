@@ -56,6 +56,7 @@ export default function AddEditCredentialScreen() : React.ReactNode {
   const [isSaveDisabled, setIsSaveDisabled] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [originalAttachmentIds, setOriginalAttachmentIds] = useState<string[]>([]);
+  const [passkeyMarkedForDeletion, setPasskeyMarkedForDeletion] = useState(false);
   const { t } = useTranslation();
 
   // Track last generated values to avoid overwriting manual entries
@@ -342,6 +343,11 @@ export default function AddEditCredentialScreen() : React.ReactNode {
     await executeVaultMutation(async () => {
       if (isEditMode) {
         await dbContext.sqliteClient!.updateCredentialById(credentialToSave, originalAttachmentIds, attachments);
+
+        // Delete passkeys if marked for deletion
+        if (passkeyMarkedForDeletion) {
+          await dbContext.sqliteClient!.deletePasskeysByCredentialId(credentialToSave.Id);
+        }
       } else {
         const credentialId = await dbContext.sqliteClient!.createCredential(credentialToSave, attachments);
         credentialToSave.Id = credentialId;
@@ -400,7 +406,7 @@ export default function AddEditCredentialScreen() : React.ReactNode {
 
     setIsSyncing(false);
     setIsSaveDisabled(false);
-  }, [isEditMode, id, serviceUrl, router, executeVaultMutation, dbContext.sqliteClient, mode, generateRandomAlias, webApi, watch, setIsSaveDisabled, setIsSyncing, isSaveDisabled, t, originalAttachmentIds, attachments]);
+  }, [isEditMode, id, serviceUrl, router, executeVaultMutation, dbContext.sqliteClient, mode, generateRandomAlias, webApi, watch, setIsSaveDisabled, setIsSyncing, isSaveDisabled, t, originalAttachmentIds, attachments, passkeyMarkedForDeletion]);
 
   /**
    * Generate a random username.
@@ -689,30 +695,167 @@ export default function AddEditCredentialScreen() : React.ReactNode {
               <View style={styles.section}>
                 <ThemedText style={styles.sectionTitle}>{t('credentials.loginCredentials')}</ThemedText>
 
-                <EmailDomainField
-                  value={watch('Alias.Email') ?? ''}
-                  onChange={(newValue) => setValue('Alias.Email', newValue)}
-                  label={t('credentials.email')}
-                />
-                <ValidatedFormField
-                  control={control}
-                  name="Username"
-                  label={t('credentials.username')}
-                  buttons={[
-                    {
-                      icon: "refresh",
-                      onPress: generateRandomUsername
-                    }
-                  ]}
-                />
-                <AdvancedPasswordField
-                  control={control}
-                  name="Password"
-                  label={t('credentials.password')}
-                  showPassword={isPasswordVisible}
-                  onShowPasswordChange={setIsPasswordVisible}
-                  isNewCredential={!isEditMode}
-                />
+                {watch('HasPasskey') ? (
+                  <>
+                    {/* When passkey exists: username, passkey, email, password */}
+                    <ValidatedFormField
+                      control={control}
+                      name="Username"
+                      label={t('credentials.username')}
+                      buttons={[
+                        {
+                          icon: "refresh",
+                          onPress: generateRandomUsername
+                        }
+                      ]}
+                    />
+                    {!passkeyMarkedForDeletion && (
+                      <View style={{
+                        backgroundColor: colors.background,
+                        borderColor: colors.accentBorder,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        marginTop: 8,
+                        marginBottom: 8,
+                        padding: 12,
+                      }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                          <MaterialIcons
+                            name="vpn-key"
+                            size={20}
+                            color={colors.primary}
+                            style={{ marginRight: 8, marginTop: 2 }}
+                          />
+                          <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                              <ThemedText style={{ color: colors.text, fontSize: 14, fontWeight: '600' }}>
+                                {t('passkeys.passkey')}
+                              </ThemedText>
+                              <RobustPressable
+                                onPress={() => setPasskeyMarkedForDeletion(true)}
+                                style={{
+                                  padding: 6,
+                                  borderRadius: 4,
+                                  backgroundColor: colors.destructive + '15'
+                                }}
+                              >
+                                <MaterialIcons
+                                  name="delete"
+                                  size={18}
+                                  color={colors.destructive}
+                                />
+                              </RobustPressable>
+                            </View>
+                            {watch('PasskeyRpId') && (
+                              <View style={{ marginBottom: 4 }}>
+                                <ThemedText style={{ color: colors.textMuted, fontSize: 12 }}>
+                                  {t('passkeys.site')}:{' '}
+                                  <ThemedText style={{ color: colors.text, fontSize: 12 }}>
+                                    {watch('PasskeyRpId')}
+                                  </ThemedText>
+                                </ThemedText>
+                              </View>
+                            )}
+                            {watch('PasskeyDisplayName') && (
+                              <View style={{ marginBottom: 4 }}>
+                                <ThemedText style={{ color: colors.textMuted, fontSize: 12 }}>
+                                  {t('passkeys.displayName')}:{' '}
+                                  <ThemedText style={{ color: colors.text, fontSize: 12 }}>
+                                    {watch('PasskeyDisplayName')}
+                                  </ThemedText>
+                                </ThemedText>
+                              </View>
+                            )}
+                            <ThemedText style={{ color: colors.textMuted, fontSize: 11, marginTop: 4 }}>
+                              {t('passkeys.helpText')}
+                            </ThemedText>
+                          </View>
+                        </View>
+                      </View>
+                    )}
+                    {passkeyMarkedForDeletion && (
+                      <View style={{
+                        backgroundColor: colors.errorBackground,
+                        borderColor: colors.errorBorder,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        marginTop: 8,
+                        marginBottom: 8,
+                        padding: 12,
+                      }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                          <MaterialIcons
+                            name="vpn-key"
+                            size={20}
+                            color={colors.errorText}
+                            style={{ marginRight: 8, marginTop: 2 }}
+                          />
+                          <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                              <ThemedText style={{ color: colors.errorText, fontSize: 14, fontWeight: '600' }}>
+                                {t('passkeys.passkeyMarkedForDeletion')}
+                              </ThemedText>
+                              <RobustPressable
+                                onPress={() => setPasskeyMarkedForDeletion(false)}
+                                style={{ padding: 4 }}
+                              >
+                                <MaterialIcons
+                                  name="undo"
+                                  size={18}
+                                  color={colors.textMuted}
+                                />
+                              </RobustPressable>
+                            </View>
+                            <ThemedText style={{ color: colors.errorText, fontSize: 11 }}>
+                              {t('passkeys.passkeyWillBeDeleted')}
+                            </ThemedText>
+                          </View>
+                        </View>
+                      </View>
+                    )}
+                    <EmailDomainField
+                      value={watch('Alias.Email') ?? ''}
+                      onChange={(newValue) => setValue('Alias.Email', newValue)}
+                      label={t('credentials.email')}
+                    />
+                    <AdvancedPasswordField
+                      control={control}
+                      name="Password"
+                      label={t('credentials.password')}
+                      showPassword={isPasswordVisible}
+                      onShowPasswordChange={setIsPasswordVisible}
+                      isNewCredential={!isEditMode}
+                    />
+                  </>
+                ) : (
+                  <>
+                    {/* When no passkey: email, username, password */}
+                    <EmailDomainField
+                      value={watch('Alias.Email') ?? ''}
+                      onChange={(newValue) => setValue('Alias.Email', newValue)}
+                      label={t('credentials.email')}
+                    />
+                    <ValidatedFormField
+                      control={control}
+                      name="Username"
+                      label={t('credentials.username')}
+                      buttons={[
+                        {
+                          icon: "refresh",
+                          onPress: generateRandomUsername
+                        }
+                      ]}
+                    />
+                    <AdvancedPasswordField
+                      control={control}
+                      name="Password"
+                      label={t('credentials.password')}
+                      showPassword={isPasswordVisible}
+                      onShowPasswordChange={setIsPasswordVisible}
+                      isNewCredential={!isEditMode}
+                    />
+                  </>
+                )}
               </View>
 
               <View style={styles.section}>

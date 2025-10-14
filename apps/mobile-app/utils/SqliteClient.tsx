@@ -238,7 +238,16 @@ class SqliteClient {
             a.BirthDate,
             a.Gender,
             a.Email,
-            p.Value as Password
+            p.Value as Password,
+            CASE
+                WHEN EXISTS (
+                    SELECT 1 FROM Passkeys pk
+                    WHERE pk.CredentialId = c.Id AND pk.IsDeleted = 0
+                ) THEN 1
+                ELSE 0
+            END as HasPasskey,
+            (SELECT pk.RpId FROM Passkeys pk WHERE pk.CredentialId = c.Id AND pk.IsDeleted = 0 LIMIT 1) as PasskeyRpId,
+            (SELECT pk.DisplayName FROM Passkeys pk WHERE pk.CredentialId = c.Id AND pk.IsDeleted = 0 LIMIT 1) as PasskeyDisplayName
         FROM Credentials c
         LEFT JOIN Services s ON c.ServiceId = s.Id
         LEFT JOIN Aliases a ON c.AliasId = a.Id
@@ -263,6 +272,9 @@ class SqliteClient {
       ServiceUrl: row.ServiceUrl,
       Logo: row.Logo,
       Notes: row.Notes,
+      HasPasskey: row.HasPasskey === 1,
+      PasskeyRpId: row.PasskeyRpId,
+      PasskeyDisplayName: row.PasskeyDisplayName,
       Alias: {
         FirstName: row.FirstName,
         LastName: row.LastName,
@@ -294,7 +306,16 @@ class SqliteClient {
                 a.BirthDate,
                 a.Gender,
                 a.Email,
-                p.Value as Password
+                p.Value as Password,
+                CASE
+                    WHEN EXISTS (
+                        SELECT 1 FROM Passkeys pk
+                        WHERE pk.CredentialId = c.Id AND pk.IsDeleted = 0
+                    ) THEN 1
+                    ELSE 0
+                END as HasPasskey,
+                (SELECT pk.RpId FROM Passkeys pk WHERE pk.CredentialId = c.Id AND pk.IsDeleted = 0 LIMIT 1) as PasskeyRpId,
+                (SELECT pk.DisplayName FROM Passkeys pk WHERE pk.CredentialId = c.Id AND pk.IsDeleted = 0 LIMIT 1) as PasskeyDisplayName
             FROM Credentials c
             LEFT JOIN Services s ON c.ServiceId = s.Id
             LEFT JOIN Aliases a ON c.AliasId = a.Id
@@ -313,6 +334,9 @@ class SqliteClient {
       ServiceUrl: row.ServiceUrl,
       Logo: row.Logo,
       Notes: row.Notes,
+      HasPasskey: row.HasPasskey === 1,
+      PasskeyRpId: row.PasskeyRpId,
+      PasskeyDisplayName: row.PasskeyDisplayName,
       Alias: {
         FirstName: row.FirstName,
         LastName: row.LastName,

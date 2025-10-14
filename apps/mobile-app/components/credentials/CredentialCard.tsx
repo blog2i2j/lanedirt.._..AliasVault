@@ -1,3 +1,4 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View, Text, TouchableOpacity, Keyboard, Platform, Alert } from 'react-native';
@@ -238,11 +239,18 @@ export function CredentialCard({ credential, onCredentialDelete }: CredentialCar
       marginRight: 12,
       width: 32,
     },
+    passkeyIcon: {
+      marginLeft: 6,
+    },
     serviceName: {
       color: colors.text,
       fontSize: 16,
       fontWeight: '600',
       marginBottom: 4,
+    },
+    serviceNameRow: {
+      alignItems: 'center',
+      flexDirection: 'row',
     },
   });
 
@@ -267,9 +275,19 @@ export function CredentialCard({ credential, onCredentialDelete }: CredentialCar
         <View style={styles.credentialContent}>
           <CredentialIcon logo={credential.Logo} style={styles.logo} />
           <View style={styles.credentialInfo}>
-            <Text style={styles.serviceName}>
-              {getCredentialServiceName(credential)}
-            </Text>
+            <View style={styles.serviceNameRow}>
+              <Text style={styles.serviceName}>
+                {getCredentialServiceName(credential)}
+              </Text>
+              {credential.HasPasskey && (
+                <MaterialIcons
+                  name="vpn-key"
+                  size={14}
+                  color={colors.textMuted}
+                  style={styles.passkeyIcon}
+                />
+              )}
+            </View>
             <Text style={styles.credentialText}>
               {getCredentialDisplayText(credential)}
             </Text>

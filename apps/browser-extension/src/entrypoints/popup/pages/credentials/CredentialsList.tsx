@@ -218,7 +218,11 @@ const CredentialsList: React.FC = () => {
         (credential.Alias?.Gender && credential.Alias.Gender.trim()) ||
         (credential.Alias?.BirthDate && credential.Alias.BirthDate.trim() && credential.Alias.BirthDate.trim() !== '0001-01-01 00:00:00')
       );
-      passesTypeFilter = !!(credential.Username || credential.Password) && !credential.HasPasskey && !hasAliasFields;
+      const hasUsernameOrPassword = !!(
+        (credential.Username && credential.Username.trim()) ||
+        (credential.Password && credential.Password.trim())
+      );
+      passesTypeFilter = hasUsernameOrPassword && !credential.HasPasskey && !hasAliasFields;
     }
 
     if (!passesTypeFilter) {
@@ -295,7 +299,7 @@ const CredentialsList: React.FC = () => {
                       setShowFilterMenu(false);
                     }}
                     className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                      filterType === 'all' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'
+                      filterType === 'all' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-gray-300'
                     }`}
                   >
                     {t('credentials.filters.all')}
@@ -308,7 +312,7 @@ const CredentialsList: React.FC = () => {
                       setShowFilterMenu(false);
                     }}
                     className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                      filterType === 'passkeys' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'
+                      filterType === 'passkeys' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-gray-300'
                     }`}
                   >
                     {t('credentials.filters.passkeys')}
@@ -321,7 +325,7 @@ const CredentialsList: React.FC = () => {
                       setShowFilterMenu(false);
                     }}
                     className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                      filterType === 'aliases' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'
+                      filterType === 'aliases' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-gray-300'
                     }`}
                   >
                     {t('credentials.filters.aliases')}
@@ -334,7 +338,7 @@ const CredentialsList: React.FC = () => {
                       setShowFilterMenu(false);
                     }}
                     className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                      filterType === 'userpass' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'
+                      filterType === 'userpass' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-gray-300'
                     }`}
                   >
                     {t('credentials.filters.userpass')}

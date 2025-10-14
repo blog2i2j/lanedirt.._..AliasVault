@@ -151,6 +151,12 @@
     "credentialDetails": "Credential Details",
     "emailPreview": "Email Preview",
     "switchBackToBrowser": "Switch back to your browser to continue.",
+    "filters": {
+      "all": "All Credentials",
+      "passkeys": "Passkeys",
+      "aliases": "Aliases",
+      "userpass": "Passwords"
+    },
     "twoFactorAuth": "Two-factor authentication",
     "totpCode": "TOTP Code",
     "attachments": "Attachments",
@@ -177,6 +183,14 @@
       "copyEmail": "Copy Email",
       "copyPassword": "Copy Password"
     }
+  },
+  "passkeys": {
+    "passkey": "Passkey",
+    "site": "Site",
+    "displayName": "Display Name",
+    "helpText": "Passkeys are created on the website when prompted. They cannot be manually edited. To remove this passkey, you can delete it from this credential.",
+    "passkeyMarkedForDeletion": "Passkey marked for deletion",
+    "passkeyWillBeDeleted": "This passkey will be deleted when you save this credential."
   },
   "settings": {
     "title": "Settings",
