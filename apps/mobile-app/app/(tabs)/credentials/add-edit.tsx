@@ -463,6 +463,9 @@ export default function AddEditCredentialScreen() : React.ReactNode {
               await dbContext.sqliteClient!.deleteCredentialById(id);
             });
 
+            // Emit an event to notify list views to refresh
+            emitter.emit('credentialChanged', id);
+
             // Show success toast
             setTimeout(() => {
               Toast.show({
