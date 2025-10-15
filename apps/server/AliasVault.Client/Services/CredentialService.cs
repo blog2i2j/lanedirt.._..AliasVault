@@ -316,21 +316,33 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
         var context = await dbService.GetDbContextAsync();
 
         // Retrieve all aliases from client DB.
-        return await context.Credentials
+        var credentials = await context.Credentials
             .Include(x => x.Alias)
             .Include(x => x.Service)
+            .Include(x => x.Passkeys.Where(p => !p.IsDeleted))
+            .Include(x => x.Passwords.Where(p => !p.IsDeleted))
             .AsSplitQuery()
             .Where(x => !x.IsDeleted)
-            .Select(x => new CredentialListEntry
-            {
-                Id = x.Id,
-                Logo = x.Service.Logo,
-                Service = x.Service.Name,
-                Username = x.Username,
-                Email = x.Alias.Email,
-                CreatedAt = x.CreatedAt,
-            })
             .ToListAsync();
+
+        // Map to CredentialListEntry with proper boolean logic
+        return credentials.Select(x => new CredentialListEntry
+        {
+            Id = x.Id,
+            Logo = x.Service.Logo,
+            Service = x.Service.Name,
+            Username = x.Username,
+            Email = x.Alias.Email,
+            CreatedAt = x.CreatedAt,
+            HasPasskey = x.Passkeys != null && x.Passkeys.Any(),
+            HasAlias = !string.IsNullOrWhiteSpace(x.Alias.FirstName) ||
+                       !string.IsNullOrWhiteSpace(x.Alias.LastName) ||
+                       !string.IsNullOrWhiteSpace(x.Alias.NickName) ||
+                       !string.IsNullOrWhiteSpace(x.Alias.Gender) ||
+                       x.Alias.BirthDate.Year > 1,
+            HasUsernameOrPassword = !string.IsNullOrWhiteSpace(x.Username) ||
+                                    (x.Passwords != null && x.Passwords.Any(p => !string.IsNullOrWhiteSpace(p.Value))),
+        }).ToList();
     }
 
     /// <summary>
