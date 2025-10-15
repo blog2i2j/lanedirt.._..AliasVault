@@ -262,11 +262,11 @@ const PasskeyCreate: React.FC = () => {
             // Replace existing passkey: update the credential and passkey
             const existingPasskey = dbContext.sqliteClient!.getPasskeyById(selectedPasskeyToReplace);
             if (existingPasskey) {
-              // Update the parent credential with new favicon (only if we successfully fetched one)
+              // Update the parent credential with new favicon and user-provided display name
               await dbContext.sqliteClient!.updateCredentialById(
                 {
                   Id: existingPasskey.CredentialId,
-                  ServiceName: request.publicKey.rp.name || request.origin,
+                  ServiceName: displayName,
                   ServiceUrl: request.origin,
                   Username: request.publicKey.user.name,
                   Password: '',
@@ -309,7 +309,7 @@ const PasskeyCreate: React.FC = () => {
                 UserHandle: userHandleBytes,
                 PublicKey: JSON.stringify(stored.publicKey),
                 PrivateKey: JSON.stringify(stored.privateKey),
-                DisplayName: displayName,
+                DisplayName: request.publicKey.user.displayName || request.publicKey.user.name || '',
                 PrfKey: stored.prfSecret ? PasskeyHelper.base64urlToBytes(stored.prfSecret) : undefined,
                 AdditionalData: null
               });
@@ -319,7 +319,7 @@ const PasskeyCreate: React.FC = () => {
             const credentialId = await dbContext.sqliteClient!.createCredential(
               {
                 Id: '',
-                ServiceName: request.publicKey.rp.name || request.origin,
+                ServiceName: displayName,
                 ServiceUrl: request.origin,
                 Username: request.publicKey.user.name,
                 Password: '',
@@ -359,7 +359,7 @@ const PasskeyCreate: React.FC = () => {
               UserHandle: userHandleBytes,
               PublicKey: JSON.stringify(stored.publicKey),
               PrivateKey: JSON.stringify(stored.privateKey),
-              DisplayName: displayName,
+              DisplayName: request.publicKey.user.displayName || request.publicKey.user.name || '',
               PrfKey: stored.prfSecret ? PasskeyHelper.base64urlToBytes(stored.prfSecret) : undefined,
               AdditionalData: null
             });
