@@ -389,9 +389,16 @@ class SqliteClient {
           WHERE Id = ?
         )`;
 
+      const passkeyQuery = `
+        UPDATE Passkeys
+        SET IsDeleted = 1,
+            UpdatedAt = ?
+        WHERE CredentialId = ?`;
+
       const results = await this.executeUpdate(query, [currentDateTime, credentialId]);
       await this.executeUpdate(aliasQuery, [currentDateTime, credentialId]);
       await this.executeUpdate(serviceQuery, [currentDateTime, credentialId]);
+      await this.executeUpdate(passkeyQuery, [currentDateTime, credentialId]);
 
       await NativeVaultManager.commitTransaction();
       return results;
