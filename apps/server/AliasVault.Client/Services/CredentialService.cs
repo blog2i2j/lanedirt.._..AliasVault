@@ -270,6 +270,7 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
             .Include(x => x.Service)
             .Include(x => x.Attachments)
             .Include(x => x.TotpCodes)
+            .Include(x => x.Passkeys)
             .AsSplitQuery()
             .Where(x => x.Id == loginId)
             .Where(x => !x.IsDeleted)
@@ -281,6 +282,7 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
             loginObject.Passwords = loginObject.Passwords.Where(p => !p.IsDeleted).ToList();
             loginObject.Attachments = loginObject.Attachments.Where(a => !a.IsDeleted).ToList();
             loginObject.TotpCodes = loginObject.TotpCodes.Where(t => !t.IsDeleted).ToList();
+            loginObject.Passkeys = loginObject.Passkeys.Where(p => !p.IsDeleted).ToList();
         }
 
         return loginObject;
@@ -300,6 +302,7 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
             .Include(x => x.Service)
             .Include(x => x.Attachments.Where(a => !a.IsDeleted))
             .Include(x => x.TotpCodes.Where(t => !t.IsDeleted))
+            .Include(x => x.Passkeys.Where(p => !p.IsDeleted))
             .AsSplitQuery()
             .Where(x => !x.IsDeleted)
             .ToListAsync();
@@ -357,6 +360,7 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
         var context = await dbService.GetDbContextAsync();
 
         var login = await context.Credentials
+            .Include(x => x.Passkeys)
             .Where(x => x.Id == id)
             .FirstAsync();
 
@@ -375,6 +379,13 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
             .FirstAsync();
         service.IsDeleted = true;
         service.UpdatedAt = DateTime.UtcNow;
+
+        // Mark associated passkeys as deleted
+        foreach (var passkey in login.Passkeys)
+        {
+            passkey.IsDeleted = true;
+            passkey.UpdatedAt = DateTime.UtcNow;
+        }
 
         return await dbService.SaveDatabaseAsync();
     }
@@ -399,6 +410,29 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
 
         // Save the database to server
         return await dbService.SaveDatabaseAsync();
+    }
+
+    /// <summary>
+    /// Deletes a passkey by marking it as deleted.
+    /// </summary>
+    /// <param name="passkeyId">The ID of the passkey to delete.</param>
+    /// <returns>A value indicating whether the deletion was successful.</returns>
+    public async Task<bool> DeletePasskeyAsync(Guid passkeyId)
+    {
+        var context = await dbService.GetDbContextAsync();
+        var passkey = await context.Passkeys.FirstOrDefaultAsync(p => p.Id == passkeyId);
+
+        if (passkey != null)
+        {
+            passkey.IsDeleted = true;
+            passkey.UpdatedAt = DateTime.UtcNow;
+            await context.SaveChangesAsync();
+
+            // Save to server
+            return await dbService.SaveDatabaseAsync();
+        }
+
+        return false;
     }
 
     /// <summary>
