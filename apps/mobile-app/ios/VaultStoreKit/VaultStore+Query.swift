@@ -334,6 +334,19 @@ extension VaultStore {
     }
     // swiftlint:enable function_body_length
 
+    /// Get all credentials that have passkeys by filtering the result of getAllCredentials.
+    public func getAllCredentialsWithPasskeys() throws -> [Credential] {
+        var credentials = try getAllCredentials()
+
+        // Filter to only include credentials that actually have passkeys
+        credentials = credentials.filter { credential in
+            guard let passkeys = credential.passkeys else { return false }
+            return !passkeys.isEmpty
+        }
+
+        return credentials
+    }
+
     /// Parse a date string to a Date object for use in queries.
     private func parseDateString(_ dateString: String) -> Date? {
         // Static date formatters for performance

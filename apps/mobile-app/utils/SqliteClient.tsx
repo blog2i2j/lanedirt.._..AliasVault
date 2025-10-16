@@ -707,15 +707,6 @@ class SqliteClient {
    */
   public async getTotpCodesForCredential(credentialId: string): Promise<TotpCode[]> {
     try {
-      /*
-       * Check if TotpCodes table exists (for backward compatibility).
-       * TODO: whenever the mobile app has a minimum client DB version of 1.5.0+,
-       * we can remove this check as the TotpCodes table then is guaranteed to exist.
-       */
-      if (!await this.tableExists('TotpCodes')) {
-        return [];
-      }
-
       const query = `
         SELECT
           Id,
@@ -1035,8 +1026,6 @@ class SqliteClient {
       throw error;
     }
   }
-
-  // TODO: review passkey query usage
 
   /**
    * Get all passkeys for a specific relying party (rpId)

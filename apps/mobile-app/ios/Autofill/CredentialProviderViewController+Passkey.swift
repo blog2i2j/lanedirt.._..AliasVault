@@ -15,17 +15,7 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
     func setupPasskeyView(vaultStore: VaultStore, rpId: String, clientDataHash: Data) throws -> UIViewController {
         let viewModel = PasskeyProviderViewModel(
             loader: {
-                // getAllCredentials now includes passkeys for each credential
-                // TODO: call a separate method for only retrieving passkeys?
-                var credentials = try vaultStore.getAllCredentials()
-
-                // Filter to only include credentials that actually have passkeys
-                credentials = credentials.filter { credential in
-                    guard let passkeys = credential.passkeys else { return false }
-                    return !passkeys.isEmpty
-                }
-
-                return credentials
+                return try vaultStore.getAllCredentialsWithPasskeys()
             },
             selectionHandler: { credential in
                 // For passkey authentication, we assume the data is available

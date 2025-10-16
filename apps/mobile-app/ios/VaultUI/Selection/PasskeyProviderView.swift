@@ -5,7 +5,6 @@ import VaultModels
 private let locBundle = Bundle.vaultUI
 
 /// Passkey provider view for selecting passkeys during authentication
-/// TODO: review file
 public struct PasskeyProviderView: View {
     @ObservedObject public var viewModel: PasskeyProviderViewModel
 
@@ -141,7 +140,7 @@ private struct PasskeyCredentialCard: View {
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(credential.service.name ?? credential.service.url ?? "Unknown Service")
+                        Text(credential.service.name ?? credential.service.url ?? "-")
                             .font(.headline)
                             .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.text : ColorConstants.Light.text)
 
