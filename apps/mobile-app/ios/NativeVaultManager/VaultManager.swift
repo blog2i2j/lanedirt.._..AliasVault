@@ -240,17 +240,22 @@ public class VaultManager: NSObject {
         do {
             try vaultStore.unlockVault()
             resolve(true)
-        } catch {
-            // Check if the error is related to Face ID or decryption
-            if let nsError = error as NSError? {
-                if nsError.domain == "VaultStore" {
-                    // These are our known error codes for initialization failures
-                    if nsError.code == 1 || nsError.code == 2 || nsError.code == 8 || nsError.code == 10 {
-                        resolve(false)
-                        return
-                    }
+        } catch let error as NSError {
+            if error.domain == "VaultStore" {
+                // These are our known error codes for initialization failures (non-critical)
+                if error.code == 1 || error.code == 2 || error.code == 8 || error.code == 10 {
+                    resolve(false)
+                    return
+                }
+
+                // Pass through detailed error messages for database setup failures (codes 11-18)
+                if error.code >= 11 && error.code <= 18 {
+                    reject("DATABASE_SETUP_ERROR", error.localizedDescription, error)
+                    return
                 }
             }
+
+            // Default error handling
             reject("INIT_ERROR", "Failed to unlock vault: \(error.localizedDescription)", error)
         }
     }

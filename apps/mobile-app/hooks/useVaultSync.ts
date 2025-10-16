@@ -163,13 +163,20 @@ export const useVaultSync = () : {
         }
 
         return hasNewVault;
-      } catch (err) {
+      } catch (err: any) {
         if (err instanceof VaultVersionIncompatibleError) {
           await app.logout(t(err.message));
           return false;
         }
 
+        // Log detailed error information for database setup failures
+        if (err?.code === 'DATABASE_SETUP_ERROR') {
+          console.error('Database setup error during unlock:', err.message);
+          throw new Error(`${t('vault.errors.vaultDecryptFailed')}: ${err.message}`);
+        }
+
         // Vault could not be unlocked
+        console.error('Failed to unlock vault:', err);
         throw new Error(t('vault.errors.vaultDecryptFailed'));
       }
     } catch (err) {
