@@ -618,30 +618,4 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
 
         return nil
     }
-
-    /**
-     * Show connectivity error alert dialog (kept for backward compatibility)
-     */
-    private func showConnectivityErrorAlert(viewModel: PasskeyRegistrationViewModel) {
-        let alert = UIAlertController(
-            title: NSLocalizedString("connection_error_title", comment: "Connection Error"),
-            message: NSLocalizedString("connection_error_message", comment: "No connection to the server can be made."),
-            preferredStyle: .alert
-        )
-
-        alert.addAction(UIAlertAction(
-            title: NSLocalizedString("ok", comment: "OK"),
-            style: .default,
-            handler: { _ in
-                // User acknowledged the error - stay on the passkey registration screen
-            }
-        ))
-
-        // Present the alert
-        if let currentController = self.currentHostingController {
-            currentController.present(alert, animated: true)
-        } else {
-            self.present(alert, animated: true)
-        }
-    }
 }

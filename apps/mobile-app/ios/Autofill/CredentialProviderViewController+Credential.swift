@@ -95,7 +95,7 @@ extension CredentialProviderViewController: CredentialProviderDelegate {
                 return
             }
 
-            // Unlock vault with biometrics (iOS 26+ works reliably)
+            // Unlock vault with biometrics
             try vaultStore.unlockVault()
 
             let credentials = try vaultStore.getAllCredentials()
