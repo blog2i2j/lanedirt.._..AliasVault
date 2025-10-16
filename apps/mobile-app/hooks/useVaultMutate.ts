@@ -116,6 +116,14 @@ export function useVaultMutate() : {
         throw new Error('Vault mutation did not complete successfully');
       }
 
+      // Register credential identities after successful mutation
+      try {
+        await NativeVaultManager.registerCredentialIdentities();
+      } catch (error) {
+        console.warn('VaultMutate: Failed to register credential identities:', error);
+        // Don't fail the mutation if credential registration fails
+      }
+
       // Success
       options.onSuccess?.();
     } catch (error) {
