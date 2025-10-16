@@ -5,6 +5,8 @@ included:
   - VaultStoreKit
   - VaultStoreKitTests
   - VaultUI
+  - VaultUITests
+  - VaultUtils
 
 excluded:
   - Pods

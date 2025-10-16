@@ -1,5 +1,6 @@
 import AuthenticationServices
 import VaultModels
+import VaultUtils
 
 /**
  * Native iOS implementation of the CredentialIdentityStore protocol.
@@ -68,7 +69,7 @@ public class CredentialIdentityStore {
             )
 
             // Use the same logic as the UI for determining the identifier
-            let identifier = Helpers.usernameOrEmail(credential: credential)
+            let identifier = CredentialHelpers.usernameOrEmail(credential: credential)
             guard !identifier.isEmpty else {
                 return nil // Skip credentials with no identifier
             }
@@ -107,7 +108,7 @@ public class CredentialIdentityStore {
             }
 
             // Use the same logic as the UI for determining the identifier
-            let identifier = Helpers.usernameOrEmail(credential: credential)
+            let identifier = CredentialHelpers.usernameOrEmail(credential: credential)
             guard !identifier.isEmpty else {
                 return nil // Skip credentials with no identifier
             }
@@ -137,7 +138,7 @@ public class CredentialIdentityStore {
                 .compactMap { passkey in
                     // Get the userName for display in iOS AutoFill UI
                     // Passkeys don't store userName in the database, so we use the credential's username or email
-                    let userName = passkey.userName ?? Helpers.usernameOrEmail(credential: credential)
+                    let userName = passkey.userName ?? CredentialHelpers.usernameOrEmail(credential: credential)
 
                     // Convert passkey.Id to bytes for credentialID
                     let credentialId = try? PasskeyHelper.guidToBytes(passkey.id.uuidString)

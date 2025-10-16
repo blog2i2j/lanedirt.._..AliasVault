@@ -1,6 +1,7 @@
 import Foundation
 import SQLite
 import VaultModels
+import VaultUtils
 
 /// Extension for the VaultStore class to handle query management
 extension VaultStore {
@@ -222,8 +223,8 @@ extension VaultStore {
                 continue
             }
 
-            guard let createdAt = parseDateString(createdAtString),
-                let updatedAt = parseDateString(updatedAtString) else {
+            guard let createdAt = DateHelpers.parseDateString(createdAtString),
+                let updatedAt = DateHelpers.parseDateString(updatedAtString) else {
                 continue
             }
 
@@ -234,8 +235,8 @@ extension VaultStore {
                 let serviceCreatedAtString = row[11] as? String,
                 let serviceUpdatedAtString = row[12] as? String,
                 let serviceIsDeletedInt64 = row[13] as? Int64,
-                let serviceCreatedAt = parseDateString(serviceCreatedAtString),
-                let serviceUpdatedAt = parseDateString(serviceUpdatedAtString) else {
+                let serviceCreatedAt = DateHelpers.parseDateString(serviceCreatedAtString),
+                let serviceUpdatedAt = DateHelpers.parseDateString(serviceUpdatedAtString) else {
                 continue
             }
 
@@ -256,14 +257,14 @@ extension VaultStore {
                 let aliasCreatedAtString = row[26] as? String,
                 let aliasUpdatedAtString = row[27] as? String,
                 let aliasIsDeletedInt64 = row[28] as? Int64,
-                let aliasCreatedAt = parseDateString(aliasCreatedAtString),
-                let aliasUpdatedAt = parseDateString(aliasUpdatedAtString) {
+                let aliasCreatedAt = DateHelpers.parseDateString(aliasCreatedAtString),
+                let aliasUpdatedAt = DateHelpers.parseDateString(aliasUpdatedAtString) {
 
                 let aliasIsDeleted = aliasIsDeletedInt64 == 1
 
                 let aliasBirthDate: Date
                 if let aliasBirthDateString = row[24] as? String,
-                   let parsedBirthDate = parseDateString(aliasBirthDateString) {
+                   let parsedBirthDate = DateHelpers.parseDateString(aliasBirthDateString) {
                     aliasBirthDate = parsedBirthDate
                 } else {
                     // Use 0001-01-01 00:00 as the default date if birthDate is null
@@ -297,8 +298,8 @@ extension VaultStore {
             let passwordCreatedAtString = row[16] as? String,
             let passwordUpdatedAtString = row[17] as? String,
             let passwordIsDeletedInt64 = row[18] as? Int64,
-            let passwordCreatedAt = parseDateString(passwordCreatedAtString),
-            let passwordUpdatedAt = parseDateString(passwordUpdatedAtString) {
+            let passwordCreatedAt = DateHelpers.parseDateString(passwordCreatedAtString),
+            let passwordUpdatedAt = DateHelpers.parseDateString(passwordUpdatedAtString) {
 
                 let passwordIsDeleted = passwordIsDeletedInt64 == 1
 
@@ -345,56 +346,5 @@ extension VaultStore {
         }
 
         return credentials
-    }
-
-    /// Parse a date string to a Date object for use in queries.
-    private func parseDateString(_ dateString: String) -> Date? {
-        // Static date formatters for performance
-        struct StaticFormatters {
-            static let formatterWithMillis: DateFormatter = {
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
-                formatter.locale = Locale(identifier: "en_US_POSIX")
-                formatter.timeZone = TimeZone(secondsFromGMT: 0)
-                return formatter
-            }()
-
-            static let formatterWithoutMillis: DateFormatter = {
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                formatter.locale = Locale(identifier: "en_US_POSIX")
-                formatter.timeZone = TimeZone(secondsFromGMT: 0)
-                return formatter
-            }()
-
-            static let isoFormatter: ISO8601DateFormatter = {
-                let formatter = ISO8601DateFormatter()
-                formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                formatter.timeZone = TimeZone(secondsFromGMT: 0)
-                return formatter
-            }()
-        }
-
-        let cleanedDateString = dateString.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // If ends with 'Z' or contains timezone, attempt ISO8601 parsing
-        if cleanedDateString.contains("Z") || cleanedDateString.contains("+") || cleanedDateString.contains("-") {
-            if let isoDate = StaticFormatters.isoFormatter.date(from: cleanedDateString) {
-                return isoDate
-            }
-        }
-
-        // Try parsing with milliseconds
-        if let dateWithMillis = StaticFormatters.formatterWithMillis.date(from: cleanedDateString) {
-            return dateWithMillis
-        }
-
-        // Try parsing without milliseconds
-        if let dateWithoutMillis = StaticFormatters.formatterWithoutMillis.date(from: cleanedDateString) {
-            return dateWithoutMillis
-        }
-
-        // If parsing still fails, return nil
-        return nil
     }
 }

@@ -1,6 +1,7 @@
 import Foundation
 import SQLite
 import VaultModels
+import VaultUtils
 
 /**
  * VaultStore+Passkey
@@ -179,8 +180,8 @@ extension VaultStore {
         }
 
         // Parse dates
-        guard let createdAt = parseDateString(createdAtString),
-              let updatedAt = parseDateString(updatedAtString) else {
+        guard let createdAt = DateHelpers.parseDateString(createdAtString),
+              let updatedAt = DateHelpers.parseDateString(updatedAtString) else {
             print("VaultStore+Passkey: Invalid date in passkey row - created=\(createdAtString), updated=\(updatedAtString)")
             return nil
         }
@@ -461,54 +462,6 @@ extension VaultStore {
         )
 
         try insertPasskey(updatedPasskey)
-    }
-
-    /**
-     * Parse a date string to a Date object for use in queries.
-     */
-    private func parseDateString(_ dateString: String) -> Date? {
-        struct StaticFormatters {
-            static let formatterWithMillis: DateFormatter = {
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
-                formatter.locale = Locale(identifier: "en_US_POSIX")
-                formatter.timeZone = TimeZone(secondsFromGMT: 0)
-                return formatter
-            }()
-
-            static let formatterWithoutMillis: DateFormatter = {
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                formatter.locale = Locale(identifier: "en_US_POSIX")
-                formatter.timeZone = TimeZone(secondsFromGMT: 0)
-                return formatter
-            }()
-
-            static let isoFormatter: ISO8601DateFormatter = {
-                let formatter = ISO8601DateFormatter()
-                formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                formatter.timeZone = TimeZone(secondsFromGMT: 0)
-                return formatter
-            }()
-        }
-
-        let cleanedDateString = dateString.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if cleanedDateString.contains("Z") || cleanedDateString.contains("+") || cleanedDateString.contains("-") {
-            if let isoDate = StaticFormatters.isoFormatter.date(from: cleanedDateString) {
-                return isoDate
-            }
-        }
-
-        if let dateWithMillis = StaticFormatters.formatterWithMillis.date(from: cleanedDateString) {
-            return dateWithMillis
-        }
-
-        if let dateWithoutMillis = StaticFormatters.formatterWithoutMillis.date(from: cleanedDateString) {
-            return dateWithoutMillis
-        }
-
-        return nil
     }
 }
 

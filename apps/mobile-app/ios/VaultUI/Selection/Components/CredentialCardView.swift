@@ -1,5 +1,6 @@
 import SwiftUI
 import VaultModels
+import VaultUtils
 
 /// Credential card view
 public struct CredentialCard: View {
@@ -28,7 +29,7 @@ public struct CredentialCard: View {
                         .font(.headline)
                         .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.text : ColorConstants.Light.text)
 
-                    Text(truncateText(usernameOrEmail(credential: credential), limit: 26))
+                    Text(truncateText(CredentialHelpers.usernameOrEmail(credential: credential), limit: 26))
                         .font(.subheadline)
                         .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.textMuted : ColorConstants.Light.textMuted)
                 }
@@ -137,17 +138,6 @@ public struct CredentialCard: View {
             }
         )
     }
-}
-
-/// Returns username or email depending on if they are not null
-public func usernameOrEmail(credential: Credential) -> String {
-    if let username = credential.username, !username.isEmpty {
-        return username
-    }
-    if let email = credential.alias?.email, !email.isEmpty {
-        return email
-    }
-    return ""
 }
 
 /// Truncate text to a maximum limit and appends "..." at the end
