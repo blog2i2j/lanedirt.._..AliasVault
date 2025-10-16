@@ -231,8 +231,12 @@
 
 // MARK: - Vault Sync and Mutate
 
-- (void)syncVault:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
-    [vaultManager syncVault:resolve rejecter:reject];
+- (void)isNewVaultVersionAvailable:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager isNewVaultVersionAvailable:resolve rejecter:reject];
+}
+
+- (void)downloadVault:(double)newRevision resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager downloadVault:newRevision resolver:resolve rejecter:reject];
 }
 
 - (void)mutateVault:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {

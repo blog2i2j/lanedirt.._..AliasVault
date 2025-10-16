@@ -79,22 +79,26 @@ export const useVaultSync = () : {
         await new Promise(resolve => setTimeout(resolve, 300));
       }
 
-      // Call native syncVault which handles:
-      // - Calling Auth/status endpoint
-      // - Comparing vault revisions
-      // - Downloading vault if needed
-      // - Storing encrypted vault
-      // - Updating revision number
-      // - Setting offline mode
+      // Step 1: Check if a new vault version is available
+      // This calls Auth/status endpoint and compares vault revisions
       let hasNewVault = false;
+      let newRevision: number | null = null;
 
       try {
-        onStatus?.(t('vault.syncingUpdatedVault'));
-        hasNewVault = await NativeVaultManager.syncVault();
+        const versionCheckResult = await NativeVaultManager.isNewVaultVersionAvailable();
+        hasNewVault = versionCheckResult.isNewVersionAvailable;
+        newRevision = versionCheckResult.newRevision;
 
-        // Add artificial delay for initial sync UX
-        if (enableDelay && hasNewVault) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+        // Step 2: If a new version is available, download it
+        if (hasNewVault && newRevision != null) {
+          onStatus?.(t('vault.syncingUpdatedVault'));
+
+          // Run downloadVault with a min delay for UX purposes
+          await withMinimumDelay(
+            () => NativeVaultManager.downloadVault(newRevision!),
+            enableDelay ? 500 : 300,
+            true
+          );
         }
       } catch (err) {
         console.error('VaultSync: syncVault error:', err);

@@ -34,15 +34,37 @@ public struct VaultResponse: Codable {
 extension VaultStore {
     // MARK: - Vault Sync
 
-    /// Sync the vault with the server
-    /// Returns true if a new vault was downloaded, false if vault is already up to date
-    public func syncVault(using webApiService: WebApiService) async throws -> Bool {
+    /// Check if a new vault version is available on the server
+    /// Returns the new revision number if available, nil if vault is up to date
+    public func isNewVaultVersionAvailable(using webApiService: WebApiService) async throws -> Int? {
         let status = try await fetchAndValidateStatus(using: webApiService)
         setOfflineMode(false)
 
         let currentRevision = getCurrentVaultRevisionNumber()
         if status.vaultRevision > currentRevision {
-            try await downloadAndStoreVault(using: webApiService, newRevision: status.vaultRevision)
+            return status.vaultRevision
+        }
+
+        return nil
+    }
+
+    /// Download and store the vault from the server
+    /// This method assumes a version check has already been performed
+    /// Use this after calling isNewVaultVersionAvailable() to download the vault
+    public func downloadVault(using webApiService: WebApiService, newRevision: Int) async throws {
+        try await downloadAndStoreVault(using: webApiService, newRevision: newRevision)
+        setOfflineMode(false)
+    }
+
+    /// Sync the vault with the server
+    /// Returns true if a new vault was downloaded, false if vault is already up to date
+    /// NOTE: This is a convenience method that combines isNewVaultVersionAvailable and downloadVault
+    /// For better UX control, use isNewVaultVersionAvailable() and downloadVault() separately
+    public func syncVault(using webApiService: WebApiService) async throws -> Bool {
+        // Check if new version is available
+        if let newRevision = try await isNewVaultVersionAvailable(using: webApiService) {
+            // Download the new vault
+            try await downloadVault(using: webApiService, newRevision: newRevision)
             return true
         }
 
