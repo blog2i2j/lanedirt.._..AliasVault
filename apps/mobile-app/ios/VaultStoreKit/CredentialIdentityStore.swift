@@ -18,8 +18,7 @@ public class CredentialIdentityStore {
     /// Save credentials into the native iOS credential store.
     /// - Parameters:
     ///   - credentials: The credentials to register
-    ///   - passkeyOnly: If true, only register passkey identities (skip passwords). Default is false.
-    public func saveCredentialIdentities(_ credentials: [Credential], passkeyOnly: Bool = false) async throws {
+    public func saveCredentialIdentities(_ credentials: [Credential]) async throws {
         var allIdentities: [ASCredentialIdentity] = []
 
         let state = await storeState()
@@ -27,15 +26,11 @@ public class CredentialIdentityStore {
             return
         }
 
-        // Only save passwords into autofill store on iOS 26+, as it works buggy on older iOS versions.
-        if #available(iOS 26.0, *) {
-            if !passkeyOnly {
-                let passwordIdentities = createPasswordIdentities(from: credentials)
-                allIdentities.append(contentsOf: passwordIdentities)
-            }
-        }
+        // Save passwords into autofill store
+        let passwordIdentities = createPasswordIdentities(from: credentials)
+        allIdentities.append(contentsOf: passwordIdentities)
 
-        // Create passkey identities
+        // Save passkeys into autofill store
         let passkeyIdentities = createPasskeyIdentities(from: credentials)
         allIdentities.append(contentsOf: passkeyIdentities)
 
@@ -60,30 +55,6 @@ public class CredentialIdentityStore {
         try await store.removeAllCredentialIdentities()
     }
 
-    /// Remove one or more specific credentials from iOS credential store.
-    public func removeCredentialIdentities(_ credentials: [Credential]) async throws {
-        let identities = credentials.compactMap { credential -> ASPasswordCredentialIdentity? in
-            let serviceIdentifier = ASCredentialServiceIdentifier(
-                identifier: credential.service.name ?? "",
-                type: .domain
-            )
-
-            // Use the same logic as the UI for determining the identifier
-            let identifier = CredentialHelpers.usernameOrEmail(credential: credential)
-            guard !identifier.isEmpty else {
-                return nil // Skip credentials with no identifier
-            }
-
-            return ASPasswordCredentialIdentity(
-                serviceIdentifier: serviceIdentifier,
-                user: identifier,
-                recordIdentifier: credential.id.uuidString
-            )
-        }
-
-        try await store.removeCredentialIdentities(identities)
-    }
-
     private func storeState() async -> ASCredentialIdentityStoreState {
         await withCheckedContinuation { continuation in
             store.getState { state in
@@ -101,20 +72,25 @@ public class CredentialIdentityStore {
     /// Create password credential identities from credentials
     private func createPasswordIdentities(from credentials: [Credential]) -> [ASPasswordCredentialIdentity] {
         return credentials.compactMap { credential in
+            guard credential.passkeys?.isEmpty == true else {
+                // Skip if this record is a passkey as it will be saved in the createPasskeyIdentities method
+                return nil
+            }
+
+            guard let password = credential.password, !password.value.isEmpty else {
+                // Skip credentials with no password (e.g. applies when this record is a passkey)
+                return nil
+            }
+
             guard let urlString = credential.service.url,
                   let url = URL(string: urlString),
                   let host = url.host else {
                 return nil
             }
 
-            // Use the same logic as the UI for determining the identifier
             let identifier = CredentialHelpers.usernameOrEmail(credential: credential)
             guard !identifier.isEmpty else {
                 return nil // Skip credentials with no identifier
-            }
-
-            guard let password = credential.password, !password.value.isEmpty else {
-                return nil // Skip credentials with no password (e.g. applies when this record is a passkey)
             }
 
             let effectiveDomain = Self.effectiveDomain(from: host)

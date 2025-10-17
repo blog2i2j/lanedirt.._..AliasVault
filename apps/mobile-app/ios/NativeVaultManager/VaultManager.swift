@@ -444,18 +444,16 @@ public class VaultManager: NSObject {
                 // Get all credentials from the vault
                 let credentials = try vaultStore.getAllCredentials()
 
-                // Register credential identities using the same logic as the autofill extension
                 if #available(iOS 26.0, *) {
                     // iOS 26+: Register both passwords and passkeys for QuickType and manual selection
                     try await CredentialIdentityStore.shared.saveCredentialIdentities(credentials)
                 } else {
-                    // iOS 17-25: Only register passkeys (skip passwords for QuickType to avoid biometric issues)
-                    // But passkeys MUST be registered so iOS knows to offer this extension for passkey authentication
+                    // iOS 17 and 18: Only register passkeys (skip passwords for QuickType as biometric unlock is buggy on these versions)
                     let passkeyOnlyCredentials = credentials.filter { credential in
                         guard let passkeys = credential.passkeys else { return false }
                         return !passkeys.isEmpty
                     }
-                    try await CredentialIdentityStore.shared.saveCredentialIdentities(passkeyOnlyCredentials, passkeyOnly: true)
+                    try await CredentialIdentityStore.shared.saveCredentialIdentities(passkeyOnlyCredentials)
                 }
 
                 await MainActor.run {
