@@ -115,7 +115,7 @@ object PasskeyAuthenticator {
 
         // 11. Export keys for storage
         val publicKeyData = exportPublicKeyAsJWK(keyPair.public as ECPublicKey)
-        val privateKeyData = exportPrivateKeyAsJWK(keyPair.private as ECPrivateKey)
+        val privateKeyData = exportPrivateKeyAsJWK(keyPair.private as ECPrivateKey, keyPair.public as ECPublicKey)
 
         return PasskeyCreationResult(
             credentialId = credentialId,
@@ -218,14 +218,23 @@ object PasskeyAuthenticator {
 
     /**
      * Export private key as JWK format (JSON)
+     * Note: We need the KeyPair to properly export both public and private components
      */
-    private fun exportPrivateKeyAsJWK(privateKey: ECPrivateKey): ByteArray {
-        val publicKey = privateKey as? ECPrivateKey
-            ?: throw PasskeyError.InvalidPrivateKey("Cannot extract public key from private key")
+    private fun exportPrivateKeyAsJWK(privateKey: ECPrivateKey, publicKey: ECPublicKey): ByteArray {
+        val w = publicKey.w
+        val xBytes = w.affineX.toByteArray().dropLeadingZeros().padTo32Bytes()
+        val yBytes = w.affineY.toByteArray().dropLeadingZeros().padTo32Bytes()
+        val dBytes = privateKey.s.toByteArray().dropLeadingZeros().padTo32Bytes()
 
-        // Note: In a real implementation, you'd need to derive the public key from the private key
-        // or have it passed in. For now, this is a placeholder that needs the full KeyPair
-        throw PasskeyError.InvalidPrivateKey("Private key export not fully implemented")
+        val jwk = JSONObject().apply {
+            put("kty", "EC")
+            put("crv", "P-256")
+            put("x", PasskeyHelper.bytesToBase64url(xBytes))
+            put("y", PasskeyHelper.bytesToBase64url(yBytes))
+            put("d", PasskeyHelper.bytesToBase64url(dBytes))
+        }
+
+        return jwk.toString().toByteArray(Charsets.UTF_8)
     }
 
     /**
@@ -235,8 +244,84 @@ object PasskeyAuthenticator {
         val jwkString = String(jwkData, Charsets.UTF_8)
         val jwk = JSONObject(jwkString)
 
-        // This is a simplified version - full implementation would need proper key reconstruction
-        throw PasskeyError.InvalidJWK("Private key import not fully implemented")
+        // Extract the d parameter (private key component)
+        val dBase64url = jwk.optString("d")
+            ?: throw PasskeyError.InvalidJWK("Missing 'd' parameter in JWK")
+
+        // Decode base64url to bytes
+        val dBytes = base64urlToBytes(dBase64url)
+
+        // Import the private key using Java Security API
+        val keyFactory = java.security.KeyFactory.getInstance("EC")
+        val privateKeySpec = java.security.spec.PKCS8EncodedKeySpec(buildPKCS8PrivateKey(dBytes))
+
+        return try {
+            keyFactory.generatePrivate(privateKeySpec) as ECPrivateKey
+        } catch (e: Exception) {
+            // Fallback: try reconstructing using ECPrivateKeySpec
+            val d = java.math.BigInteger(1, dBytes)
+            val ecSpec = java.security.spec.ECGenParameterSpec("secp256r1")
+            val params = java.security.AlgorithmParameters.getInstance("EC")
+            params.init(ecSpec)
+            val ecParameterSpec = params.getParameterSpec(java.security.spec.ECParameterSpec::class.java)
+
+            val privKeySpec = java.security.spec.ECPrivateKeySpec(d, ecParameterSpec)
+            keyFactory.generatePrivate(privKeySpec) as ECPrivateKey
+        }
+    }
+
+    /**
+     * Build a PKCS8-encoded private key from raw EC private key bytes
+     * This creates a minimal PKCS8 wrapper around the P-256 private key
+     */
+    private fun buildPKCS8PrivateKey(dBytes: ByteArray): ByteArray {
+        // P-256 OID: 1.2.840.10045.3.1.7
+        val p256Oid = byteArrayOf(
+            0x06, 0x08, 0x2a.toByte(), 0x86.toByte(), 0x48, 0xce.toByte(),
+            0x3d, 0x03, 0x01, 0x07,
+        )
+
+        // EC Public Key OID: 1.2.840.10045.2.1
+        val ecPublicKeyOid = byteArrayOf(
+            0x06, 0x07, 0x2a.toByte(), 0x86.toByte(), 0x48, 0xce.toByte(),
+            0x3d, 0x02, 0x01,
+        )
+
+        // Build PKCS8 structure
+        // SEQUENCE {
+        //   version INTEGER 0,
+        //   privateKeyAlgorithm SEQUENCE {
+        //     algorithm OBJECT IDENTIFIER ecPublicKey,
+        //     parameters OBJECT IDENTIFIER prime256v1
+        //   },
+        //   privateKey OCTET STRING (containing ECPrivateKey)
+        // }
+
+        // ECPrivateKey ::= SEQUENCE { version INTEGER 1, privateKey OCTET STRING }
+        val ecPrivateKey = byteArrayOf(0x30, (dBytes.size + 4).toByte(), 0x02, 0x01, 0x01, 0x04, dBytes.size.toByte()) + dBytes
+
+        val algorithm = byteArrayOf(0x30, (ecPublicKeyOid.size + p256Oid.size).toByte()) + ecPublicKeyOid + p256Oid
+        val privateKey = byteArrayOf(0x04, ecPrivateKey.size.toByte()) + ecPrivateKey
+
+        val sequence = algorithm + privateKey
+        return byteArrayOf(0x30, (sequence.size + 3).toByte(), 0x02, 0x01, 0x00) + sequence
+    }
+
+    /**
+     * Decode base64url string to bytes
+     */
+    private fun base64urlToBytes(base64url: String): ByteArray {
+        var base64 = base64url
+            .replace('-', '+')
+            .replace('_', '/')
+
+        // Add padding if needed
+        val remainder = base64.length % 4
+        if (remainder > 0) {
+            base64 += "=".repeat(4 - remainder)
+        }
+
+        return android.util.Base64.decode(base64, android.util.Base64.NO_WRAP)
     }
 
     // MARK: - CBOR Encoding
