@@ -239,6 +239,7 @@ object PasskeyAuthenticator {
 
     /**
      * Import private key from JWK format
+     * Uses ECPrivateKeySpec to avoid Android Keystore issues
      */
     private fun importPrivateKeyFromJWK(jwkData: ByteArray): ECPrivateKey {
         val jwkString = String(jwkData, Charsets.UTF_8)
@@ -251,60 +252,21 @@ object PasskeyAuthenticator {
         // Decode base64url to bytes
         val dBytes = base64urlToBytes(dBase64url)
 
-        // Import the private key using Java Security API
+        // Convert to BigInteger (d parameter is the private key value)
+        val d = java.math.BigInteger(1, dBytes)
+
+        // Get P-256 curve parameters
+        val ecSpec = java.security.spec.ECGenParameterSpec("secp256r1")
+        val params = java.security.AlgorithmParameters.getInstance("EC")
+        params.init(ecSpec)
+        val ecParameterSpec = params.getParameterSpec(java.security.spec.ECParameterSpec::class.java)
+
+        // Create ECPrivateKeySpec with the d value and curve parameters
+        val privKeySpec = java.security.spec.ECPrivateKeySpec(d, ecParameterSpec)
+
+        // Generate the private key
         val keyFactory = java.security.KeyFactory.getInstance("EC")
-        val privateKeySpec = java.security.spec.PKCS8EncodedKeySpec(buildPKCS8PrivateKey(dBytes))
-
-        return try {
-            keyFactory.generatePrivate(privateKeySpec) as ECPrivateKey
-        } catch (e: Exception) {
-            // Fallback: try reconstructing using ECPrivateKeySpec
-            val d = java.math.BigInteger(1, dBytes)
-            val ecSpec = java.security.spec.ECGenParameterSpec("secp256r1")
-            val params = java.security.AlgorithmParameters.getInstance("EC")
-            params.init(ecSpec)
-            val ecParameterSpec = params.getParameterSpec(java.security.spec.ECParameterSpec::class.java)
-
-            val privKeySpec = java.security.spec.ECPrivateKeySpec(d, ecParameterSpec)
-            keyFactory.generatePrivate(privKeySpec) as ECPrivateKey
-        }
-    }
-
-    /**
-     * Build a PKCS8-encoded private key from raw EC private key bytes
-     * This creates a minimal PKCS8 wrapper around the P-256 private key
-     */
-    private fun buildPKCS8PrivateKey(dBytes: ByteArray): ByteArray {
-        // P-256 OID: 1.2.840.10045.3.1.7
-        val p256Oid = byteArrayOf(
-            0x06, 0x08, 0x2a.toByte(), 0x86.toByte(), 0x48, 0xce.toByte(),
-            0x3d, 0x03, 0x01, 0x07,
-        )
-
-        // EC Public Key OID: 1.2.840.10045.2.1
-        val ecPublicKeyOid = byteArrayOf(
-            0x06, 0x07, 0x2a.toByte(), 0x86.toByte(), 0x48, 0xce.toByte(),
-            0x3d, 0x02, 0x01,
-        )
-
-        // Build PKCS8 structure
-        // SEQUENCE {
-        //   version INTEGER 0,
-        //   privateKeyAlgorithm SEQUENCE {
-        //     algorithm OBJECT IDENTIFIER ecPublicKey,
-        //     parameters OBJECT IDENTIFIER prime256v1
-        //   },
-        //   privateKey OCTET STRING (containing ECPrivateKey)
-        // }
-
-        // ECPrivateKey ::= SEQUENCE { version INTEGER 1, privateKey OCTET STRING }
-        val ecPrivateKey = byteArrayOf(0x30, (dBytes.size + 4).toByte(), 0x02, 0x01, 0x01, 0x04, dBytes.size.toByte()) + dBytes
-
-        val algorithm = byteArrayOf(0x30, (ecPublicKeyOid.size + p256Oid.size).toByte()) + ecPublicKeyOid + p256Oid
-        val privateKey = byteArrayOf(0x04, ecPrivateKey.size.toByte()) + ecPrivateKey
-
-        val sequence = algorithm + privateKey
-        return byteArrayOf(0x30, (sequence.size + 3).toByte(), 0x02, 0x01, 0x00) + sequence
+        return keyFactory.generatePrivate(privKeySpec) as ECPrivateKey
     }
 
     /**
