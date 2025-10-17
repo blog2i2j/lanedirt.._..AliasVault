@@ -375,6 +375,15 @@ const CredentialsList: React.FC = () => {
             {t('credentials.welcomeDescription')}
           </p>
         </div>
+      ) : filteredCredentials.length === 0 ? (
+        <div className="text-gray-500 dark:text-gray-400 space-y-2 mb-10">
+          <p>
+            {filterType === 'passkeys'
+              ? t('credentials.noPasskeysFound')
+              : t('credentials.noMatchingCredentials')
+            }
+          </p>
+        </div>
       ) : (
         <ul className="space-y-2">
           {filteredCredentials.map(cred => (

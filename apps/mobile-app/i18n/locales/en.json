@@ -126,6 +126,7 @@
     "searchPlaceholder": "Search vault...",
     "noMatchingCredentials": "No matching credentials found",
     "noCredentialsFound": "No credentials found. Create one to get started. Tip: you can also login to the AliasVault web app to import credentials from other password managers.",
+    "noPasskeysFound": "No passkeys have been created yet. Passkeys are created by visiting a website that offers passkeys as an authentication method.",
     "recentEmails": "Recent emails",
     "loadingEmails": "Loading emails...",
     "noEmailsYet": "No emails received yet.",
@@ -197,7 +198,7 @@
     "iosAutofill": "Autofill & Passkeys",
     "iosAutofillSettings": {
       "headerText": "You can configure AliasVault to provide native password and passkey autofill functionality in iOS. Follow the instructions below to enable it.",
-      "passkeyNotice": "Passkeys are created and managed via iOS and require the autofill integration to be enabled in order for passkeys to work with AliasVault.",
+      "passkeyNotice": "Passkeys are created through iOS. To store them in AliasVault, ensure Autofill below is enabled.",
       "howToEnable": "How to enable Autofill & Passkeys:",
       "step1": "1. Open iOS Settings via the button below",
       "step2": "2. Go to \"General\"",

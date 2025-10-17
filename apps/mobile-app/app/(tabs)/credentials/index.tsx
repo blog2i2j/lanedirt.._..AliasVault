@@ -315,7 +315,6 @@ export default function CredentialsScreen() : React.ReactNode {
       color: colors.textMuted,
       fontSize: 20,
       lineHeight: 28,
-      marginRight: 'auto',
     },
     filterMenu: {
       backgroundColor: colors.accentBackground,
@@ -512,7 +511,7 @@ export default function CredentialsScreen() : React.ReactNode {
                   </ThemedText>
                   <MaterialIcons
                     name={showFilterMenu ? "keyboard-arrow-up" : "keyboard-arrow-down"}
-                    size={24}
+                    size={28}
                     color={colors.text}
                   />
                 </TouchableOpacity>
@@ -643,7 +642,12 @@ export default function CredentialsScreen() : React.ReactNode {
           ListEmptyComponent={
             !isLoadingCredentials ? (
               <Text style={styles.emptyText}>
-                {searchQuery ? t('credentials.noMatchingCredentials') : t('credentials.noCredentialsFound')}
+                {searchQuery
+                  ? t('credentials.noMatchingCredentials')
+                  : filterType === 'passkeys'
+                    ? t('credentials.noPasskeysFound')
+                    : t('credentials.noCredentialsFound')
+                }
               </Text>
             ) : null
           }

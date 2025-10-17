@@ -77,7 +77,14 @@ extension VaultStore {
             )
         }
 
-        // Step 2: Write decrypted data to temp file
+        // Step 2: Clean up any existing connection to prevent leftover attachments
+        if self.dbConnection != nil {
+            // Try to detach any existing "source" database from previous failed attempts
+            try? self.dbConnection?.execute("DETACH DATABASE source")
+            self.dbConnection = nil
+        }
+
+        // Step 3: Write decrypted data to temp file
         let tempDbPath = FileManager.default.temporaryDirectory.appendingPathComponent("temp_db.sqlite")
         do {
             try decryptedDbData.write(to: tempDbPath)
@@ -92,7 +99,7 @@ extension VaultStore {
             )
         }
 
-        // Step 3: Create in-memory database connection
+        // Step 4: Create in-memory database connection
         do {
             self.dbConnection = try Connection(":memory:")
         } catch {
@@ -189,33 +196,36 @@ extension VaultStore {
 
         for attempt in 1...5 {
             do {
-                // First check if source database is still attached
-                let attachedDbs = try self.dbConnection?.prepare("PRAGMA database_list")
+                // First check if source database is still attached by collecting database names
+                // We collect names first to ensure the statement is finalized before detaching
                 var isSourceAttached = false
-                if let attachedDbs = attachedDbs {
-                    for db in attachedDbs {
-                        if let dbName = db[1] as? String, dbName == "source" {
-                            isSourceAttached = true
-                            break
-                        }
+                if let attachedDbs = try self.dbConnection?.prepare("PRAGMA database_list") {
+                    let dbNames = attachedDbs.map { row -> String? in
+                        row[1] as? String
                     }
+                    isSourceAttached = dbNames.contains("source")
                 }
 
                 if !isSourceAttached {
+                    // Source is already detached (shouldn't happen, but handle gracefully)
                     detachSuccess = true
                     break
                 }
-
-                // Close any open statements or cursors
-                try self.dbConnection?.execute("PRAGMA optimize")
 
                 // Try to detach
                 try self.dbConnection?.execute("DETACH DATABASE source")
                 detachSuccess = true
                 break
-            } catch {
+            } catch let error as NSError {
+                // Check if error is "no such database" - means it's already detached
+                if error.localizedDescription.lowercased().contains("no such database") {
+                    detachSuccess = true
+                    break
+                }
+
                 lastDetachError = error
                 if attempt < 5 {
+                    // Small delay before retry
                     Thread.sleep(forTimeInterval: Double(attempt) * 0.01)
                 }
             }
