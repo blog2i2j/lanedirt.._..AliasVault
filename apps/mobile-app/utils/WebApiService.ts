@@ -71,6 +71,7 @@ export class WebApiService {
       }
 
       // Execute request through native layer with auth
+      // Note: Native layer handles 401 responses and token refresh automatically
       const responseJson = await NativeVaultManager.executeWebApiRequest(
         method,
         endpoint,
@@ -81,7 +82,7 @@ export class WebApiService {
 
       const response: NativeWebApiResponse = JSON.parse(responseJson);
 
-      // If native layer returns 401, the session is truly expired
+      // If native layer returns 401 session is truly expired
       // The native layer has already tried to refresh the token, so this is a final failure
       if (response.statusCode === 401) {
         logoutEventEmitter.emit('auth.errors.sessionExpired');

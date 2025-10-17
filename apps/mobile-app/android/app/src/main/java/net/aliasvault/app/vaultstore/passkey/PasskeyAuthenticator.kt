@@ -1,9 +1,6 @@
 package net.aliasvault.app.vaultstore.passkey
 
-import android.util.Base64
 import org.json.JSONObject
-import java.nio.ByteBuffer
-import java.security.KeyPair
 import java.security.KeyPairGenerator
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -42,7 +39,7 @@ object PasskeyAuthenticator {
     /** AliasVault AAGUID: a11a5vau-9f32-4b8c-8c5d-2f7d13e8c942 */
     private val AAGUID = byteArrayOf(
         0xa1.toByte(), 0x1a, 0x5f, 0xaa.toByte(), 0x9f.toByte(), 0x32, 0x4b, 0x8c.toByte(),
-        0x8c.toByte(), 0x5d, 0x2f, 0x7d, 0x13, 0xe8.toByte(), 0xc9.toByte(), 0x42
+        0x8c.toByte(), 0x5d, 0x2f, 0x7d, 0x13, 0xe8.toByte(), 0xc9.toByte(), 0x42,
     )
 
     // MARK: - Public API
@@ -62,7 +59,7 @@ object PasskeyAuthenticator {
         userDisplayName: String?,
         uvPerformed: Boolean = false,
         enablePrf: Boolean = false,
-        prfInputs: PrfInputs? = null
+        prfInputs: PrfInputs? = null,
     ): PasskeyCreationResult {
         // 1. Generate ES256 key pair
         val keyPairGenerator = KeyPairGenerator.getInstance("EC")
@@ -90,7 +87,7 @@ object PasskeyAuthenticator {
         // 6. Build attested credential data
         val credIdLength = byteArrayOf(
             ((credentialId.size shr 8) and 0xFF).toByte(),
-            (credentialId.size and 0xFF).toByte()
+            (credentialId.size and 0xFF).toByte(),
         )
         val attestedCredData = AAGUID + credIdLength + credentialId + coseKey
 
@@ -130,7 +127,7 @@ object PasskeyAuthenticator {
             userName = userName,
             userDisplayName = userDisplayName,
             prfSecret = prfSecret,
-            prfResults = prfResults
+            prfResults = prfResults,
         )
     }
 
@@ -148,7 +145,7 @@ object PasskeyAuthenticator {
         userId: ByteArray?,
         uvPerformed: Boolean = false,
         prfInputs: PrfInputs? = null,
-        prfSecret: ByteArray? = null
+        prfSecret: ByteArray? = null,
     ): PasskeyAssertionResult {
         // 1. RP ID hash
         val md = MessageDigest.getInstance("SHA-256")
@@ -195,7 +192,7 @@ object PasskeyAuthenticator {
             authenticatorData = authenticatorData,
             signature = derSignature,
             userHandle = userId,
-            prfResults = prfResults
+            prfResults = prfResults,
         )
     }
 
@@ -254,13 +251,13 @@ object PasskeyAuthenticator {
         val yBytes = w.affineY.toByteArray().dropLeadingZeros().padTo32Bytes()
 
         return byteArrayOf(
-            0xA5.toByte(),  // map(5)
-            0x01, 0x02,     // 1: 2 (kty: EC2)
-            0x03, 0x26,     // 3: -7 (alg: ES256)
-            0x20, 0x01,     // -1: 1 (crv: P-256)
-            0x21, 0x58, 0x20  // -2: bytes(32) for x
+            0xA5.toByte(), // map(5)
+            0x01, 0x02, // 1: 2 (kty: EC2)
+            0x03, 0x26, // 3: -7 (alg: ES256)
+            0x20, 0x01, // -1: 1 (crv: P-256)
+            0x21, 0x58, 0x20, // -2: bytes(32) for x
         ) + xBytes + byteArrayOf(
-            0x22, 0x58, 0x20  // -3: bytes(32) for y
+            0x22, 0x58, 0x20, // -3: bytes(32) for y
         ) + yBytes
     }
 
@@ -270,12 +267,12 @@ object PasskeyAuthenticator {
      */
     private fun buildAttestationObjectNone(authenticatorData: ByteArray): ByteArray {
         return byteArrayOf(
-            0xA3.toByte()  // map(3)
+            0xA3.toByte(), // map(3)
         ) +
             cborText("fmt") +
             cborText("none") +
             cborText("attStmt") +
-            byteArrayOf(0xA0.toByte()) +  // map(0) - empty attStmt
+            byteArrayOf(0xA0.toByte()) + // map(0) - empty attStmt
             cborText("authData") +
             cborBytes(authenticatorData)
     }
@@ -291,7 +288,7 @@ object PasskeyAuthenticator {
             else -> byteArrayOf(
                 0x79,
                 ((bytes.size shr 8) and 0xFF).toByte(),
-                (bytes.size and 0xFF).toByte()
+                (bytes.size and 0xFF).toByte(),
             ) + bytes
         }
     }
@@ -306,7 +303,7 @@ object PasskeyAuthenticator {
             else -> byteArrayOf(
                 0x59,
                 ((bytes.size shr 8) and 0xFF).toByte(),
-                (bytes.size and 0xFF).toByte()
+                (bytes.size and 0xFF).toByte(),
             ) + bytes
         }
     }
@@ -354,14 +351,14 @@ object PasskeyAuthenticator {
     data class PasskeyCreationResult(
         val credentialId: ByteArray,
         val attestationObject: ByteArray,
-        val publicKey: ByteArray,  // JWK format
+        val publicKey: ByteArray, // JWK format
         val privateKey: ByteArray, // JWK format
         val rpId: String,
         val userId: ByteArray?,
         val userName: String?,
         val userDisplayName: String?,
         val prfSecret: ByteArray?,
-        val prfResults: PrfResults?
+        val prfResults: PrfResults?,
     ) {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -409,7 +406,7 @@ object PasskeyAuthenticator {
         val authenticatorData: ByteArray,
         val signature: ByteArray,
         val userHandle: ByteArray?,
-        val prfResults: PrfResults?
+        val prfResults: PrfResults?,
     ) {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -441,7 +438,7 @@ object PasskeyAuthenticator {
 
     data class PrfInputs(
         val first: ByteArray?,
-        val second: ByteArray?
+        val second: ByteArray?,
     ) {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -470,7 +467,7 @@ object PasskeyAuthenticator {
 
     data class PrfResults(
         val first: ByteArray,
-        val second: ByteArray?
+        val second: ByteArray?,
     ) {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true

@@ -16,6 +16,11 @@ import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableType
 import com.facebook.react.module.annotations.ReactModule
 import com.facebook.react.turbomodule.core.interfaces.TurboModule
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import net.aliasvault.app.vaultstore.VaultStore
 import net.aliasvault.app.vaultstore.keystoreprovider.AndroidKeystoreProvider
 import net.aliasvault.app.vaultstore.storageprovider.AndroidStorageProvider
@@ -23,11 +28,6 @@ import net.aliasvault.app.webapi.WebApiService
 import net.aliasvault.nativevaultmanager.NativeVaultManagerSpec
 import org.json.JSONArray
 import org.json.JSONObject
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
 
 /**
  * The native vault manager that manages the vault store and all input/output operations on it.
@@ -986,7 +986,7 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
         body: String?,
         headers: String,
         requiresAuth: Boolean,
-        promise: Promise
+        promise: Promise,
     ) {
         try {
             // TODO: Implement when WebApiService is complete
@@ -1004,7 +1004,7 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
                     endpoint = endpoint,
                     body = body,
                     headers = headersMap,
-                    requiresAuth = requiresAuth
+                    requiresAuth = requiresAuth,
                 )
 
                 // Build response JSON
@@ -1042,8 +1042,7 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     @ReactMethod
     override fun setUsername(username: String, promise: Promise) {
         try {
-            // TODO: Implement username storage in VaultStore (similar to iOS)
-            // vaultStore.setUsername(username)
+            vaultStore.setUsername(username)
             promise.resolve(null)
         } catch (e: Exception) {
             Log.e(TAG, "Error setting username", e)
@@ -1058,10 +1057,8 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     @ReactMethod
     override fun getUsername(promise: Promise) {
         try {
-            // TODO: Implement username retrieval from VaultStore (similar to iOS)
-            // val username = vaultStore.getUsername()
-            // promise.resolve(username)
-            promise.resolve(null)
+            val username = vaultStore.getUsername()
+            promise.resolve(username)
         } catch (e: Exception) {
             Log.e(TAG, "Error getting username", e)
             promise.reject("ERR_GET_USERNAME", "Failed to get username: ${e.message}", e)
@@ -1075,8 +1072,7 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     @ReactMethod
     override fun clearUsername(promise: Promise) {
         try {
-            // TODO: Implement username clearing in VaultStore (similar to iOS)
-            // vaultStore.clearUsername()
+            vaultStore.clearUsername()
             promise.resolve(null)
         } catch (e: Exception) {
             Log.e(TAG, "Error clearing username", e)
@@ -1094,8 +1090,7 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     @ReactMethod
     override fun setOfflineMode(isOffline: Boolean, promise: Promise) {
         try {
-            // TODO: Implement offline mode storage in VaultStore (similar to iOS)
-            // vaultStore.setOfflineMode(isOffline)
+            vaultStore.setOfflineMode(isOffline)
             promise.resolve(null)
         } catch (e: Exception) {
             Log.e(TAG, "Error setting offline mode", e)
@@ -1110,10 +1105,8 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     @ReactMethod
     override fun getOfflineMode(promise: Promise) {
         try {
-            // TODO: Implement offline mode retrieval from VaultStore (similar to iOS)
-            // val isOffline = vaultStore.getOfflineMode()
-            // promise.resolve(isOffline)
-            promise.resolve(false)
+            val isOffline = vaultStore.getOfflineMode()
+            promise.resolve(isOffline)
         } catch (e: Exception) {
             Log.e(TAG, "Error getting offline mode", e)
             promise.reject("ERR_GET_OFFLINE_MODE", "Failed to get offline mode: ${e.message}", e)
@@ -1123,30 +1116,52 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     // MARK: - Vault Sync and Mutate
 
     /**
-     * Sync vault with server
-     * Returns true if new vault was downloaded
-     * @param promise The promise to resolve
+     * Check if a new vault version is available on the server
+     * @param promise The promise to resolve with object containing isNewVersionAvailable and newRevision
      */
     @ReactMethod
-    override fun syncVault(promise: Promise) {
+    override fun isNewVaultVersionAvailable(promise: Promise) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // TODO: Implement vault sync in VaultStore (similar to iOS)
-                // This should:
-                // 1. Call WebApiService to get Auth/status
-                // 2. Compare vault revisions
-                // 3. Download vault if server has newer version
-                // 4. Store encrypted vault and update revision
-                // 5. Return true if new vault downloaded, false otherwise
-                //
-                // val hasNewVault = vaultStore.syncVault(webApiService)
+                val result = vaultStore.isNewVaultVersionAvailable(webApiService)
+                val resultMap = Arguments.createMap()
+                resultMap.putBoolean("isNewVersionAvailable", result["isNewVersionAvailable"] as Boolean)
+                val newRevision = result["newRevision"] as? Int
+                if (newRevision != null) {
+                    resultMap.putInt("newRevision", newRevision)
+                } else {
+                    resultMap.putNull("newRevision")
+                }
+
                 withContext(Dispatchers.Main) {
-                    promise.resolve(false)
+                    promise.resolve(resultMap)
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Log.e(TAG, "Error syncing vault", e)
-                    promise.reject("ERR_SYNC_VAULT", "Failed to sync vault: ${e.message}", e)
+                    Log.e(TAG, "Error checking vault version", e)
+                    promise.reject("ERR_CHECK_VAULT_VERSION", "Failed to check vault version: ${e.message}", e)
+                }
+            }
+        }
+    }
+
+    /**
+     * Download and store the vault from the server
+     * @param newRevision The new revision number to download
+     * @param promise The promise to resolve
+     */
+    @ReactMethod
+    override fun downloadVault(newRevision: Double, promise: Promise) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val success = vaultStore.downloadVault(webApiService, newRevision.toInt())
+                withContext(Dispatchers.Main) {
+                    promise.resolve(success)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Log.e(TAG, "Error downloading vault", e)
+                    promise.reject("ERR_DOWNLOAD_VAULT", "Failed to download vault: ${e.message}", e)
                 }
             }
         }
@@ -1160,16 +1175,9 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     override fun mutateVault(promise: Promise) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // TODO: Implement vault mutate in VaultStore (similar to iOS)
-                // This should:
-                // 1. Prepare vault for upload (assemble metadata)
-                // 2. POST vault to server
-                // 3. Update local revision number
-                // 4. Clear offline mode on success
-                //
-                // vaultStore.mutateVault(webApiService)
+                val success = vaultStore.mutateVault(webApiService)
                 withContext(Dispatchers.Main) {
-                    promise.resolve(null)
+                    promise.resolve(success)
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {

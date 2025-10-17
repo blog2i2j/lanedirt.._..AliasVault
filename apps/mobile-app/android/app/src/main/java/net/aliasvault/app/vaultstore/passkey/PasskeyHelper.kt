@@ -1,9 +1,5 @@
 package net.aliasvault.app.vaultstore.passkey
 
-import android.util.Base64
-import java.security.SecureRandom
-import java.util.UUID
-
 /**
  * PasskeyHelper
  * -------------------------
@@ -60,4 +56,16 @@ object PasskeyHelper {
         }.uppercase()
     }
 
+    /**
+     * Convert byte array to Base64URL encoding
+     * Base64URL uses - instead of + and _ instead of /, and omits padding
+     */
+    @JvmStatic
+    fun bytesToBase64url(bytes: ByteArray): String {
+        val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+        return base64
+            .replace('+', '-')
+            .replace('/', '_')
+            .trimEnd('=')
+    }
 }

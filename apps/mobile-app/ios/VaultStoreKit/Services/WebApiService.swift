@@ -95,9 +95,14 @@ public class WebApiService {
     ) async throws -> WebApiResponse {
         var requestHeaders = headers
 
-        // Add authorization header if authentication is required
-        if requiresAuth, let accessToken = getAccessToken() {
-            requestHeaders["Authorization"] = "Bearer \(accessToken)"
+        // Add authorization header if authentication is required AND not already provided
+        if requiresAuth {
+            if requestHeaders["Authorization"] == nil, let accessToken = getAccessToken() {
+                requestHeaders["Authorization"] = "Bearer \(accessToken)"
+                print("WebApiService: Added Authorization header from stored token")
+            } else if requestHeaders["Authorization"] != nil {
+                print("WebApiService: Using provided Authorization header instead of stored token")
+            }
         }
 
         // Add client version header
