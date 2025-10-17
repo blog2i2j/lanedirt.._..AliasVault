@@ -83,15 +83,17 @@ export function CredentialCard({ credential, onCredentialDelete }: CredentialCar
   const handleContextMenuAction = async (event: OnPressMenuItemEvent): Promise<void> => {
     const { name } = event.nativeEvent;
 
+    console.log('handleContextMenuAction', name);
+
     switch (name) {
-      case 'Edit':
+      case t('credentials.contextMenu.edit'):
         Keyboard.dismiss();
         router.push({
           pathname: '/(tabs)/credentials/add-edit',
           params: { id: credential.Id }
         });
         break;
-      case 'Delete':
+      case t('credentials.contextMenu.delete'):
         Keyboard.dismiss();
         Alert.alert(
           t('credentials.deleteCredential'),
@@ -116,37 +118,37 @@ export function CredentialCard({ credential, onCredentialDelete }: CredentialCar
           ]
         );
         break;
-      case 'Copy Username':
+      case t('credentials.contextMenu.copyUsername'):
         if (credential.Username) {
           await copyToClipboard(credential.Username);
           if (Platform.OS === 'ios') {
             Toast.show({
               type: 'success',
-              text1: 'Username copied to clipboard',
+              text1: t('credentials.toasts.usernameCopied'),
               position: 'bottom',
             });
           }
         }
         break;
-      case 'Copy Email':
+      case t('credentials.contextMenu.copyEmail'):
         if (credential.Alias?.Email) {
           await copyToClipboard(credential.Alias.Email);
           if (Platform.OS === 'ios') {
             Toast.show({
               type: 'success',
-              text1: 'Email copied to clipboard',
+              text1: t('credentials.toasts.emailCopied'),
               position: 'bottom',
             });
           }
         }
         break;
-      case 'Copy Password':
+      case t('credentials.contextMenu.copyPassword'):
         if (credential.Password) {
           await copyToClipboard(credential.Password);
           if (Platform.OS === 'ios') {
             Toast.show({
               type: 'success',
-              text1: 'Password copied to clipboard',
+              text1: t('credentials.toasts.passwordCopied'),
               position: 'bottom',
             });
           }

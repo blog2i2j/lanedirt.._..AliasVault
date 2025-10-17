@@ -167,7 +167,10 @@
     "toasts": {
       "credentialUpdated": "Credential updated successfully",
       "credentialCreated": "Credential created successfully",
-      "credentialDeleted": "Credential deleted successfully"
+      "credentialDeleted": "Credential deleted successfully",
+      "usernameCopied": "Username copied to clipboard",
+      "emailCopied": "Email copied to clipboard",
+      "passwordCopied": "Password copied to clipboard"
     },
     "createNewAliasFor": "Create new alias for",
     "errors": {
