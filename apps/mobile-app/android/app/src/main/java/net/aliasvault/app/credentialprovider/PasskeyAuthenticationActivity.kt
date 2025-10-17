@@ -185,10 +185,29 @@ class PasskeyAuthenticationActivity : Activity() {
             LIMIT 1
         """.trimIndent()
 
-        val cursor = db.rawQuery(query, arrayOf(passkeyId.toString()))
+        Log.d(TAG, "Querying for passkey with ID: $passkeyId")
+
+        val cursor = db.rawQuery(query, arrayOf(passkeyId.toString().uppercase()))
         cursor.use {
             if (it.moveToFirst()) {
+                Log.d(TAG, "Found passkey in database")
                 return parsePasskeyRow(it)
+            } else {
+                Log.w(TAG, "Passkey not found in database. Checking all passkeys...")
+                // Debug: List all passkeys to see what's in the database
+                val debugQuery = "SELECT Id, RpId, DisplayName FROM Passkeys WHERE IsDeleted = 0"
+                val debugCursor = db.rawQuery(debugQuery, null)
+                debugCursor.use { debugIt ->
+                    var count = 0
+                    while (debugIt.moveToNext()) {
+                        count++
+                        val id = debugIt.getString(0)
+                        val rpId = debugIt.getString(1)
+                        val displayName = debugIt.getString(2)
+                        Log.d(TAG, "Passkey $count: ID=$id, RpId=$rpId, DisplayName=$displayName")
+                    }
+                    Log.d(TAG, "Total passkeys in database: $count")
+                }
             }
         }
 

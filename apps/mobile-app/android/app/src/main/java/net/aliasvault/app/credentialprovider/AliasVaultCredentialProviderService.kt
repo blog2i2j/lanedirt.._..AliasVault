@@ -119,6 +119,11 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
             val passkeys = vaultStore.getPasskeysForRpId(rpId, db)
             Log.d(TAG, "Found ${passkeys.size} passkeys for $rpId")
 
+            // Debug: Log each passkey ID
+            passkeys.forEach { passkey ->
+                Log.d(TAG, "Passkey found: ID=${passkey.id}, DisplayName=${passkey.displayName}, RpId=${passkey.rpId}")
+            }
+
             // Filter by allowCredentials if specified
             val allowCredentials = requestObj.optJSONArray("allowCredentials")
             val filteredPasskeys = if (allowCredentials != null && allowCredentials.length() > 0) {
@@ -163,6 +168,8 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
         option: BeginGetPublicKeyCredentialOption,
         requestJson: String,
     ): PublicKeyCredentialEntry {
+        Log.d(TAG, "Creating passkey entry for ID=${passkey.id}, DisplayName=${passkey.displayName}")
+
         // Create intent for PasskeyAuthenticationActivity
         val intent = Intent(this, PasskeyAuthenticationActivity::class.java).apply {
             putExtra(EXTRA_REQUEST_JSON, requestJson)
@@ -170,6 +177,8 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
             putExtra(EXTRA_RP_ID, passkey.rpId)
             passkey.userHandle?.let { putExtra("user_handle", it) }
         }
+
+        Log.d(TAG, "Intent created with passkey ID: ${passkey.id}")
 
         val pendingIntent = PendingIntent.getActivity(
             this,
