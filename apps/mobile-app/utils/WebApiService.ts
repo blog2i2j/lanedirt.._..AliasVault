@@ -81,7 +81,8 @@ export class WebApiService {
 
       const response: NativeWebApiResponse = JSON.parse(responseJson);
 
-      // Handle 401 specially to trigger session expired
+      // If native layer returns 401, the session is truly expired
+      // The native layer has already tried to refresh the token, so this is a final failure
       if (response.statusCode === 401) {
         logoutEventEmitter.emit('auth.errors.sessionExpired');
         throw new Error(i18n.t('auth.errors.sessionExpired'));
