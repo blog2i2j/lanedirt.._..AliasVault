@@ -67,50 +67,43 @@ extension CredentialProviderViewController: CredentialProviderDelegate {
         isChoosingTextToInsert = true
         // This will be handled by the credential view model when it's created
     }
-
-    override public func provideCredentialWithoutUserInteraction(for credentialIdentity: ASPasswordCredentialIdentity) {
-        // QuickType bar suggestions are disabled on iOS <26, so this should only be called on iOS 26+
-        if #unavailable(iOS 26.0) {
-            // iOS < 26 - we do not support quick autofill due to buggy behavior
-            self.extensionContext.cancelRequest(
-                withError: NSError(
-                    domain: ASExtensionErrorDomain,
-                    code: ASExtensionError.userInteractionRequired.rawValue
-                )
-            )
-            return
-        }
+    
+    /**
+     * Handle quick return password credential request
+     * Called from viewWillAppear when in quick return mode with vault already unlocked
+     * Ensures minimum 700ms duration for smooth UX (prevents flash/jitter)
+     */
+    internal func handleQuickReturnPasswordCredential(vaultStore: VaultStore, request: ASPasswordCredentialRequest) {
+        // Track start time for minimum duration
+        let startTime = Date()
+        let minimumDuration: TimeInterval = 0.7 // 700ms
 
         do {
-            let vaultStore = VaultStore()
-
-            // Check if vault database exists
-            guard vaultStore.hasEncryptedDatabase else {
-                self.extensionContext.cancelRequest(
-                    withError: NSError(
-                        domain: ASExtensionErrorDomain,
-                        code: ASExtensionError.userInteractionRequired.rawValue
-                    )
-                )
-                return
-            }
-
-            // Unlock vault with biometrics
-            try vaultStore.unlockVault()
-
             let credentials = try vaultStore.getAllCredentials()
 
             if let matchingCredential = credentials.first(where: { credential in
-                return credential.id.uuidString == credentialIdentity.recordIdentifier
+                return credential.id.uuidString == request.credentialIdentity.recordIdentifier
             }) {
+                // Ensure minimum duration before completing
+                let elapsed = Date().timeIntervalSince(startTime)
+                if elapsed < minimumDuration {
+                    Thread.sleep(forTimeInterval: minimumDuration - elapsed)
+                }
+
                 // Use the identifier that matches the credential identity
-                let identifier = credentialIdentity.user
+                let identifier = request.credentialIdentity.user
                 let passwordCredential = ASPasswordCredential(
                     user: identifier,
                     password: matchingCredential.password?.value ?? ""
                 )
                 self.extensionContext.completeRequest(withSelectedCredential: passwordCredential, completionHandler: nil)
             } else {
+                // Ensure minimum duration even on error
+                let elapsed = Date().timeIntervalSince(startTime)
+                if elapsed < minimumDuration {
+                    Thread.sleep(forTimeInterval: minimumDuration - elapsed)
+                }
+
                 self.extensionContext.cancelRequest(
                     withError: NSError(
                         domain: ASExtensionErrorDomain,
@@ -119,12 +112,18 @@ extension CredentialProviderViewController: CredentialProviderDelegate {
                 )
             }
         } catch {
-            print("provideCredentialWithoutUserInteraction error: \(error)")
-            // On any error, request user interaction
+            // Ensure minimum duration even on error
+            let elapsed = Date().timeIntervalSince(startTime)
+            if elapsed < minimumDuration {
+                Thread.sleep(forTimeInterval: minimumDuration - elapsed)
+            }
+
+            print("handleQuickReturnPasswordCredential error: \(error)")
             self.extensionContext.cancelRequest(
                 withError: NSError(
                     domain: ASExtensionErrorDomain,
-                    code: ASExtensionError.userInteractionRequired.rawValue
+                    code: ASExtensionError.failed.rawValue,
+                    userInfo: [NSLocalizedDescriptionKey: error.localizedDescription]
                 )
             )
         }

@@ -36,6 +36,11 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
     private var initialRpId: String?
     private var clientDataHash: Data?
 
+    // Quick return mode (complete request without showing UI)
+    internal var isQuickReturnMode = false
+    internal var quickReturnPasswordRequest: ASPasswordCredentialRequest?
+    internal var quickReturnPasskeyRequest: ASPasskeyCredentialRequest?
+
     // Delegates for specific credential types
     weak var credentialDelegate: CredentialProviderDelegate?
     weak var passkeyDelegate: PasskeyProviderDelegate?
@@ -60,6 +65,29 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
 
     override public func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+
+        // Check if we're in quick return mode
+        // Setup the loading view (actual unlock happens in viewDidAppear)
+        if isQuickReturnMode {
+            // Show loading view
+            let loadingView = QuickUnlockLoadingView()
+            let hostingController = UIHostingController(rootView: loadingView)
+
+            addChild(hostingController)
+            view.addSubview(hostingController.view)
+
+            hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                hostingController.view.topAnchor.constraint(equalTo: view.topAnchor),
+                hostingController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                hostingController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+                hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            ])
+
+            hostingController.didMove(toParent: self)
+            self.currentHostingController = hostingController
+            return
+        }
 
         // Don't set up credential view if we're in passkey registration mode
         if isPasskeyRegistrationMode {
@@ -89,6 +117,7 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
             return
         }
 
+
         // Only set up the view if we haven't already
         if currentHostingController == nil {
             do {
@@ -109,6 +138,33 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
                 })
                 present(alert, animated: true)
                 return
+            }
+        }
+    }
+
+    override public func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+
+        // If we're in quick return mode, now trigger the unlock and complete the request
+        // The loading view is already visible from viewWillAppear
+        if isQuickReturnMode {
+            let vaultStore = VaultStore()
+
+            do {
+                try vaultStore.unlockVault()
+
+                if let passkeyRequest = quickReturnPasskeyRequest {
+                    handleQuickReturnPasskeyCredential(vaultStore: vaultStore, request: passkeyRequest)
+                } else if let passwordRequest = quickReturnPasswordRequest {
+                    handleQuickReturnPasswordCredential(vaultStore: vaultStore, request: passwordRequest)
+                }
+            } catch {
+                print("Quick return vault unlock failed: \(error)")
+                self.extensionContext.cancelRequest(withError: NSError(
+                    domain: ASExtensionErrorDomain,
+                    code: ASExtensionError.failed.rawValue,
+                    userInfo: [NSLocalizedDescriptionKey: error.localizedDescription]
+                ))
             }
         }
     }
@@ -175,24 +231,32 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
     // MARK: - Passkey Support
 
     override public func provideCredentialWithoutUserInteraction(for credentialRequest: ASCredentialRequest) {
-        // Check if this is a passkey request
-        if let passkeyRequest = credentialRequest as? ASPasskeyCredentialRequest {
-            providePasskeyCredentialWithoutUserInteraction(for: passkeyRequest)
-            return
-        }
-
-        // For password credentials, delegate to credential extension
-        if let credentialIdentity = credentialRequest.credentialIdentity as? ASPasswordCredentialIdentity {
-            // This should call the credential extension's provideCredentialWithoutUserInteraction method
-            provideCredentialWithoutUserInteraction(for: credentialIdentity)
-            return
-        }
-
-        // Unknown credential type
+        // Always cancel and let iOS invoke prepareInterfaceToProvideCredential instead.
         self.extensionContext.cancelRequest(withError: NSError(
             domain: ASExtensionErrorDomain,
             code: ASExtensionError.userInteractionRequired.rawValue
         ))
+    }
+
+    override public func prepareInterfaceToProvideCredential(for request: ASCredentialRequest) {
+        // Check if this is a password/credential request
+        if let passwordRequest = request as? ASPasswordCredentialRequest {
+            // We don't unlock vault here - that requires user interaction context
+            // which will happen in viewWillAppear
+            self.isQuickReturnMode = true
+            self.quickReturnPasswordRequest = passwordRequest
+            return
+        }
+
+        // Check if this is a passkey request
+        if let passkeyRequest = request as? ASPasskeyCredentialRequest {
+            // Store request and set quick return mode flag
+            // We don't unlock vault here - that requires user interaction context
+            // which will happen in viewWillAppear
+            self.isQuickReturnMode = true
+            self.quickReturnPasskeyRequest = passkeyRequest
+            return
+        }
     }
 
     /// Run sanity checks on the vault store before opening the autofill view to check things like if user is logged in,

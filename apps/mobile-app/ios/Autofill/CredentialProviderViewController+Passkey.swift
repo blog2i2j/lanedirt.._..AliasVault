@@ -34,20 +34,16 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
     }
 
     /**
-     * Provide passkey credential without user interaction
+     * Handle quick return passkey credential request
+     * Called from viewWillAppear when in quick return mode with vault already unlocked
+     * Ensures minimum 700ms duration for smooth UX (prevents flash/jitter)
      */
-    internal func providePasskeyCredentialWithoutUserInteraction(for request: ASPasskeyCredentialRequest) {
+    internal func handleQuickReturnPasskeyCredential(vaultStore: VaultStore, request: ASPasskeyCredentialRequest) {
+        // Track start time for minimum duration
+        let startTime = Date()
+        let minimumDuration: TimeInterval = 0.7 // 700ms
+
         do {
-            let vaultStore = VaultStore()
-
-            // Check vault state
-            guard sanityChecks(vaultStore: vaultStore) else {
-                return
-            }
-
-            // Unlock vault
-            try vaultStore.unlockVault()
-
             let clientDataHash = request.clientDataHash
             let credentialIdentity = request.credentialIdentity as? ASPasskeyCredentialIdentity
             let rpId = credentialIdentity?.relyingPartyIdentifier ?? ""
@@ -55,6 +51,12 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
 
             // Look up passkey by credential ID
             guard let passkey = try vaultStore.getPasskey(byCredentialId: credentialID) else {
+                // Ensure minimum duration even on error
+                let elapsed = Date().timeIntervalSince(startTime)
+                if elapsed < minimumDuration {
+                    Thread.sleep(forTimeInterval: minimumDuration - elapsed)
+                }
+
                 extensionContext.cancelRequest(withError: NSError(
                     domain: ASExtensionErrorDomain,
                     code: ASExtensionError.credentialIdentityNotFound.rawValue
@@ -94,6 +96,12 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 )
                 let extensionOutput = ASPasskeyAssertionCredentialExtensionOutput(prf: prfOutput)
 
+                // Ensure minimum duration before completing
+                let elapsed = Date().timeIntervalSince(startTime)
+                if elapsed < minimumDuration {
+                    Thread.sleep(forTimeInterval: minimumDuration - elapsed)
+                }
+
                 // Complete the request with extension output
                 let credential = ASPasskeyAssertionCredential(
                     userHandle: assertion.userHandle ?? Data(),
@@ -109,6 +117,12 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 return
             }
 
+            // Ensure minimum duration before completing
+            let elapsed = Date().timeIntervalSince(startTime)
+            if elapsed < minimumDuration {
+                Thread.sleep(forTimeInterval: minimumDuration - elapsed)
+            }
+
             // Complete the request without PRF extension output
             let credential = ASPasskeyAssertionCredential(
                 userHandle: assertion.userHandle ?? Data(),
@@ -122,11 +136,17 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
             extensionContext.completeAssertionRequest(using: credential)
 
         } catch {
-            print("Passkey authentication without UI error: \(error)")
-            // Require user interaction if we can't authenticate silently
+            // Ensure minimum duration even on error
+            let elapsed = Date().timeIntervalSince(startTime)
+            if elapsed < minimumDuration {
+                Thread.sleep(forTimeInterval: minimumDuration - elapsed)
+            }
+
+            print("handleQuickReturnPasskeyCredential error: \(error)")
             extensionContext.cancelRequest(withError: NSError(
                 domain: ASExtensionErrorDomain,
-                code: ASExtensionError.userInteractionRequired.rawValue
+                code: ASExtensionError.failed.rawValue,
+                userInfo: [NSLocalizedDescriptionKey: error.localizedDescription]
             ))
         }
     }
