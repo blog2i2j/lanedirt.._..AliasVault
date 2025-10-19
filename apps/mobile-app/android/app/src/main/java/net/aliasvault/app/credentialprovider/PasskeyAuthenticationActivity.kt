@@ -136,6 +136,26 @@ class PasskeyAuthenticationActivity : Activity() {
             Log.d(TAG, "Request challenge: $challenge")
             Log.d(TAG, "Request origin: $origin")
             Log.d(TAG, "RP ID: $rpId")
+            Log.d(TAG, "Full request JSON keys: ${requestObj.keys().asSequence().toList()}")
+
+            // CRITICAL: Check if Chrome provided clientDataHash in the credential option
+            // When Chrome on Android calls us, it provides a GetPublicKeyCredentialOption
+            // with a clientDataHash that we MUST use for signing
+            var clientDataHashFromChrome: ByteArray? = null
+
+            Log.d(TAG, "Checking providerRequest for clientDataHash...")
+            val credentialOptions = providerRequest.credentialOptions
+            Log.d(TAG, "Number of credential options: ${credentialOptions.size}")
+
+            credentialOptions.forEach { option ->
+                Log.d(TAG, "Credential option type: ${option.type}")
+                if (option is androidx.credentials.GetPublicKeyCredentialOption) {
+                    Log.d(TAG, "Found GetPublicKeyCredentialOption!")
+                    val clientDataHash = option.clientDataHash
+                    Log.d(TAG, "clientDataHash from Chrome: ${clientDataHash?.joinToString("") { "%02x".format(it) }}")
+                    clientDataHashFromChrome = clientDataHash
+                }
+            }
 
             // Generate the passkey credential ID (UUID as bytes)
             val credentialId = PasskeyHelper.guidToBytes(passkey.id.toString())
@@ -143,8 +163,7 @@ class PasskeyAuthenticationActivity : Activity() {
             // Extract PRF extension inputs if present
             val prfInputs = extractPrfInputs(requestObj)
 
-            // CRITICAL FIX: Let Android generate clientDataJSON, then sign it
-            // We need to create the AuthenticatorAssertionResponse first to get its clientDataJSON
+            // CRITICAL FIX: Use Chrome's clientDataHash if provided, otherwise build our own
             val response = buildAuthenticationResponseWithSignature(
                 providerRequest,
                 requestJson,
@@ -155,6 +174,7 @@ class PasskeyAuthenticationActivity : Activity() {
                 origin,
                 prfInputs,
                 passkey.prfKey,
+                clientDataHashFromChrome, // Pass Chrome's hash if available
             )
 
             Log.d(TAG, "Assertion generated and signed successfully")
@@ -297,13 +317,26 @@ class PasskeyAuthenticationActivity : Activity() {
 
     /**
      * Build clientDataJSON for WebAuthn
+     *
+     * IMPORTANT: Per WebAuthn spec (https://www.w3.org/TR/webauthn-2/#clientdatajson-serialization),
+     * the server/RP MUST parse clientDataJSON as JSON and validate only the required fields.
+     * Browsers (Chrome) may add extra fields like "other_keys_can_be_added_here" to test that
+     * RPs don't do naive template matching.
+     *
+     * We build a minimal, spec-compliant clientDataJSON here. The server should:
+     * 1. Parse as JSON (not string compare!)
+     * 2. Validate type === "webauthn.get"
+     * 3. Validate challenge matches expected value
+     * 4. Validate origin is allowed for this RP
+     * 5. Ignore any extra fields
+     *
      * CRITICAL: Must NOT escape forward slashes in origin!
      * JavaScript JSON.stringify() doesn't escape slashes by default, but Android's JSONObject does.
-     * The RP expects the exact same format as browsers send.
      */
     private fun buildClientDataJson(challenge: String, origin: String): String {
         // Build JSON manually WITHOUT escaping forward slashes
         // This matches browser behavior where JSON.stringify() doesn't escape slashes
+        // NOTE: We only include required fields. Extra fields from browsers are allowed by spec.
         return """{"type":"webauthn.get","challenge":"$challenge","origin":"$origin","crossOrigin":false}"""
     }
 
@@ -369,8 +402,13 @@ class PasskeyAuthenticationActivity : Activity() {
     }
 
     /**
-     * Build the GetCredentialResponse with assertion data using native WebAuthn types
-     * This version extracts Android's clientDataJSON and signs it correctly
+     * Build WebAuthn assertion response with proper signature
+     *
+     * CRITICAL: If Chrome provides clientDataHash, we MUST use that for signing.
+     * Otherwise, we build our own clientDataJSON.
+     *
+     * Chrome on Android will replace our clientDataJSON with its own (including extra fields),
+     * so we must sign using Chrome's pre-computed hash to ensure the signature matches.
      */
     @Suppress("LongParameterList")
     private fun buildAuthenticationResponseWithSignature(
@@ -383,109 +421,106 @@ class PasskeyAuthenticationActivity : Activity() {
         origin: String,
         prfInputs: PasskeyAuthenticator.PrfInputs?,
         prfSecret: ByteArray?,
+        clientDataHashFromChrome: ByteArray?, // Chrome's pre-computed hash
     ): androidx.credentials.GetCredentialResponse {
-        // Create PublicKeyCredentialRequestOptions from the request JSON
         val requestOptions = PublicKeyCredentialRequestOptions(requestJson)
-
-        // Get calling app package name
         val packageName = providerRequest.callingAppInfo.packageName
-
-        // CRITICAL FIX: Don't use Android's clientDataJSON because it includes "androidPackageName"
-        // which web RPs don't understand. Build our own like browsers do.
-
-        // Extract challenge from the original request JSON (as base64url string)
         val requestObj = JSONObject(requestJson)
         val challengeB64 = requestObj.optString("challenge", "")
 
-        Log.d(TAG, "Challenge from request JSON: $challengeB64")
+        // Step 1: Determine clientDataHash - use Chrome's if provided, otherwise build our own
+        val clientDataHash: ByteArray
+        val clientDataB64: String
 
-        // Build browser-compatible clientDataJSON (without androidPackageName)
-        val browserClientDataJson = buildClientDataJson(challengeB64, origin)
-        val browserClientDataBytes = browserClientDataJson.toByteArray(Charsets.UTF_8)
-        val browserClientDataB64 = base64urlEncode(browserClientDataBytes)
+        if (clientDataHashFromChrome != null) {
+            // Chrome provided the hash - use it for signing
+            clientDataHash = clientDataHashFromChrome
+            // We still need to build clientDataJSON for the response, but it won't be used for signing
+            val clientDataJson = buildClientDataJson(challengeB64, origin)
+            clientDataB64 = base64urlEncode(clientDataJson.toByteArray(Charsets.UTF_8))
+            Log.d(TAG, "Using Chrome's clientDataHash for signing")
+            Log.d(TAG, "clientDataHash from Chrome: ${clientDataHash.joinToString("") { "%02x".format(it) }}")
+        } else {
+            // Build our own clientDataJSON and hash it
+            val clientDataJson = buildClientDataJson(challengeB64, origin)
+            val clientDataBytes = clientDataJson.toByteArray(Charsets.UTF_8)
+            clientDataHash = sha256(clientDataBytes)
+            clientDataB64 = base64urlEncode(clientDataBytes)
+            Log.d(TAG, "Built our own clientDataJSON")
+            Log.d(TAG, "ClientDataJSON: $clientDataJson")
+        }
 
-        Log.d(TAG, "Browser-compatible clientDataJSON: $browserClientDataJson")
+        Log.d(TAG, "Challenge: $challengeB64")
 
-        // For authenticatorData, we can use Android's because it's standard
-        val authenticatorResponse = AuthenticatorAssertionResponse(
-            requestOptions = requestOptions,
-            credentialId = credentialId,
-            origin = origin,
-            up = true,
-            uv = true,
-            be = true,
-            bs = true,
-            userHandle = userHandle ?: ByteArray(0),
-            packageName = packageName,
+        // Step 2: Build authenticatorData deterministically
+        // Extract rpId from request
+        val rpId = requestObj.optString("rpId", "")
+        if (rpId.isEmpty()) {
+            Log.e(TAG, "CRITICAL: rpId missing from request")
+            throw IllegalArgumentException("rpId required in request")
+        }
+
+        // Determine if user verification was actually performed
+        // For now, we always require biometric, so UV = true
+        val userVerified = true
+
+        // Build our own authenticatorData (don't use Android's)
+        val authData = buildAuthenticatorData(
+            rpId = rpId,
+            userVerified = userVerified,
+            includeExtensions = false, // PRF goes in clientExtensionResults only
         )
+        val authDataB64 = base64urlEncode(authData)
 
-        val fidoCredentialTemp = FidoPublicKeyCredential(
-            rawId = credentialId,
-            response = authenticatorResponse,
-            authenticatorAttachment = "cross-platform",
-        )
-        val tempJson = JSONObject(fidoCredentialTemp.json())
-        val responseSection = tempJson.getJSONObject("response")
-        val androidAuthDataB64 = responseSection.getString("authenticatorData")
-        val androidAuthData = base64urlDecode(androidAuthDataB64)
+        Log.d(TAG, "AuthenticatorData: ${authData.size} bytes (deterministic)")
+        Log.d(TAG, "rpId: $rpId")
+        Log.d(TAG, "rpIdHash: ${authData.copyOfRange(0, 32).joinToString("") { "%02x".format(it) }}")
+        Log.d(TAG, "flags: 0x${"%02x".format(authData[32])}")
 
-        Log.d(TAG, "Android generated authenticatorData (${androidAuthData.size} bytes)")
-
-        // Now compute the signature over our browser-compatible clientDataJSON + Android's authenticatorData
-        val clientDataHash = sha256(browserClientDataBytes)
-        val dataToSign = androidAuthData + clientDataHash
-
-        // Import private key and sign
+        // Step 3: Sign authenticatorData || clientDataHash
+        // clientDataHash is either from Chrome or computed from our clientDataJSON
+        val dataToSign = authData + clientDataHash
         val privateKey = importPrivateKeyFromJWK(privateKeyJWK)
-
-        // Extract public key from private key JWK for verification
-        val privateKeyJson = JSONObject(String(privateKeyJWK, Charsets.UTF_8))
-        val xFromPrivate = privateKeyJson.optString("x")
-        val yFromPrivate = privateKeyJson.optString("y")
-        Log.d(TAG, "Private key JWK has public components - x: ${xFromPrivate.take(20)}..., y: ${yFromPrivate.take(20)}...")
 
         val signer = java.security.Signature.getInstance("SHA256withECDSA")
         signer.initSign(privateKey)
         signer.update(dataToSign)
-        val derSignature = signer.sign()
+        val rawSignature = signer.sign()
 
-        Log.d(TAG, "Signature computed over Android's clientDataJSON and authenticatorData")
+        // Canonicalize signature to low-S form (WebAuthn requirement)
+        val signature = canonicalizeECDSASignature(rawSignature)
 
-        // Verify signature with public key to ensure it's valid
+        Log.d(TAG, "Signature generated and canonicalized")
+
+        // Step 4: Self-verify canonical signature
         try {
             val publicKey = importPublicKeyFromPrivateJWK(privateKeyJWK)
             val verifier = java.security.Signature.getInstance("SHA256withECDSA")
             verifier.initVerify(publicKey)
             verifier.update(dataToSign)
-            val isValid = verifier.verify(derSignature)
-            Log.d(TAG, "Self-verification of signature: ${if (isValid) "SUCCESS" else "FAILED"}")
+            val isValid = verifier.verify(signature)
+            Log.d(TAG, "Self-verification (canonical): ${if (isValid) "PASS" else "FAIL"}")
             if (!isValid) {
-                Log.e(TAG, "!!! SIGNATURE VERIFICATION FAILED WITH OUR OWN PUBLIC KEY !!!")
+                Log.e(TAG, "CRITICAL: Canonical signature self-verification failed!")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error during self-verification", e)
+            Log.e(TAG, "Self-verification error", e)
         }
 
-        // CRITICAL: We must use the EXACT clientDataJSON, authenticatorData, and signature
-        // that we just computed. We cannot create a new AuthenticatorAssertionResponse
-        // because it will generate NEW clientDataJSON/authenticatorData!
-        // So we manually construct the response JSON with our exact values.
-
-        // Evaluate PRF if requested
-        var prfResults: PasskeyAuthenticator.PrfResults? = null
-        if (prfInputs != null && prfSecret != null) {
-            val firstInput = prfInputs.first
-            if (firstInput != null) {
-                val firstResult = evaluatePrf(prfSecret, firstInput)
-                val secondResult = prfInputs.second?.let { evaluatePrf(prfSecret, it) }
-                prfResults = PasskeyAuthenticator.PrfResults(firstResult, secondResult)
-                Log.d(TAG, "PRF extension evaluated")
+        // Step 6: Evaluate PRF extension if requested
+        val prfResults = if (prfInputs?.first != null && prfSecret != null) {
+            val first = evaluatePrf(prfSecret, prfInputs.first!!)
+            val second = prfInputs.second?.let { evaluatePrf(prfSecret, it) }
+            PasskeyAuthenticator.PrfResults(first, second).also {
+                Log.d(TAG, "PRF evaluated")
             }
+        } else {
+            null
         }
 
-        // Manually build the response JSON using our exact values
+        // Step 7: Build WebAuthn assertion response JSON
         val credentialIdB64 = base64urlEncode(credentialId)
-        val signatureB64 = base64urlEncode(derSignature)
+        val signatureB64 = base64urlEncode(signature)
         val userHandleB64 = userHandle?.let { base64urlEncode(it) }
 
         val responseObj = JSONObject().apply {
@@ -494,57 +529,192 @@ class PasskeyAuthenticationActivity : Activity() {
             put("type", "public-key")
             put("authenticatorAttachment", "cross-platform")
 
-            // Build the response section with our exact data
-            val responseJson = JSONObject().apply {
-                put("clientDataJSON", browserClientDataB64) // Use our browser-compatible one
-                put("authenticatorData", androidAuthDataB64) // Use Android's standard one
-                put("signature", signatureB64) // Use the signature we computed over both
-                if (userHandleB64 != null) {
-                    put("userHandle", userHandleB64)
-                }
-            }
-            put("response", responseJson)
+            put(
+                "response",
+                JSONObject().apply {
+                    put("clientDataJSON", clientDataB64)
+                    put("authenticatorData", authDataB64)
+                    put("signature", signatureB64)
+                    userHandleB64?.let { put("userHandle", it) }
+                },
+            )
 
-            // Include client extension results if PRF is present
-            if (prfResults != null) {
-                val clientExtensionResults = JSONObject().apply {
-                    val prfObj = JSONObject().apply {
-                        val resultsObj = JSONObject().apply {
-                            put("first", base64urlEncode(prfResults.first))
-                            prfResults.second?.let {
-                                put("second", base64urlEncode(it))
-                            }
-                        }
-                        put("results", resultsObj)
+            put(
+                "clientExtensionResults",
+                prfResults?.let {
+                    JSONObject().apply {
+                        put(
+                            "prf",
+                            JSONObject().apply {
+                                put(
+                                    "results",
+                                    JSONObject().apply {
+                                        put("first", base64urlEncode(it.first))
+                                        it.second?.let { second -> put("second", base64urlEncode(second)) }
+                                    },
+                                )
+                            },
+                        )
                     }
-                    put("prf", prfObj)
-                }
-                put("clientExtensionResults", clientExtensionResults)
-                Log.d(TAG, "PRF extension results included in response")
-            } else {
-                put("clientExtensionResults", JSONObject())
-            }
+                } ?: JSONObject(),
+            )
         }
 
         val responseJsonString = responseObj.toString()
-        Log.d(TAG, "WebAuthn response built: $responseJsonString")
 
-        // Detailed logging for debugging signature verification issues
-        Log.d(TAG, "=== Detailed Response Data ===")
-        Log.d(TAG, "credentialId (base64url): $credentialIdB64")
-        Log.d(TAG, "authenticatorData (base64url): $androidAuthDataB64")
-        Log.d(TAG, "clientDataJSON (base64url): $browserClientDataB64")
-        Log.d(TAG, "signature (base64url): $signatureB64")
-        Log.d(TAG, "userHandle (base64url): ${userHandleB64 ?: "null"}")
+        // Detailed logging for debugging
+        Log.d(TAG, "=== Response Data ===")
+        Log.d(TAG, "credentialId: $credentialIdB64")
+        Log.d(TAG, "authenticatorData: $authDataB64")
+        Log.d(TAG, "clientDataJSON: $clientDataB64")
+        Log.d(TAG, "signature: $signatureB64")
+        Log.d(TAG, "userHandle: ${userHandleB64 ?: "null"}")
+        Log.d(TAG, "Full response length: ${responseJsonString.length}")
 
-        // Decode and log the actual clientDataJSON being sent
-        val sentClientData = String(base64urlDecode(browserClientDataB64), Charsets.UTF_8)
-        Log.d(TAG, "Decoded clientDataJSON being sent: $sentClientData")
+        // Verify the challenge is intact in the response
+        val verifyClientDataJson = String(base64urlDecode(clientDataB64), Charsets.UTF_8)
+        val verifyChallenge = JSONObject(verifyClientDataJson).optString("challenge", "")
+        if (verifyChallenge != challengeB64) {
+            Log.e(TAG, "CRITICAL: Challenge mismatch!")
+            Log.e(TAG, "Expected: $challengeB64")
+            Log.e(TAG, "Got: $verifyChallenge")
+        } else {
+            Log.d(TAG, "Challenge verified in clientDataJSON")
+        }
 
-        // Create PublicKeyCredential response
         return androidx.credentials.GetCredentialResponse(
             androidx.credentials.PublicKeyCredential(responseJsonString),
         )
+    }
+
+    /**
+     * Build authenticatorData deterministically
+     *
+     * Format (WebAuthn spec):
+     * - rpIdHash (32 bytes): SHA-256(rpId)
+     * - flags (1 byte): UP=1, UV based on actual verification, BE/BS=0 (not backup eligible)
+     * - signCount (4 bytes): 0 (we don't maintain counters)
+     * - extensions (variable): CBOR-encoded if ED flag is set
+     *
+     * @param rpId The relying party ID (e.g., "example.com")
+     * @param userVerified Whether user verification (biometric/PIN) was performed
+     * @param includeExtensions Whether to include extension data (sets ED flag)
+     * @return The authenticatorData bytes
+     */
+    private fun buildAuthenticatorData(
+        rpId: String,
+        userVerified: Boolean,
+        includeExtensions: Boolean = false,
+    ): ByteArray {
+        // rpIdHash: SHA-256(rpId)
+        val rpIdHash = sha256(rpId.toByteArray(Charsets.UTF_8))
+
+        // Flags byte (bit 0 = UP, bit 2 = UV, bit 7 = ED)
+        var flags: Byte = 0x01 // UP (User Present) = 1
+        if (userVerified) {
+            flags = (flags.toInt() or 0x04).toByte() // UV (User Verified) = 1
+        }
+        if (includeExtensions) {
+            flags = (flags.toInt() or 0x80).toByte() // ED (Extension Data) = 1
+        }
+        // BE (Backup Eligible) and BS (Backup State) = 0 (bits 3 and 4)
+        // We're not a synced/backup authenticator for credential manager purposes
+
+        // signCount: 4 bytes, big-endian, set to 0
+        // (we don't maintain per-credential counters)
+        val signCount = byteArrayOf(0x00, 0x00, 0x00, 0x00)
+
+        // Extensions: empty CBOR map if ED flag is set
+        // PRF results go in clientExtensionResults, not authenticator extensions
+        val extensions = if (includeExtensions) {
+            // Empty CBOR map: 0xA0
+            byteArrayOf(0xA0.toByte())
+        } else {
+            byteArrayOf()
+        }
+
+        return rpIdHash + flags + signCount + extensions
+    }
+
+    /**
+     * Canonicalize ECDSA signature to low-S form (WebAuthn requirement)
+     *
+     * WebAuthn requires canonical (low-S) ECDSA signatures to prevent malleability.
+     * If s > n/2, we compute s' = n - s and re-encode.
+     */
+    private fun canonicalizeECDSASignature(derSignature: ByteArray): ByteArray {
+        // Parse DER-encoded signature
+        val (r, s) = parseDERSignature(derSignature)
+
+        // secp256r1 order (n)
+        val n = java.math.BigInteger(
+            "FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551",
+            16,
+        )
+
+        val halfN = n.shiftRight(1)
+
+        // If s > n/2, compute s' = n - s (canonical low-S form)
+        val canonicalS = if (s > halfN) {
+            Log.d(TAG, "High-S detected, normalizing to low-S")
+            n.subtract(s)
+        } else {
+            s
+        }
+
+        // Re-encode to DER
+        return encodeDERSignature(r, canonicalS)
+    }
+
+    /**
+     * Parse DER-encoded ECDSA signature into (r, s) components
+     */
+    private fun parseDERSignature(der: ByteArray): Pair<java.math.BigInteger, java.math.BigInteger> {
+        var offset = 0
+
+        // SEQUENCE tag
+        require(der[offset++].toInt() == 0x30) { "Invalid DER: expected SEQUENCE" }
+
+        // SEQUENCE length
+        val seqLength = der[offset++].toInt() and 0xFF
+        require(seqLength == der.size - 2) { "Invalid DER: incorrect SEQUENCE length" }
+
+        // INTEGER tag for r
+        require(der[offset++].toInt() == 0x02) { "Invalid DER: expected INTEGER for r" }
+        val rLength = der[offset++].toInt() and 0xFF
+        val rBytes = der.copyOfRange(offset, offset + rLength)
+        offset += rLength
+        val r = java.math.BigInteger(1, rBytes)
+
+        // INTEGER tag for s
+        require(der[offset++].toInt() == 0x02) { "Invalid DER: expected INTEGER for s" }
+        val sLength = der[offset++].toInt() and 0xFF
+        val sBytes = der.copyOfRange(offset, offset + sLength)
+        val s = java.math.BigInteger(1, sBytes)
+
+        return Pair(r, s)
+    }
+
+    /**
+     * Encode (r, s) components into DER-encoded ECDSA signature
+     */
+    private fun encodeDERSignature(r: java.math.BigInteger, s: java.math.BigInteger): ByteArray {
+        fun encodeInteger(value: java.math.BigInteger): ByteArray {
+            val bytes = value.toByteArray()
+            // BigInteger.toByteArray() includes sign byte if MSB is set
+            // DER INTEGER should have minimal encoding
+            return byteArrayOf(0x02.toByte(), bytes.size.toByte()) + bytes
+        }
+
+        val rEncoded = encodeInteger(r)
+        val sEncoded = encodeInteger(s)
+
+        val totalLength = rEncoded.size + sEncoded.size
+
+        return byteArrayOf(
+            0x30.toByte(), // SEQUENCE tag
+            totalLength.toByte(), // SEQUENCE length
+        ) + rEncoded + sEncoded
     }
 
     /**
