@@ -3,10 +3,22 @@ import SwiftUI
 /// Loading view shown during quick unlock (biometric authentication)
 public struct QuickUnlockLoadingView: View {
     @Environment(\.colorScheme) private var colorScheme
-    
-    private let locBundle = Bundle.vaultUI
 
-    public init() {}
+    private let locBundle = Bundle.vaultUI
+    private let type: QuickUnlockType
+
+    public init(type: QuickUnlockType) {
+        self.type = type
+    }
+
+    private var localizedMessage: String {
+        switch type {
+        case .credential:
+            return String(localized: "retrieving_credential", bundle: locBundle)
+        case .passkey:
+            return String(localized: "retrieving_passkey", bundle: locBundle)
+        }
+    }
 
     public var body: some View {
         ZStack {
@@ -15,17 +27,27 @@ public struct QuickUnlockLoadingView: View {
                 .ignoresSafeArea()
 
             // Loading overlay
-            LoadingOverlayView(message: String(localized: "retrieving_credential", bundle: locBundle))
+            LoadingOverlayView(message: localizedMessage)
         }
     }
 }
 
-#Preview("Light Mode") {
-    QuickUnlockLoadingView()
+#Preview("Credential - Light Mode") {
+    QuickUnlockLoadingView(type: .credential)
         .preferredColorScheme(.light)
 }
 
-#Preview("Dark Mode") {
-    QuickUnlockLoadingView()
+#Preview("Credential - Dark Mode") {
+    QuickUnlockLoadingView(type: .credential)
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Passkey - Light Mode") {
+    QuickUnlockLoadingView(type: .passkey)
+        .preferredColorScheme(.light)
+}
+
+#Preview("Passkey - Dark Mode") {
+    QuickUnlockLoadingView(type: .passkey)
         .preferredColorScheme(.dark)
 }

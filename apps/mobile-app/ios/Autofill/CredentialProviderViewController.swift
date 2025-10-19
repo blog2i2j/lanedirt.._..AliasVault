@@ -69,8 +69,11 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
         // Check if we're in quick return mode
         // Setup the loading view (actual unlock happens in viewDidAppear)
         if isQuickReturnMode {
-            // Show loading view
-            let loadingView = QuickUnlockLoadingView()
+            // Determine the type of credential being retrieved
+            let type: QuickUnlockType = quickReturnPasskeyRequest != nil ? .passkey : .credential
+
+            // Show loading view with appropriate type
+            let loadingView = QuickUnlockLoadingView(type: type)
             let hostingController = UIHostingController(rootView: loadingView)
 
             addChild(hostingController)
