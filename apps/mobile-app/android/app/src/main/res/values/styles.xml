@@ -17,11 +17,16 @@
     <item name="windowSplashScreenAnimatedIcon">@drawable/splashscreen_logo</item>
     <item name="postSplashScreenTheme">@style/AppTheme</item>
   </style>
-  <style name="PasskeyRegistrationTheme" parent="Theme.Material3.Light.NoActionBar">
-    <item name="colorPrimary">@color/colorPrimary</item>
-    <item name="android:statusBarColor">#fff</item>
-    <item name="android:navigationBarColor">#fff</item>
+  <style name="PasskeyRegistrationTheme" parent="Theme.Material3.DayNight.NoActionBar">
+    <item name="colorPrimary">@color/av_primary</item>
+    <item name="colorOnPrimary">#FFFFFF</item>
+    <item name="android:colorBackground">@color/av_background</item>
+    <item name="android:textColorPrimary">@color/av_text</item>
+    <item name="android:textColorSecondary">@color/av_text_muted</item>
+    <item name="android:statusBarColor">@color/av_background</item>
+    <item name="android:navigationBarColor">@color/av_background</item>
     <item name="android:windowDrawsSystemBarBackgrounds">true</item>
     <item name="android:windowLightStatusBar">true</item>
+    <item name="android:windowLightNavigationBar">true</item>
   </style>
 </resources>

@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?android:attr/colorBackground">
+    android:background="@color/av_background">
 
     <!-- Main content -->
     <ScrollView
@@ -18,6 +18,17 @@
             android:orientation="vertical"
             android:padding="24dp">
 
+            <!-- Logo -->
+            <ImageView
+                android:id="@+id/logoImage"
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="20dp"
+                android:layout_marginBottom="12dp"
+                android:src="@drawable/av_logo"
+                android:contentDescription="@string/app_name" />
+
             <!-- Header -->
             <TextView
                 android:id="@+id/headerTitle"
@@ -26,7 +37,8 @@
                 android:text="@string/passkey_registration_title"
                 android:textSize="24sp"
                 android:textStyle="bold"
-                android:textColor="?android:attr/textColorPrimary"
+                android:textColor="@color/av_text"
+                android:gravity="center"
                 android:layout_marginBottom="8dp" />
 
             <TextView
@@ -34,8 +46,36 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textSize="14sp"
-                android:textColor="?android:attr/textColorSecondary"
-                android:layout_marginBottom="32dp" />
+                android:textColor="@color/av_text_muted"
+                android:gravity="center"
+                android:layout_marginBottom="20dp" />
+
+            <!-- Info notice -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="@drawable/info_notice_background"
+                android:padding="16dp"
+                android:layout_marginBottom="16dp"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@android:drawable/ic_dialog_info"
+                    android:tint="@color/av_primary"
+                    android:layout_marginEnd="12dp"
+                    android:contentDescription="@string/passkey_info_icon" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/passkey_create_explanation"
+                    android:textSize="12sp"
+                    android:textColor="@color/av_text_muted" />
+            </LinearLayout>
 
             <!-- Display Name Input -->
             <com.google.android.material.textfield.TextInputLayout
@@ -44,9 +84,10 @@
                 android:layout_height="wrap_content"
                 android:hint="@string/passkey_display_name_label"
                 app:boxBackgroundMode="outline"
-                app:boxStrokeColor="@color/colorPrimary"
-                app:hintTextColor="@color/colorPrimary"
-                android:layout_marginBottom="24dp">
+                app:boxStrokeColor="@color/av_primary"
+                app:hintTextColor="@color/av_primary"
+                app:boxBackgroundColor="@color/av_accent_background"
+                android:layout_marginBottom="16dp">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/displayNameInput"
@@ -54,6 +95,7 @@
                     android:layout_height="wrap_content"
                     android:inputType="text"
                     android:textSize="16sp"
+                    android:textColor="@color/av_text"
                     android:maxLines="1" />
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -63,13 +105,15 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:layout_marginBottom="16dp">
+                android:padding="12dp"
+                android:background="@drawable/info_row_background"
+                android:layout_marginBottom="8dp">
 
                 <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
                     android:src="@android:drawable/ic_menu_compass"
-                    android:tint="@color/colorPrimary"
+                    android:tint="@color/av_icon"
                     android:layout_marginEnd="12dp"
                     android:contentDescription="@string/passkey_website_label" />
 
@@ -84,14 +128,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/passkey_website_label"
                         android:textSize="12sp"
-                        android:textColor="?android:attr/textColorSecondary" />
+                        android:textColor="@color/av_text_muted" />
 
                     <TextView
                         android:id="@+id/websiteText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textSize="16sp"
-                        android:textColor="?android:attr/textColorPrimary" />
+                        android:textColor="@color/av_text" />
                 </LinearLayout>
             </LinearLayout>
 
@@ -102,14 +146,16 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
+                android:padding="12dp"
+                android:background="@drawable/info_row_background"
                 android:layout_marginBottom="32dp"
                 android:visibility="gone">
 
                 <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
                     android:src="@android:drawable/ic_menu_myplaces"
-                    android:tint="@color/colorPrimary"
+                    android:tint="@color/av_icon"
                     android:layout_marginEnd="12dp"
                     android:contentDescription="@string/passkey_username_label" />
 
@@ -124,14 +170,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/passkey_username_label"
                         android:textSize="12sp"
-                        android:textColor="?android:attr/textColorSecondary" />
+                        android:textColor="@color/av_text_muted" />
 
                     <TextView
                         android:id="@+id/usernameText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textSize="16sp"
-                        android:textColor="?android:attr/textColorPrimary" />
+                        android:textColor="@color/av_text" />
                 </LinearLayout>
             </LinearLayout>
 
@@ -145,7 +191,7 @@
                 android:id="@+id/errorText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="#D32F2F"
+                android:textColor="@color/av_error"
                 android:textSize="14sp"
                 android:layout_marginBottom="16dp"
                 android:visibility="gone" />
@@ -157,19 +203,24 @@
                 android:layout_height="wrap_content"
                 android:text="@string/passkey_create_button"
                 android:textColor="#FFFFFF"
-                android:backgroundTint="@color/colorPrimary"
+                android:backgroundTint="@color/av_primary"
                 android:layout_marginBottom="12dp"
                 app:cornerRadius="8dp"
-                android:paddingVertical="12dp" />
+                app:icon="@android:drawable/ic_lock_lock"
+                app:iconTint="#FFFFFF"
+                app:iconGravity="textStart"
+                android:paddingVertical="14dp"
+                android:textSize="16sp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/cancelButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/passkey_cancel_button"
-                android:textColor="@color/colorPrimary"
+                android:textColor="@color/av_primary"
                 style="@style/Widget.Material3.Button.TextButton"
-                android:paddingVertical="12dp" />
+                android:paddingVertical="14dp"
+                android:textSize="16sp" />
         </LinearLayout>
     </ScrollView>
 
@@ -178,7 +229,7 @@
         android:id="@+id/loadingOverlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#CC000000"
+        android:background="#B3000000"
         android:visibility="gone"
         android:clickable="true"
         android:focusable="true">
@@ -195,7 +246,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="@drawable/rounded_corner_background"
-                android:padding="20dp">
+                android:padding="24dp">
 
                 <LinearLayout
                     android:layout_width="wrap_content"
@@ -206,30 +257,30 @@
                     <!-- Four pulsing dots -->
                     <View
                         android:id="@+id/loadingDot1"
-                        android:layout_width="8dp"
-                        android:layout_height="8dp"
-                        android:layout_margin="5dp"
+                        android:layout_width="10dp"
+                        android:layout_height="10dp"
+                        android:layout_margin="6dp"
                         android:background="@drawable/loading_dot" />
 
                     <View
                         android:id="@+id/loadingDot2"
-                        android:layout_width="8dp"
-                        android:layout_height="8dp"
-                        android:layout_margin="5dp"
+                        android:layout_width="10dp"
+                        android:layout_height="10dp"
+                        android:layout_margin="6dp"
                         android:background="@drawable/loading_dot" />
 
                     <View
                         android:id="@+id/loadingDot3"
-                        android:layout_width="8dp"
-                        android:layout_height="8dp"
-                        android:layout_margin="5dp"
+                        android:layout_width="10dp"
+                        android:layout_height="10dp"
+                        android:layout_margin="6dp"
                         android:background="@drawable/loading_dot" />
 
                     <View
                         android:id="@+id/loadingDot4"
-                        android:layout_width="8dp"
-                        android:layout_height="8dp"
-                        android:layout_margin="5dp"
+                        android:layout_width="10dp"
+                        android:layout_height="10dp"
+                        android:layout_margin="6dp"
                         android:background="@drawable/loading_dot" />
                 </LinearLayout>
             </FrameLayout>
@@ -239,8 +290,8 @@
                 android:id="@+id/loadingMessage"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:textColor="#FFFFFF"
+                android:layout_marginTop="20dp"
+                android:textColor="@color/av_text"
                 android:textSize="16sp"
                 android:gravity="center" />
         </LinearLayout>

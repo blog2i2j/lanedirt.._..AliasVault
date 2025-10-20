@@ -24,13 +24,15 @@
   <string name="passkey_display_name_hint">Enter a name for this passkey</string>
   <string name="passkey_website_label">Website</string>
   <string name="passkey_username_label">Username</string>
-  <string name="passkey_create_button">Save Passkey</string>
+  <string name="passkey_create_button">Create Passkey</string>
   <string name="passkey_cancel_button">Cancel</string>
-  <string name="passkey_creating">Creating passkey</string>
-  <string name="passkey_saving">Saving to vault</string>
-  <string name="passkey_syncing">Syncing with server</string>
+  <string name="passkey_creating">Creating passkey…</string>
+  <string name="passkey_saving">Saving to vault…</string>
+  <string name="passkey_syncing">Syncing with server…</string>
   <string name="passkey_error_title">Error</string>
   <string name="passkey_error_empty_name">Please enter a name for the passkey</string>
   <string name="passkey_creation_failed">Failed to create passkey</string>
   <string name="passkey_retry_button">Retry</string>
+  <string name="passkey_info_icon">Info icon</string>
+  <string name="passkey_create_explanation">Create a passkey to securely sign in without passwords</string>
 </resources>
