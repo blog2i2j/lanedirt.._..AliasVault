@@ -338,9 +338,11 @@ class WebApiService(private val context: Context) {
 
             // Parse response JSON
             val responseObj = JSONObject(response.body)
-            val imageBase64 = responseObj.optString("image")
-            if (imageBase64.isEmpty()) {
-                Log.w(TAG, "No image in favicon response")
+            val imageBase64 = responseObj.optString("image", "")
+
+            // Check if image is null, "null" string, or empty
+            if (imageBase64.isEmpty() || imageBase64 == "null" || responseObj.isNull("image")) {
+                Log.w(TAG, "No image in favicon response (received: '$imageBase64')")
                 return@withContext null
             }
 

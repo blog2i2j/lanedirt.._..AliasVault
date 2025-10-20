@@ -238,23 +238,22 @@ fun VaultStore.createCredentialWithPasskey(
 
         // Create a minimal service for the RP
         val serviceId = UUID.randomUUID()
-        val serviceInsert = """
-            INSERT INTO Services (Id, Name, Url, Logo, CreatedAt, UpdatedAt, IsDeleted)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """.trimIndent()
 
-        db.execSQL(
-            serviceInsert,
-            arrayOf(
-                serviceId.toString().uppercase(),
-                displayName,
-                "https://$rpId",
-                logo,
-                timestamp,
-                timestamp,
-                0,
-            ),
-        )
+        // Use ContentValues to properly handle BLOB type for logo
+        val serviceValues = android.content.ContentValues().apply {
+            put("Id", serviceId.toString().uppercase())
+            put("Name", displayName)
+            put("Url", "https://$rpId")
+            if (logo != null) {
+                put("Logo", logo) // ContentValues handles ByteArray -> BLOB correctly
+            } else {
+                putNull("Logo")
+            }
+            put("CreatedAt", timestamp)
+            put("UpdatedAt", timestamp)
+            put("IsDeleted", 0)
+        }
+        db.insert("Services", null, serviceValues)
 
         // Create a minimal alias with empty fields and default birthdate
         val aliasId = UUID.randomUUID()
