@@ -1,16 +1,23 @@
 package net.aliasvault.app.credentialprovider
 
+import android.animation.ObjectAnimator
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.view.View
+import android.widget.TextView
 import androidx.credentials.CreatePublicKeyCredentialResponse
 import androidx.credentials.provider.PendingIntentHandler
 import androidx.credentials.provider.ProviderCreateCredentialRequest
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import net.aliasvault.app.R
 import net.aliasvault.app.credentialprovider.AliasVaultCredentialProviderService.Companion.EXTRA_CREATE_REQUEST_JSON
 import net.aliasvault.app.credentialprovider.AliasVaultCredentialProviderService.Companion.EXTRA_CREATE_RP_ID
 import net.aliasvault.app.credentialprovider.AliasVaultCredentialProviderService.Companion.EXTRA_CREATE_USER_DISPLAY_NAME
@@ -30,17 +37,9 @@ import java.util.UUID
 /**
  * PasskeyRegistrationActivity
  *
- * Handles passkey registration (credential creation) when a website requests passkey creation.
- * This activity:
- * 1. Generates the WebAuthn credential using PasskeyAuthenticator
- * 2. Stores the passkey in the vault
- * 3. Syncs with server
- * 4. Returns the registration response to the calling app
- *
- * Flow:
- * - Website requests passkey creation
- * - This activity is launched with registration details
- * - We generate credential, save to vault, sync, and return attestation
+ * Handles passkey registration (credential creation) with a full UI.
+ * Shows a form where the user can edit the display name, then creates and saves the passkey.
+ * Displays loading states and error messages similar to iOS PasskeyRegistrationView.
  */
 class PasskeyRegistrationActivity : Activity() {
 
@@ -51,10 +50,39 @@ class PasskeyRegistrationActivity : Activity() {
     private lateinit var vaultStore: VaultStore
     private lateinit var webApiService: WebApiService
 
+    // UI elements
+    private lateinit var headerSubtitle: TextView
+    private lateinit var displayNameInput: TextInputEditText
+    private lateinit var websiteText: TextView
+    private lateinit var usernameContainer: View
+    private lateinit var usernameText: TextView
+    private lateinit var errorText: TextView
+    private lateinit var saveButton: MaterialButton
+    private lateinit var cancelButton: MaterialButton
+    private lateinit var scrollView: View
+    private lateinit var loadingOverlay: View
+    private lateinit var loadingMessage: TextView
+    private lateinit var loadingDot1: View
+    private lateinit var loadingDot2: View
+    private lateinit var loadingDot3: View
+    private lateinit var loadingDot4: View
+
+    // Request data
+    private var providerRequest: ProviderCreateCredentialRequest? = null
+    private var requestJson: String = ""
+    private var rpId: String = ""
+    private var userName: String? = null
+    private var userDisplayName: String? = null
+    private var userId: ByteArray? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_passkey_registration)
 
         Log.d(TAG, "PasskeyRegistrationActivity onCreate called")
+
+        // Initialize UI elements
+        initializeViews()
 
         try {
             // Initialize VaultStore and WebApiService
@@ -65,34 +93,32 @@ class PasskeyRegistrationActivity : Activity() {
             Log.d(TAG, "VaultStore and WebApiService initialized")
 
             // Retrieve provider request
-            val providerRequest = PendingIntentHandler.retrieveProviderCreateCredentialRequest(intent)
+            providerRequest = PendingIntentHandler.retrieveProviderCreateCredentialRequest(intent)
             if (providerRequest == null) {
                 Log.e(TAG, "No provider request found in intent")
-                setResult(RESULT_CANCELED)
-                finish()
+                showError(getString(R.string.passkey_creation_failed))
                 return
             }
 
             Log.d(TAG, "Provider request retrieved successfully")
 
             // Extract parameters from intent
-            val requestJson = intent.getStringExtra(EXTRA_CREATE_REQUEST_JSON) ?: ""
-            val rpId = intent.getStringExtra(EXTRA_CREATE_RP_ID) ?: ""
-            val userName = intent.getStringExtra(EXTRA_CREATE_USER_NAME)
-            val userDisplayName = intent.getStringExtra(EXTRA_CREATE_USER_DISPLAY_NAME)
+            requestJson = intent.getStringExtra(EXTRA_CREATE_REQUEST_JSON) ?: ""
+            rpId = intent.getStringExtra(EXTRA_CREATE_RP_ID) ?: ""
+            userName = intent.getStringExtra(EXTRA_CREATE_USER_NAME)
+            userDisplayName = intent.getStringExtra(EXTRA_CREATE_USER_DISPLAY_NAME)
             val userIdB64 = intent.getStringExtra(EXTRA_CREATE_USER_ID)
 
             Log.d(TAG, "Parameters: rpId=$rpId, userName=$userName, userDisplayName=$userDisplayName")
 
             if (rpId.isEmpty() || requestJson.isEmpty()) {
-                Log.e(TAG, "Missing required parameters: rpId=$rpId, requestJson length=${requestJson.length}")
-                setResult(RESULT_CANCELED)
-                finish()
+                Log.e(TAG, "Missing required parameters")
+                showError(getString(R.string.passkey_creation_failed))
                 return
             }
 
             // Decode user ID from base64url
-            val userId = if (!userIdB64.isNullOrEmpty()) {
+            userId = if (!userIdB64.isNullOrEmpty()) {
                 try {
                     base64urlDecode(userIdB64)
                 } catch (e: Exception) {
@@ -103,38 +129,129 @@ class PasskeyRegistrationActivity : Activity() {
                 null
             }
 
-            Log.d(TAG, "Starting passkey creation coroutine")
+            // Populate UI
+            populateUI()
 
-            // Start passkey creation in coroutine
-            CoroutineScope(Dispatchers.Main).launch {
-                createPasskey(
-                    providerRequest = providerRequest,
-                    requestJson = requestJson,
-                    rpId = rpId,
-                    userName = userName,
-                    userDisplayName = userDisplayName,
-                    userId = userId,
-                )
+            // Set up button listeners
+            saveButton.setOnClickListener {
+                onSaveClicked()
+            }
+
+            cancelButton.setOnClickListener {
+                onCancelClicked()
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error in onCreate", e)
-            setResult(RESULT_CANCELED)
-            finish()
+            showError(getString(R.string.passkey_creation_failed))
         }
+    }
+
+    private fun initializeViews() {
+        headerSubtitle = findViewById(R.id.headerSubtitle)
+        displayNameInput = findViewById(R.id.displayNameInput)
+        websiteText = findViewById(R.id.websiteText)
+        usernameContainer = findViewById(R.id.usernameContainer)
+        usernameText = findViewById(R.id.usernameText)
+        errorText = findViewById(R.id.errorText)
+        saveButton = findViewById(R.id.saveButton)
+        cancelButton = findViewById(R.id.cancelButton)
+        scrollView = findViewById(R.id.scrollView)
+        loadingOverlay = findViewById(R.id.loadingOverlay)
+        loadingMessage = findViewById(R.id.loadingMessage)
+        loadingDot1 = findViewById(R.id.loadingDot1)
+        loadingDot2 = findViewById(R.id.loadingDot2)
+        loadingDot3 = findViewById(R.id.loadingDot3)
+        loadingDot4 = findViewById(R.id.loadingDot4)
+    }
+
+    private fun populateUI() {
+        // Set subtitle
+        headerSubtitle.text = "Create a new passkey for $rpId"
+
+        // Set display name (default to rpId)
+        displayNameInput.setText(rpId)
+        displayNameInput.requestFocus()
+
+        // Set website
+        websiteText.text = rpId
+
+        // Set username if available
+        if (!userName.isNullOrEmpty()) {
+            usernameContainer.visibility = View.VISIBLE
+            usernameText.text = userName
+        } else {
+            usernameContainer.visibility = View.GONE
+        }
+    }
+
+    private fun onSaveClicked() {
+        // Validate display name
+        val displayName = displayNameInput.text.toString().trim()
+        if (displayName.isEmpty()) {
+            errorText.text = getString(R.string.passkey_error_empty_name)
+            errorText.visibility = View.VISIBLE
+            return
+        }
+
+        // Hide error and start creation
+        errorText.visibility = View.GONE
+
+        // Start passkey creation in coroutine
+        CoroutineScope(Dispatchers.Main).launch {
+            createPasskey(displayName)
+        }
+    }
+
+    private fun onCancelClicked() {
+        setResult(RESULT_CANCELED)
+        finish()
+    }
+
+    private fun showLoading(message: String) {
+        loadingMessage.text = message
+        loadingOverlay.visibility = View.VISIBLE
+        scrollView.alpha = 0.3f
+        scrollView.isEnabled = false
+
+        // Start pulsing animation on dots
+        startDotAnimation(loadingDot1, 0)
+        startDotAnimation(loadingDot2, 200)
+        startDotAnimation(loadingDot3, 400)
+        startDotAnimation(loadingDot4, 600)
+    }
+
+    private fun hideLoading() {
+        loadingOverlay.visibility = View.GONE
+        scrollView.alpha = 1.0f
+        scrollView.isEnabled = true
+    }
+
+    private fun startDotAnimation(dot: View, delayMillis: Long) {
+        CoroutineScope(Dispatchers.Main).launch {
+            delay(delayMillis)
+            val animator = ObjectAnimator.ofFloat(dot, "alpha", 0.3f, 1.0f)
+            animator.duration = 700
+            animator.repeatCount = ObjectAnimator.INFINITE
+            animator.repeatMode = ObjectAnimator.REVERSE
+            animator.start()
+        }
+    }
+
+    private fun showError(message: String) {
+        hideLoading()
+        errorText.text = message
+        errorText.visibility = View.VISIBLE
     }
 
     /**
      * Create the passkey
      */
-    private suspend fun createPasskey(
-        providerRequest: ProviderCreateCredentialRequest,
-        requestJson: String,
-        rpId: String,
-        userName: String?,
-        userDisplayName: String?,
-        userId: ByteArray?,
-    ) = withContext(Dispatchers.IO) {
+    private suspend fun createPasskey(displayName: String) = withContext(Dispatchers.IO) {
         try {
+            withContext(Dispatchers.Main) {
+                showLoading(getString(R.string.passkey_creating))
+            }
+
             Log.d(TAG, "Creating passkey for RP: $rpId, user: $userName")
 
             // Extract favicon (optional)
@@ -155,7 +272,7 @@ class PasskeyRegistrationActivity : Activity() {
             val challenge = requestObj.optString("challenge", "")
 
             // Construct origin from calling app signing certificate
-            val origin = appInfoToOrigin(providerRequest.callingAppInfo)
+            val origin = appInfoToOrigin(providerRequest!!.callingAppInfo)
             Log.d(TAG, "Origin: $origin")
 
             // Build clientDataJSON
@@ -182,7 +299,6 @@ class PasskeyRegistrationActivity : Activity() {
 
             // Create Passkey model object
             val now = Date()
-            val displayName = userDisplayName ?: userName ?: rpId
             val passkey = Passkey(
                 id = passkeyId,
                 parentCredentialId = UUID.randomUUID(), // Will be set by createCredentialWithPasskey
@@ -198,7 +314,11 @@ class PasskeyRegistrationActivity : Activity() {
                 isDeleted = false,
             )
 
-            // Store in database (transaction handled internally by VaultStore)
+            // Store in database
+            withContext(Dispatchers.Main) {
+                showLoading(getString(R.string.passkey_saving))
+            }
+
             Log.d(TAG, "Saving passkey to vault...")
             vaultStore.createCredentialWithPasskey(
                 rpId = rpId,
@@ -210,11 +330,19 @@ class PasskeyRegistrationActivity : Activity() {
             Log.d(TAG, "Passkey saved successfully")
 
             // Upload vault changes to server
+            withContext(Dispatchers.Main) {
+                showLoading(getString(R.string.passkey_syncing))
+            }
+
             try {
                 vaultStore.mutateVault(webApiService)
             } catch (e: Exception) {
                 Log.w(TAG, "Vault mutation failed, but passkey was created locally", e)
                 // Continue - passkey is still saved locally
+                withContext(Dispatchers.Main) {
+                    showError("Saved locally, but sync failed: ${e.message}")
+                    delay(2000)
+                }
             }
 
             // Build response
@@ -226,17 +354,25 @@ class PasskeyRegistrationActivity : Activity() {
                 put("id", credentialIdB64)
                 put("rawId", credentialIdB64)
                 put("type", "public-key")
+                put("authenticatorAttachment", "platform")
 
                 put(
                     "response",
                     JSONObject().apply {
-                        put("attestationObject", attestationObjectB64)
                         put("clientDataJSON", clientDataJsonB64)
+                        put("attestationObject", attestationObjectB64)
+                        put(
+                            "transports",
+                            org.json.JSONArray().apply {
+                                put("internal")
+                            },
+                        )
                     },
                 )
 
-                if (enablePrf && passkeyResult.prfResults != null) {
-                    val prfResults = passkeyResult.prfResults
+                // Add PRF extension results if present
+                val prfResults = if (enablePrf) passkeyResult.prfResults else null
+                if (prfResults != null) {
                     put(
                         "clientExtensionResults",
                         JSONObject().apply {
@@ -267,24 +403,25 @@ class PasskeyRegistrationActivity : Activity() {
             val response = CreatePublicKeyCredentialResponse(responseJson.toString())
 
             withContext(Dispatchers.Main) {
+                hideLoading()
                 val resultIntent = Intent()
                 try {
                     Log.d(TAG, "Setting credential response...")
                     PendingIntentHandler.setCreateCredentialResponse(resultIntent, response)
                     Log.d(TAG, "Credential response set successfully")
+
                     setResult(RESULT_OK, resultIntent)
-                    Log.d(TAG, "Result set to RESULT_OK")
+                    Log.d(TAG, "Result set to RESULT_OK, finishing activity")
+                    finish()
                 } catch (e: Exception) {
                     Log.e(TAG, "Error setting credential response", e)
-                    setResult(RESULT_CANCELED)
+                    showError(getString(R.string.passkey_creation_failed) + ": ${e.message}")
                 }
-                finish()
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error creating passkey", e)
             withContext(Dispatchers.Main) {
-                setResult(RESULT_CANCELED)
-                finish()
+                showError(getString(R.string.passkey_creation_failed) + ": ${e.message}")
             }
         }
     }

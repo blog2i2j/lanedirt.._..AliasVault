@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?android:attr/colorBackground">
+
+    <!-- Main content -->
+    <ScrollView
+        android:id="@+id/scrollView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <!-- Header -->
+            <TextView
+                android:id="@+id/headerTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/passkey_registration_title"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="?android:attr/textColorPrimary"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/headerSubtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:textColor="?android:attr/textColorSecondary"
+                android:layout_marginBottom="32dp" />
+
+            <!-- Display Name Input -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/displayNameLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/passkey_display_name_label"
+                app:boxBackgroundMode="outline"
+                app:boxStrokeColor="@color/colorPrimary"
+                app:hintTextColor="@color/colorPrimary"
+                android:layout_marginBottom="24dp">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/displayNameInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="text"
+                    android:textSize="16sp"
+                    android:maxLines="1" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Website (Read-only) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="16dp">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@android:drawable/ic_menu_compass"
+                    android:tint="@color/colorPrimary"
+                    android:layout_marginEnd="12dp"
+                    android:contentDescription="@string/passkey_website_label" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/passkey_website_label"
+                        android:textSize="12sp"
+                        android:textColor="?android:attr/textColorSecondary" />
+
+                    <TextView
+                        android:id="@+id/websiteText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="16sp"
+                        android:textColor="?android:attr/textColorPrimary" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Username (Read-only, optional) -->
+            <LinearLayout
+                android:id="@+id/usernameContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="32dp"
+                android:visibility="gone">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@android:drawable/ic_menu_myplaces"
+                    android:tint="@color/colorPrimary"
+                    android:layout_marginEnd="12dp"
+                    android:contentDescription="@string/passkey_username_label" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/passkey_username_label"
+                        android:textSize="12sp"
+                        android:textColor="?android:attr/textColorSecondary" />
+
+                    <TextView
+                        android:id="@+id/usernameText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="16sp"
+                        android:textColor="?android:attr/textColorPrimary" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <!-- Error message -->
+            <TextView
+                android:id="@+id/errorText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#D32F2F"
+                android:textSize="14sp"
+                android:layout_marginBottom="16dp"
+                android:visibility="gone" />
+
+            <!-- Action Buttons -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/saveButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/passkey_create_button"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="@color/colorPrimary"
+                android:layout_marginBottom="12dp"
+                app:cornerRadius="8dp"
+                android:paddingVertical="12dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/cancelButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/passkey_cancel_button"
+                android:textColor="@color/colorPrimary"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:paddingVertical="12dp" />
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Loading overlay -->
+    <FrameLayout
+        android:id="@+id/loadingOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#CC000000"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <!-- Loading animation container -->
+            <FrameLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/rounded_corner_background"
+                android:padding="20dp">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center">
+
+                    <!-- Four pulsing dots -->
+                    <View
+                        android:id="@+id/loadingDot1"
+                        android:layout_width="8dp"
+                        android:layout_height="8dp"
+                        android:layout_margin="5dp"
+                        android:background="@drawable/loading_dot" />
+
+                    <View
+                        android:id="@+id/loadingDot2"
+                        android:layout_width="8dp"
+                        android:layout_height="8dp"
+                        android:layout_margin="5dp"
+                        android:background="@drawable/loading_dot" />
+
+                    <View
+                        android:id="@+id/loadingDot3"
+                        android:layout_width="8dp"
+                        android:layout_height="8dp"
+                        android:layout_margin="5dp"
+                        android:background="@drawable/loading_dot" />
+
+                    <View
+                        android:id="@+id/loadingDot4"
+                        android:layout_width="8dp"
+                        android:layout_height="8dp"
+                        android:layout_margin="5dp"
+                        android:background="@drawable/loading_dot" />
+                </LinearLayout>
+            </FrameLayout>
+
+            <!-- Loading message -->
+            <TextView
+                android:id="@+id/loadingMessage"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:gravity="center" />
+        </LinearLayout>
+    </FrameLayout>
+</FrameLayout>

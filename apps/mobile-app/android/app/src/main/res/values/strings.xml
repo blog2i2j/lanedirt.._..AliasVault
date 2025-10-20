@@ -17,4 +17,20 @@
   <string name="biometric_store_key_subtitle">Authenticate to securely store your encryption key in the Android Keystore. This enables secure access to your vault.</string>
   <string name="biometric_unlock_vault_title">Unlock Vault</string>
   <string name="biometric_unlock_vault_subtitle">Authenticate to access your vault</string>
+
+  <!-- Passkey registration -->
+  <string name="passkey_registration_title">Create Passkey</string>
+  <string name="passkey_display_name_label">Passkey Name</string>
+  <string name="passkey_display_name_hint">Enter a name for this passkey</string>
+  <string name="passkey_website_label">Website</string>
+  <string name="passkey_username_label">Username</string>
+  <string name="passkey_create_button">Save Passkey</string>
+  <string name="passkey_cancel_button">Cancel</string>
+  <string name="passkey_creating">Creating passkey</string>
+  <string name="passkey_saving">Saving to vault</string>
+  <string name="passkey_syncing">Syncing with server</string>
+  <string name="passkey_error_title">Error</string>
+  <string name="passkey_error_empty_name">Please enter a name for the passkey</string>
+  <string name="passkey_creation_failed">Failed to create passkey</string>
+  <string name="passkey_retry_button">Retry</string>
 </resources>
