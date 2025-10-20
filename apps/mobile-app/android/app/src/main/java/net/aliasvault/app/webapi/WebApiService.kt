@@ -315,6 +315,46 @@ class WebApiService(private val context: Context) {
         }
     }
 
+    /**
+     * Extract favicon from a website URL
+     * Returns the favicon image as a byte array, or null if extraction fails
+     */
+    suspend fun extractFavicon(url: String): ByteArray? = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Extracting favicon for $url")
+
+            val response = executeRequest(
+                method = "GET",
+                endpoint = "Favicon/Extract?url=$url",
+                body = null,
+                headers = emptyMap(),
+                requiresAuth = true,
+            )
+
+            if (response.statusCode != 200) {
+                Log.w(TAG, "Favicon extraction failed with status ${response.statusCode}")
+                return@withContext null
+            }
+
+            // Parse response JSON
+            val responseObj = JSONObject(response.body)
+            val imageBase64 = responseObj.optString("image")
+            if (imageBase64.isEmpty()) {
+                Log.w(TAG, "No image in favicon response")
+                return@withContext null
+            }
+
+            // Decode base64 to bytes
+            val imageBytes = android.util.Base64.decode(imageBase64, android.util.Base64.DEFAULT)
+            Log.d(TAG, "Favicon extracted successfully: ${imageBytes.size} bytes")
+
+            imageBytes
+        } catch (e: Exception) {
+            Log.e(TAG, "Error extracting favicon", e)
+            null
+        }
+    }
+
     // MARK: - Token Revocation
 
     /**

@@ -7,12 +7,15 @@ import android.os.OutcomeReceiver
 import android.util.Log
 import androidx.credentials.exceptions.ClearCredentialException
 import androidx.credentials.exceptions.CreateCredentialException
+import androidx.credentials.exceptions.CreateCredentialUnknownException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.provider.BeginCreateCredentialRequest
 import androidx.credentials.provider.BeginCreateCredentialResponse
+import androidx.credentials.provider.BeginCreatePublicKeyCredentialRequest
 import androidx.credentials.provider.BeginGetCredentialRequest
 import androidx.credentials.provider.BeginGetCredentialResponse
 import androidx.credentials.provider.BeginGetPublicKeyCredentialOption
+import androidx.credentials.provider.CreateEntry
 import androidx.credentials.provider.CredentialProviderService
 import androidx.credentials.provider.ProviderClearCredentialStateRequest
 import androidx.credentials.provider.PublicKeyCredentialEntry
@@ -34,10 +37,17 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
     companion object {
         private const val TAG = "AliasVaultCredProvider"
 
-        // Intent extras
+        // Intent extras for authentication
         const val EXTRA_REQUEST_JSON = "request_json"
         const val EXTRA_RP_ID = "rp_id"
         const val EXTRA_PASSKEY_ID = "passkey_id"
+
+        // Intent extras for registration
+        const val EXTRA_CREATE_REQUEST_JSON = "create_request_json"
+        const val EXTRA_CREATE_RP_ID = "create_rp_id"
+        const val EXTRA_CREATE_USER_NAME = "create_user_name"
+        const val EXTRA_CREATE_USER_DISPLAY_NAME = "create_user_display_name"
+        const val EXTRA_CREATE_USER_ID = "create_user_id"
     }
 
     /**
@@ -200,15 +210,132 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
         ).build()
     }
 
+    /**
+     * Called when the system needs to display available accounts for credential creation
+     */
     override fun onBeginCreateCredentialRequest(
         request: BeginCreateCredentialRequest,
         cancellationSignal: CancellationSignal,
         callback: OutcomeReceiver<BeginCreateCredentialResponse, CreateCredentialException>,
     ) {
-        // Passkey creation/registration - not implemented yet
-        // This will be added in a future phase
-        Log.d(TAG, "onBeginCreateCredentialRequest called - not implemented yet")
-        callback.onResult(BeginCreateCredentialResponse())
+        Log.d(TAG, "onBeginCreateCredentialRequest called")
+
+        val response: BeginCreateCredentialResponse? = processCreateCredentialRequest(request)
+        if (response != null) {
+            callback.onResult(response)
+        } else {
+            callback.onError(CreateCredentialUnknownException())
+        }
+    }
+
+    /**
+     * Process create credential request
+     */
+    private fun processCreateCredentialRequest(
+        request: BeginCreateCredentialRequest,
+    ): BeginCreateCredentialResponse? {
+        // Get vault store instance
+        val vaultStore = VaultStore.getExistingInstance()
+        if (vaultStore == null) {
+            Log.w(TAG, "VaultStore not initialized for passkey creation")
+            return null
+        }
+
+        return when (request) {
+            is BeginCreatePublicKeyCredentialRequest -> {
+                // Request is passkey type
+                handleCreatePasskeyQuery(request)
+            }
+            else -> {
+                // Request type not supported
+                Log.w(TAG, "Unsupported credential type: ${request.javaClass.simpleName}")
+                null
+            }
+        }
+    }
+
+    /**
+     * Handle passkey creation query
+     */
+    private fun handleCreatePasskeyQuery(
+        request: BeginCreatePublicKeyCredentialRequest,
+    ): BeginCreateCredentialResponse {
+        try {
+            // Parse the request JSON to extract RP ID and user info
+            val requestJson = request.requestJson
+            val requestObj = JSONObject(requestJson)
+
+            // Extract RP info
+            val rpObj = requestObj.optJSONObject("rp")
+            val rpId = rpObj?.optString("id") ?: ""
+            val rpName = rpObj?.optString("name") ?: rpId
+
+            // Extract user info
+            val userObj = requestObj.optJSONObject("user")
+            val userName = userObj?.optString("name") ?: ""
+            val userDisplayName = userObj?.optString("displayName") ?: userName
+            val userIdB64 = userObj?.optString("id") ?: ""
+
+            Log.d(TAG, "Creating passkey for RP: $rpId ($rpName), user: $userName")
+
+            val createEntries = mutableListOf<CreateEntry>()
+
+            if (rpId.isNotEmpty()) {
+                // Create entry for saving passkey to AliasVault
+                // Using rpName or userDisplayName as the account name
+                val accountName = if (userDisplayName.isNotEmpty()) {
+                    "$userDisplayName@$rpName"
+                } else {
+                    rpName
+                }
+
+                val entry = CreateEntry(
+                    accountName = accountName,
+                    pendingIntent = createNewPendingIntent(
+                        rpId = rpId,
+                        userName = userName.ifEmpty { null },
+                        userDisplayName = userDisplayName.ifEmpty { null },
+                        userIdB64 = userIdB64.ifEmpty { null },
+                        requestJson = requestJson,
+                    ),
+                )
+
+                createEntries.add(entry)
+            }
+
+            Log.d(TAG, "Returning ${createEntries.size} create entries")
+            return BeginCreateCredentialResponse(createEntries)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error handling passkey create query", e)
+            return BeginCreateCredentialResponse(emptyList())
+        }
+    }
+
+    /**
+     * Create a PendingIntent for passkey registration
+     */
+    private fun createNewPendingIntent(
+        rpId: String,
+        userName: String?,
+        userDisplayName: String?,
+        userIdB64: String?,
+        requestJson: String,
+    ): PendingIntent {
+        // Create intent for PasskeyRegistrationActivity
+        val intent = Intent(this, PasskeyRegistrationActivity::class.java).apply {
+            putExtra(EXTRA_CREATE_REQUEST_JSON, requestJson)
+            putExtra(EXTRA_CREATE_RP_ID, rpId)
+            userName?.let { putExtra(EXTRA_CREATE_USER_NAME, it) }
+            userDisplayName?.let { putExtra(EXTRA_CREATE_USER_DISPLAY_NAME, it) }
+            userIdB64?.let { putExtra(EXTRA_CREATE_USER_ID, it) }
+        }
+
+        return PendingIntent.getActivity(
+            this,
+            rpId.hashCode(),
+            intent,
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
     }
 
     override fun onClearCredentialStateRequest(
