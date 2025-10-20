@@ -3,20 +3,23 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/av_background">
+    android:background="@color/av_background"
+    android:fitsSystemWindows="true">
 
     <!-- Main content -->
     <ScrollView
         android:id="@+id/scrollView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true">
+        android:fillViewport="true"
+        android:fitsSystemWindows="true">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="24dp">
+            android:padding="24dp"
+            android:paddingBottom="80dp">
 
             <!-- Logo -->
             <ImageView
@@ -105,38 +108,34 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:padding="12dp"
-                android:background="@drawable/info_row_background"
-                android:layout_marginBottom="8dp">
+                android:paddingVertical="8dp"
+                android:layout_marginBottom="4dp">
 
                 <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
                     android:src="@android:drawable/ic_menu_compass"
                     android:tint="@color/av_icon"
-                    android:layout_marginEnd="12dp"
+                    android:layout_marginEnd="8dp"
                     android:contentDescription="@string/passkey_website_label" />
 
-                <LinearLayout
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/passkey_website_label"
+                    android:textSize="14sp"
+                    android:textColor="@color/av_text_muted"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:id="@+id/websiteText"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/passkey_website_label"
-                        android:textSize="12sp"
-                        android:textColor="@color/av_text_muted" />
-
-                    <TextView
-                        android:id="@+id/websiteText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="16sp"
-                        android:textColor="@color/av_text" />
-                </LinearLayout>
+                    android:textSize="14sp"
+                    android:textColor="@color/av_text"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
             </LinearLayout>
 
             <!-- Username (Read-only, optional) -->
@@ -146,39 +145,35 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:padding="12dp"
-                android:background="@drawable/info_row_background"
-                android:layout_marginBottom="32dp"
+                android:paddingVertical="8dp"
+                android:layout_marginBottom="24dp"
                 android:visibility="gone">
 
                 <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
                     android:src="@android:drawable/ic_menu_myplaces"
                     android:tint="@color/av_icon"
-                    android:layout_marginEnd="12dp"
+                    android:layout_marginEnd="8dp"
                     android:contentDescription="@string/passkey_username_label" />
 
-                <LinearLayout
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/passkey_username_label"
+                    android:textSize="14sp"
+                    android:textColor="@color/av_text_muted"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:id="@+id/usernameText"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/passkey_username_label"
-                        android:textSize="12sp"
-                        android:textColor="@color/av_text_muted" />
-
-                    <TextView
-                        android:id="@+id/usernameText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="16sp"
-                        android:textColor="@color/av_text" />
-                </LinearLayout>
+                    android:textSize="14sp"
+                    android:textColor="@color/av_text"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
             </LinearLayout>
 
             <View
@@ -234,66 +229,10 @@
         android:clickable="true"
         android:focusable="true">
 
-        <LinearLayout
+        <net.aliasvault.app.components.LoadingIndicator
+            android:id="@+id/loadingIndicator"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:orientation="vertical"
-            android:gravity="center">
-
-            <!-- Loading animation container -->
-            <FrameLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="@drawable/rounded_corner_background"
-                android:padding="24dp">
-
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center">
-
-                    <!-- Four pulsing dots -->
-                    <View
-                        android:id="@+id/loadingDot1"
-                        android:layout_width="10dp"
-                        android:layout_height="10dp"
-                        android:layout_margin="6dp"
-                        android:background="@drawable/loading_dot" />
-
-                    <View
-                        android:id="@+id/loadingDot2"
-                        android:layout_width="10dp"
-                        android:layout_height="10dp"
-                        android:layout_margin="6dp"
-                        android:background="@drawable/loading_dot" />
-
-                    <View
-                        android:id="@+id/loadingDot3"
-                        android:layout_width="10dp"
-                        android:layout_height="10dp"
-                        android:layout_margin="6dp"
-                        android:background="@drawable/loading_dot" />
-
-                    <View
-                        android:id="@+id/loadingDot4"
-                        android:layout_width="10dp"
-                        android:layout_height="10dp"
-                        android:layout_margin="6dp"
-                        android:background="@drawable/loading_dot" />
-                </LinearLayout>
-            </FrameLayout>
-
-            <!-- Loading message -->
-            <TextView
-                android:id="@+id/loadingMessage"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:textColor="@color/av_text"
-                android:textSize="16sp"
-                android:gravity="center" />
-        </LinearLayout>
+            android:layout_gravity="center" />
     </FrameLayout>
 </FrameLayout>

@@ -1,6 +1,5 @@
 package net.aliasvault.app.credentialprovider
 
-import android.animation.ObjectAnimator
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
@@ -18,6 +17,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.aliasvault.app.R
+import net.aliasvault.app.components.LoadingIndicator
 import net.aliasvault.app.credentialprovider.AliasVaultCredentialProviderService.Companion.EXTRA_CREATE_REQUEST_JSON
 import net.aliasvault.app.credentialprovider.AliasVaultCredentialProviderService.Companion.EXTRA_CREATE_RP_ID
 import net.aliasvault.app.credentialprovider.AliasVaultCredentialProviderService.Companion.EXTRA_CREATE_USER_DISPLAY_NAME
@@ -61,11 +61,7 @@ class PasskeyRegistrationActivity : Activity() {
     private lateinit var cancelButton: MaterialButton
     private lateinit var scrollView: View
     private lateinit var loadingOverlay: View
-    private lateinit var loadingMessage: TextView
-    private lateinit var loadingDot1: View
-    private lateinit var loadingDot2: View
-    private lateinit var loadingDot3: View
-    private lateinit var loadingDot4: View
+    private lateinit var loadingIndicator: LoadingIndicator
 
     // Request data
     private var providerRequest: ProviderCreateCredentialRequest? = null
@@ -157,11 +153,7 @@ class PasskeyRegistrationActivity : Activity() {
         cancelButton = findViewById(R.id.cancelButton)
         scrollView = findViewById(R.id.scrollView)
         loadingOverlay = findViewById(R.id.loadingOverlay)
-        loadingMessage = findViewById(R.id.loadingMessage)
-        loadingDot1 = findViewById(R.id.loadingDot1)
-        loadingDot2 = findViewById(R.id.loadingDot2)
-        loadingDot3 = findViewById(R.id.loadingDot3)
-        loadingDot4 = findViewById(R.id.loadingDot4)
+        loadingIndicator = findViewById(R.id.loadingIndicator)
     }
 
     private fun populateUI() {
@@ -170,7 +162,6 @@ class PasskeyRegistrationActivity : Activity() {
 
         // Set display name (default to rpId)
         displayNameInput.setText(rpId)
-        displayNameInput.requestFocus()
 
         // Set website
         websiteText.text = rpId
@@ -208,33 +199,18 @@ class PasskeyRegistrationActivity : Activity() {
     }
 
     private fun showLoading(message: String) {
-        loadingMessage.text = message
+        loadingIndicator.setMessage(message)
+        loadingIndicator.startAnimation()
         loadingOverlay.visibility = View.VISIBLE
         scrollView.alpha = 0.3f
         scrollView.isEnabled = false
-
-        // Start pulsing animation on dots
-        startDotAnimation(loadingDot1, 0)
-        startDotAnimation(loadingDot2, 200)
-        startDotAnimation(loadingDot3, 400)
-        startDotAnimation(loadingDot4, 600)
     }
 
     private fun hideLoading() {
+        loadingIndicator.stopAnimation()
         loadingOverlay.visibility = View.GONE
         scrollView.alpha = 1.0f
         scrollView.isEnabled = true
-    }
-
-    private fun startDotAnimation(dot: View, delayMillis: Long) {
-        CoroutineScope(Dispatchers.Main).launch {
-            delay(delayMillis)
-            val animator = ObjectAnimator.ofFloat(dot, "alpha", 0.3f, 1.0f)
-            animator.duration = 700
-            animator.repeatCount = ObjectAnimator.INFINITE
-            animator.repeatMode = ObjectAnimator.REVERSE
-            animator.start()
-        }
     }
 
     private fun showError(message: String) {
@@ -251,6 +227,9 @@ class PasskeyRegistrationActivity : Activity() {
             withContext(Dispatchers.Main) {
                 showLoading(getString(R.string.passkey_creating))
             }
+
+            // wait for 10 seconds to test interface
+            delay(10000)
 
             Log.d(TAG, "Creating passkey for RP: $rpId, user: $userName")
 
