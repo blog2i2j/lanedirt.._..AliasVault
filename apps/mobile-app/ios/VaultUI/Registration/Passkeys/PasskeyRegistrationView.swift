@@ -45,8 +45,16 @@ public struct PasskeyRegistrationView: View {
                     LoadingOverlayView(message: viewModel.loadingMessage)
                 }
             }
-            .navigationBarHidden(viewModel.existingPasskeys.isEmpty)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    if !viewModel.existingPasskeys.isEmpty {
+                        Text(String(localized: "create_passkey_title", bundle: locBundle))
+                            .font(.headline)
+                            .foregroundStyle(colorScheme == .dark ? ColorConstants.Dark.text : ColorConstants.Light.text)
+                    }
+                }
+            }
             .navigationDestination(for: PasskeyNavigationDestination.self) { destination in
                 destinationView(for: destination)
             }
@@ -190,12 +198,6 @@ public struct PasskeyRegistrationView: View {
             }
             .padding(.horizontal)
             .padding(.bottom, 20)
-        }
-        .onAppear {
-            // Auto-focus when appearing
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                isTitleFocused = true
-            }
         }
     }
 

@@ -117,14 +117,14 @@ struct PasskeyFormView: View {
                 LoadingOverlayView(message: viewModel.loadingMessage)
             }
         }
-        .navigationTitle(isReplaceMode
-            ? String(localized: "replace_passkey_title", bundle: locBundle)
-            : String(localized: "create_passkey_title", bundle: locBundle))
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            // Auto-focus the title field
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                isTitleFocused = true
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text(isReplaceMode
+                    ? String(localized: "replace_passkey_title", bundle: locBundle)
+                    : String(localized: "create_passkey_title", bundle: locBundle))
+                    .font(.headline)
+                    .foregroundStyle(colorScheme == .dark ? ColorConstants.Dark.text : ColorConstants.Light.text)
             }
         }
     }

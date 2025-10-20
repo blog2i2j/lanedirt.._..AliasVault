@@ -186,35 +186,14 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
             prfInputs = extractPrfInputs(from: extensionInput)
         }
 
-        // Initialize vault store
-        let vaultStore = VaultStore()
-
-        // Check vault state
-        guard sanityChecks(vaultStore: vaultStore) else {
-            return
-        }
-
-        // Unlock vault
-        do {
-            try vaultStore.unlockVault()
-        } catch {
-            print("PasskeyRegistration: Failed to unlock vault: \(error)")
-            extensionContext.cancelRequest(withError: NSError(
-                domain: ASExtensionErrorDomain,
-                code: ASExtensionError.failed.rawValue,
-                userInfo: [NSLocalizedDescriptionKey: "Failed to unlock vault"]
-            ))
-            return
-        }
-
-        // Show passkey registration UI
-        showPasskeyRegistrationView(
+        // Store parameters for use in viewWillAppear
+        // Vault unlock and UI display will happen in viewWillAppear
+        self.passkeyRegistrationParams = PasskeyRegistrationParams(
             rpId: rpId,
             userName: userName,
             userDisplayName: userDisplayName,
             userId: userId,
             clientDataHash: clientDataHash,
-            vaultStore: vaultStore,
             enablePrf: prfEnabled,
             prfInputs: prfInputs
         )
@@ -431,7 +410,7 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 try vaultStore.commitTransaction()
 
                 // Step 5: Upload vault changes to server
-                viewModel.setLoading(true, message: NSLocalizedString("vault_syncing", comment: "Uploading vault..."))
+                viewModel.setLoading(true, message: NSLocalizedString("creating_passkey", comment: "Uploading vault..."))
                 do {
                     try await vaultStore.mutateVault(using: webApiService)
                 } catch {

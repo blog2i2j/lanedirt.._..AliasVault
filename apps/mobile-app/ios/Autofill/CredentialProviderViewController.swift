@@ -36,6 +36,9 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
     private var initialRpId: String?
     private var clientDataHash: Data?
 
+    // Passkey registration properties
+    internal var passkeyRegistrationParams: PasskeyRegistrationParams?
+
     // Quick return mode (complete request without showing UI)
     internal var isQuickReturnMode = false
     internal var quickReturnPasswordRequest: ASPasswordCredentialRequest?
@@ -92,11 +95,6 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
             return
         }
 
-        // Don't set up credential view if we're in passkey registration mode
-        if isPasskeyRegistrationMode {
-            return
-        }
-
         // Check if there is a stored vault. If not, it means the user has not logged in yet and we
         // should redirect to the main app login screen automatically.
         let vaultStore = VaultStore()
@@ -120,6 +118,30 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
             return
         }
 
+        // Handle passkey registration mode after vault is unlocked
+        if isPasskeyRegistrationMode {
+            guard let params = passkeyRegistrationParams else {
+                extensionContext.cancelRequest(withError: NSError(
+                    domain: ASExtensionErrorDomain,
+                    code: ASExtensionError.failed.rawValue,
+                    userInfo: [NSLocalizedDescriptionKey: "Missing passkey registration parameters"]
+                ))
+                return
+            }
+
+            // Show passkey registration UI
+            showPasskeyRegistrationView(
+                rpId: params.rpId,
+                userName: params.userName,
+                userDisplayName: params.userDisplayName,
+                userId: params.userId,
+                clientDataHash: params.clientDataHash,
+                vaultStore: vaultStore,
+                enablePrf: params.enablePrf,
+                prfInputs: params.prfInputs
+            )
+            return
+        }
 
         // Only set up the view if we haven't already
         if currentHostingController == nil {
@@ -244,8 +266,6 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
     override public func prepareInterfaceToProvideCredential(for request: ASCredentialRequest) {
         // Check if this is a password/credential request
         if let passwordRequest = request as? ASPasswordCredentialRequest {
-            // We don't unlock vault here - that requires user interaction context
-            // which will happen in viewWillAppear
             self.isQuickReturnMode = true
             self.quickReturnPasswordRequest = passwordRequest
             return
@@ -253,9 +273,6 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
 
         // Check if this is a passkey request
         if let passkeyRequest = request as? ASPasskeyCredentialRequest {
-            // Store request and set quick return mode flag
-            // We don't unlock vault here - that requires user interaction context
-            // which will happen in viewWillAppear
             self.isQuickReturnMode = true
             self.quickReturnPasskeyRequest = passkeyRequest
             return
