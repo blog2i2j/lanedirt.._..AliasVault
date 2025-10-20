@@ -111,22 +111,22 @@ class PasskeyAuthenticationActivity : Activity() {
             ) ?: ""
             val requestObj = JSONObject(requestJson)
 
-            // Extract clientDataHash from Chrome's request
-            var clientDataHashFromChrome: ByteArray? = null
-            providerRequest.credentialOptions.forEach { option ->
-                if (option is androidx.credentials.GetPublicKeyCredentialOption) {
-                    clientDataHashFromChrome = option.clientDataHash
-                }
-            }
+            // Extract clientDataHash from the calling app's request
+            // Browsers (Chrome, Firefox, Edge, etc.) provide this, native apps typically don't
+            val providedClientDataHash: ByteArray? = providerRequest.credentialOptions
+                .filterIsInstance<androidx.credentials.GetPublicKeyCredentialOption>()
+                .firstOrNull()?.clientDataHash
 
-            // If Chrome didn't provide clientDataHash, build clientDataJSON and hash it
+            // Determine clientDataHash and clientDataJson based on what caller provided
             val clientDataHash: ByteArray
             val clientDataJson: String?
-            if (clientDataHashFromChrome != null) {
-                clientDataHash = clientDataHashFromChrome
-                // Don't build clientDataJSON - Chrome has its own
+            if (providedClientDataHash != null) {
+                // Browser provided clientDataHash - use it directly
+                // The browser has its own clientDataJSON with the web origin
+                clientDataHash = providedClientDataHash
                 clientDataJson = null
             } else {
+                // Native app scenario - build clientDataJSON ourselves and hash it
                 val challenge = requestObj.optString("challenge", "")
                 val origin = requestObj.optString("origin", "https://${passkey.rpId}")
                 val json = buildClientDataJson(challenge, origin)
@@ -180,23 +180,9 @@ class PasskeyAuthenticationActivity : Activity() {
     }
 
     /**
-     * Build clientDataJSON for WebAuthn
-     */
-    private fun buildClientDataJson(challenge: ByteArray, origin: String): String {
-        val challengeB64 = base64urlEncode(challenge)
-        return buildClientDataJson(challengeB64, origin)
-    }
-
-    /**
-     * Build clientDataJSON for WebAuthn
+     * Build clientDataJSON for WebAuthn if the caller didn't provide it
      */
     private fun buildClientDataJson(challenge: String, origin: String): String {
-        // Build JSON manually WITHOUT escaping forward slashes
-        // This matches browser behavior where JSON.stringify() doesn't escape slashes
-        // TODO: check if this point is ever hit?
-        Log.d(TAG, "--------------------------------------")
-        Log.d(TAG, "Building clientDataJSON for WebAuthn manually")
-        Log.d(TAG, "--------------------------------------")
         return """{"type":"webauthn.get","challenge":"$challenge","origin":"$origin","crossOrigin":false}"""
     }
 
