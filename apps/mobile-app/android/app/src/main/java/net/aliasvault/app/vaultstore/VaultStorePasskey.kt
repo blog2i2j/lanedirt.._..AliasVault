@@ -218,8 +218,8 @@ fun VaultStore.insertPasskey(passkey: Passkey, db: SQLiteDatabase) {
 }
 
 /**
- * Create a credential with a passkey
- * This creates a minimal credential record and links the passkey to it
+ * Create a new credential with an associated passkey
+ * This method handles the database transaction internally
  */
 fun VaultStore.createCredentialWithPasskey(
     rpId: String,
@@ -227,114 +227,125 @@ fun VaultStore.createCredentialWithPasskey(
     displayName: String,
     passkey: Passkey,
     logo: ByteArray? = null,
-    db: SQLiteDatabase,
 ): Credential {
-    val credentialId = passkey.parentCredentialId
-    val now = Date()
-    val timestamp = formatDateForDatabase(now)
+    val db = database ?: throw IllegalStateException("Vault not unlocked")
 
-    // Create a minimal service for the RP
-    val serviceId = UUID.randomUUID()
-    val serviceInsert = """
-        INSERT INTO Services (Id, Name, Url, Logo, CreatedAt, UpdatedAt, IsDeleted)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """.trimIndent()
+    db.beginTransaction()
+    try {
+        val credentialId = passkey.parentCredentialId
+        val now = Date()
+        val timestamp = formatDateForDatabase(now)
 
-    db.execSQL(
-        serviceInsert,
-        arrayOf(
-            serviceId.toString().uppercase(),
-            displayName,
-            "https://$rpId",
-            logo,
-            timestamp,
-            timestamp,
-            0,
-        ),
-    )
+        // Create a minimal service for the RP
+        val serviceId = UUID.randomUUID()
+        val serviceInsert = """
+            INSERT INTO Services (Id, Name, Url, Logo, CreatedAt, UpdatedAt, IsDeleted)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """.trimIndent()
 
-    // Create a minimal alias with empty fields and default birthdate
-    val aliasId = UUID.randomUUID()
-    val aliasInsert = """
-        INSERT INTO Aliases (Id, FirstName, LastName, NickName, BirthDate, Gender, Email,
-                            CreatedAt, UpdatedAt, IsDeleted)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """.trimIndent()
+        db.execSQL(
+            serviceInsert,
+            arrayOf(
+                serviceId.toString().uppercase(),
+                displayName,
+                "https://$rpId",
+                logo,
+                timestamp,
+                timestamp,
+                0,
+            ),
+        )
 
-    db.execSQL(
-        aliasInsert,
-        arrayOf(
-            aliasId.toString().uppercase(),
-            "",
-            "",
-            "",
-            formatDateForDatabase(MIN_DATE),
-            "",
-            "",
-            timestamp,
-            timestamp,
-            0,
-        ),
-    )
+        // Create a minimal alias with empty fields and default birthdate
+        val aliasId = UUID.randomUUID()
+        val aliasInsert = """
+            INSERT INTO Aliases (Id, FirstName, LastName, NickName, BirthDate, Gender, Email,
+                                CreatedAt, UpdatedAt, IsDeleted)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """.trimIndent()
 
-    // Create the credential with the alias
-    val credentialInsert = """
-        INSERT INTO Credentials (Id, ServiceId, AliasId, Username, Notes, CreatedAt, UpdatedAt, IsDeleted)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """.trimIndent()
+        db.execSQL(
+            aliasInsert,
+            arrayOf(
+                aliasId.toString().uppercase(),
+                "",
+                "",
+                "",
+                formatDateForDatabase(MIN_DATE),
+                "",
+                "",
+                timestamp,
+                timestamp,
+                0,
+            ),
+        )
 
-    db.execSQL(
-        credentialInsert,
-        arrayOf(
-            credentialId.toString().uppercase(),
-            serviceId.toString().uppercase(),
-            aliasId.toString().uppercase(),
-            userName,
-            null,
-            timestamp,
-            timestamp,
-            0,
-        ),
-    )
+        // Create the credential with the alias
+        val credentialInsert = """
+            INSERT INTO Credentials (Id, ServiceId, AliasId, Username, Notes, CreatedAt, UpdatedAt, IsDeleted)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """.trimIndent()
 
-    // Insert the passkey
-    insertPasskey(passkey, db)
+        db.execSQL(
+            credentialInsert,
+            arrayOf(
+                credentialId.toString().uppercase(),
+                serviceId.toString().uppercase(),
+                aliasId.toString().uppercase(),
+                userName,
+                null,
+                timestamp,
+                timestamp,
+                0,
+            ),
+        )
 
-    // Return the credential
-    val service = Service(
-        id = serviceId,
-        name = displayName,
-        url = "https://$rpId",
-        logo = logo,
-        createdAt = now,
-        updatedAt = now,
-        isDeleted = false,
-    )
+        // Insert the passkey
+        insertPasskey(passkey, db)
 
-    val alias = Alias(
-        id = aliasId,
-        gender = "",
-        firstName = "",
-        lastName = "",
-        nickName = "",
-        birthDate = MIN_DATE,
-        email = "",
-        createdAt = now,
-        updatedAt = now,
-        isDeleted = false,
-    )
+        // Return the credential
+        val service = Service(
+            id = serviceId,
+            name = displayName,
+            url = "https://$rpId",
+            logo = logo,
+            createdAt = now,
+            updatedAt = now,
+            isDeleted = false,
+        )
 
-    return Credential(
-        id = credentialId,
-        alias = alias,
-        service = service,
-        username = userName,
-        notes = null,
-        password = null,
-        createdAt = now,
-        updatedAt = now,
-        isDeleted = false,
-    )
+        val alias = Alias(
+            id = aliasId,
+            gender = "",
+            firstName = "",
+            lastName = "",
+            nickName = "",
+            birthDate = MIN_DATE,
+            email = "",
+            createdAt = now,
+            updatedAt = now,
+            isDeleted = false,
+        )
+
+        // Commit transaction and persist to encrypted vault file
+        commitTransaction()
+
+        return Credential(
+            id = credentialId,
+            alias = alias,
+            service = service,
+            username = userName,
+            notes = null,
+            password = null,
+            createdAt = now,
+            updatedAt = now,
+            isDeleted = false,
+        )
+    } catch (e: Exception) {
+        // Rollback on error
+        db.endTransaction()
+        throw e
+    }
 }
 
 /**

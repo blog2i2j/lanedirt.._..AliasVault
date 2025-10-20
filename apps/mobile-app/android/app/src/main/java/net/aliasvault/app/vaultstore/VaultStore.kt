@@ -107,6 +107,13 @@ class VaultStore(
     private var dbConnection: SQLiteDatabase? = null
 
     /**
+     * Internal accessor for database connection
+     * Used by extension functions to access the database
+     */
+    internal val database: SQLiteDatabase?
+        get() = dbConnection
+
+    /**
      * The auto-lock handler.
      */
     private var autoLockHandler: Handler? = null
@@ -995,26 +1002,46 @@ class VaultStore(
             return null
         }
 
+        // Normalize milliseconds to exactly 3 digits
+        // Handles: 2025-10-20 13:48:10.4 -> 2025-10-20 13:48:10.400
+        //          1992-10-21T23:49:44.336Z -> 1992-10-21T23:49:44.336Z (unchanged)
+        //          2025-10-20 13:48:10 -> 2025-10-20 13:48:10 (unchanged)
+        val normalizedDate = dateString.replace(
+            Regex("""(\d{2}:\d{2}:\d{2})\.(\d{1,2})(?=[TZ\s]|$)"""),
+        ) { matchResult ->
+            val base = matchResult.groupValues[1]
+            val millis = matchResult.groupValues[2].padEnd(3, '0')
+            "$base.$millis"
+        }
+
+        // Try all supported formats
         val formats = listOf(
+            // ISO 8601 formats (most common from server)
             SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
                 timeZone = TimeZone.getTimeZone("UTC")
             },
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            },
+            // SQLite formats (local storage)
             SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            },
+            SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply {
                 timeZone = TimeZone.getTimeZone("UTC")
             },
         )
 
         for (format in formats) {
             try {
-                return format.parse(dateString)
+                return format.parse(normalizedDate)
             } catch (e: Exception) {
-                // Log the parsing error for this format
-                Log.d(TAG, "Failed to parse date '$dateString' with format '${format.toPattern()}': ${e.message}")
+                // Try next format
                 continue
             }
         }
 
-        Log.e(TAG, "Error parsing date: $dateString")
+        Log.e(TAG, "Error parsing date: $dateString (normalized: $normalizedDate)")
         return null
     }
 

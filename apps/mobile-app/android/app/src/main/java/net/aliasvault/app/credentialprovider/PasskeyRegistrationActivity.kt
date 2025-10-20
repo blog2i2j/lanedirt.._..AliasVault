@@ -54,11 +54,15 @@ class PasskeyRegistrationActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        Log.d(TAG, "PasskeyRegistrationActivity onCreate called")
+
         try {
             // Initialize VaultStore and WebApiService
             vaultStore = VaultStore.getExistingInstance()
                 ?: throw Exception("VaultStore not initialized")
             webApiService = WebApiService(this)
+
+            Log.d(TAG, "VaultStore and WebApiService initialized")
 
             // Retrieve provider request
             val providerRequest = PendingIntentHandler.retrieveProviderCreateCredentialRequest(intent)
@@ -69,6 +73,8 @@ class PasskeyRegistrationActivity : Activity() {
                 return
             }
 
+            Log.d(TAG, "Provider request retrieved successfully")
+
             // Extract parameters from intent
             val requestJson = intent.getStringExtra(EXTRA_CREATE_REQUEST_JSON) ?: ""
             val rpId = intent.getStringExtra(EXTRA_CREATE_RP_ID) ?: ""
@@ -76,8 +82,10 @@ class PasskeyRegistrationActivity : Activity() {
             val userDisplayName = intent.getStringExtra(EXTRA_CREATE_USER_DISPLAY_NAME)
             val userIdB64 = intent.getStringExtra(EXTRA_CREATE_USER_ID)
 
+            Log.d(TAG, "Parameters: rpId=$rpId, userName=$userName, userDisplayName=$userDisplayName")
+
             if (rpId.isEmpty() || requestJson.isEmpty()) {
-                Log.e(TAG, "Missing required parameters")
+                Log.e(TAG, "Missing required parameters: rpId=$rpId, requestJson length=${requestJson.length}")
                 setResult(RESULT_CANCELED)
                 finish()
                 return
@@ -94,6 +102,8 @@ class PasskeyRegistrationActivity : Activity() {
             } else {
                 null
             }
+
+            Log.d(TAG, "Starting passkey creation coroutine")
 
             // Start passkey creation in coroutine
             CoroutineScope(Dispatchers.Main).launch {
@@ -144,9 +154,9 @@ class PasskeyRegistrationActivity : Activity() {
             val requestObj = JSONObject(requestJson)
             val challenge = requestObj.optString("challenge", "")
 
-            // Construct origin from calling app package name
-            val packageName = providerRequest.callingAppInfo.packageName
-            val origin = "android:apk-key-hash:$packageName"
+            // Construct origin from calling app signing certificate
+            val origin = appInfoToOrigin(providerRequest.callingAppInfo)
+            Log.d(TAG, "Origin: $origin")
 
             // Build clientDataJSON
             val clientDataJson =
@@ -188,34 +198,16 @@ class PasskeyRegistrationActivity : Activity() {
                 isDeleted = false,
             )
 
-            // Store in database
-            val db = try {
-                val dbField = VaultStore::class.java.getDeclaredField("dbConnection")
-                dbField.isAccessible = true
-                dbField.get(vaultStore) as? android.database.sqlite.SQLiteDatabase
-            } catch (e: Exception) {
-                Log.e(TAG, "Cannot access database", e)
-                throw Exception("Database not available")
-            }
-
-            if (db == null) {
-                throw Exception("Database not available")
-            }
-
-            db.beginTransaction()
-            try {
-                vaultStore.createCredentialWithPasskey(
-                    rpId = rpId,
-                    userName = userName,
-                    displayName = displayName,
-                    passkey = passkey,
-                    logo = logo,
-                    db = db,
-                )
-                db.setTransactionSuccessful()
-            } finally {
-                db.endTransaction()
-            }
+            // Store in database (transaction handled internally by VaultStore)
+            Log.d(TAG, "Saving passkey to vault...")
+            vaultStore.createCredentialWithPasskey(
+                rpId = rpId,
+                userName = userName,
+                displayName = displayName,
+                passkey = passkey,
+                logo = logo,
+            )
+            Log.d(TAG, "Passkey saved successfully")
 
             // Upload vault changes to server
             try {
@@ -270,13 +262,18 @@ class PasskeyRegistrationActivity : Activity() {
                 }
             }
 
+            Log.d(TAG, "Response JSON: ${responseJson.toString(2)}")
+
             val response = CreatePublicKeyCredentialResponse(responseJson.toString())
 
             withContext(Dispatchers.Main) {
                 val resultIntent = Intent()
                 try {
+                    Log.d(TAG, "Setting credential response...")
                     PendingIntentHandler.setCreateCredentialResponse(resultIntent, response)
+                    Log.d(TAG, "Credential response set successfully")
                     setResult(RESULT_OK, resultIntent)
+                    Log.d(TAG, "Result set to RESULT_OK")
                 } catch (e: Exception) {
                     Log.e(TAG, "Error setting credential response", e)
                     setResult(RESULT_CANCELED)
@@ -349,5 +346,16 @@ class PasskeyRegistrationActivity : Activity() {
         }
 
         return android.util.Base64.decode(base64, android.util.Base64.NO_WRAP)
+    }
+
+    /**
+     * Compute the origin from CallingAppInfo
+     * Format: android:apk-key-hash:<base64-encoded-sha256-of-signing-cert>
+     */
+    private fun appInfoToOrigin(info: androidx.credentials.provider.CallingAppInfo): String {
+        val cert = info.signingInfo.apkContentsSigners[0].toByteArray()
+        val md = MessageDigest.getInstance("SHA-256")
+        val certHash = md.digest(cert)
+        return "android:apk-key-hash:${base64urlEncode(certHash)}"
     }
 }
