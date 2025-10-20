@@ -61,7 +61,7 @@ fun VaultStore.getPasskeyByCredentialId(credentialId: ByteArray, db: SQLiteDatab
         LIMIT 1
     """.trimIndent()
 
-    val cursor = db.rawQuery(query, arrayOf(credentialIdString))
+    val cursor = db.rawQuery(query, arrayOf(credentialIdString.uppercase()))
     cursor.use {
         if (it.moveToFirst()) {
             return parsePasskeyRow(it)
@@ -84,7 +84,7 @@ fun VaultStore.getPasskeysForCredential(credentialId: UUID, db: SQLiteDatabase):
     """.trimIndent()
 
     val passkeys = mutableListOf<Passkey>()
-    val cursor = db.rawQuery(query, arrayOf(credentialId.toString()))
+    val cursor = db.rawQuery(query, arrayOf(credentialId.toString().uppercase()))
 
     cursor.use {
         while (it.moveToNext()) {
@@ -202,8 +202,8 @@ fun VaultStore.insertPasskey(passkey: Passkey, db: SQLiteDatabase) {
     db.execSQL(
         insert,
         arrayOf(
-            passkey.id.toString(),
-            passkey.parentCredentialId.toString(),
+            passkey.id.toString().uppercase(),
+            passkey.parentCredentialId.toString().uppercase(),
             passkey.rpId,
             passkey.userHandle,
             publicKeyString,
@@ -243,7 +243,7 @@ fun VaultStore.createCredentialWithPasskey(
     db.execSQL(
         serviceInsert,
         arrayOf(
-            serviceId.toString(),
+            serviceId.toString().uppercase(),
             displayName,
             "https://$rpId",
             logo,
@@ -264,7 +264,7 @@ fun VaultStore.createCredentialWithPasskey(
     db.execSQL(
         aliasInsert,
         arrayOf(
-            aliasId.toString(),
+            aliasId.toString().uppercase(),
             "",
             "",
             "",
@@ -286,9 +286,9 @@ fun VaultStore.createCredentialWithPasskey(
     db.execSQL(
         credentialInsert,
         arrayOf(
-            credentialId.toString(),
-            serviceId.toString(),
-            aliasId.toString(),
+            credentialId.toString().uppercase(),
+            serviceId.toString().uppercase(),
+            aliasId.toString().uppercase(),
             userName,
             null,
             timestamp,
@@ -364,7 +364,7 @@ fun VaultStore.replacePasskey(
             SELECT ServiceId FROM Credentials WHERE Id = ? LIMIT 1
         """.trimIndent()
 
-        val cursor = db.rawQuery(credQuery, arrayOf(credentialId.toString()))
+        val cursor = db.rawQuery(credQuery, arrayOf(credentialId.toString().uppercase()))
         cursor.use {
             if (it.moveToFirst()) {
                 val serviceId = it.getString(0)
@@ -388,7 +388,7 @@ fun VaultStore.replacePasskey(
         WHERE Id = ?
     """.trimIndent()
 
-    db.execSQL(deleteQuery, arrayOf(timestamp, oldPasskeyId.toString()))
+    db.execSQL(deleteQuery, arrayOf(timestamp, oldPasskeyId.toString().uppercase()))
 
     // Create the new passkey with the same credential ID
     val updatedPasskey = newPasskey.copy(
@@ -405,7 +405,7 @@ fun VaultStore.replacePasskey(
 /**
  * Get a passkey by its ID
  */
-private fun VaultStore.getPasskeyById(passkeyId: UUID, db: SQLiteDatabase): Passkey? {
+fun VaultStore.getPasskeyById(passkeyId: UUID, db: SQLiteDatabase): Passkey? {
     val query = """
         SELECT Id, CredentialId, RpId, UserHandle, PublicKey, PrivateKey, PrfKey,
                DisplayName, CreatedAt, UpdatedAt, IsDeleted
@@ -414,7 +414,10 @@ private fun VaultStore.getPasskeyById(passkeyId: UUID, db: SQLiteDatabase): Pass
         LIMIT 1
     """.trimIndent()
 
-    val cursor = db.rawQuery(query, arrayOf(passkeyId.toString()))
+    // Always convert the UUID to uppercase when querying the DB
+    val upperPasskeyId = passkeyId.toString().uppercase()
+
+    val cursor = db.rawQuery(query, arrayOf(upperPasskeyId))
     cursor.use {
         if (it.moveToFirst()) {
             return parsePasskeyRow(it)
