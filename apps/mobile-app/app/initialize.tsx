@@ -300,7 +300,7 @@ export default function Initialize() : React.ReactNode {
       </View>
       {showSkipButton && (
         <TouchableOpacity style={styles.skipButton} onPress={handleSkipPress}>
-          <Ionicons name="close" size={20} color={colors.textMuted} />
+          <Ionicons name="play-forward-outline" size={20} color={colors.textMuted} />
         </TouchableOpacity>
       )}
     </ThemedView>

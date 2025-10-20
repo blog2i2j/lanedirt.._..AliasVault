@@ -468,7 +468,7 @@
       "stillOffline": "Still offline"
     },
     "alerts": {
-      "syncIssue": "Sync Issue",
+      "syncIssue": "No Connection",
       "syncIssueMessage": "The AliasVault server could not be reached and your vault could not be synced. Would you like to open your local vault in read-only mode or retry the connection?",
       "openLocalVault": "Open Local Vault",
       "retrySync": "Retry Sync"
