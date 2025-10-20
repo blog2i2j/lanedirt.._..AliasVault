@@ -26,8 +26,43 @@ export default function ReinitializeScreen() : React.ReactNode {
   const [showSkipButton, setShowSkipButton] = useState(false);
   const hasInitialized = useRef(false);
   const skipButtonTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastStatusRef = useRef<string>('');
   const colors = useColors();
   const { t } = useTranslation();
+
+  /**
+   * Update status with smart skip button logic.
+   * Normalizes status by removing animation dots and manages skip button visibility.
+   */
+  const updateStatus = useCallback((message: string): void => {
+    setStatus(message);
+
+    // Normalize status by removing animation dots for comparison
+    const normalizedMessage = message.replace(/\.+$/, '');
+    const normalizedLastStatus = lastStatusRef.current.replace(/\.+$/, '');
+
+    // Clear any existing timeout
+    if (skipButtonTimeoutRef.current) {
+      clearTimeout(skipButtonTimeoutRef.current);
+      skipButtonTimeoutRef.current = null;
+    }
+
+    // If status changed (excluding dots), hide skip button and reset timer
+    if (normalizedMessage !== normalizedLastStatus) {
+      setShowSkipButton(false);
+      lastStatusRef.current = message;
+
+      // Start new timer for the new status
+      if (message) {
+        skipButtonTimeoutRef.current = setTimeout(() => {
+          setShowSkipButton(true);
+        }, 5000) as unknown as NodeJS.Timeout;
+      }
+    } else {
+      // Same status (excluding dots) - update ref but keep timer running
+      lastStatusRef.current = message;
+    }
+  }, []);
 
   /**
    * Handle offline scenario - show alert with options to open local vault or retry sync.
@@ -43,7 +78,7 @@ export default function ReinitializeScreen() : React.ReactNode {
            * Handle opening vault in read-only mode.
            */
           onPress: async () : Promise<void> => {
-            setStatus(t('app.status.openingVaultReadOnly'));
+            updateStatus(t('app.status.openingVaultReadOnly'));
             const { enabledAuthMethods } = await app.initializeAuth();
 
             try {
@@ -66,7 +101,7 @@ export default function ReinitializeScreen() : React.ReactNode {
               }
 
               // Attempt to unlock vault
-              setStatus(t('app.status.unlockingVault'));
+              updateStatus(t('app.status.unlockingVault'));
               const isUnlocked = await dbContext.unlockVault();
 
               // Vault couldn't be unlocked
@@ -128,7 +163,7 @@ export default function ReinitializeScreen() : React.ReactNode {
            * Handle retrying the connection.
            */
           onPress: () : void => {
-            setStatus(t('app.status.retryingConnection'));
+            updateStatus(t('app.status.retryingConnection'));
             setShowSkipButton(false);
 
             // Clear any existing timeout
@@ -136,6 +171,9 @@ export default function ReinitializeScreen() : React.ReactNode {
               clearTimeout(skipButtonTimeoutRef.current);
               skipButtonTimeoutRef.current = null;
             }
+
+            // Reset status tracking
+            lastStatusRef.current = '';
 
             /**
              * Reset the hasInitialized flag and navigate to reinitialize route
@@ -147,7 +185,7 @@ export default function ReinitializeScreen() : React.ReactNode {
         }
       ]
     );
-  }, [app, dbContext, t]);
+  }, [app, dbContext, t, updateStatus]);
 
   useEffect(() => {
     if (hasInitialized.current) {
@@ -214,11 +252,11 @@ export default function ReinitializeScreen() : React.ReactNode {
             return;
           }
 
-          setStatus(t('app.status.unlockingVault'));
+          updateStatus(t('app.status.unlockingVault'));
           const isUnlocked = await dbContext.unlockVault();
           if (isUnlocked) {
             await new Promise(resolve => setTimeout(resolve, 1000));
-            setStatus(t('app.status.decryptingVault'));
+            updateStatus(t('app.status.decryptingVault'));
             await new Promise(resolve => setTimeout(resolve, 1000));
 
             // Check if the vault is up to date, if not, redirect to the upgrade page.
@@ -264,14 +302,7 @@ export default function ReinitializeScreen() : React.ReactNode {
          * Handle the status update.
          */
         onStatus: (message) => {
-          setStatus(message);
-
-          // Show skip button after 5 seconds when we start loading
-          if (message && !skipButtonTimeoutRef.current) {
-            skipButtonTimeoutRef.current = setTimeout(() => {
-              setShowSkipButton(true);
-            }, 5000) as unknown as NodeJS.Timeout;
-          }
+          updateStatus(message);
         },
         /**
          * Handle successful vault sync and continue with vault unlock flow.
@@ -304,7 +335,7 @@ export default function ReinitializeScreen() : React.ReactNode {
     };
 
     initialize();
-  }, [syncVault, app, dbContext, t, handleOfflineFlow]);
+  }, [syncVault, app, dbContext, t, handleOfflineFlow, updateStatus]);
 
   /**
    * Handle skip button press by calling the offline handler.
@@ -313,9 +344,11 @@ export default function ReinitializeScreen() : React.ReactNode {
     // Clear any existing timeout
     if (skipButtonTimeoutRef.current) {
       clearTimeout(skipButtonTimeoutRef.current);
+      skipButtonTimeoutRef.current = null;
     }
 
     setShowSkipButton(false);
+    lastStatusRef.current = '';
 
     handleOfflineFlow();
   };
