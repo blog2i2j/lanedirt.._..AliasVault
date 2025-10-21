@@ -1144,6 +1144,27 @@ class VaultStore(
     }
 
     /**
+     * Sync the vault with the server.
+     * Returns true if a new vault was downloaded, false if vault is already up to date.
+     * NOTE: This is a convenience method that combines isNewVaultVersionAvailable and downloadVault
+     * For better UX control, use isNewVaultVersionAvailable() and downloadVault() separately
+     */
+    suspend fun syncVault(webApiService: net.aliasvault.app.webapi.WebApiService): Boolean {
+        // Check if new version is available
+        val versionCheck = isNewVaultVersionAvailable(webApiService)
+        val isNewVersionAvailable = versionCheck["isNewVersionAvailable"] as? Boolean ?: false
+        val newRevision = versionCheck["newRevision"] as? Int
+
+        if (isNewVersionAvailable && newRevision != null) {
+            // Download the new vault
+            downloadVault(webApiService, newRevision)
+            return true
+        }
+
+        return false
+    }
+
+    /**
      * Fetch and validate server status.
      */
     private suspend fun fetchAndValidateStatus(webApiService: net.aliasvault.app.webapi.WebApiService): StatusResponse {
@@ -1156,16 +1177,22 @@ class VaultStore(
                 requiresAuth = true,
             )
         } catch (e: Exception) {
-            throw Exception("Network error: ${e.message}", e)
+            // Network error - convert to VaultSyncError
+            throw VaultSyncError.NetworkError(e)
         }
 
         // Check response status
+        // Note: WebApiService already handles 401 with automatic token refresh and retry
+        // If we still get a 401 here, it means the refresh failed and we should logout
         if (statusResponse.statusCode != 200) {
             if (statusResponse.statusCode == 401) {
-                throw Exception("Session expired")
+                // Authentication failed even after token refresh attempt
+                Log.e(TAG, "Authentication failed (401) - token refresh also failed")
+                throw VaultSyncError.SessionExpired()
             }
+            // Other error (5xx, network, etc.) - go offline
             setOfflineMode(true)
-            throw Exception("Server unavailable: ${statusResponse.statusCode}")
+            throw VaultSyncError.ServerUnavailable(statusResponse.statusCode)
         }
 
         val status = try {
@@ -1178,11 +1205,12 @@ class VaultStore(
             )
         } catch (e: Exception) {
             Log.e(TAG, "Failed to decode status response", e)
-            throw Exception("Failed to decode status response: ${e.message}")
+            Log.e(TAG, "Response body: '${statusResponse.body}'")
+            throw VaultSyncError.ParseError("Failed to decode status response: ${e.message}")
         }
 
         if (!status.clientVersionSupported) {
-            throw Exception("Client version not supported")
+            throw VaultSyncError.ClientVersionNotSupported()
         }
 
         validateSrpSalt(status.srpSalt)
@@ -1202,10 +1230,10 @@ class VaultStore(
             val json = org.json.JSONObject(keyDerivationParams)
             val salt = json.optString("salt", "")
             if (srpSalt.isNotEmpty() && srpSalt != salt) {
-                throw Exception("Password changed")
+                throw VaultSyncError.PasswordChanged()
             }
         } catch (e: Exception) {
-            if (e.message == "Password changed") throw e
+            if (e is VaultSyncError.PasswordChanged) throw e
             // Ignore parsing errors
         }
     }

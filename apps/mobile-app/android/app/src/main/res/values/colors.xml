@@ -29,4 +29,7 @@
   <color name="av_tertiary">#eabf69</color>
   <color name="av_icon">#687076</color>
   <color name="av_error">#D32F2F</color>
+
+  <!-- Loading overlay background (light mode: white with 80% opacity) -->
+  <color name="av_loading_overlay">#CCFFFFFF</color>
 </resources>

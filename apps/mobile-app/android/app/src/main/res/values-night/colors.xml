@@ -11,4 +11,7 @@
   <color name="av_tertiary">#eabf69</color>
   <color name="av_icon">#9BA1A6</color>
   <color name="av_error">#ef4444</color>
+
+  <!-- Loading overlay background (dark mode: black with 80% opacity) -->
+  <color name="av_loading_overlay">#CC000000</color>
 </resources>
