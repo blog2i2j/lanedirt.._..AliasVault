@@ -359,15 +359,24 @@ class PasskeyRegistrationActivity : Activity() {
                 put("id", credentialIdB64)
                 put("rawId", credentialIdB64)
                 put("type", "public-key")
-                put("authenticatorAttachment", "cross-platform")
+                put("authenticatorAttachment", "platform")
                 put(
                     "response",
                     JSONObject().apply {
                         put("clientDataJSON", clientDataJsonB64)
                         put("attestationObject", attestationObjectB64)
-                        put("transports", JSONArray().apply { put("hybrid") })
+                        put("authenticatorData", base64urlEncode(passkeyResult.authenticatorData))
+                        put(
+                            "transports",
+                            org.json.JSONArray().apply {
+                                put("internal")
+                            },
+                        )
+                        put("publicKey", base64urlEncode(passkeyResult.publicKeyDER))
+                        put("publicKeyAlgorithm", -7) // ES256, required for Chrome CredManHelper. Firefox doesn't need this.
                     },
                 )
+
                 // Add PRF extension results if present
                 val prfResults = if (enablePrf) passkeyResult.prfResults else null
                 if (prfResults != null) {

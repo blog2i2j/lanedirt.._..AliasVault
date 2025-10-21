@@ -114,13 +114,16 @@ object PasskeyAuthenticator {
         }
 
         // 11. Export keys for storage
-        val publicKeyData = exportPublicKeyAsJWK(keyPair.public as ECPublicKey)
+        val publicKeyJWK = exportPublicKeyAsJWK(keyPair.public as ECPublicKey)
+        val publicKeyDER = (keyPair.public as ECPublicKey).encoded // DER/SPKI format
         val privateKeyData = exportPrivateKeyAsJWK(keyPair.private as ECPrivateKey, keyPair.public as ECPublicKey)
 
         return PasskeyCreationResult(
             credentialId = credentialId,
             attestationObject = attestationObject,
-            publicKey = publicKeyData,
+            authenticatorData = authenticatorData,
+            publicKey = publicKeyJWK,
+            publicKeyDER = publicKeyDER,
             privateKey = privateKeyData,
             rpId = rpId,
             userId = userId,
@@ -397,8 +400,10 @@ object PasskeyAuthenticator {
 
     data class PasskeyCreationResult(
         val credentialId: ByteArray,
+        val authenticatorData: ByteArray,
         val attestationObject: ByteArray,
         val publicKey: ByteArray, // JWK format
+        val publicKeyDER: ByteArray, // DER/SPKI format for Chrome
         val privateKey: ByteArray, // JWK format
         val rpId: String,
         val userId: ByteArray?,
@@ -414,8 +419,10 @@ object PasskeyAuthenticator {
             other as PasskeyCreationResult
 
             if (!credentialId.contentEquals(other.credentialId)) return false
+            if (!authenticatorData.contentEquals(other.authenticatorData)) return false
             if (!attestationObject.contentEquals(other.attestationObject)) return false
             if (!publicKey.contentEquals(other.publicKey)) return false
+            if (!publicKeyDER.contentEquals(other.publicKeyDER)) return false
             if (!privateKey.contentEquals(other.privateKey)) return false
             if (rpId != other.rpId) return false
             if (userId != null) {
@@ -435,8 +442,10 @@ object PasskeyAuthenticator {
 
         override fun hashCode(): Int {
             var result = credentialId.contentHashCode()
+            result = 31 * result + authenticatorData.contentHashCode()
             result = 31 * result + attestationObject.contentHashCode()
             result = 31 * result + publicKey.contentHashCode()
+            result = 31 * result + publicKeyDER.contentHashCode()
             result = 31 * result + privateKey.contentHashCode()
             result = 31 * result + rpId.hashCode()
             result = 31 * result + (userId?.contentHashCode() ?: 0)
