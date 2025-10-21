@@ -184,7 +184,7 @@ export default defineUnlistedScript(() => {
                 clientDataJSON: base64ToBuffer(cred.clientDataJSON),
                 attestationObject: attestationObjectBuffer,
                 /**
-                 * getTransports
+                 * getTransports TODO: delete this, not used for cross-platform?
                  */
                 getTransports() : string[] {
                   return ['internal'];

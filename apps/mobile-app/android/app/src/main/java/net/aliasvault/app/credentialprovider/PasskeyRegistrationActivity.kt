@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.TextView
+import androidx.credentials.CreatePublicKeyCredentialRequest
 import androidx.credentials.CreatePublicKeyCredentialResponse
 import androidx.credentials.provider.PendingIntentHandler
 import androidx.credentials.provider.ProviderCreateCredentialRequest
@@ -18,19 +19,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.aliasvault.app.R
 import net.aliasvault.app.components.LoadingIndicator
-import net.aliasvault.app.credentialprovider.AliasVaultCredentialProviderService.Companion.EXTRA_CREATE_REQUEST_JSON
-import net.aliasvault.app.credentialprovider.AliasVaultCredentialProviderService.Companion.EXTRA_CREATE_RP_ID
-import net.aliasvault.app.credentialprovider.AliasVaultCredentialProviderService.Companion.EXTRA_CREATE_USER_DISPLAY_NAME
-import net.aliasvault.app.credentialprovider.AliasVaultCredentialProviderService.Companion.EXTRA_CREATE_USER_ID
-import net.aliasvault.app.credentialprovider.AliasVaultCredentialProviderService.Companion.EXTRA_CREATE_USER_NAME
 import net.aliasvault.app.vaultstore.VaultStore
 import net.aliasvault.app.vaultstore.createCredentialWithPasskey
 import net.aliasvault.app.vaultstore.models.Passkey
 import net.aliasvault.app.vaultstore.passkey.PasskeyAuthenticator
 import net.aliasvault.app.vaultstore.passkey.PasskeyHelper
 import net.aliasvault.app.webapi.WebApiService
+import org.json.JSONArray
 import org.json.JSONObject
-import java.security.MessageDigest
 import java.util.Date
 import java.util.UUID
 
@@ -66,6 +62,8 @@ class PasskeyRegistrationActivity : Activity() {
     // Request data
     private var providerRequest: ProviderCreateCredentialRequest? = null
     private var requestJson: String = ""
+    private var clientDataHash: ByteArray? = null
+    private var origin: String? = null
     private var rpId: String = ""
     private var userName: String? = null
     private var userDisplayName: String? = null
@@ -98,12 +96,35 @@ class PasskeyRegistrationActivity : Activity() {
 
             Log.d(TAG, "Provider request retrieved successfully")
 
-            // Extract parameters from intent
-            requestJson = intent.getStringExtra(EXTRA_CREATE_REQUEST_JSON) ?: ""
-            rpId = intent.getStringExtra(EXTRA_CREATE_RP_ID) ?: ""
-            userName = intent.getStringExtra(EXTRA_CREATE_USER_NAME)
-            userDisplayName = intent.getStringExtra(EXTRA_CREATE_USER_DISPLAY_NAME)
-            val userIdB64 = intent.getStringExtra(EXTRA_CREATE_USER_ID)
+            // Extract parameters from providerRequest.callingRequest
+            val createRequest = providerRequest!!.callingRequest
+            if (createRequest !is CreatePublicKeyCredentialRequest) {
+                Log.e(TAG, "Request is not a CreatePublicKeyCredentialRequest")
+                showError(getString(R.string.passkey_creation_failed))
+                return
+            }
+
+            // Get requestJson, clientDataHash, and origin from the request
+            requestJson = createRequest.requestJson
+            clientDataHash = createRequest.clientDataHash
+            origin = createRequest.origin
+
+            Log.d(TAG, "Request JSON: $requestJson")
+            Log.d(TAG, "Origin: $origin")
+            Log.d(TAG, "ClientDataHash length: ${clientDataHash?.size}")
+
+            // Parse request JSON to extract RP ID and user info
+            val requestObj = JSONObject(requestJson)
+
+            // Extract RP info
+            val rpObj = requestObj.optJSONObject("rp")
+            rpId = rpObj?.optString("id") ?: ""
+
+            // Extract user info
+            val userObj = requestObj.optJSONObject("user")
+            userName = userObj?.optString("name")?.takeIf { it.isNotEmpty() }
+            userDisplayName = userObj?.optString("displayName")?.takeIf { it.isNotEmpty() }
+            val userIdB64 = userObj?.optString("id")
 
             Log.d(TAG, "Parameters: rpId=$rpId, userName=$userName, userDisplayName=$userDisplayName")
 
@@ -228,9 +249,6 @@ class PasskeyRegistrationActivity : Activity() {
                 showLoading(getString(R.string.passkey_creating))
             }
 
-            // wait for 10 seconds to test interface
-            delay(10000)
-
             Log.d(TAG, "Creating passkey for RP: $rpId, user: $userName")
 
             // Extract favicon (optional)
@@ -246,18 +264,22 @@ class PasskeyRegistrationActivity : Activity() {
             val passkeyId = UUID.randomUUID()
             val credentialId = PasskeyHelper.guidToBytes(passkeyId.toString())
 
-            // Parse request to get challenge
+            // Use clientDataHash from the request
+            val requestClientDataHash = this@PasskeyRegistrationActivity.clientDataHash
+            if (requestClientDataHash == null) {
+                throw Exception("Client data hash not available")
+            }
+
+            // Parse request to get challenge (for building response clientDataJSON later)
             val requestObj = JSONObject(requestJson)
             val challenge = requestObj.optString("challenge", "")
 
-            // Construct origin from calling app signing certificate
-            val origin = appInfoToOrigin(providerRequest!!.callingAppInfo)
-            Log.d(TAG, "Origin: $origin")
-
-            // Build clientDataJSON
-            val clientDataJson =
-                """{"type":"webauthn.create","challenge":"$challenge","origin":"$origin","crossOrigin":false}"""
-            val clientDataHash = sha256(clientDataJson.toByteArray(Charsets.UTF_8))
+            // Use origin from the request
+            val requestOrigin = this@PasskeyRegistrationActivity.origin
+            if (requestOrigin == null) {
+                throw Exception("Origin not available")
+            }
+            Log.d(TAG, "Using origin from request: $requestOrigin")
 
             // Extract PRF inputs if present
             val prfInputs = extractPrfInputs(requestObj)
@@ -266,7 +288,7 @@ class PasskeyRegistrationActivity : Activity() {
             // Create the passkey using PasskeyAuthenticator
             val passkeyResult = PasskeyAuthenticator.createPasskey(
                 credentialId = credentialId,
-                clientDataHash = clientDataHash,
+                clientDataHash = requestClientDataHash,
                 rpId = rpId,
                 userId = userId,
                 userName = userName,
@@ -327,28 +349,25 @@ class PasskeyRegistrationActivity : Activity() {
             // Build response
             val credentialIdB64 = base64urlEncode(credentialId)
             val attestationObjectB64 = base64urlEncode(passkeyResult.attestationObject)
+
+            // Rebuild clientDataJSON for the response (needed for the credential response)
+            val clientDataJson =
+                """{"type":"webauthn.create","challenge":"$challenge","origin":"$requestOrigin","crossOrigin":false}"""
             val clientDataJsonB64 = base64urlEncode(clientDataJson.toByteArray(Charsets.UTF_8))
 
             val responseJson = JSONObject().apply {
                 put("id", credentialIdB64)
                 put("rawId", credentialIdB64)
                 put("type", "public-key")
-                put("authenticatorAttachment", "platform")
-
+                put("authenticatorAttachment", "cross-platform")
                 put(
                     "response",
                     JSONObject().apply {
                         put("clientDataJSON", clientDataJsonB64)
                         put("attestationObject", attestationObjectB64)
-                        put(
-                            "transports",
-                            org.json.JSONArray().apply {
-                                put("internal")
-                            },
-                        )
+                        put("transports", JSONArray().apply { put("hybrid") })
                     },
                 )
-
                 // Add PRF extension results if present
                 val prfResults = if (enablePrf) passkeyResult.prfResults else null
                 if (prfResults != null) {
@@ -430,14 +449,6 @@ class PasskeyRegistrationActivity : Activity() {
     }
 
     /**
-     * Compute SHA-256 hash
-     */
-    private fun sha256(data: ByteArray): ByteArray {
-        val digest = MessageDigest.getInstance("SHA-256")
-        return digest.digest(data)
-    }
-
-    /**
      * Encode bytes to base64url string
      */
     private fun base64urlEncode(data: ByteArray): String {
@@ -462,16 +473,5 @@ class PasskeyRegistrationActivity : Activity() {
         }
 
         return android.util.Base64.decode(base64, android.util.Base64.NO_WRAP)
-    }
-
-    /**
-     * Compute the origin from CallingAppInfo
-     * Format: android:apk-key-hash:<base64-encoded-sha256-of-signing-cert>
-     */
-    private fun appInfoToOrigin(info: androidx.credentials.provider.CallingAppInfo): String {
-        val cert = info.signingInfo.apkContentsSigners[0].toByteArray()
-        val md = MessageDigest.getInstance("SHA-256")
-        val certHash = md.digest(cert)
-        return "android:apk-key-hash:${base64urlEncode(certHash)}"
     }
 }

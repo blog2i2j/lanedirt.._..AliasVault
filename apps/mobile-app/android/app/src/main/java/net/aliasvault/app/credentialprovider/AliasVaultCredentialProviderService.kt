@@ -41,13 +41,6 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
         const val EXTRA_REQUEST_JSON = "request_json"
         const val EXTRA_RP_ID = "rp_id"
         const val EXTRA_PASSKEY_ID = "passkey_id"
-
-        // Intent extras for registration
-        const val EXTRA_CREATE_REQUEST_JSON = "create_request_json"
-        const val EXTRA_CREATE_RP_ID = "create_rp_id"
-        const val EXTRA_CREATE_USER_NAME = "create_user_name"
-        const val EXTRA_CREATE_USER_DISPLAY_NAME = "create_user_display_name"
-        const val EXTRA_CREATE_USER_ID = "create_user_id"
     }
 
     /**
@@ -291,13 +284,7 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
 
                 val entry = CreateEntry(
                     accountName = accountName,
-                    pendingIntent = createNewPendingIntent(
-                        rpId = rpId,
-                        userName = userName.ifEmpty { null },
-                        userDisplayName = userDisplayName.ifEmpty { null },
-                        userIdB64 = userIdB64.ifEmpty { null },
-                        requestJson = requestJson,
-                    ),
+                    pendingIntent = createNewPendingIntent(rpId),
                 )
 
                 createEntries.add(entry)
@@ -313,22 +300,11 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
 
     /**
      * Create a PendingIntent for passkey registration
+     * The intent doesn't need any extras - all data is available via providerRequest.callingRequest
      */
-    private fun createNewPendingIntent(
-        rpId: String,
-        userName: String?,
-        userDisplayName: String?,
-        userIdB64: String?,
-        requestJson: String,
-    ): PendingIntent {
+    private fun createNewPendingIntent(rpId: String): PendingIntent {
         // Create intent for PasskeyRegistrationActivity
-        val intent = Intent(this, PasskeyRegistrationActivity::class.java).apply {
-            putExtra(EXTRA_CREATE_REQUEST_JSON, requestJson)
-            putExtra(EXTRA_CREATE_RP_ID, rpId)
-            userName?.let { putExtra(EXTRA_CREATE_USER_NAME, it) }
-            userDisplayName?.let { putExtra(EXTRA_CREATE_USER_DISPLAY_NAME, it) }
-            userIdB64?.let { putExtra(EXTRA_CREATE_USER_ID, it) }
-        }
+        val intent = Intent(this, PasskeyRegistrationActivity::class.java)
 
         return PendingIntent.getActivity(
             this,
