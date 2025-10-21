@@ -6,6 +6,7 @@
   <color name="av_accent_background">#202020</color>
   <color name="av_accent_border">#444444</color>
   <color name="av_primary">#f49541</color>
+  <color name="av_primary_ripple">#33f49541</color>
   <color name="av_secondary">#6b7280</color>
   <color name="av_tertiary">#eabf69</color>
   <color name="av_icon">#9BA1A6</color>

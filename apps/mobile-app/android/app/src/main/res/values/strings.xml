@@ -35,4 +35,10 @@
   <string name="passkey_retry_button">Retry</string>
   <string name="passkey_info_icon">Info icon</string>
   <string name="passkey_create_explanation">Create a passkey to securely sign in without passwords</string>
+  <string name="passkey_create_new_button">Create New Passkey</string>
+  <string name="passkey_select_to_replace">Select passkey to replace</string>
+  <string name="passkey_replace_title">Replace Passkey</string>
+  <string name="passkey_replace_button">Replace Passkey</string>
+  <string name="passkey_replace_explanation">Replacing this passkey will delete the old one and create a new one</string>
+  <string name="passkey_replacing">Replacing passkey…</string>
 </resources>

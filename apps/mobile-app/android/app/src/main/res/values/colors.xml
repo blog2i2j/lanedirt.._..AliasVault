@@ -24,6 +24,7 @@
   <color name="av_accent_background">#ffffff</color>
   <color name="av_accent_border">#d1d5db</color>
   <color name="av_primary">#f49541</color>
+  <color name="av_primary_ripple">#33f49541</color>
   <color name="av_secondary">#6b7280</color>
   <color name="av_tertiary">#eabf69</color>
   <color name="av_icon">#687076</color>
