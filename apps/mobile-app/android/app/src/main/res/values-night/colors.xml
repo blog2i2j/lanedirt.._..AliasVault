@@ -1,4 +1,7 @@
 <resources>
+  <!-- Splashscreen and autofill background (dark mode) -->
+  <color name="splashscreen_background">#202020</color>
+
   <!-- AliasVault Dark Mode Colors -->
   <color name="av_text">#ECEDEE</color>
   <color name="av_text_muted">#9BA1A6</color>
