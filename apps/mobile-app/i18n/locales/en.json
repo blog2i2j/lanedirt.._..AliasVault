@@ -198,7 +198,7 @@
   },
   "settings": {
     "title": "Settings",
-    "iosAutofill": "Autofill & Passkeys",
+    "autofill": "Autofill & Passkeys",
     "iosAutofillSettings": {
       "headerText": "You can configure AliasVault to provide native password and passkey autofill functionality in iOS. Follow the instructions below to enable it.",
       "passkeyNotice": "Passkeys are created through iOS. To store them in AliasVault, ensure Autofill below is enabled.",
@@ -212,13 +212,13 @@
       "alreadyConfigured": "I already configured it",
       "warningText": "Note: You'll need to authenticate with Face ID/Touch ID or your device passcode when using autofill."
     },
-    "androidAutofill": "Android Autofill",
     "androidAutofillSettings": {
       "warningTitle": "⚠️ Experimental Feature",
-      "warningDescription": "Autofill support for Android is currently in an experimental state.",
+      "warningDescription": "Autofill and passkey support for Android is currently in an experimental state.",
       "warningLink": "Read more about it here",
-      "headerText": "You can configure AliasVault to provide native password autofill functionality in Android. Follow the instructions below to enable it.",
-      "howToEnable": "How to enable:",
+      "headerText": "You can configure AliasVault to provide native password and passkey autofill functionality in Android. Follow the instructions below to enable it.",
+      "passkeyNotice": "Passkeys are created through Android Credential Manager (Android 14+). To store them in AliasVault, ensure Autofill below is enabled.",
+      "howToEnable": "How to enable Autofill & Passkeys:",
       "step1": "1. Open Android Settings via the button below, and change the \"autofill preferred service\" to \"AliasVault\"",
       "openAutofillSettings": "Open Autofill Settings",
       "buttonTip": "If the button above doesn't work it might be blocked because of security settings. You can manually go to Android Settings → General Management → Passwords and autofill.",

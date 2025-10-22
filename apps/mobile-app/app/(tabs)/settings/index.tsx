@@ -337,7 +337,7 @@ export default function SettingsScreen() : React.ReactNode {
                   <Ionicons name="key-outline" size={20} color={colors.text} />
                 </View>
                 <View style={styles.settingItemContent}>
-                  <ThemedText style={styles.settingItemText}>{t('settings.iosAutofill')}</ThemedText>
+                  <ThemedText style={styles.settingItemText}>{t('settings.autofill')}</ThemedText>
                   {shouldShowAutofillReminder && (
                     <View style={styles.settingItemBadge}>
                       <ThemedText style={styles.settingItemBadgeText}>1</ThemedText>
@@ -359,7 +359,7 @@ export default function SettingsScreen() : React.ReactNode {
                   <Ionicons name="key-outline" size={20} color={colors.text} />
                 </View>
                 <View style={styles.settingItemContent}>
-                  <ThemedText style={styles.settingItemText}>{t('settings.androidAutofill')}</ThemedText>
+                  <ThemedText style={styles.settingItemText}>{t('settings.autofill')}</ThemedText>
                   {shouldShowAutofillReminder && (
                     <View style={styles.settingItemBadge}>
                       <ThemedText style={styles.settingItemBadgeText}>1</ThemedText>

@@ -1,23 +1,42 @@
 ---
 layout: default
-title: Autofill
+title: Autofill & Passkeys
 parent: Android App
 grand_parent: Mobile Apps
 nav_order: 2
 ---
 
-# Android autofill
+# Android Autofill & Passkeys
 
-This page explains how autofill works in the AliasVault Android app.
+This page explains how autofill and passkeys work in the AliasVault Android app.
 
 ## Experimental
 
 {: .note }
-As of writing (May 2025), autofill support for Android is in an experimental state. If you're having trouble please read the instructions on this page.
+As of writing (October 2025), autofill and passkey support for Android is in an experimental state. If you're having trouble please read the instructions on this page.
 
 Android has added multiple autofill APIs throughout the years, which include Accessibility, Native Autofill, and Inline Autofill. These multiple APIs make it hard to offer a universal experience for AliasVault. AliasVault currently supports some but not all of these, so results may vary depending on your device and the app you're using. We're actively working on improving autofill in upcoming releases.
 
 If you're running into any specific issues with your specific device make/model, please read the tips below. If your issue is not mentioned on this page, feel free to raise an issue on [GitHub](https://github.com/aliasvault/aliasvault/issues) or get in contact via [Discord](https://discord.gg/DsaXMTEtpF).
+
+## Passkeys
+
+Starting with Android 14, Google introduced the [Credential Manager API](https://developer.android.com/identity/sign-in/credential-manager) which enables passkey creation and authentication. AliasVault supports passkeys on Android 14 and later through this API.
+
+### Passkey Support Status
+
+Passkeys are supported in most places for both creation and authentication. However, there are some limitations:
+
+**Supported:**
+- ✅ Passkey creation (registration)
+- ✅ Passkey authentication (login)
+- ✅ Most browsers and apps that use Android Credential Manager
+
+**Not Yet Supported:**
+- ❌ **PRF Extension**: The PRF (Pseudo-Random Function) extension is currently not supported on Android due to Android Credential Manager restrictions. Only Google Password Manager or hardware passkeys like YubiKey support PRF at this moment. When Android adds support for third-party credential providers to advertise PRF capabilities, AliasVault will implement it.
+
+{: .note }
+The PRF extension is fully supported in AliasVault's browser extension and iOS app. The Android limitation is specific to the platform's Credential Manager API.
 
 
 ## Using Native Autofill in Chrome
