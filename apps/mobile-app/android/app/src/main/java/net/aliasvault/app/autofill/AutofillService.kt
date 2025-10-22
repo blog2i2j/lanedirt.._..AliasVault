@@ -159,14 +159,14 @@ class AutofillService : AutofillService() {
                                 result
                             }
 
-                            // Further filter to only include credentials with autofillable data
+                            // Further filter to only include credentials with autofillable data.
+                            // This prevents from showing non-autofillable credentials like passkeys.
                             val filteredCredentials = filteredByApp.filter { credential ->
-                                // Include credential only if it has at least username/email or password
                                 val hasUsername = !credential.username.isNullOrEmpty()
                                 val hasEmail = credential.alias?.email?.isNotEmpty() == true
-                                val hasPassword = credential.password?.value != null
+                                val hasPassword = !credential.password?.value.isNullOrEmpty()
 
-                                hasUsername || hasEmail || hasPassword
+                                (hasUsername || hasEmail) && hasPassword
                             }
 
                             Log.d(
