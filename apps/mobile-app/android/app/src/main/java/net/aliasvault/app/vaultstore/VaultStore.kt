@@ -9,6 +9,8 @@ import android.util.Log
 import com.lambdapioneer.argon2kt.Argon2Kt
 import com.lambdapioneer.argon2kt.Argon2Mode
 import com.lambdapioneer.argon2kt.Argon2Version
+import net.aliasvault.app.exceptions.SerializationException
+import net.aliasvault.app.exceptions.VaultOperationException
 import net.aliasvault.app.vaultstore.interfaces.CredentialOperationCallback
 import net.aliasvault.app.vaultstore.interfaces.CryptoOperationCallback
 import net.aliasvault.app.vaultstore.keystoreprovider.KeystoreOperationCallback
@@ -107,8 +109,8 @@ class VaultStore(
     private var dbConnection: SQLiteDatabase? = null
 
     /**
-     * Internal accessor for database connection
-     * Used by extension functions to access the database
+     * Internal accessor for database connection.
+     * Used by extension functions to access the database.
      */
     internal val database: SQLiteDatabase?
         get() = dbConnection
@@ -259,9 +261,7 @@ class VaultStore(
      * @return The derived key as a ByteArray
      */
     fun deriveKeyFromPassword(password: String, salt: String, encryptionType: String, encryptionSettings: String): ByteArray {
-        if (encryptionType != "Argon2Id") {
-            throw IllegalArgumentException("Unsupported encryption type: $encryptionType")
-        }
+        require(encryptionType == "Argon2Id") { "Unsupported encryption type: $encryptionType" }
 
         // Parse encryption settings JSON
         val settings = JSONObject(encryptionSettings)
@@ -1033,6 +1033,7 @@ class VaultStore(
         )
 
         for (format in formats) {
+            @Suppress("SwallowedException")
             try {
                 return format.parse(normalizedDate)
             } catch (e: Exception) {
@@ -1206,7 +1207,7 @@ class VaultStore(
         } catch (e: Exception) {
             Log.e(TAG, "Failed to decode status response", e)
             Log.e(TAG, "Response body: '${statusResponse.body}'")
-            throw VaultSyncError.ParseError("Failed to decode status response: ${e.message}")
+            throw VaultSyncError.ParseError("Failed to decode status response: ${e.message}", e)
         }
 
         if (!status.clientVersionSupported) {
@@ -1226,15 +1227,17 @@ class VaultStore(
             return
         }
 
+        @Suppress("SwallowedException")
         try {
             val json = org.json.JSONObject(keyDerivationParams)
             val salt = json.optString("salt", "")
             if (srpSalt.isNotEmpty() && srpSalt != salt) {
                 throw VaultSyncError.PasswordChanged()
             }
+        } catch (e: VaultSyncError.PasswordChanged) {
+            throw e
         } catch (e: Exception) {
-            if (e is VaultSyncError.PasswordChanged) throw e
-            // Ignore parsing errors
+            // Ignore generic parsing errors
         }
     }
 
@@ -1251,14 +1254,14 @@ class VaultStore(
                 requiresAuth = true,
             )
         } catch (e: Exception) {
-            throw Exception("Network error: ${e.message}", e)
+            throw VaultOperationException("Network error: ${e.message}", e)
         }
 
         if (vaultResponse.statusCode != 200) {
             if (vaultResponse.statusCode == 401) {
-                throw Exception("Session expired")
+                throw VaultOperationException("Session expired")
             }
-            throw Exception("Server unavailable: ${vaultResponse.statusCode}")
+            throw VaultOperationException("Server unavailable: ${vaultResponse.statusCode}")
         }
 
         val vault = parseVaultResponse(vaultResponse.body)
@@ -1315,7 +1318,7 @@ class VaultStore(
             )
         } catch (e: Exception) {
             Log.e(TAG, "Failed to decode vault response", e)
-            throw Exception("Failed to decode vault response: ${e.message}")
+            throw SerializationException("Failed to decode vault response: ${e.message}", e)
         }
     }
 
@@ -1325,9 +1328,9 @@ class VaultStore(
     private fun validateVaultStatus(status: Int) {
         when (status) {
             0 -> return
-            1 -> throw Exception("Vault merge required")
-            2 -> throw Exception("Vault outdated")
-            else -> throw Exception("Unknown vault status: $status")
+            1 -> throw VaultOperationException("Vault merge required")
+            2 -> throw VaultOperationException("Vault outdated")
+            else -> throw VaultOperationException("Unknown vault status: $status")
         }
     }
 
@@ -1343,10 +1346,10 @@ class VaultStore(
         val encryptedDb = getEncryptedDatabase()
 
         val username = getUsername()
-            ?: throw Exception("Username not found")
+            ?: throw VaultOperationException("Username not found")
 
         if (!isVaultUnlocked()) {
-            throw Exception("Vault must be unlocked to prepare for upload")
+            throw VaultOperationException("Vault must be unlocked to prepare for upload")
         }
 
         // Get all credentials
@@ -1370,6 +1373,7 @@ class VaultStore(
         val dbVersion = getDatabaseVersion()
 
         // Get app version
+        @Suppress("SwallowedException")
         val version = try {
             val context = storageProvider as? net.aliasvault.app.vaultstore.storageprovider.AndroidStorageProvider
             val pm = context?.javaClass?.getDeclaredField("context")?.get(context) as? android.content.Context
@@ -1439,7 +1443,7 @@ class VaultStore(
 
             if (response.statusCode != 200) {
                 Log.e(TAG, "Server rejected vault upload with status ${response.statusCode}")
-                throw Exception("Server returned error: ${response.statusCode}")
+                throw VaultOperationException("Server returned error: ${response.statusCode}")
             }
 
             // Parse response
@@ -1451,7 +1455,7 @@ class VaultStore(
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to parse vault upload response", e)
-                throw Exception("Failed to parse vault upload response: ${e.message}")
+                throw SerializationException("Failed to parse vault upload response: ${e.message}", e)
             }
 
             // Check vault response status
@@ -1462,9 +1466,9 @@ class VaultStore(
                     setOfflineMode(false)
                     return true
                 }
-                1 -> throw Exception("Vault merge required")
-                2 -> throw Exception("Vault is outdated, please sync first")
-                else -> throw Exception("Failed to upload vault")
+                1 -> throw VaultOperationException("Vault merge required")
+                2 -> throw VaultOperationException("Vault is outdated, please sync first")
+                else -> throw VaultOperationException("Failed to upload vault")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error mutating vault", e)

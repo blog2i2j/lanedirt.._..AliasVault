@@ -1,5 +1,6 @@
 package net.aliasvault.app.vaultstore.passkey
 
+import net.aliasvault.app.utils.Helpers
 import org.json.JSONObject
 import java.security.KeyPairGenerator
 import java.security.MessageDigest
@@ -36,7 +37,7 @@ import javax.crypto.spec.SecretKeySpec
  */
 object PasskeyAuthenticator {
 
-    /** AliasVault AAGUID: a11a5vau-9f32-4b8c-8c5d-2f7d13e8c942 */
+    /** AliasVault AAGUID: a11a5vau-9f32-4b8c-8c5d-2f7d13e8c942. */
     private val AAGUID = byteArrayOf(
         0xa1.toByte(), 0x1a, 0x5f, 0xaa.toByte(), 0x9f.toByte(), 0x32, 0x4b, 0x8c.toByte(),
         0x8c.toByte(), 0x5d, 0x2f, 0x7d, 0x13, 0xe8.toByte(), 0xc9.toByte(), 0x42,
@@ -45,14 +46,13 @@ object PasskeyAuthenticator {
     // MARK: - Public API
 
     /**
-     * Create a new passkey (registration)
-     * Returns credential data ready for Android to return to the RP, plus storage data
+     * Create a new passkey (registration).
+     * Returns credential data ready for Android to return to the RP, plus storage data.
      */
     @JvmStatic
     @Suppress("LongParameterList")
     fun createPasskey(
         credentialId: ByteArray,
-        clientDataHash: ByteArray,
         rpId: String,
         userId: ByteArray?,
         userName: String?,
@@ -135,8 +135,8 @@ object PasskeyAuthenticator {
     }
 
     /**
-     * Create an assertion (authentication)
-     * Returns assertion data ready for Android to return to the RP
+     * Create an assertion (authentication).
+     * Returns assertion data ready for Android to return to the RP.
      */
     @JvmStatic
     @Suppress("LongParameterList")
@@ -202,7 +202,7 @@ object PasskeyAuthenticator {
     // MARK: - Key Management
 
     /**
-     * Export public key as JWK format (JSON)
+     * Export public key as JWK format (JSON).
      */
     private fun exportPublicKeyAsJWK(publicKey: ECPublicKey): ByteArray {
         val w = publicKey.w
@@ -220,8 +220,8 @@ object PasskeyAuthenticator {
     }
 
     /**
-     * Export private key as JWK format (JSON)
-     * Note: We need the KeyPair to properly export both public and private components
+     * Export private key as JWK format (JSON).
+     * Note: We need the KeyPair to properly export both public and private components.
      */
     private fun exportPrivateKeyAsJWK(privateKey: ECPrivateKey, publicKey: ECPublicKey): ByteArray {
         val w = publicKey.w
@@ -241,8 +241,8 @@ object PasskeyAuthenticator {
     }
 
     /**
-     * Import private key from JWK format
-     * Uses ECPrivateKeySpec to avoid Android Keystore issues
+     * Import private key from JWK format.
+     * Uses ECPrivateKeySpec to avoid Android Keystore issues.
      */
     private fun importPrivateKeyFromJWK(jwkData: ByteArray): ECPrivateKey {
         val jwkString = String(jwkData, Charsets.UTF_8)
@@ -253,7 +253,7 @@ object PasskeyAuthenticator {
             ?: throw PasskeyError.InvalidJWK("Missing 'd' parameter in JWK")
 
         // Decode base64url to bytes
-        val dBytes = base64urlToBytes(dBase64url)
+        val dBytes = Helpers.base64urlDecode(dBase64url)
 
         // Convert to BigInteger (d parameter is the private key value)
         val d = java.math.BigInteger(1, dBytes)
@@ -272,28 +272,11 @@ object PasskeyAuthenticator {
         return keyFactory.generatePrivate(privKeySpec) as ECPrivateKey
     }
 
-    /**
-     * Decode base64url string to bytes
-     */
-    private fun base64urlToBytes(base64url: String): ByteArray {
-        var base64 = base64url
-            .replace('-', '+')
-            .replace('_', '/')
-
-        // Add padding if needed
-        val remainder = base64.length % 4
-        if (remainder > 0) {
-            base64 += "=".repeat(4 - remainder)
-        }
-
-        return android.util.Base64.decode(base64, android.util.Base64.NO_WRAP)
-    }
-
     // MARK: - CBOR Encoding
 
     /**
-     * Build COSE EC2 public key for ES256
-     * CBOR map: {1: 2, 3: -7, -1: 1, -2: x, -3: y}
+     * Build COSE EC2 public key for ES256.
+     * CBOR map: {1: 2, 3: -7, -1: 1, -2: x, -3: y}.
      */
     private fun buildCoseEc2Es256(publicKey: ECPublicKey): ByteArray {
         val w = publicKey.w
@@ -312,8 +295,8 @@ object PasskeyAuthenticator {
     }
 
     /**
-     * Build attestation object with "none" format
-     * CBOR map: {fmt: "none", attStmt: {}, authData: <bytes>}
+     * Build attestation object with "none" format.
+     * CBOR map: {fmt: "none", attStmt: {}, authData: <bytes>}.
      */
     private fun buildAttestationObjectNone(authenticatorData: ByteArray): ByteArray {
         return byteArrayOf(
@@ -328,7 +311,7 @@ object PasskeyAuthenticator {
     }
 
     /**
-     * Encode a string as CBOR text
+     * Encode a string as CBOR text.
      */
     private fun cborText(text: String): ByteArray {
         val bytes = text.toByteArray(Charsets.UTF_8)
@@ -344,7 +327,7 @@ object PasskeyAuthenticator {
     }
 
     /**
-     * Encode bytes as CBOR byte string
+     * Encode bytes as CBOR byte string.
      */
     private fun cborBytes(bytes: ByteArray): ByteArray {
         return when {
@@ -361,8 +344,8 @@ object PasskeyAuthenticator {
     // MARK: - PRF Extension
 
     /**
-     * Evaluate PRF (hmac-secret extension)
-     * Implements: HMAC-SHA256(prfSecret, SHA-256("WebAuthn PRF\x00" || salt))
+     * Evaluate PRF (hmac-secret extension).
+     * Implements: HMAC-SHA256(prfSecret, SHA-256("WebAuthn PRF\x00" || salt)).
      */
     private fun evaluatePrf(secret: ByteArray, salt: ByteArray): ByteArray {
         // Step 1: Domain separation - hash salt with "WebAuthn PRF\x00" prefix
@@ -398,18 +381,33 @@ object PasskeyAuthenticator {
 
     // MARK: - Supporting Types
 
+    /**
+     * Result of passkey creation containing all data needed for registration and storage.
+     */
     data class PasskeyCreationResult(
+        /** The unique credential identifier. */
         val credentialId: ByteArray,
+        /** The authenticator data bytes. */
         val authenticatorData: ByteArray,
+        /** The attestation object in CBOR format. */
         val attestationObject: ByteArray,
-        val publicKey: ByteArray, // JWK format
-        val publicKeyDER: ByteArray, // DER/SPKI format for Chrome
-        val privateKey: ByteArray, // JWK format
+        /** The public key in JWK format. */
+        val publicKey: ByteArray,
+        /** The public key in DER/SPKI format for Chrome. */
+        val publicKeyDER: ByteArray,
+        /** The private key in JWK format. */
+        val privateKey: ByteArray,
+        /** The relying party identifier. */
         val rpId: String,
+        /** The user identifier. */
         val userId: ByteArray?,
+        /** The username. */
         val userName: String?,
+        /** The user display name. */
         val userDisplayName: String?,
+        /** The PRF secret for hmac-secret extension. */
         val prfSecret: ByteArray?,
+        /** The PRF evaluation results if requested. */
         val prfResults: PrfResults?,
     ) {
         override fun equals(other: Any?): Boolean {
@@ -457,11 +455,19 @@ object PasskeyAuthenticator {
         }
     }
 
+    /**
+     * Result of passkey assertion containing authentication data.
+     */
     data class PasskeyAssertionResult(
+        /** The credential identifier. */
         val credentialId: ByteArray,
+        /** The authenticator data bytes. */
         val authenticatorData: ByteArray,
+        /** The signature in DER format. */
         val signature: ByteArray,
+        /** The user handle. */
         val userHandle: ByteArray?,
+        /** The PRF evaluation results if requested. */
         val prfResults: PrfResults?,
     ) {
         override fun equals(other: Any?): Boolean {
@@ -492,8 +498,13 @@ object PasskeyAuthenticator {
         }
     }
 
+    /**
+     * PRF extension input values for evaluation.
+     */
     data class PrfInputs(
+        /** The first PRF input salt. */
         val first: ByteArray?,
+        /** The optional second PRF input salt. */
         val second: ByteArray?,
     ) {
         override fun equals(other: Any?): Boolean {
@@ -521,8 +532,13 @@ object PasskeyAuthenticator {
         }
     }
 
+    /**
+     * PRF extension evaluation results.
+     */
     data class PrfResults(
+        /** The first PRF output. */
         val first: ByteArray,
+        /** The optional second PRF output. */
         val second: ByteArray?,
     ) {
         override fun equals(other: Any?): Boolean {
@@ -547,11 +563,33 @@ object PasskeyAuthenticator {
         }
     }
 
+    /**
+     * Base class for passkey-related errors.
+     */
     sealed class PasskeyError(message: String) : Exception(message) {
+        /**
+         * Error indicating an invalid public key.
+         */
         class InvalidPublicKey(message: String) : PasskeyError(message)
+
+        /**
+         * Error indicating an invalid private key.
+         */
         class InvalidPrivateKey(message: String) : PasskeyError(message)
+
+        /**
+         * Error indicating an invalid JWK format.
+         */
         class InvalidJWK(message: String) : PasskeyError(message)
+
+        /**
+         * Error indicating an invalid signature.
+         */
         class InvalidSignature(message: String) : PasskeyError(message)
+
+        /**
+         * Error indicating CBOR encoding failure.
+         */
         class CborEncodingFailed(message: String) : PasskeyError(message)
     }
 }

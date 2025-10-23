@@ -13,11 +13,14 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Response object from a WebAPI request containing status code, body, and headers
+ * Response object from a WebAPI request containing status code, body, and headers.
  */
 data class WebApiResponse(
+    /** The HTTP status code of the response. */
     val statusCode: Int,
+    /** The response body as a string. */
     val body: String,
+    /** The response headers as a map of key-value pairs. */
     val headers: Map<String, String>,
 )
 
@@ -40,21 +43,21 @@ class WebApiService(private val context: Context) {
     // MARK: - Configuration Management
 
     /**
-     * Set the API URL
+     * Set the API URL.
      */
     fun setApiUrl(url: String) {
         sharedPreferences.edit().putString(API_URL_KEY, url).apply()
     }
 
     /**
-     * Get the API URL
+     * Get the API URL.
      */
     fun getApiUrl(): String {
         return sharedPreferences.getString(API_URL_KEY, DEFAULT_API_URL) ?: DEFAULT_API_URL
     }
 
     /**
-     * Get the base URL with /v1/ appended
+     * Get the base URL with /v1/ appended.
      */
     private fun getBaseUrl(): String {
         val apiUrl = getApiUrl()
@@ -65,7 +68,7 @@ class WebApiService(private val context: Context) {
     // MARK: - Token Management
 
     /**
-     * Set both access and refresh tokens
+     * Set both access and refresh tokens.
      */
     fun setAuthTokens(accessToken: String, refreshToken: String) {
         sharedPreferences.edit()
@@ -75,21 +78,21 @@ class WebApiService(private val context: Context) {
     }
 
     /**
-     * Get the access token
+     * Get the access token.
      */
     fun getAccessToken(): String? {
         return sharedPreferences.getString(ACCESS_TOKEN_KEY, null)
     }
 
     /**
-     * Get the refresh token
+     * Get the refresh token.
      */
     private fun getRefreshToken(): String? {
         return sharedPreferences.getString(REFRESH_TOKEN_KEY, null)
     }
 
     /**
-     * Clear both access and refresh tokens
+     * Clear both access and refresh tokens.
      */
     fun clearAuthTokens() {
         sharedPreferences.edit()
@@ -101,7 +104,7 @@ class WebApiService(private val context: Context) {
     // MARK: - HTTP Request Execution
 
     /**
-     * Execute a WebAPI request with support for authentication and token refresh
+     * Execute a WebAPI request with support for authentication and token refresh.
      */
     suspend fun executeRequest(
         method: String,
@@ -163,7 +166,7 @@ class WebApiService(private val context: Context) {
     }
 
     /**
-     * Execute a raw HTTP request without token refresh logic
+     * Execute a raw HTTP request without token refresh logic.
      */
     private suspend fun executeRawRequest(
         method: String,
@@ -173,8 +176,6 @@ class WebApiService(private val context: Context) {
     ): WebApiResponse = withContext(Dispatchers.IO) {
         val baseUrl = getBaseUrl()
         val urlString = "$baseUrl$endpoint"
-
-        Log.d(TAG, "Executing $method request to $urlString")
 
         var connection: HttpURLConnection? = null
         try {
@@ -226,8 +227,6 @@ class WebApiService(private val context: Context) {
                 }
             }
 
-            Log.d(TAG, "Response status: $statusCode")
-
             WebApiResponse(
                 statusCode = statusCode,
                 body = responseBody,
@@ -242,7 +241,7 @@ class WebApiService(private val context: Context) {
     }
 
     /**
-     * Refresh the access token using the refresh token
+     * Refresh the access token using the refresh token.
      */
     private suspend fun refreshAccessToken(): String? = withContext(Dispatchers.IO) {
         val refreshToken = getRefreshToken()
@@ -289,8 +288,6 @@ class WebApiService(private val context: Context) {
 
             // Update stored tokens
             setAuthTokens(accessToken = newToken, refreshToken = newRefreshToken)
-
-            Log.d(TAG, "Token refresh successful")
             newToken
         } catch (e: Exception) {
             Log.e(TAG, "Token refresh failed", e)
@@ -301,7 +298,7 @@ class WebApiService(private val context: Context) {
     // MARK: - Helper Methods
 
     /**
-     * Get the client version header value
+     * Get the client version header value.
      */
     private fun getClientVersionHeader(): String {
         return try {
@@ -316,8 +313,8 @@ class WebApiService(private val context: Context) {
     }
 
     /**
-     * Extract favicon from a website URL
-     * Returns the favicon image as a byte array, or null if extraction fails
+     * Extract favicon from a website URL.
+     * Returns the favicon image as a byte array, or null if extraction fails.
      */
     suspend fun extractFavicon(url: String): ByteArray? = withContext(Dispatchers.IO) {
         try {
@@ -360,7 +357,7 @@ class WebApiService(private val context: Context) {
     // MARK: - Token Revocation
 
     /**
-     * Revoke tokens via WebAPI (called when logging out)
+     * Revoke tokens via WebAPI (called when logging out).
      */
     suspend fun revokeTokens() = withContext(Dispatchers.IO) {
         try {

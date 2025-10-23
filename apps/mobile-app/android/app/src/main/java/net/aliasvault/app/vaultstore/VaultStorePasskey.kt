@@ -29,7 +29,7 @@ import java.util.UUID
 private const val TAG = "VaultStorePasskey"
 
 /**
- * Minimum date definition for default values
+ * Minimum date definition for default values.
  */
 private val MIN_DATE: Date = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
     set(Calendar.YEAR, 1)
@@ -42,7 +42,7 @@ private val MIN_DATE: Date = Calendar.getInstance(TimeZone.getTimeZone("UTC")).a
 }.time
 
 /**
- * Get a passkey by its credential ID (the WebAuthn credential ID, not the parent Credential UUID)
+ * Get a passkey by its credential ID (the WebAuthn credential ID, not the parent Credential UUID).
  */
 fun VaultStore.getPasskeyByCredentialId(credentialId: ByteArray, db: SQLiteDatabase): Passkey? {
     // Convert credentialId bytes to UUID string for lookup
@@ -72,7 +72,7 @@ fun VaultStore.getPasskeyByCredentialId(credentialId: ByteArray, db: SQLiteDatab
 }
 
 /**
- * Get all passkeys for a credential
+ * Get all passkeys for a credential.
  */
 fun VaultStore.getPasskeysForCredential(credentialId: UUID, db: SQLiteDatabase): List<Passkey> {
     val query = """
@@ -98,7 +98,7 @@ fun VaultStore.getPasskeysForCredential(credentialId: UUID, db: SQLiteDatabase):
 }
 
 /**
- * Get all passkeys for a specific relying party identifier (RP ID)
+ * Get all passkeys for a specific relying party identifier (RP ID).
  */
 fun VaultStore.getPasskeysForRpId(rpId: String, db: SQLiteDatabase): List<Passkey> {
     val query = """
@@ -124,17 +124,20 @@ fun VaultStore.getPasskeysForRpId(rpId: String, db: SQLiteDatabase): List<Passke
 }
 
 /**
- * Data class to hold passkey with credential info
+ * Data class to hold passkey with credential info.
  */
 data class PasskeyWithCredentialInfo(
+    /** The passkey. */
     val passkey: Passkey,
+    /** The service name from the credential. */
     val serviceName: String?,
+    /** The username from the credential. */
     val username: String?,
 )
 
 /**
- * Get passkeys with credential info for a specific rpId and optionally username
- * Used for finding existing passkeys that might be replaced during registration
+ * Get passkeys with credential info for a specific rpId and optionally username.
+ * Used for finding existing passkeys that might be replaced during registration.
  */
 fun VaultStore.getPasskeysWithCredentialInfo(
     rpId: String,
@@ -187,7 +190,7 @@ fun VaultStore.getPasskeysWithCredentialInfo(
 }
 
 /**
- * Insert a new passkey into the database
+ * Insert a new passkey into the database.
  */
 fun VaultStore.insertPasskey(passkey: Passkey, db: SQLiteDatabase) {
     val insert = """
@@ -218,8 +221,8 @@ fun VaultStore.insertPasskey(passkey: Passkey, db: SQLiteDatabase) {
 }
 
 /**
- * Create a new credential with an associated passkey
- * This method handles the database transaction internally
+ * Create a new credential with an associated passkey.
+ * This method handles the database transaction internally.
  */
 fun VaultStore.createCredentialWithPasskey(
     rpId: String,
@@ -228,7 +231,7 @@ fun VaultStore.createCredentialWithPasskey(
     passkey: Passkey,
     logo: ByteArray? = null,
 ): Credential {
-    val db = database ?: throw IllegalStateException("Vault not unlocked")
+    val db = database ?: error("Vault not unlocked")
 
     db.beginTransaction()
     try {
@@ -348,8 +351,8 @@ fun VaultStore.createCredentialWithPasskey(
 }
 
 /**
- * Replace an existing passkey with a new one
- * This deletes the old passkey and creates a new one with the same credential
+ * Replace an existing passkey with a new one.
+ * This deletes the old passkey and creates a new one with the same credential.
  */
 fun VaultStore.replacePasskey(
     oldPasskeyId: UUID,
@@ -413,7 +416,7 @@ fun VaultStore.replacePasskey(
 }
 
 /**
- * Get a passkey by its ID
+ * Get a passkey by its ID.
  */
 fun VaultStore.getPasskeyById(passkeyId: UUID, db: SQLiteDatabase): Passkey? {
     val query = """
@@ -438,7 +441,7 @@ fun VaultStore.getPasskeyById(passkeyId: UUID, db: SQLiteDatabase): Passkey? {
 }
 
 /**
- * Parse a passkey row from database query
+ * Parse a passkey row from database query.
  */
 private fun parsePasskeyRow(cursor: Cursor): Passkey? {
     try {
@@ -487,8 +490,8 @@ private fun parsePasskeyRow(cursor: Cursor): Passkey? {
 }
 
 /**
- * Format a date for database insertion
- * Format: yyyy-MM-dd HH:mm:ss
+ * Format a date for database insertion.
+ * Format: yyyy-MM-dd HH:mm:ss.
  */
 private fun formatDateForDatabase(date: Date): String {
     val formatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
@@ -497,8 +500,8 @@ private fun formatDateForDatabase(date: Date): String {
 }
 
 /**
- * Parse a date string from the database
- * Format: yyyy-MM-dd HH:mm:ss
+ * Parse a date string from the database.
+ * Format: yyyy-MM-dd HH:mm:ss.
  */
 private fun parseDateString(dateString: String): Date? {
     return try {
@@ -512,11 +515,26 @@ private fun parseDateString(dateString: String): Date? {
 }
 
 /**
- * VaultStore passkey-specific errors
+ * VaultStore passkey-specific errors.
  */
 sealed class VaultStorePasskeyError(message: String) : Exception(message) {
+    /**
+     * Error indicating vault is not unlocked.
+     */
     class VaultNotUnlocked(message: String) : VaultStorePasskeyError(message)
+
+    /**
+     * Error indicating passkey was not found.
+     */
     class PasskeyNotFound(message: String) : VaultStorePasskeyError(message)
+
+    /**
+     * Error indicating credential was not found.
+     */
     class CredentialNotFound(message: String) : VaultStorePasskeyError(message)
+
+    /**
+     * Error indicating a database operation failure.
+     */
     class DatabaseError(message: String) : VaultStorePasskeyError(message)
 }

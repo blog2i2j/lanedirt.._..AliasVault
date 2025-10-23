@@ -46,14 +46,14 @@ class LoadingIndicator @JvmOverloads constructor(
     }
 
     /**
-     * Set the loading message text
+     * Set the loading message text.
      */
     fun setMessage(message: String) {
         loadingMessage.text = message
     }
 
     /**
-     * Start the pulsing animation on the dots
+     * Start the pulsing animation on the dots.
      */
     fun startAnimation() {
         // Stop any existing animations
@@ -70,7 +70,7 @@ class LoadingIndicator @JvmOverloads constructor(
     }
 
     /**
-     * Stop the pulsing animation
+     * Stop the pulsing animation.
      */
     fun stopAnimation() {
         animators.forEach { it.cancel() }
@@ -78,7 +78,7 @@ class LoadingIndicator @JvmOverloads constructor(
     }
 
     /**
-     * Start the pulsing animation on a single dot with a delay
+     * Start the pulsing animation on a single dot with a delay.
      */
     private fun startDotAnimation(dot: View, delayMillis: Long): ObjectAnimator {
         val animator = ObjectAnimator.ofFloat(dot, "alpha", 0.3f, 1.0f).apply {

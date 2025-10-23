@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.util.Log
 import androidx.credentials.provider.PendingIntentHandler
 import androidx.credentials.provider.ProviderGetCredentialRequest
+import net.aliasvault.app.utils.Helpers
 import net.aliasvault.app.vaultstore.VaultStore
 import net.aliasvault.app.vaultstore.getPasskeyById
 import net.aliasvault.app.vaultstore.passkey.PasskeyAuthenticator
@@ -57,7 +58,7 @@ class PasskeyAuthenticationActivity : Activity() {
     }
 
     /**
-     * Process the passkey authentication request and generate assertion
+     * Process the passkey authentication request and generate assertion.
      */
     private fun processAuthenticationRequest(providerRequest: ProviderGetCredentialRequest) {
         try {
@@ -180,14 +181,14 @@ class PasskeyAuthenticationActivity : Activity() {
     }
 
     /**
-     * Build clientDataJSON for WebAuthn if the caller didn't provide it
+     * Build clientDataJSON for WebAuthn if the caller didn't provide it.
      */
     private fun buildClientDataJson(challenge: String, origin: String): String {
         return """{"type":"webauthn.get","challenge":"$challenge","origin":"$origin","crossOrigin":false}"""
     }
 
     /**
-     * Compute SHA-256 hash
+     * Compute SHA-256 hash.
      */
     private fun sha256(data: ByteArray): ByteArray {
         val digest = MessageDigest.getInstance("SHA-256")
@@ -195,7 +196,7 @@ class PasskeyAuthenticationActivity : Activity() {
     }
 
     /**
-     * Extract PRF extension inputs from request
+     * Extract PRF extension inputs from request.
      */
     private fun extractPrfInputs(requestObj: JSONObject): PasskeyAuthenticator.PrfInputs? {
         try {
@@ -208,10 +209,12 @@ class PasskeyAuthenticationActivity : Activity() {
             if (firstB64.isEmpty()) return null
             val secondB64 = eval.optString("second")
 
-            val first = base64urlDecode(firstB64)
-            val second = if (secondB64.isNotEmpty()) base64urlDecode(secondB64) else null
-
-            Log.d(TAG, "PRF extension requested with ${if (second != null) "two" else "one"} salt(s)")
+            val first = Helpers.base64urlDecode(firstB64)
+            val second = if (secondB64.isNotEmpty()) {
+                Helpers.base64urlDecode(secondB64)
+            } else {
+                null
+            }
 
             return PasskeyAuthenticator.PrfInputs(first, second)
         } catch (e: Exception) {
@@ -221,34 +224,7 @@ class PasskeyAuthenticationActivity : Activity() {
     }
 
     /**
-     * Decode base64url string to bytes
-     */
-    private fun base64urlDecode(base64url: String): ByteArray {
-        var base64 = base64url
-            .replace('-', '+')
-            .replace('_', '/')
-
-        // Add padding if needed
-        val remainder = base64.length % 4
-        if (remainder > 0) {
-            base64 += "=".repeat(4 - remainder)
-        }
-
-        return android.util.Base64.decode(base64, android.util.Base64.NO_WRAP)
-    }
-
-    /**
-     * Encode bytes to base64url string
-     */
-    private fun base64urlEncode(data: ByteArray): String {
-        return android.util.Base64.encodeToString(
-            data,
-            android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING,
-        )
-    }
-
-    /**
-     * Build PublicKeyCredential response from PasskeyAuthenticator assertion result
+     * Build PublicKeyCredential response from PasskeyAuthenticator assertion result.
      *
      * @param assertion The assertion result from PasskeyAuthenticator.getAssertion
      * @param clientDataJson Optional clientDataJSON string. If null, clientDataJSON will be
@@ -258,10 +234,10 @@ class PasskeyAuthenticationActivity : Activity() {
         assertion: PasskeyAuthenticator.PasskeyAssertionResult,
         clientDataJson: String?,
     ): androidx.credentials.GetCredentialResponse {
-        val credentialIdB64 = base64urlEncode(assertion.credentialId)
-        val signatureB64 = base64urlEncode(assertion.signature)
-        val authDataB64 = base64urlEncode(assertion.authenticatorData)
-        val userHandleB64 = assertion.userHandle?.let { base64urlEncode(it) }
+        val credentialIdB64 = Helpers.bytesToBase64url(assertion.credentialId)
+        val signatureB64 = Helpers.bytesToBase64url(assertion.signature)
+        val authDataB64 = Helpers.bytesToBase64url(assertion.authenticatorData)
+        val userHandleB64 = assertion.userHandle?.let { Helpers.bytesToBase64url(it) }
 
         val responseObj = JSONObject().apply {
             put("id", credentialIdB64)
@@ -275,7 +251,7 @@ class PasskeyAuthenticationActivity : Activity() {
                     // Only include clientDataJSON if we built it ourselves
                     // When Chrome provides clientDataHash, omit this field
                     clientDataJson?.let {
-                        put("clientDataJSON", base64urlEncode(it.toByteArray(Charsets.UTF_8)))
+                        put("clientDataJSON", Helpers.bytesToBase64url(it.toByteArray(Charsets.UTF_8)))
                     }
                     put("authenticatorData", authDataB64)
                     put("signature", signatureB64)
@@ -293,8 +269,8 @@ class PasskeyAuthenticationActivity : Activity() {
                                 put(
                                     "results",
                                     JSONObject().apply {
-                                        put("first", base64urlEncode(it.first))
-                                        it.second?.let { second -> put("second", base64urlEncode(second)) }
+                                        put("first", Helpers.bytesToBase64url(it.first))
+                                        it.second?.let { second -> put("second", Helpers.bytesToBase64url(second)) }
                                     },
                                 )
                             },

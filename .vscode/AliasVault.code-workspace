@@ -23,5 +23,7 @@
 			"path": "../shared"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"java.configuration.updateBuildConfiguration": "interactive"
+	}
 }

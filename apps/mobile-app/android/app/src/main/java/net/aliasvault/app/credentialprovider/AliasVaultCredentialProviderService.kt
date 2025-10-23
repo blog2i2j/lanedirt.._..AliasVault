@@ -19,6 +19,7 @@ import androidx.credentials.provider.CreateEntry
 import androidx.credentials.provider.CredentialProviderService
 import androidx.credentials.provider.ProviderClearCredentialStateRequest
 import androidx.credentials.provider.PublicKeyCredentialEntry
+import net.aliasvault.app.utils.Helpers
 import net.aliasvault.app.vaultstore.VaultStore
 import net.aliasvault.app.vaultstore.getPasskeysForRpId
 import net.aliasvault.app.vaultstore.passkey.PasskeyHelper
@@ -37,22 +38,24 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
     companion object {
         private const val TAG = "AliasVaultCredProvider"
 
-        // Intent extras for authentication
+        /** Intent extra key for passing the passkey request JSON. */
         const val EXTRA_REQUEST_JSON = "request_json"
+
+        /** Intent extra key for passing the relying party ID. */
         const val EXTRA_RP_ID = "rp_id"
+
+        /** Intent extra key for passing the passkey ID. */
         const val EXTRA_PASSKEY_ID = "passkey_id"
     }
 
     /**
-     * Called when the system needs to display available credentials for authentication
+     * Called when the system needs to display available credentials for authentication.
      */
     override fun onBeginGetCredentialRequest(
         request: BeginGetCredentialRequest,
         cancellationSignal: CancellationSignal,
         callback: OutcomeReceiver<BeginGetCredentialResponse, GetCredentialException>,
     ) {
-        Log.d(TAG, "onBeginGetCredentialRequest called")
-
         try {
             // Get vault store instance
             val vaultStore = VaultStore.getExistingInstance()
@@ -75,7 +78,6 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
                 }
             }
 
-            Log.d(TAG, "Returning ${credentialEntries.size} credential entries")
             callback.onResult(BeginGetCredentialResponse(credentialEntries = credentialEntries))
         } catch (e: Exception) {
             Log.e(TAG, "Error in onBeginGetCredentialRequest", e)
@@ -84,7 +86,7 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
     }
 
     /**
-     * Process a passkey credential option and return matching credential entries
+     * Process a passkey credential option and return matching credential entries.
      */
     private fun processPasskeyOption(
         option: BeginGetPublicKeyCredentialOption,
@@ -100,8 +102,6 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
                 Log.w(TAG, "No rpId found in passkey request")
                 return emptyList()
             }
-
-            Log.d(TAG, "Looking for passkeys for RP ID: $rpId")
 
             // Query vault for matching passkeys
             val db = try {
@@ -120,12 +120,6 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
 
             // Get passkeys for this RP ID
             val passkeys = vaultStore.getPasskeysForRpId(rpId, db)
-            Log.d(TAG, "Found ${passkeys.size} passkeys for $rpId")
-
-            // Debug: Log each passkey ID
-            passkeys.forEach { passkey ->
-                Log.d(TAG, "Passkey found: ID=${passkey.id}, DisplayName=${passkey.displayName}, RpId=${passkey.rpId}")
-            }
 
             // Filter by allowCredentials if specified
             val allowCredentials = requestObj.optJSONArray("allowCredentials")
@@ -141,17 +135,12 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
 
                 passkeys.filter { passkey ->
                     val passkeyIdBytes = PasskeyHelper.guidToBytes(passkey.id.toString())
-                    val passkeyIdB64 = android.util.Base64.encodeToString(
-                        passkeyIdBytes,
-                        android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING,
-                    )
+                    val passkeyIdB64 = Helpers.bytesToBase64url(passkeyIdBytes)
                     allowedIds.contains(passkeyIdB64)
                 }
             } else {
                 passkeys
             }
-
-            Log.d(TAG, "After filtering: ${filteredPasskeys.size} passkeys")
 
             // Convert to CredentialEntry objects
             return filteredPasskeys.map { passkey ->
@@ -164,15 +153,13 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
     }
 
     /**
-     * Create a PublicKeyCredentialEntry for a passkey
+     * Create a PublicKeyCredentialEntry for a passkey.
      */
     private fun createPasskeyEntry(
         passkey: net.aliasvault.app.vaultstore.models.Passkey,
         option: BeginGetPublicKeyCredentialOption,
         requestJson: String,
     ): PublicKeyCredentialEntry {
-        Log.d(TAG, "Creating passkey entry for ID=${passkey.id}, DisplayName=${passkey.displayName}")
-
         // Create intent for PasskeyAuthenticationActivity
         val intent = Intent(this, PasskeyAuthenticationActivity::class.java).apply {
             putExtra(EXTRA_REQUEST_JSON, requestJson)
@@ -180,8 +167,6 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
             putExtra(EXTRA_RP_ID, passkey.rpId)
             passkey.userHandle?.let { putExtra("user_handle", it) }
         }
-
-        Log.d(TAG, "Intent created with passkey ID: ${passkey.id}")
 
         val pendingIntent = PendingIntent.getActivity(
             this,
@@ -204,15 +189,13 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
     }
 
     /**
-     * Called when the system needs to display available accounts for credential creation
+     * Called when the system needs to display available accounts for credential creation.
      */
     override fun onBeginCreateCredentialRequest(
         request: BeginCreateCredentialRequest,
         cancellationSignal: CancellationSignal,
         callback: OutcomeReceiver<BeginCreateCredentialResponse, CreateCredentialException>,
     ) {
-        Log.d(TAG, "onBeginCreateCredentialRequest called")
-
         val response: BeginCreateCredentialResponse? = processCreateCredentialRequest(request)
         if (response != null) {
             callback.onResult(response)
@@ -222,12 +205,11 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
     }
 
     /**
-     * Process create credential request
+     * Process create credential request.
      */
     private fun processCreateCredentialRequest(
         request: BeginCreateCredentialRequest,
     ): BeginCreateCredentialResponse? {
-        // Get vault store instance
         val vaultStore = VaultStore.getExistingInstance()
         if (vaultStore == null) {
             Log.w(TAG, "VaultStore not initialized for passkey creation")
@@ -248,7 +230,7 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
     }
 
     /**
-     * Handle passkey creation query
+     * Handle passkey creation query.
      */
     private fun handleCreatePasskeyQuery(
         request: BeginCreatePublicKeyCredentialRequest,
@@ -267,9 +249,6 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
             val userObj = requestObj.optJSONObject("user")
             val userName = userObj?.optString("name") ?: ""
             val userDisplayName = userObj?.optString("displayName") ?: userName
-            val userIdB64 = userObj?.optString("id") ?: ""
-
-            Log.d(TAG, "Creating passkey for RP: $rpId ($rpName), user: $userName")
 
             val createEntries = mutableListOf<CreateEntry>()
 
@@ -290,7 +269,6 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
                 createEntries.add(entry)
             }
 
-            Log.d(TAG, "Returning ${createEntries.size} create entries")
             return BeginCreateCredentialResponse(createEntries)
         } catch (e: Exception) {
             Log.e(TAG, "Error handling passkey create query", e)
@@ -299,11 +277,10 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
     }
 
     /**
-     * Create a PendingIntent for passkey registration
+     * Create a PendingIntent for passkey registration.
      * The intent doesn't need any extras - all data is available via providerRequest.callingRequest
      */
     private fun createNewPendingIntent(rpId: String): PendingIntent {
-        // Create intent for PasskeyRegistrationActivity
         val intent = Intent(this, PasskeyRegistrationActivity::class.java)
 
         return PendingIntent.getActivity(
@@ -322,7 +299,6 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
         // Called when user signs out or clears credential state
         // For AliasVault, we don't need to do anything here as credentials
         // are managed through the main app
-        Log.d(TAG, "onClearCredentialStateRequest called")
         callback.onResult(null)
     }
 }

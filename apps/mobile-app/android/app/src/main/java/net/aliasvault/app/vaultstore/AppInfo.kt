@@ -1,8 +1,8 @@
 package net.aliasvault.app.vaultstore
 
 /**
- * Application configuration constants
- * This file contains version requirements and other app-wide configuration values
+ * Application configuration constants.
+ * This file contains version requirements and other app-wide configuration values.
  */
 object AppInfo {
     /**

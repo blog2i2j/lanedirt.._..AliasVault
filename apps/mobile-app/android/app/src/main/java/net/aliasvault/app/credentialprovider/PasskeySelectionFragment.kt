@@ -10,10 +10,11 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import com.google.android.material.button.MaterialButton
 import net.aliasvault.app.R
+import net.aliasvault.app.credentialprovider.models.PasskeyRegistrationViewModel
 
 /**
- * Fragment that shows the passkey selection screen
- * Displays options to create new or replace existing passkeys
+ * Fragment that shows the passkey selection screen.
+ * Displays options to create new or replace existing passkeys.
  */
 class PasskeySelectionFragment : Fragment() {
 

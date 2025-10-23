@@ -860,14 +860,13 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     // MARK: - WebAPI Configuration
 
     /**
-     * Set the API URL
+     * Set the API URL.
      * @param url The API URL to set
      * @param promise The promise to resolve
      */
     @ReactMethod
     override fun setApiUrl(url: String, promise: Promise) {
         try {
-            // TODO: Implement when WebApiService is complete
             webApiService.setApiUrl(url)
             promise.resolve(null)
         } catch (e: Exception) {
@@ -877,13 +876,12 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Get the API URL
-     * @param promise The promise to resolve
+     * Get the API URL.
+     * @param promise The promise to resolve.
      */
     @ReactMethod
     override fun getApiUrl(promise: Promise) {
         try {
-            // TODO: Implement when WebApiService is complete
             val apiUrl = webApiService.getApiUrl()
             promise.resolve(apiUrl)
         } catch (e: Exception) {
@@ -895,15 +893,14 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     // MARK: - WebAPI Token Management
 
     /**
-     * Set both access and refresh tokens
-     * @param accessToken The access token
-     * @param refreshToken The refresh token
-     * @param promise The promise to resolve
+     * Set both access and refresh tokens.
+     * @param accessToken The access token.
+     * @param refreshToken The refresh token.
+     * @param promise The promise to resolve.
      */
     @ReactMethod
     override fun setAuthTokens(accessToken: String, refreshToken: String, promise: Promise) {
         try {
-            // TODO: Implement when WebApiService is complete
             webApiService.setAuthTokens(accessToken, refreshToken)
             promise.resolve(null)
         } catch (e: Exception) {
@@ -913,13 +910,12 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Get the access token
-     * @param promise The promise to resolve
+     * Get the access token.
+     * @param promise The promise to resolve.
      */
     @ReactMethod
     override fun getAccessToken(promise: Promise) {
         try {
-            // TODO: Implement when WebApiService is complete
             val accessToken = webApiService.getAccessToken()
             promise.resolve(accessToken)
         } catch (e: Exception) {
@@ -929,13 +925,12 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Clear both access and refresh tokens
-     * @param promise The promise to resolve
+     * Clear both access and refresh tokens.
+     * @param promise The promise to resolve.
      */
     @ReactMethod
     override fun clearAuthTokens(promise: Promise) {
         try {
-            // TODO: Implement when WebApiService is complete
             webApiService.clearAuthTokens()
             promise.resolve(null)
         } catch (e: Exception) {
@@ -945,14 +940,11 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Revoke tokens via WebAPI (called when logging out)
-     * @param promise The promise to resolve
+     * Revoke tokens via WebAPI (called when logging out).
+     * @param promise The promise to resolve.
      */
     @ReactMethod
     override fun revokeTokens(promise: Promise) {
-        // TODO: Implement when WebApiService is complete
-        // This should call webApiService.revokeTokens() which is an async suspend function
-        // For now, we'll use a coroutine scope to handle it
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 webApiService.revokeTokens()
@@ -971,13 +963,13 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     // MARK: - WebAPI Request Execution
 
     /**
-     * Execute a WebAPI request
-     * @param method The HTTP method
-     * @param endpoint The API endpoint
-     * @param body The request body (nullable)
-     * @param headers The request headers as JSON string
-     * @param requiresAuth Whether authentication is required
-     * @param promise The promise to resolve
+     * Execute a WebAPI request.
+     * @param method The HTTP method.
+     * @param endpoint The API endpoint.
+     * @param body The request body (nullable).
+     * @param headers The request headers as JSON string.
+     * @param requiresAuth Whether authentication is required.
+     * @param promise The promise to resolve.
      */
     @ReactMethod
     override fun executeWebApiRequest(
@@ -989,7 +981,6 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
         promise: Promise,
     ) {
         try {
-            // TODO: Implement when WebApiService is complete
             // Parse headers from JSON string
             val headersMap = mutableMapOf<String, String>()
             val headersJson = JSONObject(headers)
@@ -1022,22 +1013,22 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Register credential identities (Android stub - not yet implemented)
-     * @param promise The promise to resolve
+     * Register credential identities in the Native Autofill API cache.
+     * @param promise The promise to resolve.
      */
     @ReactMethod
     override fun registerCredentialIdentities(promise: Promise) {
-        // TODO: Implement Android credential identity registration
-        Log.d(TAG, "registerCredentialIdentities: Not yet implemented on Android")
+        // Not required for Android as Android autofill queries AliasVault for credentials in realtime
+        // and does not implement caching (in comparison to iOS which does).
         promise.resolve(null)
     }
 
     // MARK: - Username Management
 
     /**
-     * Set the username
-     * @param username The username to set
-     * @param promise The promise to resolve
+     * Set the username.
+     * @param username The username to set.
+     * @param promise The promise to resolve.
      */
     @ReactMethod
     override fun setUsername(username: String, promise: Promise) {
@@ -1051,8 +1042,8 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Get the username
-     * @param promise The promise to resolve
+     * Get the username.
+     * @param promise The promise to resolve.
      */
     @ReactMethod
     override fun getUsername(promise: Promise) {
@@ -1066,8 +1057,8 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Clear the username
-     * @param promise The promise to resolve
+     * Clear the username.
+     * @param promise The promise to resolve.
      */
     @ReactMethod
     override fun clearUsername(promise: Promise) {
@@ -1083,9 +1074,9 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     // MARK: - Offline Mode Management
 
     /**
-     * Set offline mode flag
-     * @param isOffline Whether app is offline
-     * @param promise The promise to resolve
+     * Set offline mode flag.
+     * @param isOffline Whether app is offline.
+     * @param promise The promise to resolve.
      */
     @ReactMethod
     override fun setOfflineMode(isOffline: Boolean, promise: Promise) {
@@ -1099,8 +1090,8 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Get offline mode flag
-     * @param promise The promise to resolve
+     * Get offline mode flag.
+     * @param promise The promise to resolve.
      */
     @ReactMethod
     override fun getOfflineMode(promise: Promise) {
@@ -1116,8 +1107,8 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     // MARK: - Vault Sync and Mutate
 
     /**
-     * Check if a new vault version is available on the server
-     * @param promise The promise to resolve with object containing isNewVersionAvailable and newRevision
+     * Check if a new vault version is available on the server.
+     * @param promise The promise to resolve with object containing isNewVersionAvailable and newRevision.
      */
     @ReactMethod
     override fun isNewVaultVersionAvailable(promise: Promise) {
@@ -1146,9 +1137,9 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Download and store the vault from the server
-     * @param newRevision The new revision number to download
-     * @param promise The promise to resolve
+     * Download and store the vault from the server.
+     * @param newRevision The new revision number to download.
+     * @param promise The promise to resolve.
      */
     @ReactMethod
     override fun downloadVault(newRevision: Double, promise: Promise) {
@@ -1168,8 +1159,8 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Mutate vault (upload changes to server)
-     * @param promise The promise to resolve
+     * Mutate vault (upload changes to server).
+     * @param promise The promise to resolve.
      */
     @ReactMethod
     override fun mutateVault(promise: Promise) {

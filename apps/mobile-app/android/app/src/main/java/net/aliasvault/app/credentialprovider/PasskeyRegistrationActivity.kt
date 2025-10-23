@@ -7,6 +7,9 @@ import androidx.credentials.CreatePublicKeyCredentialRequest
 import androidx.credentials.provider.PendingIntentHandler
 import androidx.fragment.app.FragmentActivity
 import net.aliasvault.app.R
+import net.aliasvault.app.credentialprovider.models.PasskeyRegistrationViewModel
+import net.aliasvault.app.exceptions.VaultOperationException
+import net.aliasvault.app.utils.Helpers
 import net.aliasvault.app.vaultstore.VaultStore
 import net.aliasvault.app.vaultstore.getPasskeysWithCredentialInfo
 import org.json.JSONObject
@@ -34,14 +37,10 @@ class PasskeyRegistrationActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        Log.d(TAG, "PasskeyRegistrationActivity onCreate called")
-
         try {
             // Initialize VaultStore
             vaultStore = VaultStore.getExistingInstance()
-                ?: throw Exception("VaultStore not initialized")
-
-            Log.d(TAG, "VaultStore initialized")
+                ?: throw VaultOperationException("VaultStore not initialized")
 
             // Retrieve provider request
             val providerRequest = PendingIntentHandler.retrieveProviderCreateCredentialRequest(intent)
@@ -50,8 +49,6 @@ class PasskeyRegistrationActivity : FragmentActivity() {
                 finish()
                 return
             }
-
-            Log.d(TAG, "Provider request retrieved successfully")
 
             // Extract parameters from providerRequest.callingRequest
             val createRequest = providerRequest.callingRequest
@@ -66,10 +63,6 @@ class PasskeyRegistrationActivity : FragmentActivity() {
             viewModel.clientDataHash = createRequest.clientDataHash
             viewModel.origin = createRequest.origin
 
-            Log.d(TAG, "Request JSON: ${viewModel.requestJson}")
-            Log.d(TAG, "Origin: ${viewModel.origin}")
-            Log.d(TAG, "ClientDataHash length: ${viewModel.clientDataHash?.size}")
-
             // Parse request JSON to extract RP ID and user info
             val requestObj = JSONObject(viewModel.requestJson)
 
@@ -83,8 +76,6 @@ class PasskeyRegistrationActivity : FragmentActivity() {
             viewModel.userDisplayName = userObj?.optString("displayName")?.takeIf { it.isNotEmpty() }
             val userIdB64 = userObj?.optString("id")
 
-            Log.d(TAG, "Parameters: rpId=${viewModel.rpId}, userName=${viewModel.userName}, userDisplayName=${viewModel.userDisplayName}")
-
             if (viewModel.rpId.isEmpty() || viewModel.requestJson.isEmpty()) {
                 Log.e(TAG, "Missing required parameters")
                 finish()
@@ -94,7 +85,7 @@ class PasskeyRegistrationActivity : FragmentActivity() {
             // Decode user ID from base64url
             viewModel.userId = if (!userIdB64.isNullOrEmpty()) {
                 try {
-                    base64urlDecode(userIdB64)
+                    Helpers.base64urlDecode(userIdB64)
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to decode user ID", e)
                     null
@@ -112,7 +103,6 @@ class PasskeyRegistrationActivity : FragmentActivity() {
                     userId = viewModel.userId,
                     db = db,
                 )
-                Log.d(TAG, "Found ${viewModel.existingPasskeys.size} existing passkeys for rpId=${viewModel.rpId}")
             }
 
             // Set content view with fragment container
@@ -136,7 +126,7 @@ class PasskeyRegistrationActivity : FragmentActivity() {
     }
 
     /**
-     * Show selection fragment when there are existing passkeys
+     * Show selection fragment when there are existing passkeys.
      */
     private fun showSelectionFragment() {
         val fragment = PasskeySelectionFragment()
@@ -146,29 +136,12 @@ class PasskeyRegistrationActivity : FragmentActivity() {
     }
 
     /**
-     * Show form fragment for creating or replacing a passkey
+     * Show form fragment for creating or replacing a passkey.
      */
     private fun showFormFragment(isReplace: Boolean, passkeyId: String?) {
         val fragment = PasskeyFormFragment.newInstance(isReplace, passkeyId)
         supportFragmentManager.beginTransaction()
             .replace(R.id.fragmentContainer, fragment)
             .commit()
-    }
-
-    /**
-     * Decode base64url string to bytes
-     */
-    private fun base64urlDecode(base64url: String): ByteArray {
-        var base64 = base64url
-            .replace('-', '+')
-            .replace('_', '/')
-
-        // Add padding if needed
-        val remainder = base64.length % 4
-        if (remainder > 0) {
-            base64 += "=".repeat(4 - remainder)
-        }
-
-        return android.util.Base64.decode(base64, android.util.Base64.NO_WRAP)
     }
 }

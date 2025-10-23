@@ -46,7 +46,6 @@ export function useVaultMutate() : {
 
   /**
    * Prepare vault for password change operation.
-   * TODO: Move this to native layer as well when implementing native password change support.
    */
   const prepareVaultForPasswordChange = useCallback(async (): Promise<Vault> => {
     const currentRevision = await NativeVaultManager.getCurrentVaultRevisionNumber();

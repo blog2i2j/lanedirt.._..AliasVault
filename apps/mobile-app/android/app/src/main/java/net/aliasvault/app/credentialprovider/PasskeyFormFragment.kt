@@ -21,6 +21,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.aliasvault.app.R
 import net.aliasvault.app.components.LoadingIndicator
+import net.aliasvault.app.credentialprovider.models.PasskeyRegistrationViewModel
+import net.aliasvault.app.exceptions.PasskeyOperationException
+import net.aliasvault.app.exceptions.VaultOperationException
+import net.aliasvault.app.utils.Helpers
 import net.aliasvault.app.vaultstore.PasskeyWithCredentialInfo
 import net.aliasvault.app.vaultstore.VaultStore
 import net.aliasvault.app.vaultstore.createCredentialWithPasskey
@@ -34,7 +38,7 @@ import java.util.Date
 import java.util.UUID
 
 /**
- * Fragment for passkey creation/replacement form
+ * Fragment for passkey creation/replacement form.
  */
 class PasskeyFormFragment : Fragment() {
 
@@ -43,6 +47,9 @@ class PasskeyFormFragment : Fragment() {
         private const val ARG_IS_REPLACE = "is_replace"
         private const val ARG_PASSKEY_ID = "passkey_id"
 
+        /**
+         * Create a new instance of PasskeyFormFragment.
+         */
         fun newInstance(isReplace: Boolean, passkeyId: String?): PasskeyFormFragment {
             return PasskeyFormFragment().apply {
                 arguments = Bundle().apply {
@@ -84,7 +91,7 @@ class PasskeyFormFragment : Fragment() {
 
         // Initialize services
         vaultStore = VaultStore.getExistingInstance()
-            ?: throw Exception("VaultStore not initialized")
+            ?: throw VaultOperationException("VaultStore not initialized")
         webApiService = WebApiService(requireContext())
     }
 
@@ -200,7 +207,7 @@ class PasskeyFormFragment : Fragment() {
     }
 
     /**
-     * Create a new passkey flow
+     * Create a new passkey flow.
      */
     private suspend fun createPasskeyFlow(displayName: String) = withContext(Dispatchers.IO) {
         try {
@@ -224,9 +231,7 @@ class PasskeyFormFragment : Fragment() {
                 showLoading(getString(R.string.passkey_creating))
             }
 
-            Log.d(TAG, "Creating passkey for RP: ${viewModel.rpId}, user: ${viewModel.userName}")
-
-            // Extract favicon (optional)
+            // Try to extract favicon from the website URL if possible
             var logo: ByteArray? = null
             try {
                 logo = webApiService.extractFavicon("https://${viewModel.rpId}")
@@ -239,22 +244,12 @@ class PasskeyFormFragment : Fragment() {
             val passkeyId = UUID.randomUUID()
             val credentialId = PasskeyHelper.guidToBytes(passkeyId.toString())
 
-            // Use clientDataHash from the request
-            val requestClientDataHash = viewModel.clientDataHash
-            if (requestClientDataHash == null) {
-                throw Exception("Client data hash not available")
-            }
-
             // Parse request to get challenge (for building response clientDataJSON later)
             val requestObj = JSONObject(viewModel.requestJson)
             val challenge = requestObj.optString("challenge", "")
 
             // Use origin from the request
-            val requestOrigin = viewModel.origin
-            if (requestOrigin == null) {
-                throw Exception("Origin not available")
-            }
-            Log.d(TAG, "Using origin from request: $requestOrigin")
+            val requestOrigin = viewModel.origin ?: throw PasskeyOperationException("Origin not available")
 
             // Extract PRF inputs if present
             val prfInputs = extractPrfInputs(requestObj)
@@ -263,7 +258,6 @@ class PasskeyFormFragment : Fragment() {
             // Create the passkey using PasskeyAuthenticator
             val passkeyResult = PasskeyAuthenticator.createPasskey(
                 credentialId = credentialId,
-                clientDataHash = requestClientDataHash,
                 rpId = viewModel.rpId,
                 userId = viewModel.userId,
                 userName = viewModel.userName,
@@ -295,7 +289,6 @@ class PasskeyFormFragment : Fragment() {
                 showLoading(getString(R.string.passkey_saving))
             }
 
-            Log.d(TAG, "Saving passkey to vault...")
             vaultStore.createCredentialWithPasskey(
                 rpId = viewModel.rpId,
                 userName = viewModel.userName,
@@ -303,7 +296,6 @@ class PasskeyFormFragment : Fragment() {
                 passkey = passkey,
                 logo = logo,
             )
-            Log.d(TAG, "Passkey saved successfully")
 
             // Step 4: Upload vault changes to server
             withContext(Dispatchers.Main) {
@@ -322,13 +314,12 @@ class PasskeyFormFragment : Fragment() {
             }
 
             // Build response
-            val credentialIdB64 = base64urlEncode(credentialId)
-            val attestationObjectB64 = base64urlEncode(passkeyResult.attestationObject)
+            val credentialIdB64 = Helpers.bytesToBase64url(credentialId)
+            val attestationObjectB64 = Helpers.bytesToBase64url(passkeyResult.attestationObject)
 
             // Rebuild clientDataJSON for the response (needed for the credential response)
-            val clientDataJson =
-                """{"type":"webauthn.create","challenge":"$challenge","origin":"$requestOrigin","crossOrigin":false}"""
-            val clientDataJsonB64 = base64urlEncode(clientDataJson.toByteArray(Charsets.UTF_8))
+            val clientDataJson = buildClientDataJson(challenge, requestOrigin)
+            val clientDataJsonB64 = Helpers.bytesToBase64url(clientDataJson.toByteArray(Charsets.UTF_8))
 
             val responseJson = JSONObject().apply {
                 put("id", credentialIdB64)
@@ -340,15 +331,15 @@ class PasskeyFormFragment : Fragment() {
                     JSONObject().apply {
                         put("clientDataJSON", clientDataJsonB64)
                         put("attestationObject", attestationObjectB64)
-                        put("authenticatorData", base64urlEncode(passkeyResult.authenticatorData))
+                        put("authenticatorData", Helpers.bytesToBase64url(passkeyResult.authenticatorData))
                         put(
                             "transports",
                             org.json.JSONArray().apply {
                                 put("internal")
                             },
                         )
-                        put("publicKey", base64urlEncode(passkeyResult.publicKeyDER))
-                        put("publicKeyAlgorithm", -7) // ES256, required for Chrome CredManHelper. Firefox doesn't need this.
+                        put("publicKey", Helpers.bytesToBase64url(passkeyResult.publicKeyDER))
+                        put("publicKeyAlgorithm", -7)
                     },
                 )
 
@@ -365,9 +356,9 @@ class PasskeyFormFragment : Fragment() {
                                     put(
                                         "results",
                                         JSONObject().apply {
-                                            put("first", base64urlEncode(prfResults.first))
+                                            put("first", Helpers.bytesToBase64url(prfResults.first))
                                             prfResults.second?.let {
-                                                put("second", base64urlEncode(it))
+                                                put("second", Helpers.bytesToBase64url(it))
                                             }
                                         },
                                     )
@@ -388,12 +379,8 @@ class PasskeyFormFragment : Fragment() {
                 hideLoading()
                 val resultIntent = Intent()
                 try {
-                    Log.d(TAG, "Setting credential response...")
                     PendingIntentHandler.setCreateCredentialResponse(resultIntent, response)
-                    Log.d(TAG, "Credential response set successfully")
-
                     requireActivity().setResult(Activity.RESULT_OK, resultIntent)
-                    Log.d(TAG, "Result set to RESULT_OK, finishing activity")
                     requireActivity().finish()
                 } catch (e: Exception) {
                     Log.e(TAG, "Error setting credential response", e)
@@ -409,7 +396,7 @@ class PasskeyFormFragment : Fragment() {
     }
 
     /**
-     * Replace an existing passkey flow
+     * Replace an existing passkey flow.
      */
     private suspend fun replacePasskeyFlow(displayName: String, passkeyToReplace: PasskeyWithCredentialInfo) = withContext(Dispatchers.IO) {
         try {
@@ -433,8 +420,6 @@ class PasskeyFormFragment : Fragment() {
                 showLoading(getString(R.string.passkey_replacing))
             }
 
-            Log.d(TAG, "Replacing passkey ${passkeyToReplace.passkey.id} for RP: ${viewModel.rpId}")
-
             // Extract favicon (optional)
             var logo: ByteArray? = null
             try {
@@ -448,21 +433,12 @@ class PasskeyFormFragment : Fragment() {
             val newPasskeyId = UUID.randomUUID()
             val credentialId = PasskeyHelper.guidToBytes(newPasskeyId.toString())
 
-            // Use clientDataHash from the request
-            val requestClientDataHash = viewModel.clientDataHash
-            if (requestClientDataHash == null) {
-                throw Exception("Client data hash not available")
-            }
-
             // Parse request to get challenge
             val requestObj = JSONObject(viewModel.requestJson)
             val challenge = requestObj.optString("challenge", "")
 
             // Use origin from the request
-            val requestOrigin = viewModel.origin
-            if (requestOrigin == null) {
-                throw Exception("Origin not available")
-            }
+            val requestOrigin = viewModel.origin ?: throw PasskeyOperationException("Origin not available")
 
             // Extract PRF inputs if present
             val prfInputs = extractPrfInputs(requestObj)
@@ -471,7 +447,6 @@ class PasskeyFormFragment : Fragment() {
             // Create the new passkey using PasskeyAuthenticator
             val passkeyResult = PasskeyAuthenticator.createPasskey(
                 credentialId = credentialId,
-                clientDataHash = requestClientDataHash,
                 rpId = viewModel.rpId,
                 userId = viewModel.userId,
                 userName = viewModel.userName,
@@ -503,7 +478,7 @@ class PasskeyFormFragment : Fragment() {
                 showLoading(getString(R.string.passkey_saving))
             }
 
-            val db = vaultStore.database ?: throw Exception("Vault not unlocked")
+            val db = vaultStore.database ?: throw VaultOperationException("Vault not unlocked")
             db.beginTransaction()
             try {
                 vaultStore.replacePasskey(
@@ -516,8 +491,6 @@ class PasskeyFormFragment : Fragment() {
 
                 // Commit transaction and persist to encrypted vault file
                 vaultStore.commitTransaction()
-
-                Log.d(TAG, "Passkey replaced successfully")
             } catch (e: Exception) {
                 db.endTransaction()
                 throw e
@@ -540,12 +513,11 @@ class PasskeyFormFragment : Fragment() {
             }
 
             // Build response (same as create flow)
-            val credentialIdB64 = base64urlEncode(credentialId)
-            val attestationObjectB64 = base64urlEncode(passkeyResult.attestationObject)
+            val credentialIdB64 = Helpers.bytesToBase64url(credentialId)
+            val attestationObjectB64 = Helpers.bytesToBase64url(passkeyResult.attestationObject)
 
-            val clientDataJson =
-                """{"type":"webauthn.create","challenge":"$challenge","origin":"$requestOrigin","crossOrigin":false}"""
-            val clientDataJsonB64 = base64urlEncode(clientDataJson.toByteArray(Charsets.UTF_8))
+            val clientDataJson = buildClientDataJson(challenge, requestOrigin)
+            val clientDataJsonB64 = Helpers.bytesToBase64url(clientDataJson.toByteArray(Charsets.UTF_8))
 
             val responseJson = JSONObject().apply {
                 put("id", credentialIdB64)
@@ -557,20 +529,24 @@ class PasskeyFormFragment : Fragment() {
                     JSONObject().apply {
                         put("clientDataJSON", clientDataJsonB64)
                         put("attestationObject", attestationObjectB64)
-                        put("authenticatorData", base64urlEncode(passkeyResult.authenticatorData))
+                        put("authenticatorData", Helpers.bytesToBase64url(passkeyResult.authenticatorData))
                         put(
                             "transports",
                             org.json.JSONArray().apply {
                                 put("internal")
                             },
                         )
-                        put("publicKey", base64urlEncode(passkeyResult.publicKeyDER))
+                        put("publicKey", Helpers.bytesToBase64url(passkeyResult.publicKeyDER))
                         put("publicKeyAlgorithm", -7)
                     },
                 )
 
                 // Add PRF extension results if present
-                val prfResults = if (enablePrf) passkeyResult.prfResults else null
+                val prfResults = if (enablePrf) {
+                    passkeyResult.prfResults
+                } else {
+                    null
+                }
                 if (prfResults != null) {
                     put(
                         "clientExtensionResults",
@@ -582,9 +558,9 @@ class PasskeyFormFragment : Fragment() {
                                     put(
                                         "results",
                                         JSONObject().apply {
-                                            put("first", base64urlEncode(prfResults.first))
+                                            put("first", Helpers.bytesToBase64url(prfResults.first))
                                             prfResults.second?.let {
-                                                put("second", base64urlEncode(it))
+                                                put("second", Helpers.bytesToBase64url(it))
                                             }
                                         },
                                     )
@@ -597,20 +573,14 @@ class PasskeyFormFragment : Fragment() {
                 }
             }
 
-            Log.d(TAG, "Response JSON: ${responseJson.toString(2)}")
-
             val response = CreatePublicKeyCredentialResponse(responseJson.toString())
 
             withContext(Dispatchers.Main) {
                 hideLoading()
                 val resultIntent = Intent()
                 try {
-                    Log.d(TAG, "Setting credential response...")
                     PendingIntentHandler.setCreateCredentialResponse(resultIntent, response)
-                    Log.d(TAG, "Credential response set successfully")
-
                     requireActivity().setResult(Activity.RESULT_OK, resultIntent)
-                    Log.d(TAG, "Result set to RESULT_OK, finishing activity")
                     requireActivity().finish()
                 } catch (e: Exception) {
                     Log.e(TAG, "Error setting credential response", e)
@@ -626,7 +596,8 @@ class PasskeyFormFragment : Fragment() {
     }
 
     /**
-     * Extract PRF extension inputs from request
+     * Extract PRF extension inputs from request.
+     * Note: PRF needs to be fully tested, we did not get PRF eval in the request from CredMan so far.
      */
     private fun extractPrfInputs(requestObj: JSONObject): PasskeyAuthenticator.PrfInputs? {
         try {
@@ -638,10 +609,13 @@ class PasskeyFormFragment : Fragment() {
             if (firstB64.isEmpty()) return null
             val secondB64 = eval.optString("second")
 
-            val first = base64urlDecode(firstB64)
-            val second = if (secondB64.isNotEmpty()) base64urlDecode(secondB64) else null
+            val first = Helpers.base64urlDecode(firstB64)
+            val second = if (secondB64.isNotEmpty()) {
+                Helpers.base64urlDecode(secondB64)
+            } else {
+                null
+            }
 
-            Log.d(TAG, "PRF extension requested")
             return PasskeyAuthenticator.PrfInputs(first, second)
         } catch (e: Exception) {
             Log.w(TAG, "Error extracting PRF inputs", e)
@@ -650,30 +624,10 @@ class PasskeyFormFragment : Fragment() {
     }
 
     /**
-     * Encode bytes to base64url string
+     * Build clientDataJSON for WebAuthn create request.
      */
-    private fun base64urlEncode(data: ByteArray): String {
-        return android.util.Base64.encodeToString(
-            data,
-            android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING,
-        )
-    }
-
-    /**
-     * Decode base64url string to bytes
-     */
-    private fun base64urlDecode(base64url: String): ByteArray {
-        var base64 = base64url
-            .replace('-', '+')
-            .replace('_', '/')
-
-        // Add padding if needed
-        val remainder = base64.length % 4
-        if (remainder > 0) {
-            base64 += "=".repeat(4 - remainder)
-        }
-
-        return android.util.Base64.decode(base64, android.util.Base64.NO_WRAP)
+    private fun buildClientDataJson(challenge: String, origin: String): String {
+        return """{"type":"webauthn.create","challenge":"$challenge","origin":"$origin","crossOrigin":false}"""
     }
 
     /**

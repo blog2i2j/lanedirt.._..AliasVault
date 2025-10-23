@@ -15,8 +15,8 @@ package net.aliasvault.app.vaultstore.passkey
 object PasskeyHelper {
 
     /**
-     * Convert GUID string to byte array
-     * Example: "3f2504e0-4f89-11d3-9a0c-0305e82c3301" → ByteArray(16 bytes)
+     * Convert GUID string to byte array.
+     * Example: "3f2504e0-4f89-11d3-9a0c-0305e82c3301" → ByteArray(16 bytes).
      */
     @JvmStatic
     fun guidToBytes(guid: String): ByteArray {
@@ -33,8 +33,8 @@ object PasskeyHelper {
     }
 
     /**
-     * Convert byte array to GUID string (uppercase)
-     * Example: ByteArray(16 bytes) → "3F2504E0-4F89-11D3-9A0C-0305E82C3301"
+     * Convert byte array to GUID string (uppercase).
+     * Example: ByteArray(16 bytes) → "3F2504E0-4F89-11D3-9A0C-0305E82C3301".
      */
     @JvmStatic
     fun bytesToGuid(bytes: ByteArray): String {
@@ -57,8 +57,8 @@ object PasskeyHelper {
     }
 
     /**
-     * Convert byte array to Base64URL encoding
-     * Base64URL uses - instead of + and _ instead of /, and omits padding
+     * Convert byte array to Base64URL encoding.
+     * Base64URL uses - instead of + and _ instead of /, and omits padding.
      */
     @JvmStatic
     fun bytesToBase64url(bytes: ByteArray): String {

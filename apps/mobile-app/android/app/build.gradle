@@ -276,7 +276,8 @@ task lintCheck {
 
 // Add a task dependency to make ktlint run before build
 tasks.named("preBuild") {
-    dependsOn("ktlintCheck")
+    dependsOn("lintFormat")
+    dependsOn("lintCheck")
 }
 
 // Ensure codegen completes before ktlint tasks run

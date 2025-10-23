@@ -4,70 +4,70 @@ import java.util.Date
 import java.util.UUID
 
 /**
- * Passkey model representing a WebAuthn credential
- * Linked to a parent Credential for UI display (service name, logo, etc.)
+ * Passkey model representing a WebAuthn credential.
+ * Linked to a parent Credential for UI display (service name, logo, etc.).
  *
  * This is a Kotlin port of the iOS Swift implementation:
  * - Reference: apps/mobile-app/ios/VaultModels/Passkey.swift
  */
 data class Passkey(
     /**
-     * Passkey record ID which is also the WebAuthn credential ID
+     * Passkey record ID which is also the WebAuthn credential ID.
      */
     val id: UUID,
 
     /**
-     * Parent Credential UUID (AliasVault internal ID)
+     * Parent Credential UUID (AliasVault internal ID).
      */
     val parentCredentialId: UUID,
 
     /**
-     * Relying party identifier (domain)
+     * Relying party identifier (domain).
      */
     val rpId: String,
 
     /**
-     * User ID/handle from RP (optional)
+     * User ID/handle from RP (optional).
      */
     val userHandle: ByteArray?,
 
     /**
-     * User-visible identifier (typically email)
+     * User-visible identifier (typically email).
      */
     val userName: String?,
 
     /**
-     * JWK format (JSON), encrypted in storage
+     * JWK format (JSON), encrypted in storage.
      */
     val publicKey: ByteArray,
 
     /**
-     * JWK format (JSON), encrypted in storage
+     * JWK format (JSON), encrypted in storage.
      */
     val privateKey: ByteArray,
 
     /**
-     * PRF secret (32 bytes) if extension enabled
+     * PRF secret (32 bytes) if extension enabled.
      */
     val prfKey: ByteArray?,
 
     /**
-     * User-facing name for this passkey
+     * User-facing name for this passkey.
      */
     val displayName: String,
 
     /**
-     * The creation date of the passkey
+     * The creation date of the passkey.
      */
     val createdAt: Date,
 
     /**
-     * The update date of the passkey
+     * The update date of the passkey.
      */
     val updatedAt: Date,
 
     /**
-     * Whether the passkey is deleted
+     * Whether the passkey is deleted.
      */
     val isDeleted: Boolean,
 ) {
