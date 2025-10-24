@@ -328,7 +328,7 @@ class PasskeyFormFragment : Fragment() {
                 put("id", credentialIdB64)
                 put("rawId", credentialIdB64)
                 put("type", "public-key")
-                put("authenticatorAttachment", "platform")
+                put("authenticatorAttachment", "cross-platform")
                 put(
                     "response",
                     JSONObject().apply {
@@ -529,7 +529,7 @@ class PasskeyFormFragment : Fragment() {
                 put("id", credentialIdB64)
                 put("rawId", credentialIdB64)
                 put("type", "public-key")
-                put("authenticatorAttachment", "platform")
+                put("authenticatorAttachment", "cross-platform")
                 put(
                     "response",
                     JSONObject().apply {
