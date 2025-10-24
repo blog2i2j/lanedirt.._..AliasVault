@@ -215,13 +215,14 @@ public class AliasClientDbContext : DbContext
     }
 
     /// <summary>
-    /// Converts a DateTime to a string.
+    /// Converts a DateTime to a string in the standard format: "yyyy-MM-dd HH:mm:ss.fff" (23 characters with milliseconds).
+    /// This format ensures SQLite native support, consistent precision, and proper sorting.
     /// </summary>
     /// <param name="v">The DateTime to convert.</param>
     /// <returns>The string representation of the DateTime.</returns>
     private static string DateTimeToString(DateTime v)
     {
-        return v == DateTime.MinValue ? string.Empty : v.ToString("yyyy-MM-dd HH':'mm':'ss", CultureInfo.InvariantCulture);
+        return v == DateTime.MinValue ? string.Empty : v.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
     }
 
     /// <summary>
@@ -237,15 +238,16 @@ public class AliasClientDbContext : DbContext
         }
 
         // Try to parse with all known formats first
+        // Standard format is first for performance (most common case)
         string[] formats = new[]
         {
-            "yyyy-MM-dd HH':'mm':'ss",
-            "yyyy-MM-dd HH.mm.ss",
+            "yyyy-MM-dd HH:mm:ss.fff",      // Standard format with milliseconds (23 chars)
+            "yyyy-MM-dd HH:mm:ss",           // Standard format without milliseconds (19 chars)
             "yyyy-MM-dd'T'HH:mm:ss.fff'Z'", // ISO 8601 with milliseconds and Zulu
             "yyyy-MM-dd'T'HH:mm:ss'Z'",     // ISO 8601 with Zulu
             "yyyy-MM-dd'T'HH:mm:ss.fff",    // ISO 8601 with milliseconds
             "yyyy-MM-dd'T'HH:mm:ss",        // ISO 8601 basic
-            "yyyy-MM-dd",                   // Date only,
+            "yyyy-MM-dd",                   // Date only
         };
 
         foreach (var format in formats)

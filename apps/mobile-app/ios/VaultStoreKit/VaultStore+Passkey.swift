@@ -234,11 +234,7 @@ extension VaultStore {
      * Format: yyyy-MM-dd HH:mm:ss
      */
     private func formatDateForDatabase(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        return formatter.string(from: date)
+        return DateHelpers.toStandardFormat(date)
     }
 
     /**

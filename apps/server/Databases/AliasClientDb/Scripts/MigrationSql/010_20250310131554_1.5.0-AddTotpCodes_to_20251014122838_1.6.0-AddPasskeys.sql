@@ -154,6 +154,227 @@ INSERT INTO "Attachments" SELECT * FROM "Attachments_temp";
 INSERT INTO "Passwords" SELECT * FROM "Passwords_temp";
 INSERT INTO "TotpCodes" SELECT * FROM "TotpCodes_temp";
 
+-- =====================================================================================
+-- Date Format Normalization Migration
+-- =====================================================================================
+-- This migration normalizes ALL date fields to the standard format: 'yyyy-MM-dd HH:mm:ss.fff'
+-- Previously the different clients used different date formats which complicate date parsing.
+-- From version 0.24.0 onwards, all new dates are stored in this standard format.
+
+-- Update Aliases table (CreatedAt, UpdatedAt, BirthDate)
+UPDATE "Aliases" SET "CreatedAt" =
+    CASE
+        -- Already in correct format (yyyy-MM-dd HH:mm:ss.fff) - no change
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]'
+            THEN "CreatedAt"
+
+        -- ISO 8601 with milliseconds (yyyy-MM-ddTHH:mm:ss.fffZ) -> Replace T with space, remove Z and everything after .fff
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9]*'
+            THEN substr("CreatedAt", 1, 10) || ' ' || substr("CreatedAt", 12, 12)
+
+        -- Without milliseconds (yyyy-MM-dd HH:mm:ss or yyyy-MM-ddTHH:mm:ssZ) -> Add .000
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][T ][0-9][0-9]:[0-9][0-9]:[0-9][0-9]*'
+            THEN substr("CreatedAt", 1, 10) || ' ' || substr(replace("CreatedAt", 'T', ' '), 12, 8) || '.000'
+
+        -- Fallback: if none match, keep as-is (edge case)
+        ELSE "CreatedAt"
+    END;
+
+UPDATE "Aliases" SET "UpdatedAt" =
+    CASE
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]'
+            THEN "UpdatedAt"
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9]*'
+            THEN substr("UpdatedAt", 1, 10) || ' ' || substr("UpdatedAt", 12, 12)
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][T ][0-9][0-9]:[0-9][0-9]:[0-9][0-9]*'
+            THEN substr("UpdatedAt", 1, 10) || ' ' || substr(replace("UpdatedAt", 'T', ' '), 12, 8) || '.000'
+        ELSE "UpdatedAt"
+    END;
+
+-- BirthDate: Always set time to 00:00:00 (no milliseconds for birth dates)
+UPDATE "Aliases" SET "BirthDate" =
+    CASE
+        -- If empty or already '0001-01-01 00:00:00', keep as-is
+        WHEN "BirthDate" = '' OR "BirthDate" = '0001-01-01 00:00:00'
+            THEN "BirthDate"
+
+        -- If already in correct format (yyyy-MM-dd 00:00:00), keep as-is
+        WHEN "BirthDate" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] 00:00:00'
+            THEN "BirthDate"
+
+        -- Extract date part and set time to 00:00:00
+        WHEN "BirthDate" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]*'
+            THEN substr("BirthDate", 1, 10) || ' 00:00:00'
+
+        -- Fallback
+        ELSE "BirthDate"
+    END;
+
+-- Update Services table (CreatedAt, UpdatedAt)
+UPDATE "Services" SET "CreatedAt" =
+    CASE
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]'
+            THEN "CreatedAt"
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9]*'
+            THEN substr("CreatedAt", 1, 10) || ' ' || substr("CreatedAt", 12, 12)
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][T ][0-9][0-9]:[0-9][0-9]:[0-9][0-9]*'
+            THEN substr("CreatedAt", 1, 10) || ' ' || substr(replace("CreatedAt", 'T', ' '), 12, 8) || '.000'
+        ELSE "CreatedAt"
+    END;
+
+UPDATE "Services" SET "UpdatedAt" =
+    CASE
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]'
+            THEN "UpdatedAt"
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9]*'
+            THEN substr("UpdatedAt", 1, 10) || ' ' || substr("UpdatedAt", 12, 12)
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][T ][0-9][0-9]:[0-9][0-9]:[0-9][0-9]*'
+            THEN substr("UpdatedAt", 1, 10) || ' ' || substr(replace("UpdatedAt", 'T', ' '), 12, 8) || '.000'
+        ELSE "UpdatedAt"
+    END;
+
+-- Update EncryptionKeys table (CreatedAt, UpdatedAt)
+UPDATE "EncryptionKeys" SET "CreatedAt" =
+    CASE
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]'
+            THEN "CreatedAt"
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9]*'
+            THEN substr("CreatedAt", 1, 10) || ' ' || substr("CreatedAt", 12, 12)
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][T ][0-9][0-9]:[0-9][0-9]:[0-9][0-9]*'
+            THEN substr("CreatedAt", 1, 10) || ' ' || substr(replace("CreatedAt", 'T', ' '), 12, 8) || '.000'
+        ELSE "CreatedAt"
+    END;
+
+UPDATE "EncryptionKeys" SET "UpdatedAt" =
+    CASE
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]'
+            THEN "UpdatedAt"
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9]*'
+            THEN substr("UpdatedAt", 1, 10) || ' ' || substr("UpdatedAt", 12, 12)
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][T ][0-9][0-9]:[0-9][0-9]:[0-9][0-9]*'
+            THEN substr("UpdatedAt", 1, 10) || ' ' || substr(replace("UpdatedAt", 'T', ' '), 12, 8) || '.000'
+        ELSE "UpdatedAt"
+    END;
+
+-- Update Settings table (CreatedAt, UpdatedAt)
+UPDATE "Settings" SET "CreatedAt" =
+    CASE
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]'
+            THEN "CreatedAt"
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9]*'
+            THEN substr("CreatedAt", 1, 10) || ' ' || substr("CreatedAt", 12, 12)
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][T ][0-9][0-9]:[0-9][0-9]:[0-9][0-9]*'
+            THEN substr("CreatedAt", 1, 10) || ' ' || substr(replace("CreatedAt", 'T', ' '), 12, 8) || '.000'
+        ELSE "CreatedAt"
+    END;
+
+UPDATE "Settings" SET "UpdatedAt" =
+    CASE
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]'
+            THEN "UpdatedAt"
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9]*'
+            THEN substr("UpdatedAt", 1, 10) || ' ' || substr("UpdatedAt", 12, 12)
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][T ][0-9][0-9]:[0-9][0-9]:[0-9][0-9]*'
+            THEN substr("UpdatedAt", 1, 10) || ' ' || substr(replace("UpdatedAt", 'T', ' '), 12, 8) || '.000'
+        ELSE "UpdatedAt"
+    END;
+
+-- Update Credentials table (CreatedAt, UpdatedAt)
+UPDATE "Credentials" SET "CreatedAt" =
+    CASE
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]'
+            THEN "CreatedAt"
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9]*'
+            THEN substr("CreatedAt", 1, 10) || ' ' || substr("CreatedAt", 12, 12)
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][T ][0-9][0-9]:[0-9][0-9]:[0-9][0-9]*'
+            THEN substr("CreatedAt", 1, 10) || ' ' || substr(replace("CreatedAt", 'T', ' '), 12, 8) || '.000'
+        ELSE "CreatedAt"
+    END;
+
+UPDATE "Credentials" SET "UpdatedAt" =
+    CASE
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]'
+            THEN "UpdatedAt"
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9]*'
+            THEN substr("UpdatedAt", 1, 10) || ' ' || substr("UpdatedAt", 12, 12)
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][T ][0-9][0-9]:[0-9][0-9]:[0-9][0-9]*'
+            THEN substr("UpdatedAt", 1, 10) || ' ' || substr(replace("UpdatedAt", 'T', ' '), 12, 8) || '.000'
+        ELSE "UpdatedAt"
+    END;
+
+-- Update Attachments table (CreatedAt, UpdatedAt)
+UPDATE "Attachments" SET "CreatedAt" =
+    CASE
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]'
+            THEN "CreatedAt"
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9]*'
+            THEN substr("CreatedAt", 1, 10) || ' ' || substr("CreatedAt", 12, 12)
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][T ][0-9][0-9]:[0-9][0-9]:[0-9][0-9]*'
+            THEN substr("CreatedAt", 1, 10) || ' ' || substr(replace("CreatedAt", 'T', ' '), 12, 8) || '.000'
+        ELSE "CreatedAt"
+    END;
+
+UPDATE "Attachments" SET "UpdatedAt" =
+    CASE
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]'
+            THEN "UpdatedAt"
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9]*'
+            THEN substr("UpdatedAt", 1, 10) || ' ' || substr("UpdatedAt", 12, 12)
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][T ][0-9][0-9]:[0-9][0-9]:[0-9][0-9]*'
+            THEN substr("UpdatedAt", 1, 10) || ' ' || substr(replace("UpdatedAt", 'T', ' '), 12, 8) || '.000'
+        ELSE "UpdatedAt"
+    END;
+
+-- Update Passwords table (CreatedAt, UpdatedAt)
+UPDATE "Passwords" SET "CreatedAt" =
+    CASE
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]'
+            THEN "CreatedAt"
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9]*'
+            THEN substr("CreatedAt", 1, 10) || ' ' || substr("CreatedAt", 12, 12)
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][T ][0-9][0-9]:[0-9][0-9]:[0-9][0-9]*'
+            THEN substr("CreatedAt", 1, 10) || ' ' || substr(replace("CreatedAt", 'T', ' '), 12, 8) || '.000'
+        ELSE "CreatedAt"
+    END;
+
+UPDATE "Passwords" SET "UpdatedAt" =
+    CASE
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]'
+            THEN "UpdatedAt"
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9]*'
+            THEN substr("UpdatedAt", 1, 10) || ' ' || substr("UpdatedAt", 12, 12)
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][T ][0-9][0-9]:[0-9][0-9]:[0-9][0-9]*'
+            THEN substr("UpdatedAt", 1, 10) || ' ' || substr(replace("UpdatedAt", 'T', ' '), 12, 8) || '.000'
+        ELSE "UpdatedAt"
+    END;
+
+-- Update TotpCodes table (CreatedAt, UpdatedAt)
+UPDATE "TotpCodes" SET "CreatedAt" =
+    CASE
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]'
+            THEN "CreatedAt"
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9]*'
+            THEN substr("CreatedAt", 1, 10) || ' ' || substr("CreatedAt", 12, 12)
+        WHEN "CreatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][T ][0-9][0-9]:[0-9][0-9]:[0-9][0-9]*'
+            THEN substr("CreatedAt", 1, 10) || ' ' || substr(replace("CreatedAt", 'T', ' '), 12, 8) || '.000'
+        ELSE "CreatedAt"
+    END;
+
+UPDATE "TotpCodes" SET "UpdatedAt" =
+    CASE
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9][0-9][0-9]'
+            THEN "UpdatedAt"
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].[0-9]*'
+            THEN substr("UpdatedAt", 1, 10) || ' ' || substr("UpdatedAt", 12, 12)
+        WHEN "UpdatedAt" GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][T ][0-9][0-9]:[0-9][0-9]:[0-9][0-9]*'
+            THEN substr("UpdatedAt", 1, 10) || ' ' || substr(replace("UpdatedAt", 'T', ' '), 12, 8) || '.000'
+        ELSE "UpdatedAt"
+    END;
+
+-- =====================================================================================
+-- End of Date Format Normalization Migration
+-- =====================================================================================
+
 -- Recreate indexes
 CREATE INDEX "IX_Credentials_AliasId" ON "Credentials" ("AliasId");
 CREATE INDEX "IX_Credentials_ServiceId" ON "Credentials" ("ServiceId");

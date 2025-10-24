@@ -37,6 +37,10 @@ function_body_length:
   warning: 150
   error: 200
 
+type_body_length:
+  warning: 400
+  error: 500
+
 comment_spacing: # fixed invalid configuration
   severity: error
 

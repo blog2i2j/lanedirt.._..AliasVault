@@ -1431,7 +1431,6 @@ class VaultStore(
         val baseVersion = version.split("-").firstOrNull() ?: "0.0.0"
         val client = "android-$baseVersion"
 
-        // Format dates in ISO 8601 format
         val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
         dateFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
         val now = dateFormat.format(java.util.Date())

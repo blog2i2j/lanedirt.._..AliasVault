@@ -13,6 +13,7 @@ using AliasClientDb;
 using AliasVault.Client.Services;
 using AliasVault.Client.Services.Auth;
 using AliasVault.Client.Services.JsInterop.Models;
+using AliasVault.Client.Utilities;
 using AliasVault.Shared.Models.Enums;
 using AliasVault.Shared.Models.WebApi.Vault;
 using Microsoft.Data.Sqlite;
@@ -447,6 +448,7 @@ public sealed class DbService : IDisposable
         var encryptionKey = await GetOrCreateEncryptionKeyAsync();
         var credentialsCount = await _dbContext.Credentials.Where(x => !x.IsDeleted).CountAsync();
         var emailAddresses = await GetEmailClaimListAsync();
+        var currentDateTime = DateTime.UtcNow;
         return new Vault
         {
             Username = username,
@@ -458,8 +460,8 @@ public sealed class DbService : IDisposable
             EmailAddressList = emailAddresses,
             PrivateEmailDomainList = [],
             PublicEmailDomainList = [],
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow,
+            CreatedAt = currentDateTime,
+            UpdatedAt = currentDateTime,
         };
     }
 
@@ -800,13 +802,14 @@ public sealed class DbService : IDisposable
         // Create a new encryption key via JSInterop, .NET WASM does not support crypto operations natively (yet).
         var keyPair = await _jsInteropService.GenerateRsaKeyPair();
 
+        var currentDateTime = DateTime.UtcNow;
         encryptionKey = new EncryptionKey
         {
             PublicKey = keyPair.PublicKey,
             PrivateKey = keyPair.PrivateKey,
             IsPrimary = true,
-            CreatedAt = DateTime.Now,
-            UpdatedAt = DateTime.Now,
+            CreatedAt = currentDateTime,
+            UpdatedAt = currentDateTime,
         };
         _dbContext.EncryptionKeys.Add(encryptionKey);
         return encryptionKey;

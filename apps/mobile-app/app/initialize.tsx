@@ -180,44 +180,65 @@ export default function Initialize() : React.ReactNode {
           return;
         }
 
-        // Check if we have an encrypted database and if FaceID is enabled
-        try {
-          const hasEncryptedDatabase = await NativeVaultManager.hasEncryptedDatabase();
+        /**
+         * If we already have an unlocked vault, we can skip the biometric unlock
+         * but still need to perform vault sync to check for updates.
+         */
+        const isAlreadyUnlocked = await NativeVaultManager.isVaultUnlocked();
 
-          if (hasEncryptedDatabase) {
-            const isFaceIDEnabled = enabledAuthMethods.includes('faceid');
+        if (!isAlreadyUnlocked) {
+          // Check if we have an encrypted database and if FaceID is enabled
+          try {
+            const hasEncryptedDatabase = await NativeVaultManager.hasEncryptedDatabase();
 
-            // Only attempt to unlock if FaceID is enabled
-            if (isFaceIDEnabled) {
-              // Unlock vault FIRST (before network sync) - this is not skippable
-              updateStatus(t('app.status.unlockingVault'));
-              const isUnlocked = await dbContext.unlockVault();
+            if (hasEncryptedDatabase) {
+              const isFaceIDEnabled = enabledAuthMethods.includes('faceid');
 
-              if (!isUnlocked) {
-                // Failed to unlock, redirect to unlock screen
+              // Only attempt to unlock if FaceID is enabled
+              if (isFaceIDEnabled) {
+                // Unlock vault FIRST (before network sync) - this is not skippable
+                updateStatus(t('app.status.unlockingVault'));
+                const isUnlocked = await dbContext.unlockVault();
+
+                if (!isUnlocked) {
+                  // Failed to unlock, redirect to unlock screen
+                  router.replace('/unlock');
+                  return;
+                }
+
+                // Check if the vault needs migration before syncing
+                if (await dbContext.hasPendingMigrations()) {
+                  router.replace('/upgrade');
+                  return;
+                }
+
+                // Vault unlocked successfully - now allow skip button for network operations
+                canShowSkipButtonRef.current = true;
+              } else {
+                // No FaceID, redirect to unlock screen for manual unlock
                 router.replace('/unlock');
                 return;
               }
-
-              // Check if the vault needs migration before syncing
-              if (await dbContext.hasPendingMigrations()) {
-                router.replace('/upgrade');
-                return;
-              }
-
-              // Vault unlocked successfully - now allow skip button for network operations
-              canShowSkipButtonRef.current = true;
             }
-            else {
-              // No FaceID, redirect to unlock screen for manual unlock
-              router.replace('/unlock');
-              return;
-            }
+          } catch (err) {
+            console.error('Error during initial vault unlock:', err);
+            router.replace('/unlock');
+            return;
           }
-        } catch (err) {
-          console.error('Error during initial vault unlock:', err);
-          router.replace('/unlock');
-          return;
+        } else {
+          /**
+           * Vault already unlocked (e.g., from password unlock)
+           * Check if migrations are needed.
+           */
+          if (await dbContext.hasPendingMigrations()) {
+            router.replace('/upgrade');
+            return;
+          }
+
+          /**
+           * Allow skip button for sync operations since vault is already unlocked.
+           */
+          canShowSkipButtonRef.current = true;
         }
 
         // Now perform vault sync (network operations - these are skippable)

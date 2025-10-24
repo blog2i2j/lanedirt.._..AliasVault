@@ -381,7 +381,7 @@ export default function AddEditCredentialScreen() : React.ReactNode {
             } else {
               Toast.show({
                 type: 'success',
-                text1: t('credentials.toasts.credentialSaved'),
+                text1: t('credentials.toasts.credentialCreated'),
                 position: 'bottom'
               });
 

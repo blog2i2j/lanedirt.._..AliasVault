@@ -91,7 +91,6 @@ extension VaultStore {
         let baseVersion = version.split(separator: "-").first.map(String.init) ?? "0.0.0"
         let client = "ios-\(baseVersion)"
 
-        // Format dates in ISO 8601 format
         let dateFormatter = ISO8601DateFormatter()
         dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let now = dateFormatter.string(from: Date())

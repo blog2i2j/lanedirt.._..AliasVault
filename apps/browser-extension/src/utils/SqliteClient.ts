@@ -7,6 +7,7 @@ import { VaultSqlGenerator } from '@/utils/dist/shared/vault-sql';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
 
 import { t } from '@/i18n/StandaloneI18n';
+import * as dateFormatter from '@/utils/dateFormatter';
 
 /**
  * Placeholder base64 image for credentials without a logo.
@@ -482,10 +483,7 @@ export class SqliteClient {
                 INSERT INTO Services (Id, Name, Url, Logo, CreatedAt, UpdatedAt, IsDeleted)
                 VALUES (?, ?, ?, ?, ?, ?, ?)`;
       const serviceId = crypto.randomUUID().toUpperCase();
-      const currentDateTime = new Date().toISOString()
-        .replace('T', ' ')
-        .replace('Z', '')
-        .substring(0, 23);
+      const currentDateTime = dateFormatter.now();
       this.executeUpdate(serviceQuery, [
         serviceId,
         credential.ServiceName,
@@ -734,10 +732,7 @@ export class SqliteClient {
     try {
       this.beginTransaction();
 
-      const currentDateTime = new Date().toISOString()
-        .replace('T', ' ')
-        .replace('Z', '')
-        .substring(0, 23);
+      const currentDateTime = dateFormatter.now();
 
       // Update the credential, alias, and service to be deleted
       const query = `
@@ -800,10 +795,7 @@ export class SqliteClient {
 
     try {
       this.beginTransaction();
-      const currentDateTime = new Date().toISOString()
-        .replace('T', ' ')
-        .replace('Z', '')
-        .substring(0, 23);
+      const currentDateTime = dateFormatter.now();
 
       // Get existing credential to compare changes
       const existingCredential = this.getCredentialById(credential.Id);
@@ -1308,10 +1300,7 @@ export class SqliteClient {
     try {
       this.beginTransaction();
 
-      const currentDateTime = new Date().toISOString()
-        .replace('T', ' ')
-        .replace('Z', '')
-        .substring(0, 23);
+      const currentDateTime = dateFormatter.now();
 
       const query = `
         INSERT INTO Passkeys (
@@ -1369,10 +1358,7 @@ export class SqliteClient {
     try {
       this.beginTransaction();
 
-      const currentDateTime = new Date().toISOString()
-        .replace('T', ' ')
-        .replace('Z', '')
-        .substring(0, 23);
+      const currentDateTime = dateFormatter.now();
 
       const query = `
         UPDATE Passkeys
@@ -1405,10 +1391,7 @@ export class SqliteClient {
     try {
       this.beginTransaction();
 
-      const currentDateTime = new Date().toISOString()
-        .replace('T', ' ')
-        .replace('Z', '')
-        .substring(0, 23);
+      const currentDateTime = dateFormatter.now();
 
       const query = `
         UPDATE Passkeys
@@ -1442,10 +1425,7 @@ export class SqliteClient {
     try {
       this.beginTransaction();
 
-      const currentDateTime = new Date().toISOString()
-        .replace('T', ' ')
-        .replace('Z', '')
-        .substring(0, 23);
+      const currentDateTime = dateFormatter.now();
 
       const query = `
         UPDATE Passkeys

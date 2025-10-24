@@ -119,19 +119,48 @@ extension VaultStore {
         let tempDbPath = FileManager.default.temporaryDirectory.appendingPathComponent("temp_db.sqlite")
         try Data().write(to: tempDbPath)
 
-        try dbConnection.attach(.uri(tempDbPath.path, parameters: [.mode(.readWrite)]), as: "target")
+        do {
+            try dbConnection.attach(.uri(tempDbPath.path, parameters: [.mode(.readWrite)]), as: "target")
 
-        let tables = try dbConnection.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
-        try dbConnection.execute("BEGIN TRANSACTION")
-        for table in tables {
-            guard let tableName = table[0] as? String else {
-                print("Warning: Unexpected value in table name column")
-                continue
+            let tables = try dbConnection.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+            try dbConnection.execute("BEGIN TRANSACTION")
+
+            for table in tables {
+                guard let tableName = table[0] as? String else {
+                    continue
+                }
+                try dbConnection.execute("CREATE TABLE target.\(tableName) AS SELECT * FROM main.\(tableName)")
             }
-            try dbConnection.execute("CREATE TABLE target.\(tableName) AS SELECT * FROM main.\(tableName)")
+
+            try dbConnection.execute("COMMIT")
+
+            // Retry DETACH with delay to handle database lock after COMMIT
+            // SQLite may not immediately release locks after COMMIT completes
+            var detachSuccess = false
+            var lastError: Error?
+
+            for attempt in 1...5 {
+                do {
+                    try dbConnection.execute("DETACH DATABASE target")
+                    detachSuccess = true
+                    break
+                } catch {
+                    lastError = error
+                    if "\(error)".lowercased().contains("locked") && attempt < 5 {
+                        Thread.sleep(forTimeInterval: 0.1)
+                    } else {
+                        break
+                    }
+                }
+            }
+
+            if !detachSuccess {
+                throw lastError ?? NSError(domain: "VaultStore", code: 5, userInfo: [NSLocalizedDescriptionKey: "Failed to detach database"])
+            }
+        } catch {
+            try? dbConnection.execute("DETACH DATABASE target")
+            throw error
         }
-        try dbConnection.execute("COMMIT")
-        try dbConnection.execute("DETACH DATABASE target")
 
         let rawData = try Data(contentsOf: tempDbPath)
         let base64String = rawData.base64EncodedString()
@@ -139,8 +168,7 @@ extension VaultStore {
         let encryptedBase64String = encryptedBase64Data.base64EncodedString()
 
         try storeEncryptedDatabase(encryptedBase64String)
-
-        try FileManager.default.removeItem(at: tempDbPath)
+        try? FileManager.default.removeItem(at: tempDbPath)
     }
 
     /// Rollback a transaction on the database on error.

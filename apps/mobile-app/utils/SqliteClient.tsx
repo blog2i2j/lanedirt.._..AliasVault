@@ -6,6 +6,7 @@ import { VaultSqlGenerator, VaultVersion } from '@/utils/dist/shared/vault-sql';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
 
 import NativeVaultManager from '@/specs/NativeVaultManager';
+import * as dateFormatter from '@/utils/dateFormatter';
 
 type SQLiteBindValue = string | number | null | Uint8Array;
 
@@ -357,10 +358,7 @@ class SqliteClient {
     try {
       await NativeVaultManager.beginTransaction();
 
-      const currentDateTime = new Date().toISOString()
-        .replace('T', ' ')
-        .replace('Z', '')
-        .substring(0, 23);
+      const currentDateTime = dateFormatter.now();
 
       // Update the credential, alias, and service to be deleted
       const query = `
@@ -561,10 +559,7 @@ class SqliteClient {
                 INSERT INTO Services (Id, Name, Url, Logo, CreatedAt, UpdatedAt, IsDeleted)
                 VALUES (?, ?, ?, ?, ?, ?, ?)`;
       const serviceId = crypto.randomUUID().toUpperCase();
-      const currentDateTime = new Date().toISOString()
-        .replace('T', ' ')
-        .replace('Z', '')
-        .substring(0, 23);
+      const currentDateTime = dateFormatter.now();
       await this.executeUpdate(serviceQuery, [
         serviceId,
         credential.ServiceName,
@@ -840,10 +835,7 @@ class SqliteClient {
   public async updateCredentialById(credential: Credential, originalAttachmentIds: string[], attachments: Attachment[]): Promise<number> {
     try {
       await NativeVaultManager.beginTransaction();
-      const currentDateTime = new Date().toISOString()
-        .replace('T', ' ')
-        .replace('Z', '')
-        .substring(0, 23);
+      const currentDateTime = dateFormatter.now();
 
       // Get existing credential to compare changes
       const existingCredential = await this.getCredentialById(credential.Id);
@@ -1021,8 +1013,8 @@ class SqliteClient {
       return 1;
 
     } catch (error) {
-      await NativeVaultManager.rollbackTransaction();
       console.error('Error updating credential:', error);
+      await NativeVaultManager.rollbackTransaction();
       throw error;
     }
   }
@@ -1183,10 +1175,7 @@ class SqliteClient {
     try {
       await NativeVaultManager.beginTransaction();
 
-      const currentDateTime = new Date().toISOString()
-        .replace('T', ' ')
-        .replace('Z', '')
-        .substring(0, 23);
+      const currentDateTime = dateFormatter.now();
 
       const query = `
         INSERT INTO Passkeys (
@@ -1234,10 +1223,7 @@ class SqliteClient {
     try {
       await NativeVaultManager.beginTransaction();
 
-      const currentDateTime = new Date().toISOString()
-        .replace('T', ' ')
-        .replace('Z', '')
-        .substring(0, 23);
+      const currentDateTime = dateFormatter.now();
 
       const query = `
         UPDATE Passkeys
@@ -1266,10 +1252,7 @@ class SqliteClient {
     try {
       await NativeVaultManager.beginTransaction();
 
-      const currentDateTime = new Date().toISOString()
-        .replace('T', ' ')
-        .replace('Z', '')
-        .substring(0, 23);
+      const currentDateTime = dateFormatter.now();
 
       const query = `
         UPDATE Passkeys
@@ -1299,10 +1282,7 @@ class SqliteClient {
     try {
       await NativeVaultManager.beginTransaction();
 
-      const currentDateTime = new Date().toISOString()
-        .replace('T', ' ')
-        .replace('Z', '')
-        .substring(0, 23);
+      const currentDateTime = dateFormatter.now();
 
       const query = `
         UPDATE Passkeys

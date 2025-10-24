@@ -14,6 +14,7 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
 using AliasClientDb;
+using AliasVault.Client.Utilities;
 using AliasVault.Shared.Models.WebApi.Favicon;
 using Microsoft.EntityFrameworkCore;
 
@@ -66,7 +67,7 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
             credential.Alias.LastName = identity.LastName;
             credential.Alias.NickName = identity.NickName;
             credential.Alias.Gender = identity.Gender;
-            credential.Alias.BirthDate = string.IsNullOrEmpty(identity.BirthDate) ? DateTime.MinValue : DateTime.Parse(identity.BirthDate);
+            credential.Alias.BirthDate = string.IsNullOrEmpty(identity.BirthDate) ? DateTime.MinValue : DateTimeFormatter.Parse(identity.BirthDate);
 
             // Set the email
             var emailDomain = GetDefaultEmailDomain();
@@ -154,10 +155,11 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
             loginObject.Service.Url = null;
         }
 
+        var currentDateTime = DateTime.UtcNow;
         var login = new Credential
         {
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow,
+            CreatedAt = currentDateTime,
+            UpdatedAt = currentDateTime,
             Notes = loginObject.Notes,
             Username = loginObject.Username,
             Alias = new Alias()
@@ -168,16 +170,16 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
                 BirthDate = loginObject.Alias.BirthDate,
                 Gender = loginObject.Alias.Gender,
                 Email = loginObject.Alias.Email,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
+                CreatedAt = currentDateTime,
+                UpdatedAt = currentDateTime,
             },
             Service = new Service()
             {
                 Name = loginObject.Service.Name,
                 Url = loginObject.Service.Url,
                 Logo = loginObject.Service.Logo,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
+                CreatedAt = currentDateTime,
+                UpdatedAt = currentDateTime,
             },
         };
 
@@ -242,8 +244,9 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
             loginObject.Service.Url = null;
         }
 
-        // Update all fields and collections.
-        UpdateBasicCredentialInfo(login, loginObject);
+        // Update all fields and collections with current timestamp.
+        var updateDateTime = DateTime.UtcNow;
+        UpdateBasicCredentialInfo(login, loginObject, updateDateTime);
         UpdateAttachments(context, login, loginObject);
         UpdateTotpCodes(context, login, loginObject);
 
@@ -364,27 +367,29 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
             .Where(x => x.Id == id)
             .FirstAsync();
 
+        var deleteDateTime = DateTime.UtcNow;
+
         login.IsDeleted = true;
-        login.UpdatedAt = DateTime.UtcNow;
+        login.UpdatedAt = deleteDateTime;
 
         // Mark associated alias and service as deleted
         var alias = await context.Aliases
             .Where(x => x.Id == login.Alias.Id)
             .FirstAsync();
         alias.IsDeleted = true;
-        alias.UpdatedAt = DateTime.UtcNow;
+        alias.UpdatedAt = deleteDateTime;
 
         var service = await context.Services
             .Where(x => x.Id == login.Service.Id)
             .FirstAsync();
         service.IsDeleted = true;
-        service.UpdatedAt = DateTime.UtcNow;
+        service.UpdatedAt = deleteDateTime;
 
         // Mark associated passkeys as deleted
         foreach (var passkey in login.Passkeys)
         {
             passkey.IsDeleted = true;
-            passkey.UpdatedAt = DateTime.UtcNow;
+            passkey.UpdatedAt = deleteDateTime;
         }
 
         return await dbService.SaveDatabaseAsync();
@@ -424,8 +429,9 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
 
         if (passkey != null)
         {
+            var deleteDateTime = DateTime.UtcNow;
             passkey.IsDeleted = true;
-            passkey.UpdatedAt = DateTime.UtcNow;
+            passkey.UpdatedAt = deleteDateTime;
             await context.SaveChangesAsync();
 
             // Save to server
@@ -440,9 +446,10 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
     /// </summary>
     /// <param name="login">The login object to update.</param>
     /// <param name="loginObject">The login object to update from.</param>
-    private static void UpdateBasicCredentialInfo(Credential login, Credential loginObject)
+    /// <param name="updateDateTime">The datetime to use for UpdatedAt fields.</param>
+    private static void UpdateBasicCredentialInfo(Credential login, Credential loginObject, DateTime updateDateTime)
     {
-        login.UpdatedAt = DateTime.UtcNow;
+        login.UpdatedAt = updateDateTime;
         login.Notes = loginObject.Notes;
         login.Username = loginObject.Username;
 
@@ -452,18 +459,18 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
         login.Alias.BirthDate = loginObject.Alias.BirthDate;
         login.Alias.Gender = loginObject.Alias.Gender;
         login.Alias.Email = loginObject.Alias.Email;
-        login.Alias.UpdatedAt = DateTime.UtcNow;
+        login.Alias.UpdatedAt = updateDateTime;
 
         login.Passwords = loginObject.Passwords;
         if (login.Passwords.Count > 0)
         {
-            login.Passwords.First().UpdatedAt = DateTime.UtcNow;
+            login.Passwords.First().UpdatedAt = updateDateTime;
         }
 
         login.Service.Name = loginObject.Service.Name;
         login.Service.Url = loginObject.Service.Url;
         login.Service.Logo = loginObject.Service.Logo;
-        login.Service.UpdatedAt = DateTime.UtcNow;
+        login.Service.UpdatedAt = updateDateTime;
     }
 
     /// <summary>

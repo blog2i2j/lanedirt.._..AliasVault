@@ -100,8 +100,6 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
         let vaultStore = VaultStore()
 
         if !sanityChecks(vaultStore: vaultStore) {
-            // Sanity checks failed and dialog has been shown.
-            // Do not open the view so return here.
             return
         }
 
@@ -314,7 +312,6 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
             print("CredentialProviderViewController: First domain: \(firstDomain)")
 
             initialServiceUrl = firstDomain
-            // Delegate will handle the rest of the setup
         }
     }
 
