@@ -114,8 +114,6 @@ class CredentialIdentityStore private constructor(context: Context) {
             prefs.edit()
                 .putString(KEY_PASSKEY_IDENTITIES, jsonArray.toString())
                 .apply()
-
-            Log.d(TAG, "Saved ${passkeyIdentities.size} passkey identities")
         } catch (e: Exception) {
             Log.e(TAG, "Error saving credential identities", e)
         }
@@ -163,7 +161,6 @@ class CredentialIdentityStore private constructor(context: Context) {
         prefs.edit()
             .remove(KEY_PASSKEY_IDENTITIES)
             .apply()
-        Log.d(TAG, "Removed all credential identities")
     }
 
     /**

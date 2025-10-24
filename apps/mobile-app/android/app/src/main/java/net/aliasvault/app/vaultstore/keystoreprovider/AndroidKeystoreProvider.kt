@@ -162,7 +162,6 @@ class AndroidKeystoreProvider(
                                 val keyFile = File(context.filesDir, ENCRYPTED_KEY_FILE)
                                 keyFile.writeText(encryptedKeyB64)
 
-                                Log.d(TAG, "Encryption key stored successfully")
                                 callback.onSuccess("Key stored successfully")
                             } catch (e: Exception) {
                                 Log.e(TAG, "Error storing encryption key", e)

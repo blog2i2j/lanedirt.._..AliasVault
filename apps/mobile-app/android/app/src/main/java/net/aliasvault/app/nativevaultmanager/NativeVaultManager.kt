@@ -611,8 +611,6 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     @ReactMethod
     override fun copyToClipboardWithExpiration(text: String, expirationSeconds: Double, promise: Promise?) {
         try {
-            Log.d(TAG, "Copying to clipboard with expiration of $expirationSeconds seconds")
-
             val clipboardManager = reactApplicationContext.getSystemService(
                 android.content.Context.CLIPBOARD_SERVICE,
             ) as android.content.ClipboardManager
@@ -689,7 +687,6 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
                 val alarmManager = reactApplicationContext.getSystemService(android.content.Context.ALARM_SERVICE) as android.app.AlarmManager
 
                 if (!alarmManager.canScheduleExactAlarms()) {
-                    Log.d(TAG, "Requesting exact alarm permission via system settings")
                     val intent = Intent().apply {
                         action = Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM
                         data = Uri.parse("package:${reactApplicationContext.packageName}")
@@ -724,7 +721,6 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
             } else {
                 true // Pre-Android 6.0 doesn't have battery optimization
             }
-            Log.d(TAG, "Is ignoring battery optimizations: $isIgnoring")
             promise?.resolve(isIgnoring)
         } catch (e: Exception) {
             Log.e(TAG, "Error checking battery optimization status", e)

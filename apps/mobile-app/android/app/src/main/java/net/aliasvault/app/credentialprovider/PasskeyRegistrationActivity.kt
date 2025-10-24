@@ -42,7 +42,6 @@ class PasskeyRegistrationActivity : FragmentActivity() {
         try {
             // Get or initialize VaultStore instance
             vaultStore = VaultStore.getExistingInstance() ?: run {
-                Log.d(TAG, "VaultStore not initialized, initializing now...")
                 val keystoreProvider = AndroidKeystoreProvider(applicationContext) { this }
                 val storageProvider = AndroidStorageProvider(applicationContext)
                 VaultStore.getInstance(keystoreProvider, storageProvider)
@@ -129,7 +128,6 @@ class PasskeyRegistrationActivity : FragmentActivity() {
                     }
                 },
             )
-            Log.d(TAG, "Waiting for biometric authentication...")
         } catch (e: Exception) {
             Log.e(TAG, "Error in onCreate", e)
             finish()
@@ -143,7 +141,6 @@ class PasskeyRegistrationActivity : FragmentActivity() {
         try {
             // Check for existing passkeys
             val db = vaultStore.database
-            Log.d(TAG, "Db is not null?: ${db != null}")
 
             if (db != null) {
                 viewModel.existingPasskeys = vaultStore.getPasskeysWithCredentialInfo(

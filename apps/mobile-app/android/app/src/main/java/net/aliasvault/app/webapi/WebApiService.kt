@@ -119,10 +119,7 @@ class WebApiService(private val context: Context) {
         if (requiresAuth && !requestHeaders.containsKey("Authorization")) {
             getAccessToken()?.let { accessToken ->
                 requestHeaders["Authorization"] = "Bearer $accessToken"
-                Log.d(TAG, "Added Authorization header from stored token")
             }
-        } else if (requiresAuth && requestHeaders.containsKey("Authorization")) {
-            Log.d(TAG, "Using provided Authorization header instead of stored token")
         }
 
         // Add client version header
@@ -318,8 +315,6 @@ class WebApiService(private val context: Context) {
      */
     suspend fun extractFavicon(url: String): ByteArray? = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "Extracting favicon for $url")
-
             val response = executeRequest(
                 method = "GET",
                 endpoint = "Favicon/Extract?url=$url",

@@ -190,7 +190,6 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
     ): BeginCreateCredentialResponse? {
         // Get or initialize VaultStore instance (needed for subsequent passkey registration)
         VaultStore.getExistingInstance() ?: run {
-            Log.d(TAG, "VaultStore not initialized, initializing now...")
             // Need a FragmentActivity reference for biometrics, but this is a service
             // We'll create a minimal VaultStore instance here
             val keystoreProvider = AndroidKeystoreProvider(applicationContext) { null }

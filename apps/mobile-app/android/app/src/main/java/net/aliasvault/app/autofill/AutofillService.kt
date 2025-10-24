@@ -60,8 +60,6 @@ class AutofillService : AutofillService() {
         }
 
         try {
-            Log.d(TAG, "onFillRequest called")
-
             // Check if request was cancelled
             if (cancellationSignal.isCanceled) {
                 return
@@ -123,15 +121,11 @@ class AutofillService : AutofillService() {
     }
 
     private fun launchActivityForAutofill(fieldFinder: FieldFinder, callback: (FillResponse?) -> Unit) {
-        Log.d(TAG, "Launching activity for autofill authentication")
-
         // Get the app/website information from assist structure.
         val appInfo = fieldFinder.getAppInfo()
-        Log.d(TAG, "Autofill request from: $appInfo")
 
         // Ignore requests from our own unlock page as this would cause a loop
         if (appInfo == "net.aliasvault.app") {
-            Log.d(TAG, "Skipping autofill request from AliasVault app itself")
             callback(null)
             return
         }
@@ -144,7 +138,6 @@ class AutofillService : AutofillService() {
             if (store.tryGetAllCredentials(object : CredentialOperationCallback {
                     override fun onSuccess(result: List<Credential>) {
                         try {
-                            Log.d(TAG, "Retrieved ${result.size} credentials")
                             if (result.isEmpty()) {
                                 // No credentials available
                                 Log.d(TAG, "No credentials available")
@@ -217,7 +210,6 @@ class AutofillService : AutofillService() {
                 })
             ) {
                 // Successfully used cached key - method returns true
-                Log.d(TAG, "Successfully retrieved credentials with unlocked vault")
                 return
             }
         }
