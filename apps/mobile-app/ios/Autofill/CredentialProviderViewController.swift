@@ -105,16 +105,66 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
             return
         }
 
-        // Try to unlock the vault. If it fails, we return and do not show the dialog.
+        // Check if biometric authentication is available before attempting unlock
+        if !vaultStore.isBiometricAuthEnabled() {
+            // Biometric auth is not enabled or not available - show error
+            let alert = UIAlertController(
+                title: NSLocalizedString("biometric_auth_required", comment: "Biometric Authentication Required"),
+                message: NSLocalizedString("biometric_auth_required_message", comment: "Please enable Face ID in the main AliasVault app to use autofill."),
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: NSLocalizedString("ok", comment: "OK"), style: .default) { [weak self] _ in
+                self?.extensionContext.cancelRequest(withError: NSError(
+                    domain: ASExtensionErrorDomain,
+                    code: ASExtensionError.userCanceled.rawValue
+                ))
+            })
+            present(alert, animated: true)
+            return
+        }
+
+        // Try to unlock the vault. If it fails, show proper error message.
         do {
             try vaultStore.unlockVault()
-        } catch {
+        } catch let error as NSError {
             print("Failed to unlock vault: \(error)")
-            self.extensionContext.cancelRequest(withError: NSError(
-                domain: ASExtensionErrorDomain,
-                code: ASExtensionError.failed.rawValue,
-                userInfo: [NSLocalizedDescriptionKey: error.localizedDescription]
-            ))
+
+            // Check for specific error codes to provide better user feedback
+            var errorTitle = NSLocalizedString("unlock_failed", comment: "Unlock Failed")
+            var errorMessage = error.localizedDescription
+
+            if error.domain == "VaultStore" {
+                switch error.code {
+                case 3:
+                    // No encryption key found in memory
+                    errorTitle = NSLocalizedString("no_encryption_key", comment: "No Encryption Key")
+                    errorMessage = NSLocalizedString("no_encryption_key_message", comment: "No encryption key found. Please unlock the vault in the main AliasVault app first.")
+                case 2:
+                    // Biometric auth not available
+                    errorTitle = NSLocalizedString("biometric_unavailable", comment: "Biometric Unavailable")
+                    errorMessage = NSLocalizedString("biometric_unavailable_message", comment: "Face ID is not available on this device.")
+                case 9:
+                    // Failed to retrieve key from keychain
+                    errorTitle = NSLocalizedString("keychain_error", comment: "Keychain Error")
+                    errorMessage = NSLocalizedString("keychain_error_message", comment: "Failed to retrieve encryption key. This may be due to cancelled biometric authentication.")
+                default:
+                    break
+                }
+            }
+
+            let alert = UIAlertController(
+                title: errorTitle,
+                message: errorMessage,
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: NSLocalizedString("ok", comment: "OK"), style: .default) { [weak self] _ in
+                self?.extensionContext.cancelRequest(withError: NSError(
+                    domain: ASExtensionErrorDomain,
+                    code: ASExtensionError.failed.rawValue,
+                    userInfo: [NSLocalizedDescriptionKey: errorMessage]
+                ))
+            })
+            present(alert, animated: true)
             return
         }
 
@@ -175,6 +225,17 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
         if isQuickReturnMode {
             let vaultStore = VaultStore()
 
+            // Check if biometric authentication is available
+            if !vaultStore.isBiometricAuthEnabled() {
+                print("Quick return failed: Biometric auth not enabled")
+                self.extensionContext.cancelRequest(withError: NSError(
+                    domain: ASExtensionErrorDomain,
+                    code: ASExtensionError.failed.rawValue,
+                    userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("biometric_auth_required_message", comment: "Please enable Face ID in the main AliasVault app to use autofill.")]
+                ))
+                return
+            }
+
             do {
                 try vaultStore.unlockVault()
 
@@ -183,12 +244,26 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
                 } else if let passwordRequest = quickReturnPasswordRequest {
                     handleQuickReturnPasswordCredential(vaultStore: vaultStore, request: passwordRequest)
                 }
-            } catch {
+            } catch let error as NSError {
                 print("Quick return vault unlock failed: \(error)")
+
+                // Provide specific error message based on error code
+                var errorMessage = error.localizedDescription
+                if error.domain == "VaultStore" {
+                    switch error.code {
+                    case 3:
+                        errorMessage = NSLocalizedString("no_encryption_key_message", comment: "No encryption key found. Please unlock the vault in the main AliasVault app first.")
+                    case 9:
+                        errorMessage = NSLocalizedString("keychain_error_message", comment: "Failed to retrieve encryption key. This may be due to cancelled biometric authentication.")
+                    default:
+                        break
+                    }
+                }
+
                 self.extensionContext.cancelRequest(withError: NSError(
                     domain: ASExtensionErrorDomain,
                     code: ASExtensionError.failed.rawValue,
-                    userInfo: [NSLocalizedDescriptionKey: error.localizedDescription]
+                    userInfo: [NSLocalizedDescriptionKey: errorMessage]
                 ))
             }
         }

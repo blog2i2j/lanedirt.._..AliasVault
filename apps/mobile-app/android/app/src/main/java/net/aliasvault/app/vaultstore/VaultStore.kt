@@ -206,20 +206,28 @@ class VaultStore(
     }
 
     /**
+     * Check if biometric authentication is enabled and available.
+     * Returns true if biometric auth is enabled in settings AND the device supports biometric authentication.
+     * @return True if biometric authentication is enabled and available, false otherwise
+     */
+    fun isBiometricAuthEnabled(): Boolean {
+        val authMethods = getAuthMethods()
+        return authMethods.contains(BIOMETRICS_AUTH_METHOD) && keystoreProvider.isBiometricAvailable()
+    }
+
+    /**
      * Get the encryption key.
      * @param callback The callback to call when the key is retrieved
      */
     fun getEncryptionKey(callback: CryptoOperationCallback) {
         // If key is already in memory, use it
         encryptionKey?.let {
-            Log.d(TAG, "Using cached encryption key")
             callback.onSuccess(Base64.encodeToString(it, Base64.NO_WRAP))
             return
         }
 
         // Check if biometric auth is enabled in auth methods
-        val authMethods = getAuthMethods()
-        if (authMethods.contains(BIOMETRICS_AUTH_METHOD) && keystoreProvider.isBiometricAvailable()) {
+        if (isBiometricAuthEnabled()) {
             keystoreProvider.retrieveKey(
                 object : KeystoreOperationCallback {
                     override fun onSuccess(result: String) {
@@ -676,8 +684,6 @@ class VaultStore(
         }
 
         try {
-            Log.d(TAG, "Unlocking vault and retrieving all credentials")
-
             // Unlock vault if it's locked
             if (!isVaultUnlocked()) {
                 unlockVault()
@@ -756,8 +762,6 @@ class VaultStore(
         if (dbConnection == null) {
             error("Database not initialized")
         }
-
-        Log.d(TAG, "Executing get all credentials query..")
 
         val query = """
             WITH LatestPasswords AS (
@@ -879,7 +883,6 @@ class VaultStore(
             }
         }
 
-        Log.d(TAG, "Found ${result.size} credentials")
         return result
     }
 

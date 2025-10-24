@@ -119,6 +119,25 @@ extension VaultStore {
         }
     }
 
+    /// Check if biometric authentication is enabled and available
+    /// Returns true if Face ID is enabled in settings AND the device supports biometric authentication
+    public func isBiometricAuthEnabled() -> Bool {
+        // Check if Face ID is enabled in app settings
+        guard self.enabledAuthMethods.contains(.faceID) else {
+            return false
+        }
+
+        #if targetEnvironment(simulator)
+            // In simulator, always return true if Face ID is enabled in settings
+            return true
+        #else
+            // Check if device supports biometric authentication
+            let context = LAContext()
+            var error: NSError?
+            return context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+        #endif
+    }
+
     /// Get the encryption key - the key used to encrypt and decrypt the vault.
     /// This method is meant to only be used internally by the VaultStore class and not
     /// be exposed to the public API or React Native for security reasons.

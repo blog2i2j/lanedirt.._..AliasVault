@@ -41,7 +41,7 @@
     <activity
         android:name=".credentialprovider.PasskeyAuthenticationActivity"
         android:exported="true"
-        android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        android:theme="@style/PasskeyRegistrationTheme" />
 
     <!-- Passkey Registration Activity -->
     <activity

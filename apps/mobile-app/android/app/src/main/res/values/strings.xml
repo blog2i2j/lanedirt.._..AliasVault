@@ -6,6 +6,9 @@
   <string name="autofill_service_description" translatable="true">AliasVault AutoFill</string>
   <string name="aliasvault_icon">AliasVault icon</string>
 
+  <!-- Common strings -->
+  <string name="common_close">Close</string>
+
   <!-- AutofillService strings -->
   <string name="autofill_failed_to_retrieve">Failed to retrieve, open app</string>
   <string name="autofill_no_match_found">No match found, create new?</string>
@@ -60,4 +63,12 @@
   <string name="network_error_message">A network error occurred. Please check your connection and try again.</string>
   <string name="server_version_not_supported_title">Server Update Required</string>
   <string name="server_version_not_supported_message">The server version is outdated. Please contact your administrator to update the server.</string>
+
+  <!-- Passkey authentication and unlock error messages -->
+  <string name="error_biometric_required">Please enable biometric authentication in the main AliasVault app in order to use passkeys</string>
+  <string name="error_unlock_vault_first">Please unlock vault in AliasVault app first</string>
+  <string name="error_vault_decrypt_failed">Failed to decrypt vault</string>
+  <string name="error_vault_unlock_failed">Failed to unlock vault</string>
+  <string name="error_biometric_cancelled">Biometric authentication cancelled</string>
+  <string name="error_encryption_key_failed">Failed to retrieve encryption key</string>
 </resources>

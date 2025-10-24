@@ -2,6 +2,8 @@ package net.aliasvault.app.credentialprovider
 
 import android.os.Bundle
 import android.util.Log
+import android.view.View
+import android.widget.TextView
 import androidx.activity.viewModels
 import androidx.credentials.CreatePublicKeyCredentialRequest
 import androidx.credentials.provider.PendingIntentHandler
@@ -102,6 +104,13 @@ class PasskeyRegistrationActivity : FragmentActivity() {
             // Show loading screen first
             setContentView(R.layout.activity_loading)
 
+            // Check if biometric authentication is available before attempting unlock
+            if (!vaultStore.isBiometricAuthEnabled()) {
+                Log.e(TAG, "Biometric authentication is not enabled or not available")
+                showError(getString(R.string.error_biometric_required))
+                return
+            }
+
             // Add biometric prompt here to get decryption key and act as user verification as well
             // If biometric prompt is successful, we can proceed with the passkey registration
             // Create new keystore provider instance to avoid using the existing one
@@ -110,20 +119,27 @@ class PasskeyRegistrationActivity : FragmentActivity() {
                 this,
                 object : KeystoreOperationCallback {
                     override fun onSuccess(result: String) {
-                        Log.d(TAG, "Got decrypt key: ${result.length} bytes")
-                        // Biometric authentication successful, now proceed with passkey registration
-                        // (Re)unlock the vault now that the decryption key is available
-                        vaultStore.initEncryptionKey(result)
-                        vaultStore.unlockVault()
-                        runOnUiThread {
-                            proceedWithPasskeyRegistration(savedInstanceState)
+                        try {
+                            Log.d(TAG, "Got decrypt key: ${result.length} bytes")
+                            // Biometric authentication successful, now proceed with passkey registration
+                            // (Re)unlock the vault now that the decryption key is available
+                            vaultStore.initEncryptionKey(result)
+                            vaultStore.unlockVault()
+                            runOnUiThread {
+                                proceedWithPasskeyRegistration(savedInstanceState)
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to unlock vault after biometric auth", e)
+                            runOnUiThread {
+                                showUnlockError(e)
+                            }
                         }
                     }
 
                     override fun onError(e: Exception) {
                         Log.e(TAG, "Failed to retrieve encryption key", e)
                         runOnUiThread {
-                            finish()
+                            showKeychainError(e)
                         }
                     }
                 },
@@ -189,5 +205,70 @@ class PasskeyRegistrationActivity : FragmentActivity() {
         supportFragmentManager.beginTransaction()
             .replace(R.id.fragmentContainer, fragment)
             .commit()
+    }
+
+    /**
+     * Show error message when unlocking vault fails.
+     */
+    private fun showUnlockError(e: Exception) {
+        val errorMessage = when {
+            e.message?.contains("No encryption key found", ignoreCase = true) == true ->
+                getString(R.string.error_unlock_vault_first)
+            e.message?.contains("Database setup error", ignoreCase = true) == true ->
+                getString(R.string.error_vault_decrypt_failed)
+            else -> getString(R.string.error_vault_unlock_failed)
+        }
+        showError(errorMessage)
+    }
+
+    /**
+     * Show error message when retrieving key from keychain fails.
+     */
+    private fun showKeychainError(e: Exception) {
+        val errorMessage = when {
+            e.message?.contains("user canceled", ignoreCase = true) == true ||
+                e.message?.contains("authentication failed", ignoreCase = true) == true ->
+                getString(R.string.error_biometric_cancelled)
+            else -> getString(R.string.error_encryption_key_failed)
+        }
+        showError(errorMessage)
+    }
+
+    /**
+     * Show error message in the loading view and display a close button.
+     * Hides the loading indicator and shows the error state.
+     */
+    private fun showError(message: String) {
+        Log.d(TAG, "showError called with message: $message")
+        runOnUiThread {
+            try {
+                // Hide loading indicator
+                val loadingIndicator = findViewById<View>(R.id.loadingIndicator)
+                loadingIndicator?.visibility = View.GONE
+                Log.d(TAG, "Loading indicator hidden")
+
+                // Show error container
+                val errorContainer = findViewById<View>(R.id.errorContainer)
+                errorContainer?.visibility = View.VISIBLE
+                Log.d(TAG, "Error container shown")
+
+                // Set error message
+                val errorMessageView = findViewById<TextView>(R.id.errorMessage)
+                errorMessageView?.text = message
+                Log.d(TAG, "Error message set: $message")
+
+                // Setup close button
+                val closeButton = findViewById<com.google.android.material.button.MaterialButton>(R.id.closeButton)
+                closeButton?.setOnClickListener {
+                    Log.d(TAG, "Close button clicked")
+                    finish()
+                }
+                Log.d(TAG, "Close button listener set")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in showError", e)
+                // Fallback: just finish the activity
+                finish()
+            }
+        }
     }
 }
