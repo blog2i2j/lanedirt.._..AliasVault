@@ -582,10 +582,40 @@ class VaultStore(
      * @param authMethods The auth methods
      */
     fun setAuthMethods(authMethods: String) {
+        val previousAuthMethods = getAuthMethods()
+        val wasBiometricEnabled = previousAuthMethods.contains(BIOMETRICS_AUTH_METHOD)
+        val isBiometricEnabled = authMethods.contains(BIOMETRICS_AUTH_METHOD)
+
         storageProvider.setAuthMethods(authMethods)
 
+        // If biometrics were just enabled and we have an encryption key in memory, persist it to the keystore
+        if (!wasBiometricEnabled && isBiometricEnabled && encryptionKey != null && keystoreProvider.isBiometricAvailable()) {
+            val base64Key = Base64.encodeToString(encryptionKey, Base64.NO_WRAP)
+            val latch = java.util.concurrent.CountDownLatch(1)
+            var error: Exception? = null
+
+            keystoreProvider.storeKey(
+                key = base64Key,
+                object : KeystoreOperationCallback {
+                    override fun onSuccess(result: String) {
+                        Log.d(TAG, "Encryption key persisted to biometric storage after enabling biometrics")
+                        latch.countDown()
+                    }
+
+                    override fun onError(e: Exception) {
+                        Log.e(TAG, "Error persisting encryption key to biometric storage", e)
+                        error = e
+                        latch.countDown()
+                    }
+                },
+            )
+
+            latch.await()
+            error?.let { throw it }
+        }
+
         // If the new auth methods no longer include biometrics, clear the biometric key.
-        if (!authMethods.contains(BIOMETRICS_AUTH_METHOD)) {
+        if (wasBiometricEnabled && !isBiometricEnabled) {
             keystoreProvider.clearKeys()
         }
     }
