@@ -1222,6 +1222,12 @@ class VaultStore(
             throw VaultSyncError.ClientVersionNotSupported()
         }
 
+        // Validate server version meets minimum requirement
+        if (!VersionComparison.isServerVersionSupported(status.serverVersion)) {
+            Log.e(TAG, "Server version ${status.serverVersion} does not meet minimum requirement ${AppInfo.MIN_SERVER_VERSION}")
+            throw VaultSyncError.ServerVersionNotSupported()
+        }
+
         validateSrpSalt(status.srpSalt)
         return status
     }
