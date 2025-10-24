@@ -199,9 +199,6 @@ export default function Initialize() : React.ReactNode {
                 return;
               }
 
-              // Add small delay for UX
-              await new Promise(resolve => setTimeout(resolve, 500));
-
               // Check if the vault needs migration before syncing
               if (await dbContext.hasPendingMigrations()) {
                 router.replace('/upgrade');
@@ -210,6 +207,11 @@ export default function Initialize() : React.ReactNode {
 
               // Vault unlocked successfully - now allow skip button for network operations
               canShowSkipButtonRef.current = true;
+            }
+            else {
+              // No FaceID, redirect to unlock screen for manual unlock
+              router.replace('/unlock');
+              return;
             }
           }
         } catch (err) {
