@@ -208,106 +208,20 @@ class AndroidKeystoreProvider(
                     return@post
                 }
 
-                // Check if we have a stored key
-                val keyFile = File(context.filesDir, ENCRYPTED_KEY_FILE)
-                if (!keyFile.exists()) {
-                    callback.onError(Exception("No encryption key found"))
-                    return@post
-                }
-                val encryptedKeyB64 = keyFile.readText()
-
-                // Set up KeyStore
-                val keyStore = KeyStore.getInstance("AndroidKeyStore")
-                keyStore.load(null)
-
-                // Check if key exists
-                if (!keyStore.containsAlias(KEYSTORE_ALIAS)) {
-                    Log.e(TAG, "Keystore key not found")
-                    callback.onError(Exception("Keystore key not found"))
-                    return@post
-                }
-
-                // Get the key
-                val secretKey = keyStore.getKey(KEYSTORE_ALIAS, null) as SecretKey
-
-                // Create BiometricPrompt
-                val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                    .setTitle(context.getString(R.string.biometric_unlock_vault_title))
-                    .setSubtitle(context.getString(R.string.biometric_unlock_vault_subtitle))
-                    .setAllowedAuthenticators(
-                        BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                            BiometricManager.Authenticators.DEVICE_CREDENTIAL,
-                    )
-                    .build()
-
-                val biometricPrompt = BiometricPrompt(
-                    currentActivity,
-                    _executor,
-                    object : BiometricPrompt.AuthenticationCallback() {
-                        override fun onAuthenticationSucceeded(
-                            result: BiometricPrompt.AuthenticationResult,
-                        ) {
-                            try {
-                                // Get the cipher from the result
-                                val cipher = result.cryptoObject?.cipher ?: error("Cipher is null")
-
-                                // Decode combined data
-                                val combined = Base64.decode(encryptedKeyB64, Base64.NO_WRAP)
-
-                                // Extract IV and encrypted data
-                                val byteBuffer = ByteBuffer.wrap(combined)
-
-                                // GCM typically uses 12 bytes for IV
-                                val iv = ByteArray(12)
-                                byteBuffer.get(iv)
-
-                                // Get remaining bytes as ciphertext
-                                val encryptedBytes = ByteArray(byteBuffer.remaining())
-                                byteBuffer.get(encryptedBytes)
-
-                                // Decrypt the key
-                                val decryptedKey = cipher.doFinal(encryptedBytes)
-
-                                Log.d(TAG, "Encryption key retrieved successfully")
-                                callback.onSuccess(String(decryptedKey))
-                            } catch (e: Exception) {
-                                Log.e(TAG, "Error retrieving encryption key", e)
-                                callback.onError(e)
-                            }
-                        }
-
-                        override fun onAuthenticationError(
-                            errorCode: Int,
-                            errString: CharSequence,
-                        ) {
-                            Log.e(TAG, "Authentication error: $errString")
-                            callback.onError(Exception("Authentication error: $errString"))
-                        }
-
-                        override fun onAuthenticationFailed() {
-                            Log.e(TAG, "Authentication failed")
-                        }
-                    },
-                )
-
-                // Initialize cipher for decryption with IV from stored encrypted key
-                val combined = Base64.decode(encryptedKeyB64, Base64.NO_WRAP)
-                val byteBuffer = ByteBuffer.wrap(combined)
-                val iv = ByteArray(12)
-                byteBuffer.get(iv)
-
-                val cipher = Cipher.getInstance(
-                    "${KeyProperties.KEY_ALGORITHM_AES}/" +
-                        "${KeyProperties.BLOCK_MODE_GCM}/" +
-                        KeyProperties.ENCRYPTION_PADDING_NONE,
-                )
-                val spec = GCMParameterSpec(128, iv)
-                cipher.init(Cipher.DECRYPT_MODE, secretKey, spec)
-
-                // Show biometric prompt
-                biometricPrompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
+                retrieveKeyInternalLogic(currentActivity, callback)
             } catch (e: Exception) {
                 Log.e(TAG, "Error in biometric key retrieval", e)
+                callback.onError(e)
+            }
+        }
+    }
+
+    override fun retrieveKeyExternal(activity: FragmentActivity, callback: KeystoreOperationCallback) {
+        _mainHandler.post {
+            try {
+                retrieveKeyInternalLogic(activity, callback)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in external biometric key retrieval", e)
                 callback.onError(e)
             }
         }
@@ -333,5 +247,114 @@ class AndroidKeystoreProvider(
         } catch (e: Exception) {
             Log.e(TAG, "Error clearing keys", e)
         }
+    }
+
+    private fun retrieveKeyInternalLogic(
+        currentActivity: FragmentActivity,
+        callback: KeystoreOperationCallback,
+    ) {
+        // Check if we have a stored key
+        val keyFile = File(context.filesDir, ENCRYPTED_KEY_FILE)
+        if (!keyFile.exists()) {
+            Log.e(TAG, "No encryption key found")
+            callback.onError(Exception("No encryption key found"))
+            return
+        }
+        val encryptedKeyB64 = keyFile.readText()
+
+        // Set up KeyStore
+        val keyStore = KeyStore.getInstance("AndroidKeyStore")
+        keyStore.load(null)
+
+        // Check if key exists
+        if (!keyStore.containsAlias(KEYSTORE_ALIAS)) {
+            Log.e(TAG, "Keystore key not found")
+            callback.onError(Exception("Keystore key not found"))
+            return
+        }
+
+        // Get the key
+        val secretKey = keyStore.getKey(KEYSTORE_ALIAS, null) as SecretKey
+
+        // Initialize cipher for decryption with IV from stored encrypted key
+        val combined = Base64.decode(encryptedKeyB64, Base64.NO_WRAP)
+        val byteBuffer = ByteBuffer.wrap(combined)
+        val iv = ByteArray(12)
+        byteBuffer.get(iv)
+
+        val cipher = Cipher.getInstance(
+            "${KeyProperties.KEY_ALGORITHM_AES}/" +
+                "${KeyProperties.BLOCK_MODE_GCM}/" +
+                KeyProperties.ENCRYPTION_PADDING_NONE,
+        )
+        val spec = GCMParameterSpec(128, iv)
+        cipher.init(Cipher.DECRYPT_MODE, secretKey, spec)
+
+        // Create BiometricPrompt
+        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle(context.getString(R.string.biometric_unlock_vault_title))
+            .setSubtitle(context.getString(R.string.biometric_unlock_vault_subtitle))
+            .setAllowedAuthenticators(
+                BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                    BiometricManager.Authenticators.DEVICE_CREDENTIAL,
+            )
+            .build()
+
+        val biometricPrompt = BiometricPrompt(
+            currentActivity,
+            _executor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(
+                    result: BiometricPrompt.AuthenticationResult,
+                ) {
+                    try {
+                        // Get the cipher from the result
+                        val cipher = result.cryptoObject?.cipher ?: error("Cipher is null")
+
+                        // Decode combined data
+                        val combined = Base64.decode(encryptedKeyB64, Base64.NO_WRAP)
+
+                        // Extract IV and encrypted data
+                        val byteBuffer = ByteBuffer.wrap(combined)
+
+                        // GCM typically uses 12 bytes for IV
+                        val iv = ByteArray(12)
+                        byteBuffer.get(iv)
+
+                        // Get remaining bytes as ciphertext
+                        val encryptedBytes = ByteArray(byteBuffer.remaining())
+                        byteBuffer.get(encryptedBytes)
+
+                        // Decrypt the key
+                        val decryptedKey = cipher.doFinal(encryptedBytes)
+
+                        Log.d(TAG, "Encryption key retrieved successfully")
+                        callback.onSuccess(String(decryptedKey))
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error retrieving encryption key", e)
+                        callback.onError(
+                            Exception("Failed to retrieve encryption key: ${e.message}"),
+                        )
+                    }
+                }
+
+                override fun onAuthenticationError(
+                    errorCode: Int,
+                    errString: CharSequence,
+                ) {
+                    Log.e(TAG, "Authentication error: $errorCode - $errString")
+                    callback.onError(
+                        Exception("Authentication error: $errString (code: $errorCode)"),
+                    )
+                }
+
+                override fun onAuthenticationFailed() {
+                    Log.e(TAG, "Authentication failed")
+                }
+            },
+        )
+
+        // Show biometric prompt
+        biometricPrompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
     }
 }

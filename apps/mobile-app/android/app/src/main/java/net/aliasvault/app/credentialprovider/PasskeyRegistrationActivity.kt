@@ -8,10 +8,12 @@ import androidx.credentials.provider.PendingIntentHandler
 import androidx.fragment.app.FragmentActivity
 import net.aliasvault.app.R
 import net.aliasvault.app.credentialprovider.models.PasskeyRegistrationViewModel
-import net.aliasvault.app.exceptions.VaultOperationException
 import net.aliasvault.app.utils.Helpers
 import net.aliasvault.app.vaultstore.VaultStore
 import net.aliasvault.app.vaultstore.getPasskeysWithCredentialInfo
+import net.aliasvault.app.vaultstore.keystoreprovider.AndroidKeystoreProvider
+import net.aliasvault.app.vaultstore.keystoreprovider.KeystoreOperationCallback
+import net.aliasvault.app.vaultstore.storageprovider.AndroidStorageProvider
 import org.json.JSONObject
 
 /**
@@ -38,9 +40,13 @@ class PasskeyRegistrationActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
 
         try {
-            // Initialize VaultStore
-            vaultStore = VaultStore.getExistingInstance()
-                ?: throw VaultOperationException("VaultStore not initialized")
+            // Get or initialize VaultStore instance
+            vaultStore = VaultStore.getExistingInstance() ?: run {
+                Log.d(TAG, "VaultStore not initialized, initializing now...")
+                val keystoreProvider = AndroidKeystoreProvider(applicationContext) { this }
+                val storageProvider = AndroidStorageProvider(applicationContext)
+                VaultStore.getInstance(keystoreProvider, storageProvider)
+            }
 
             // Retrieve provider request
             val providerRequest = PendingIntentHandler.retrieveProviderCreateCredentialRequest(intent)
@@ -94,8 +100,51 @@ class PasskeyRegistrationActivity : FragmentActivity() {
                 null
             }
 
+            // Show loading screen first
+            setContentView(R.layout.activity_loading)
+
+            // Add biometric prompt here to get decryption key and act as user verification as well
+            // If biometric prompt is successful, we can proceed with the passkey registration
+            // Create new keystore provider instance to avoid using the existing one
+            val keystoreProvider = AndroidKeystoreProvider(applicationContext) { this }
+            keystoreProvider.retrieveKeyExternal(
+                this,
+                object : KeystoreOperationCallback {
+                    override fun onSuccess(result: String) {
+                        Log.d(TAG, "Got decrypt key: ${result.length} bytes")
+                        // Biometric authentication successful, now proceed with passkey registration
+                        // (Re)unlock the vault now that the decryption key is available
+                        vaultStore.initEncryptionKey(result)
+                        vaultStore.unlockVault()
+                        runOnUiThread {
+                            proceedWithPasskeyRegistration(savedInstanceState)
+                        }
+                    }
+
+                    override fun onError(e: Exception) {
+                        Log.e(TAG, "Failed to retrieve encryption key", e)
+                        runOnUiThread {
+                            finish()
+                        }
+                    }
+                },
+            )
+            Log.d(TAG, "Waiting for biometric authentication...")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in onCreate", e)
+            finish()
+        }
+    }
+
+    /**
+     * Proceed with passkey registration after biometric authentication.
+     */
+    private fun proceedWithPasskeyRegistration(savedInstanceState: Bundle?) {
+        try {
             // Check for existing passkeys
             val db = vaultStore.database
+            Log.d(TAG, "Db is not null?: ${db != null}")
+
             if (db != null) {
                 viewModel.existingPasskeys = vaultStore.getPasskeysWithCredentialInfo(
                     rpId = viewModel.rpId,
@@ -120,7 +169,7 @@ class PasskeyRegistrationActivity : FragmentActivity() {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error in onCreate", e)
+            Log.e(TAG, "Error proceeding with passkey registration", e)
             finish()
         }
     }

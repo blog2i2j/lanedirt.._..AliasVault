@@ -19,10 +19,9 @@ import androidx.credentials.provider.CreateEntry
 import androidx.credentials.provider.CredentialProviderService
 import androidx.credentials.provider.ProviderClearCredentialStateRequest
 import androidx.credentials.provider.PublicKeyCredentialEntry
-import net.aliasvault.app.utils.Helpers
 import net.aliasvault.app.vaultstore.VaultStore
-import net.aliasvault.app.vaultstore.getPasskeysForRpId
-import net.aliasvault.app.vaultstore.passkey.PasskeyHelper
+import net.aliasvault.app.vaultstore.keystoreprovider.AndroidKeystoreProvider
+import net.aliasvault.app.vaultstore.storageprovider.AndroidStorageProvider
 import org.json.JSONObject
 
 /**
@@ -50,6 +49,7 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
 
     /**
      * Called when the system needs to display available credentials for authentication.
+     * Uses cached credential identities to show passkeys without unlocking the vault.
      */
     override fun onBeginGetCredentialRequest(
         request: BeginGetCredentialRequest,
@@ -57,13 +57,8 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
         callback: OutcomeReceiver<BeginGetCredentialResponse, GetCredentialException>,
     ) {
         try {
-            // Get vault store instance
-            val vaultStore = VaultStore.getExistingInstance()
-            if (vaultStore == null) {
-                Log.w(TAG, "VaultStore not initialized")
-                callback.onResult(BeginGetCredentialResponse())
-                return
-            }
+            // Get credential identity store
+            val identityStore = CredentialIdentityStore.getInstance(applicationContext)
 
             val credentialEntries = mutableListOf<PublicKeyCredentialEntry>()
 
@@ -72,7 +67,7 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
                 when (option) {
                     is BeginGetPublicKeyCredentialOption -> {
                         // This is a passkey request
-                        val entries = processPasskeyOption(option, vaultStore)
+                        val entries = processPasskeyOptionFromIdentities(option, identityStore)
                         credentialEntries.addAll(entries)
                     }
                 }
@@ -86,11 +81,12 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
     }
 
     /**
-     * Process a passkey credential option and return matching credential entries.
+     * Process a passkey credential option using cached credential identities.
+     * This allows showing passkeys without unlocking the vault.
      */
-    private fun processPasskeyOption(
+    private fun processPasskeyOptionFromIdentities(
         option: BeginGetPublicKeyCredentialOption,
-        vaultStore: VaultStore,
+        identityStore: CredentialIdentityStore,
     ): List<PublicKeyCredentialEntry> {
         try {
             // Parse the request JSON to extract RP ID and other parameters
@@ -103,27 +99,12 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
                 return emptyList()
             }
 
-            // Query vault for matching passkeys
-            val db = try {
-                val dbField = VaultStore::class.java.getDeclaredField("dbConnection")
-                dbField.isAccessible = true
-                dbField.get(vaultStore) as? android.database.sqlite.SQLiteDatabase
-            } catch (e: Exception) {
-                Log.w(TAG, "Cannot access database - vault might be locked", e)
-                null
-            }
-
-            if (db == null) {
-                Log.w(TAG, "Database not available - vault is locked")
-                return emptyList()
-            }
-
-            // Get passkeys for this RP ID
-            val passkeys = vaultStore.getPasskeysForRpId(rpId, db)
+            // Get cached passkey identities for this RP ID
+            val identities = identityStore.getPasskeyIdentitiesForRpId(rpId)
 
             // Filter by allowCredentials if specified
             val allowCredentials = requestObj.optJSONArray("allowCredentials")
-            val filteredPasskeys = if (allowCredentials != null && allowCredentials.length() > 0) {
+            val filteredIdentities = if (allowCredentials != null && allowCredentials.length() > 0) {
                 val allowedIds = mutableSetOf<String>()
                 for (i in 0 until allowCredentials.length()) {
                     val cred = allowCredentials.getJSONObject(i)
@@ -133,51 +114,48 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
                     }
                 }
 
-                passkeys.filter { passkey ->
-                    val passkeyIdBytes = PasskeyHelper.guidToBytes(passkey.id.toString())
-                    val passkeyIdB64 = Helpers.bytesToBase64url(passkeyIdBytes)
-                    allowedIds.contains(passkeyIdB64)
+                identities.filter { identity ->
+                    allowedIds.contains(identity.credentialId)
                 }
             } else {
-                passkeys
+                identities
             }
 
             // Convert to CredentialEntry objects
-            return filteredPasskeys.map { passkey ->
-                createPasskeyEntry(passkey, option, requestJson)
+            return filteredIdentities.map { identity ->
+                createPasskeyEntryFromIdentity(identity, option, requestJson)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error processing passkey option", e)
+            Log.e(TAG, "Error processing passkey option from identities", e)
             return emptyList()
         }
     }
 
     /**
-     * Create a PublicKeyCredentialEntry for a passkey.
+     * Create a PublicKeyCredentialEntry from a cached PasskeyIdentity.
      */
-    private fun createPasskeyEntry(
-        passkey: net.aliasvault.app.vaultstore.models.Passkey,
+    private fun createPasskeyEntryFromIdentity(
+        identity: CredentialIdentityStore.PasskeyIdentity,
         option: BeginGetPublicKeyCredentialOption,
         requestJson: String,
     ): PublicKeyCredentialEntry {
         // Create intent for PasskeyAuthenticationActivity
         val intent = Intent(this, PasskeyAuthenticationActivity::class.java).apply {
             putExtra(EXTRA_REQUEST_JSON, requestJson)
-            putExtra(EXTRA_PASSKEY_ID, passkey.id.toString())
-            putExtra(EXTRA_RP_ID, passkey.rpId)
-            passkey.userHandle?.let { putExtra("user_handle", it) }
+            putExtra(EXTRA_PASSKEY_ID, identity.passkeyId)
+            putExtra(EXTRA_RP_ID, identity.rpId)
         }
 
         val pendingIntent = PendingIntent.getActivity(
             this,
-            passkey.id.hashCode(),
+            identity.passkeyId.hashCode(),
             intent,
             PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
-        // Use displayName or username for the UI
-        val displayName = passkey.displayName.ifEmpty {
-            passkey.userName ?: passkey.rpId
+        // Use displayName for the UI
+        val displayName = identity.displayName.ifEmpty {
+            identity.userName ?: identity.rpId
         }
 
         return PublicKeyCredentialEntry.Builder(
@@ -210,10 +188,14 @@ class AliasVaultCredentialProviderService : CredentialProviderService() {
     private fun processCreateCredentialRequest(
         request: BeginCreateCredentialRequest,
     ): BeginCreateCredentialResponse? {
-        val vaultStore = VaultStore.getExistingInstance()
-        if (vaultStore == null) {
-            Log.w(TAG, "VaultStore not initialized for passkey creation")
-            return null
+        // Get or initialize VaultStore instance (needed for subsequent passkey registration)
+        VaultStore.getExistingInstance() ?: run {
+            Log.d(TAG, "VaultStore not initialized, initializing now...")
+            // Need a FragmentActivity reference for biometrics, but this is a service
+            // We'll create a minimal VaultStore instance here
+            val keystoreProvider = AndroidKeystoreProvider(applicationContext) { null }
+            val storageProvider = AndroidStorageProvider(applicationContext)
+            VaultStore.getInstance(keystoreProvider, storageProvider)
         }
 
         return when (request) {

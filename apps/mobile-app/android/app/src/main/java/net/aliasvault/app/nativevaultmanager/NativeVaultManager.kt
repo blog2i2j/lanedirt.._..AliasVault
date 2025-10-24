@@ -1014,13 +1014,34 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
 
     /**
      * Register credential identities in the Native Autofill API cache.
+     * This stores passkey metadata so they can be shown without unlocking the vault.
      * @param promise The promise to resolve.
      */
     @ReactMethod
     override fun registerCredentialIdentities(promise: Promise) {
-        // Not required for Android as Android autofill queries AliasVault for credentials in realtime
-        // and does not implement caching (in comparison to iOS which does).
-        promise.resolve(null)
+        try {
+            // Get all credentials from the vault
+            val credentials = vaultStore.getAllCredentials()
+
+            // Get database connection
+            val db = vaultStore.database
+            if (db == null) {
+                Log.w(TAG, "Database not available - vault may be locked")
+                promise.resolve(null)
+                return
+            }
+
+            // Save credential identities to the identity store
+            val identityStore = net.aliasvault.app.credentialprovider.CredentialIdentityStore.getInstance(
+                reactApplicationContext,
+            )
+            identityStore.saveCredentialIdentities(credentials, vaultStore, db)
+
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error registering credential identities", e)
+            promise.reject("ERR_REGISTER_IDENTITIES", "Failed to register credential identities: ${e.message}", e)
+        }
     }
 
     // MARK: - Username Management

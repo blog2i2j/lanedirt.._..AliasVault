@@ -198,6 +198,14 @@ class VaultStore(
     }
 
     /**
+     * Initialize the encryption key.
+     * @param encryptionKey The encryption key as a ByteArray
+     */
+    fun initEncryptionKey(base64EncryptionKey: String) {
+        this.encryptionKey = Base64.decode(base64EncryptionKey, Base64.NO_WRAP)
+    }
+
+    /**
      * Get the encryption key.
      * @param callback The callback to call when the key is retrieved
      */

@@ -313,6 +313,9 @@ class PasskeyFormFragment : Fragment() {
                 }
             }
 
+            // Step 5: Update credential identity cache
+            updateCredentialIdentityCache()
+
             // Build response
             val credentialIdB64 = Helpers.bytesToBase64url(credentialId)
             val attestationObjectB64 = Helpers.bytesToBase64url(passkeyResult.attestationObject)
@@ -512,6 +515,9 @@ class PasskeyFormFragment : Fragment() {
                 }
             }
 
+            // Step 5: Update credential identity cache
+            updateCredentialIdentityCache()
+
             // Build response (same as create flow)
             val credentialIdB64 = Helpers.bytesToBase64url(credentialId)
             val attestationObjectB64 = Helpers.bytesToBase64url(passkeyResult.attestationObject)
@@ -620,6 +626,24 @@ class PasskeyFormFragment : Fragment() {
         } catch (e: Exception) {
             Log.w(TAG, "Error extracting PRF inputs", e)
             return null
+        }
+    }
+
+    /**
+     * Update credential identity cache after passkey creation/replacement.
+     */
+    private fun updateCredentialIdentityCache() {
+        try {
+            val credentials = vaultStore.getAllCredentials()
+            val db = vaultStore.database
+            if (db != null) {
+                val identityStore = CredentialIdentityStore.getInstance(requireContext())
+                identityStore.saveCredentialIdentities(credentials, vaultStore, db)
+                Log.d(TAG, "Updated credential identity cache")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to update credential identity cache", e)
+            // Non-critical error, don't throw
         }
     }
 
