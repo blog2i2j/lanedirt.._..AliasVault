@@ -3,15 +3,14 @@ package net.aliasvault.app.vaultstore
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import android.util.Log
+import net.aliasvault.app.utils.DateHelpers
 import net.aliasvault.app.vaultstore.models.Alias
 import net.aliasvault.app.vaultstore.models.Credential
 import net.aliasvault.app.vaultstore.models.Passkey
 import net.aliasvault.app.vaultstore.models.Service
 import net.aliasvault.app.vaultstore.passkey.PasskeyHelper
-import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
-import java.util.Locale
 import java.util.TimeZone
 import java.util.UUID
 
@@ -213,8 +212,8 @@ fun VaultStore.insertPasskey(passkey: Passkey, db: SQLiteDatabase) {
             privateKeyString,
             passkey.prfKey,
             passkey.displayName,
-            formatDateForDatabase(passkey.createdAt),
-            formatDateForDatabase(passkey.updatedAt),
+            DateHelpers.toStandardFormat(passkey.createdAt),
+            DateHelpers.toStandardFormat(passkey.updatedAt),
             if (passkey.isDeleted) 1 else 0,
         ),
     )
@@ -237,7 +236,7 @@ fun VaultStore.createCredentialWithPasskey(
     try {
         val credentialId = passkey.parentCredentialId
         val now = Date()
-        val timestamp = formatDateForDatabase(now)
+        val timestamp = DateHelpers.toStandardFormat(now)
 
         // Create a minimal service for the RP
         val serviceId = UUID.randomUUID()
@@ -273,7 +272,7 @@ fun VaultStore.createCredentialWithPasskey(
                 "",
                 "",
                 "",
-                formatDateForDatabase(MIN_DATE),
+                DateHelpers.toStandardFormat(MIN_DATE),
                 "",
                 "",
                 timestamp,
@@ -362,7 +361,7 @@ fun VaultStore.replacePasskey(
     db: SQLiteDatabase,
 ) {
     val now = Date()
-    val timestamp = formatDateForDatabase(now)
+    val timestamp = DateHelpers.toStandardFormat(now)
 
     // Get the old passkey to find its credential
     val oldPasskey = getPasskeyById(oldPasskeyId, db)
@@ -462,8 +461,8 @@ private fun parsePasskeyRow(cursor: Cursor): Passkey? {
         val parentCredentialId = UUID.fromString(parentCredentialIdString)
 
         // Parse dates
-        val createdAt = parseDateString(createdAtString) ?: MIN_DATE
-        val updatedAt = parseDateString(updatedAtString) ?: MIN_DATE
+        val createdAt = DateHelpers.parseDateString(createdAtString) ?: MIN_DATE
+        val updatedAt = DateHelpers.parseDateString(updatedAtString) ?: MIN_DATE
 
         // Parse public/private keys
         val publicKeyData = publicKeyString.toByteArray(Charsets.UTF_8)
@@ -486,31 +485,6 @@ private fun parsePasskeyRow(cursor: Cursor): Passkey? {
     } catch (e: Exception) {
         Log.e(TAG, "Error parsing passkey row", e)
         return null
-    }
-}
-
-/**
- * Format a date for database insertion.
- * Format: yyyy-MM-dd HH:mm:ss.
- */
-private fun formatDateForDatabase(date: Date): String {
-    val formatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
-    formatter.timeZone = TimeZone.getTimeZone("UTC")
-    return formatter.format(date)
-}
-
-/**
- * Parse a date string from the database.
- * Format: yyyy-MM-dd HH:mm:ss.
- */
-private fun parseDateString(dateString: String): Date? {
-    return try {
-        val formatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
-        formatter.timeZone = TimeZone.getTimeZone("UTC")
-        formatter.parse(dateString)
-    } catch (e: Exception) {
-        Log.e(TAG, "Error parsing date string: $dateString", e)
-        null
     }
 }
 

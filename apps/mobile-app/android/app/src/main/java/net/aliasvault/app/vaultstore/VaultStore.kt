@@ -11,6 +11,7 @@ import com.lambdapioneer.argon2kt.Argon2Mode
 import com.lambdapioneer.argon2kt.Argon2Version
 import net.aliasvault.app.exceptions.SerializationException
 import net.aliasvault.app.exceptions.VaultOperationException
+import net.aliasvault.app.utils.DateHelpers
 import net.aliasvault.app.vaultstore.interfaces.CredentialOperationCallback
 import net.aliasvault.app.vaultstore.interfaces.CryptoOperationCallback
 import net.aliasvault.app.vaultstore.keystoreprovider.KeystoreOperationCallback
@@ -25,7 +26,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.security.SecureRandom
-import java.text.SimpleDateFormat
 import java.util.*
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
@@ -860,8 +860,8 @@ class VaultStore(
                         name = it.getString(8),
                         url = it.getString(9),
                         logo = it.getBlob(10),
-                        createdAt = parseDateString(it.getString(11)) ?: MIN_DATE,
-                        updatedAt = parseDateString(it.getString(12)) ?: MIN_DATE,
+                        createdAt = DateHelpers.parseDateString(it.getString(11)) ?: MIN_DATE,
+                        updatedAt = DateHelpers.parseDateString(it.getString(12)) ?: MIN_DATE,
                         isDeleted = it.getInt(13) == 1,
                     )
 
@@ -872,8 +872,8 @@ class VaultStore(
                             id = UUID.fromString(it.getString(14)),
                             credentialId = id,
                             value = it.getString(15),
-                            createdAt = parseDateString(it.getString(16)) ?: MIN_DATE,
-                            updatedAt = parseDateString(it.getString(17)) ?: MIN_DATE,
+                            createdAt = DateHelpers.parseDateString(it.getString(16)) ?: MIN_DATE,
+                            updatedAt = DateHelpers.parseDateString(it.getString(17)) ?: MIN_DATE,
                             isDeleted = it.getInt(18) == 1,
                         )
                     }
@@ -887,10 +887,10 @@ class VaultStore(
                             firstName = it.getString(21),
                             lastName = it.getString(22),
                             nickName = it.getString(23),
-                            birthDate = parseDateString(it.getString(24)) ?: MIN_DATE,
+                            birthDate = DateHelpers.parseDateString(it.getString(24)) ?: MIN_DATE,
                             email = it.getString(25),
-                            createdAt = parseDateString(it.getString(26)) ?: MIN_DATE,
-                            updatedAt = parseDateString(it.getString(27)) ?: MIN_DATE,
+                            createdAt = DateHelpers.parseDateString(it.getString(26)) ?: MIN_DATE,
+                            updatedAt = DateHelpers.parseDateString(it.getString(27)) ?: MIN_DATE,
                             isDeleted = it.getInt(28) == 1,
                         )
                     }
@@ -902,8 +902,8 @@ class VaultStore(
                         username = it.getString(2),
                         notes = it.getString(3),
                         password = password,
-                        createdAt = parseDateString(it.getString(4)) ?: MIN_DATE,
-                        updatedAt = parseDateString(it.getString(5)) ?: MIN_DATE,
+                        createdAt = DateHelpers.parseDateString(it.getString(4)) ?: MIN_DATE,
+                        updatedAt = DateHelpers.parseDateString(it.getString(5)) ?: MIN_DATE,
                         isDeleted = isDeleted,
                     )
                     result.add(credential)
@@ -1030,61 +1030,6 @@ class VaultStore(
                 }
             }
         }
-    }
-
-    /**
-     * Parse a date string from the database into a Date object.
-     *
-     * @param dateString The date string to parse
-     * @return The parsed Date object or null if the date string is null or cannot be parsed
-     */
-    private fun parseDateString(dateString: String?): Date? {
-        if (dateString == null) {
-            return null
-        }
-
-        // Normalize milliseconds to exactly 3 digits
-        // Handles: 2025-10-20 13:48:10.4 -> 2025-10-20 13:48:10.400
-        //          1992-10-21T23:49:44.336Z -> 1992-10-21T23:49:44.336Z (unchanged)
-        //          2025-10-20 13:48:10 -> 2025-10-20 13:48:10 (unchanged)
-        val normalizedDate = dateString.replace(
-            Regex("""(\d{2}:\d{2}:\d{2})\.(\d{1,2})(?=[TZ\s]|$)"""),
-        ) { matchResult ->
-            val base = matchResult.groupValues[1]
-            val millis = matchResult.groupValues[2].padEnd(3, '0')
-            "$base.$millis"
-        }
-
-        // Try all supported formats
-        val formats = listOf(
-            // ISO 8601 formats (most common from server)
-            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
-                timeZone = TimeZone.getTimeZone("UTC")
-            },
-            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
-                timeZone = TimeZone.getTimeZone("UTC")
-            },
-            // SQLite formats (local storage)
-            SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).apply {
-                timeZone = TimeZone.getTimeZone("UTC")
-            },
-            SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply {
-                timeZone = TimeZone.getTimeZone("UTC")
-            },
-        )
-
-        for (format in formats) {
-            @Suppress("SwallowedException")
-            try {
-                return format.parse(normalizedDate)
-            } catch (e: Exception) {
-                // Try next format
-                continue
-            }
-        }
-
-        Log.e(TAG, "Error parsing date: $dateString (normalized: $normalizedDate)")
-        return null
     }
 
     /**
