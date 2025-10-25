@@ -12,7 +12,6 @@ import net.aliasvault.app.R
 import net.aliasvault.app.credentialprovider.models.PasskeyRegistrationViewModel
 import net.aliasvault.app.utils.Helpers
 import net.aliasvault.app.vaultstore.VaultStore
-import net.aliasvault.app.vaultstore.getPasskeysWithCredentialInfo
 import net.aliasvault.app.vaultstore.keystoreprovider.AndroidKeystoreProvider
 import net.aliasvault.app.vaultstore.keystoreprovider.KeystoreOperationCallback
 import net.aliasvault.app.vaultstore.storageprovider.AndroidStorageProvider

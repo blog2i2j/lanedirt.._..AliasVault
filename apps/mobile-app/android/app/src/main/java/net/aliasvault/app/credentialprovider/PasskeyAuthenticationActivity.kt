@@ -11,7 +11,6 @@ import androidx.fragment.app.FragmentActivity
 import net.aliasvault.app.R
 import net.aliasvault.app.utils.Helpers
 import net.aliasvault.app.vaultstore.VaultStore
-import net.aliasvault.app.vaultstore.getPasskeyById
 import net.aliasvault.app.vaultstore.keystoreprovider.AndroidKeystoreProvider
 import net.aliasvault.app.vaultstore.keystoreprovider.KeystoreOperationCallback
 import net.aliasvault.app.vaultstore.passkey.PasskeyAuthenticator

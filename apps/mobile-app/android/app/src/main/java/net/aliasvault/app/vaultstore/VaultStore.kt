@@ -70,6 +70,7 @@ class VaultStore(
     private val sync = VaultSync(databaseComponent, metadata, crypto)
     private val mutate = VaultMutate(databaseComponent, query, metadata)
     private val cache = VaultCache(crypto, databaseComponent, keystoreProvider, storageProvider)
+    private val passkey = VaultPasskey(databaseComponent)
 
     // endregion
 
@@ -441,6 +442,105 @@ class VaultStore(
      */
     suspend fun mutateVault(webApiService: net.aliasvault.app.webapi.WebApiService): Boolean {
         return mutate.mutateVault(webApiService)
+    }
+
+    // endregion
+
+    // region Passkey Methods
+
+    /**
+     * Get a passkey by its credential ID (the WebAuthn credential ID).
+     */
+    fun getPasskeyByCredentialId(credentialId: ByteArray): net.aliasvault.app.vaultstore.models.Passkey? {
+        return passkey.getPasskeyByCredentialId(credentialId)
+    }
+
+    /**
+     * Get all passkeys for a credential.
+     */
+    @Suppress("UnusedParameter")
+    fun getPasskeysForCredential(
+        credentialId: java.util.UUID,
+        db: android.database.sqlite.SQLiteDatabase,
+    ): List<net.aliasvault.app.vaultstore.models.Passkey> {
+        return passkey.getPasskeysForCredential(credentialId)
+    }
+
+    /**
+     * Get all passkeys for a specific relying party identifier (RP ID).
+     */
+    @Suppress("UnusedParameter")
+    fun getPasskeysForRpId(
+        rpId: String,
+        db: android.database.sqlite.SQLiteDatabase,
+    ): List<net.aliasvault.app.vaultstore.models.Passkey> {
+        return passkey.getPasskeysForRpId(rpId)
+    }
+
+    /**
+     * Get passkeys with credential info for a specific rpId.
+     */
+    @Suppress("UnusedParameter")
+    fun getPasskeysWithCredentialInfo(
+        rpId: String,
+        userName: String? = null,
+        userId: ByteArray? = null,
+        db: android.database.sqlite.SQLiteDatabase,
+    ): List<PasskeyWithCredentialInfo> {
+        return passkey.getPasskeysWithCredentialInfo(rpId, userName, userId)
+    }
+
+    /**
+     * Get all passkeys with their associated credentials in a single query.
+     */
+    fun getAllPasskeysWithCredentials(): List<PasskeyWithCredential> {
+        return passkey.getAllPasskeysWithCredentials()
+    }
+
+    /**
+     * Get a passkey by its ID.
+     */
+    @Suppress("UnusedParameter")
+    fun getPasskeyById(
+        passkeyId: java.util.UUID,
+        db: android.database.sqlite.SQLiteDatabase,
+    ): net.aliasvault.app.vaultstore.models.Passkey? {
+        return passkey.getPasskeyById(passkeyId)
+    }
+
+    /**
+     * Insert a new passkey into the database.
+     */
+    @Suppress("UnusedParameter")
+    fun insertPasskey(passkeyObj: net.aliasvault.app.vaultstore.models.Passkey, db: android.database.sqlite.SQLiteDatabase) {
+        passkey.insertPasskey(passkeyObj)
+    }
+
+    /**
+     * Create a credential with a passkey.
+     */
+    fun createCredentialWithPasskey(
+        rpId: String,
+        userName: String?,
+        displayName: String,
+        passkeyObj: net.aliasvault.app.vaultstore.models.Passkey,
+        logo: ByteArray? = null,
+    ): net.aliasvault.app.vaultstore.models.Credential {
+        return passkey.createCredentialWithPasskey(rpId, userName, displayName, passkeyObj, logo)
+    }
+
+    /**
+     * Replace an existing passkey with a new one.
+     */
+    @Suppress("UnusedParameter")
+    fun replacePasskey(
+        oldPasskeyId: java.util.UUID,
+        newPasskey: net.aliasvault.app.vaultstore.models.Passkey,
+        displayName: String,
+        logo: ByteArray? = null,
+        db: android.database.sqlite.SQLiteDatabase,
+    ) {
+        passkey.replacePasskey(oldPasskeyId, newPasskey, displayName, logo)
     }
 
     // endregion

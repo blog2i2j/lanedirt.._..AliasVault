@@ -3,6 +3,8 @@ package net.aliasvault.app.vaultstore
 import android.util.Log
 import net.aliasvault.app.exceptions.SerializationException
 import net.aliasvault.app.exceptions.VaultOperationException
+import net.aliasvault.app.utils.AppInfo
+import net.aliasvault.app.vaultstore.utils.VersionComparison
 import org.json.JSONObject
 
 /**

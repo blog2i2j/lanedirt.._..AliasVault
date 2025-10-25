@@ -1,4 +1,4 @@
-package net.aliasvault.app.vaultstore
+package net.aliasvault.app.utils
 
 /**
  * Application configuration constants.

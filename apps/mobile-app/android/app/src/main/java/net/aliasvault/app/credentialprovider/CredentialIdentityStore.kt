@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import net.aliasvault.app.utils.Helpers
-import net.aliasvault.app.vaultstore.getPasskeysForCredential
 import net.aliasvault.app.vaultstore.models.Credential
 import net.aliasvault.app.vaultstore.models.Passkey
 import net.aliasvault.app.vaultstore.passkey.PasskeyHelper
@@ -81,27 +80,19 @@ class CredentialIdentityStore private constructor(context: Context) {
     /**
      * Save credential identities from a list of credentials.
      * This extracts passkey metadata and stores it in SharedPreferences.
-     * @param credentials List of credentials with passkeys
      * @param vaultStore VaultStore instance to query passkeys
-     * @param db Database connection
      */
-    fun saveCredentialIdentities(
-        credentials: List<Credential>,
-        vaultStore: net.aliasvault.app.vaultstore.VaultStore,
-        db: android.database.sqlite.SQLiteDatabase,
-    ) {
+    fun saveCredentialIdentities(vaultStore: net.aliasvault.app.vaultstore.VaultStore) {
         try {
             val passkeyIdentities = mutableListOf<PasskeyIdentity>()
 
-            // Extract passkey identities from credentials
-            credentials.forEach { credential ->
-                // Get passkeys for this credential
-                val passkeys = vaultStore.getPasskeysForCredential(credential.id, db)
+            // Get all passkeys with their credentials in a single efficient query
+            // This replaces the N+1 query pattern that was calling getPasskeysForCredential() for each credential
+            val passkeysWithCredentials = vaultStore.getAllPasskeysWithCredentials()
 
-                passkeys.forEach { passkey ->
-                    if (!passkey.isDeleted) {
-                        passkeyIdentities.add(createPasskeyIdentity(passkey, credential))
-                    }
+            passkeysWithCredentials.forEach { (passkey, credential) ->
+                if (!passkey.isDeleted) {
+                    passkeyIdentities.add(createPasskeyIdentity(passkey, credential))
                 }
             }
 

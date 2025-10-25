@@ -1,4 +1,6 @@
-package net.aliasvault.app.vaultstore
+package net.aliasvault.app.vaultstore.utils
+
+import net.aliasvault.app.utils.AppInfo
 
 /**
  * Utility for comparing semantic version strings

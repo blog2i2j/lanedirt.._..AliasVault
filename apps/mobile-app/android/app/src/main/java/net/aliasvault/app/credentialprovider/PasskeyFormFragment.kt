@@ -27,11 +27,9 @@ import net.aliasvault.app.exceptions.VaultOperationException
 import net.aliasvault.app.utils.Helpers
 import net.aliasvault.app.vaultstore.PasskeyWithCredentialInfo
 import net.aliasvault.app.vaultstore.VaultStore
-import net.aliasvault.app.vaultstore.createCredentialWithPasskey
 import net.aliasvault.app.vaultstore.models.Passkey
 import net.aliasvault.app.vaultstore.passkey.PasskeyAuthenticator
 import net.aliasvault.app.vaultstore.passkey.PasskeyHelper
-import net.aliasvault.app.vaultstore.replacePasskey
 import net.aliasvault.app.webapi.WebApiService
 import org.json.JSONObject
 import java.util.Date
@@ -293,7 +291,7 @@ class PasskeyFormFragment : Fragment() {
                 rpId = viewModel.rpId,
                 userName = viewModel.userName,
                 displayName = displayName,
-                passkey = passkey,
+                passkeyObj = passkey,
                 logo = logo,
             )
 
@@ -634,13 +632,9 @@ class PasskeyFormFragment : Fragment() {
      */
     private fun updateCredentialIdentityCache() {
         try {
-            val credentials = vaultStore.getAllCredentials()
-            val db = vaultStore.database
-            if (db != null) {
-                val identityStore = CredentialIdentityStore.getInstance(requireContext())
-                identityStore.saveCredentialIdentities(credentials, vaultStore, db)
-                Log.d(TAG, "Updated credential identity cache")
-            }
+            val identityStore = CredentialIdentityStore.getInstance(requireContext())
+            identityStore.saveCredentialIdentities(vaultStore)
+            Log.d(TAG, "Updated credential identity cache")
         } catch (e: Exception) {
             Log.w(TAG, "Failed to update credential identity cache", e)
             // Non-critical error, don't throw

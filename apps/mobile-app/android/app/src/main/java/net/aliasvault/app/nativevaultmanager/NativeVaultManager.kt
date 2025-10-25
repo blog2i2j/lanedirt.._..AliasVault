@@ -1022,21 +1022,11 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
         // Execute registration in background thread
         Thread {
             try {
-                // Get all credentials from the vault
-                val credentials = vaultStore.getAllCredentials()
-
-                // Get database connection
-                val db = vaultStore.database
-                if (db == null) {
-                    Log.w(TAG, "Database not available - vault may be locked")
-                    return@Thread
-                }
-
                 // Save credential identities to the identity store
                 val identityStore = net.aliasvault.app.credentialprovider.CredentialIdentityStore.getInstance(
                     reactApplicationContext,
                 )
-                identityStore.saveCredentialIdentities(credentials, vaultStore, db)
+                identityStore.saveCredentialIdentities(vaultStore)
             } catch (e: Exception) {
                 Log.e(TAG, "Error registering credential identities in background", e)
             }
