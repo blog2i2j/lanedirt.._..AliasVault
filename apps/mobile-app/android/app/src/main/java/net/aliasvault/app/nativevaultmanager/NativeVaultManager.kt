@@ -1011,33 +1011,36 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     /**
      * Register credential identities in the Native Autofill API cache.
      * This stores passkey metadata so they can be shown without unlocking the vault.
+     * Runs asynchronously to avoid blocking the UI thread.
      * @param promise The promise to resolve.
      */
     @ReactMethod
     override fun registerCredentialIdentities(promise: Promise) {
-        try {
-            // Get all credentials from the vault
-            val credentials = vaultStore.getAllCredentials()
+        // Resolve promise immediately to avoid blocking navigation
+        promise.resolve(null)
 
-            // Get database connection
-            val db = vaultStore.database
-            if (db == null) {
-                Log.w(TAG, "Database not available - vault may be locked")
-                promise.resolve(null)
-                return
+        // Execute registration in background thread
+        Thread {
+            try {
+                // Get all credentials from the vault
+                val credentials = vaultStore.getAllCredentials()
+
+                // Get database connection
+                val db = vaultStore.database
+                if (db == null) {
+                    Log.w(TAG, "Database not available - vault may be locked")
+                    return@Thread
+                }
+
+                // Save credential identities to the identity store
+                val identityStore = net.aliasvault.app.credentialprovider.CredentialIdentityStore.getInstance(
+                    reactApplicationContext,
+                )
+                identityStore.saveCredentialIdentities(credentials, vaultStore, db)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error registering credential identities in background", e)
             }
-
-            // Save credential identities to the identity store
-            val identityStore = net.aliasvault.app.credentialprovider.CredentialIdentityStore.getInstance(
-                reactApplicationContext,
-            )
-            identityStore.saveCredentialIdentities(credentials, vaultStore, db)
-
-            promise.resolve(null)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error registering credential identities", e)
-            promise.reject("ERR_REGISTER_IDENTITIES", "Failed to register credential identities: ${e.message}", e)
-        }
+        }.start()
     }
 
     // MARK: - Username Management
