@@ -24,6 +24,7 @@ export default function Initialize() : React.ReactNode {
   const skipButtonTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastStatusRef = useRef<string>('');
   const canShowSkipButtonRef = useRef(false); // Only allow skip button after vault unlock
+  const abortControllerRef = useRef<AbortController | null>(null);
   const { t } = useTranslation();
   const app = useApp();
   const { syncVault } = useVaultSync();
@@ -68,6 +69,13 @@ export default function Initialize() : React.ReactNode {
    * Handle offline scenario - show alert with options to open local vault or retry sync.
    */
   const handleOfflineFlow = useCallback((): void => {
+    // Don't show the alert if we're already in offline mode
+    if (app.isOffline) {
+      console.debug('Already in offline mode, skipping offline flow alert');
+      router.replace('/(tabs)/credentials');
+      return;
+    }
+
     Alert.alert(
       t('app.alerts.syncIssue'),
       t('app.alerts.syncIssueMessage'),
@@ -135,6 +143,12 @@ export default function Initialize() : React.ReactNode {
           onPress: () : void => {
             updateStatus(t('app.status.retryingConnection'));
             setShowSkipButton(false);
+
+            // Abort any pending sync operation
+            if (abortControllerRef.current) {
+              abortControllerRef.current.abort();
+              abortControllerRef.current = null;
+            }
 
             // Clear any existing timeout
             if (skipButtonTimeoutRef.current) {
@@ -241,9 +255,13 @@ export default function Initialize() : React.ReactNode {
           canShowSkipButtonRef.current = true;
         }
 
+        // Create abort controller for sync operations
+        abortControllerRef.current = new AbortController();
+
         // Now perform vault sync (network operations - these are skippable)
         await syncVault({
           initialSync: true,
+          abortSignal: abortControllerRef.current.signal,
           /**
            * Handle the status update.
            */
@@ -301,6 +319,13 @@ export default function Initialize() : React.ReactNode {
    * Handle skip button press by calling the offline handler.
    */
   const handleSkipPress = (): void => {
+    // Abort any pending sync operation
+    if (abortControllerRef.current) {
+      console.debug('Aborting pending sync operation');
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
     // Clear any existing timeout
     if (skipButtonTimeoutRef.current) {
       clearTimeout(skipButtonTimeoutRef.current);

@@ -44,6 +44,7 @@ type VaultSyncOptions = {
   onStatus?: (message: string) => void;
   onOffline?: () => void;
   onUpgradeRequired?: () => void;
+  abortSignal?: AbortSignal;
 }
 
 /**
@@ -58,16 +59,28 @@ export const useVaultSync = () : {
   const dbContext = useDb();
 
   const syncVault = useCallback(async (options: VaultSyncOptions = {}) => {
-    const { initialSync = false, onSuccess, onError, onStatus, onOffline, onUpgradeRequired } = options;
+    const { initialSync = false, onSuccess, onError, onStatus, onOffline, onUpgradeRequired, abortSignal } = options;
 
     // For the initial sync, we add an artifical delay to various steps which makes it feel more fluid.
     const enableDelay = initialSync;
 
     try {
+      // Check if operation was aborted
+      if (abortSignal?.aborted) {
+        console.debug('VaultSync: Operation aborted before starting');
+        return false;
+      }
+
       const { isLoggedIn } = await app.initializeAuth();
 
       if (!isLoggedIn) {
         // Not authenticated, return false immediately
+        return false;
+      }
+
+      // Check if operation was aborted
+      if (abortSignal?.aborted) {
+        console.debug('VaultSync: Operation aborted after auth check');
         return false;
       }
 
@@ -79,6 +92,12 @@ export const useVaultSync = () : {
         await new Promise(resolve => setTimeout(resolve, 300));
       }
 
+      // Check if operation was aborted
+      if (abortSignal?.aborted) {
+        console.debug('VaultSync: Operation aborted after status update');
+        return false;
+      }
+
       // Step 1: Check if a new vault version is available
       // This calls Auth/status endpoint and compares vault revisions
       let hasNewVault = false;
@@ -86,11 +105,24 @@ export const useVaultSync = () : {
 
       try {
         const versionCheckResult = await NativeVaultManager.isNewVaultVersionAvailable();
+
+        // Check if operation was aborted after version check
+        if (abortSignal?.aborted) {
+          console.debug('VaultSync: Operation aborted after version check');
+          return false;
+        }
+
         hasNewVault = versionCheckResult.isNewVersionAvailable;
         newRevision = versionCheckResult.newRevision;
 
         // Step 2: If a new version is available, download it
         if (hasNewVault && newRevision != null) {
+          // Check if operation was aborted before download
+          if (abortSignal?.aborted) {
+            console.debug('VaultSync: Operation aborted before download');
+            return false;
+          }
+
           onStatus?.(t('vault.syncingUpdatedVault'));
 
           // Run downloadVault with a min delay for UX purposes
