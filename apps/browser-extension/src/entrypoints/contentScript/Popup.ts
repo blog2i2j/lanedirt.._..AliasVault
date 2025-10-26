@@ -633,10 +633,44 @@ function createCredentialList(credentials: Credential[], input: HTMLInputElement
       const credTextContainer = document.createElement('div');
       credTextContainer.className = 'av-credential-text';
 
-      // Service name (primary text)
+      // Service name (primary text) with passkey indicator
       const serviceName = document.createElement('div');
       serviceName.className = 'av-service-name';
-      serviceName.textContent = cred.ServiceName;
+
+      // Create a flex container for service name and passkey icon
+      const serviceNameContainer = document.createElement('div');
+      serviceNameContainer.style.display = 'flex';
+      serviceNameContainer.style.alignItems = 'center';
+      serviceNameContainer.style.gap = '4px';
+
+      const serviceNameText = document.createElement('span');
+      serviceNameText.textContent = cred.ServiceName;
+      serviceNameContainer.appendChild(serviceNameText);
+
+      // Add passkey indicator if credential has a passkey
+      if (cred.HasPasskey) {
+        const passkeyIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        passkeyIcon.setAttribute('class', 'av-passkey-icon');
+        passkeyIcon.setAttribute('viewBox', '0 0 24 24');
+        passkeyIcon.setAttribute('fill', 'none');
+        passkeyIcon.setAttribute('stroke', 'currentColor');
+        passkeyIcon.setAttribute('stroke-width', '2');
+        passkeyIcon.setAttribute('stroke-linecap', 'round');
+        passkeyIcon.setAttribute('stroke-linejoin', 'round');
+        passkeyIcon.setAttribute('aria-label', 'Has passkey');
+        passkeyIcon.style.width = '14px';
+        passkeyIcon.style.height = '14px';
+        passkeyIcon.style.flexShrink = '0';
+        passkeyIcon.style.opacity = '0.7';
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', 'M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4');
+
+        passkeyIcon.appendChild(path);
+        serviceNameContainer.appendChild(passkeyIcon);
+      }
+
+      serviceName.appendChild(serviceNameContainer);
 
       // Details container (secondary text)
       const detailsContainer = document.createElement('div');
