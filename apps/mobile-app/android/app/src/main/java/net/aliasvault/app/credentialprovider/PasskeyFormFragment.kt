@@ -130,7 +130,7 @@ class PasskeyFormFragment : Fragment() {
             headerTitle.text = getString(R.string.create_passkey_title)
             headerSubtitle.visibility = View.GONE
             infoExplanationText.text = getString(R.string.passkey_create_explanation)
-            displayNameInput.setText(viewModel.rpId)
+            displayNameInput.setText(viewModel.rpName ?: viewModel.rpId)
             saveButton.text = getString(R.string.passkey_create_button)
         }
 

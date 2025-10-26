@@ -20,6 +20,9 @@ class PasskeyRegistrationViewModel : ViewModel() {
     /** The relying party identifier. */
     var rpId: String = ""
 
+    /** The relying party name (optional, from rp.name in the request). */
+    var rpName: String? = null
+
     /** The username for the passkey. */
     var userName: String? = null
 

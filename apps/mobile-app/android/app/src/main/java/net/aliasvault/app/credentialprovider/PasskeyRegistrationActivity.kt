@@ -75,6 +75,7 @@ class PasskeyRegistrationActivity : FragmentActivity() {
             // Extract RP info
             val rpObj = requestObj.optJSONObject("rp")
             viewModel.rpId = rpObj?.optString("id") ?: ""
+            viewModel.rpName = rpObj?.optString("name")?.takeIf { it.isNotEmpty() }
 
             // Extract user info
             val userObj = requestObj.optJSONObject("user")

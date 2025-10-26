@@ -34,7 +34,7 @@ const PasskeyCreate: React.FC = () => {
   const webApi = useWebApi();
   const { executeVaultMutation, isLoading: isMutating, syncStatus } = useVaultMutate();
   const [request, setRequest] = useState<PendingPasskeyCreateRequest | null>(null);
-  const [displayName, setDisplayName] = useState('My Passkey');
+  const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const { isLocked } = useVaultLockRedirect();
   const [existingPasskeys, setExistingPasskeys] = useState<Array<Passkey & { Username?: string | null; ServiceName?: string | null }>>([]);
@@ -71,9 +71,12 @@ const PasskeyCreate: React.FC = () => {
           if (data && data.type === 'create') {
             setRequest(data);
 
-            if (data.publicKey?.user?.displayName) {
-              setDisplayName(data.publicKey.user.displayName);
-            }
+            /**
+             * Set default displayName: use rp.name if available, otherwise use rpId
+             * This aligns with iOS/Android behavior
+             */
+            const defaultName = data.publicKey?.rp?.name || data.publicKey?.rp?.id || 'Passkey';
+            setDisplayName(defaultName);
 
             // Check for existing passkeys for this RP ID and user
             if (dbContext.sqliteClient && data.publicKey?.rp?.id) {
