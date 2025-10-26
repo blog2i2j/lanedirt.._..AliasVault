@@ -188,6 +188,51 @@ describe('PasskeyAuthenticator', () => {
       expect(attObjBytes.length).toBeGreaterThan(100); // Should contain authData + COSE key
     });
 
+    it('should include AliasVault AAGUID in attestation object', async () => {
+      const createRequest: CreateRequest = {
+        origin: 'https://example.com',
+        publicKey: {
+          rp: { id: 'example.com', name: 'Example' },
+          challenge: 'test-challenge',
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+        }
+      };
+
+      const credentialIdBytes = crypto.getRandomValues(new Uint8Array(16));
+      const result = await PasskeyAuthenticator.createPasskey(credentialIdBytes, createRequest);
+
+      // Decode attestation object
+      const attObjBytes = Uint8Array.from(
+        fromBase64url(result.credential.response.attestationObject),
+        c => c.charCodeAt(0)
+      );
+
+      /*
+       * AliasVault AAGUID: a11a5vau-9f32-4b8c-8c5d-2f7d13e8c942
+       * Convert the string representation to bytes (replace 'v' with 'f' and 'u' with 'a')
+       */
+      const aaguidString = 'a11a5vau-9f32-4b8c-8c5d-2f7d13e8c942';
+      const aaguidHex = aaguidString.replace(/-/g, '').replace(/v/g, 'f').replace(/u/g, 'a');
+
+      // Verify the hex conversion matches expected bytes
+      const expectedAAGUID = new Uint8Array(16);
+      for (let i = 0; i < 16; i++) {
+        expectedAAGUID[i] = parseInt(aaguidHex.substring(i * 2, i * 2 + 2), 16);
+      }
+
+      // Verify this matches the expected bytes: a1 1a 5f aa 9f 32 4b 8c 8c 5d 2f 7d 13 e8 c9 42
+      expect(expectedAAGUID[0]).toBe(0xa1);
+      expect(expectedAAGUID[1]).toBe(0x1a);
+      expect(expectedAAGUID[2]).toBe(0x5f);
+      expect(expectedAAGUID[3]).toBe(0xaa);
+
+      // Convert attestation object to hex string for searching
+      const attObjHex = Array.from(attObjBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+
+      // The AAGUID should be present somewhere in the attestation object
+      expect(attObjHex).toContain(aaguidHex);
+    });
+
     it('should use rpId from origin if not provided', async () => {
       const createRequest: CreateRequest = {
         origin: 'https://subdomain.example.com',
