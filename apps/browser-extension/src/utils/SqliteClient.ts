@@ -1,5 +1,6 @@
 import initSqlJs, { Database } from 'sql.js';
 
+import * as dateFormatter from '@/utils/dateFormatter';
 import type { Credential, EncryptionKey, PasswordSettings, TotpCode, Passkey } from '@/utils/dist/shared/models/vault';
 import type { Attachment } from '@/utils/dist/shared/models/vault';
 import type { VaultVersion } from '@/utils/dist/shared/vault-sql';
@@ -7,7 +8,6 @@ import { VaultSqlGenerator } from '@/utils/dist/shared/vault-sql';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
 
 import { t } from '@/i18n/StandaloneI18n';
-import * as dateFormatter from '@/utils/dateFormatter';
 
 /**
  * Placeholder base64 image for credentials without a logo.

@@ -175,61 +175,138 @@ export default defineUnlistedScript(() => {
               console.error('[AliasVault] Failed to parse authData from attestation object:', e);
             }
 
-            const credential = {
-              id: cred.id,
-              type: 'public-key',
-              rawId: base64ToBuffer(cred.rawId),
-              authenticatorAttachment: 'cross-platform',
-              response: {
-                clientDataJSON: base64ToBuffer(cred.clientDataJSON),
-                attestationObject: attestationObjectBuffer,
+            // Create response object with proper prototype
+            const response = Object.create(AuthenticatorAttestationResponse.prototype);
+            const clientDataJSONBuffer = base64ToBuffer(cred.clientDataJSON);
+            Object.defineProperties(response, {
+              clientDataJSON: {
+                value: clientDataJSONBuffer,
+                writable: false,
+                enumerable: true,
+                configurable: true
+              },
+              attestationObject: {
+                value: attestationObjectBuffer,
+                writable: false,
+                enumerable: true,
+                configurable: true
+              },
+              getTransports: {
                 /**
-                 * getTransports TODO: delete this, not used for cross-platform?
+                 * getTransports
                  */
-                getTransports() : string[] {
+                value: function() : string[] {
                   return ['internal'];
                 },
+                writable: true,
+                enumerable: true,
+                configurable: true
+              },
+              getAuthenticatorData: {
                 /**
                  * getAuthenticatorData
                  */
-                getAuthenticatorData() : ArrayBuffer {
+                value: function() : ArrayBuffer {
                   return authDataBuffer;
                 },
+                writable: true,
+                enumerable: true,
+                configurable: true
+              },
+              getPublicKey: {
                 /**
                  * getPublicKey
                  */
-                getPublicKey() : JsonWebKey | null {
+                value: function() : JsonWebKey | null {
                   return null;
                 },
+                writable: true,
+                enumerable: true,
+                configurable: true
+              },
+              getPublicKeyAlgorithm: {
                 /**
                  * getPublicKeyAlgorithm
                  */
-                getPublicKeyAlgorithm() : number {
+                value: function() : number {
                   return -7; // ES256
-                }
+                },
+                writable: true,
+                enumerable: true,
+                configurable: true
+              }
+            });
+
+            // Create credential object with proper prototype chain
+            const credential = Object.create(PublicKeyCredential.prototype);
+            Object.defineProperties(credential, {
+              id: {
+                value: cred.id,
+                writable: false,
+                enumerable: true,
+                configurable: true
               },
-              /**
-               * getClientExtensionResults
-               */
-              getClientExtensionResults() : any {
-                const extensions: any = {};
-                if (cred.extensions?.prf) {
-                  extensions.prf = { ...cred.extensions.prf };
-                  // Convert PRF results from base64url to ArrayBuffer if present
-                  if (cred.extensions.prf.results) {
-                    extensions.prf.results = {
-                      first: base64ToBuffer(cred.extensions.prf.results.first)
-                    };
-                    if (cred.extensions.prf.results.second) {
-                      extensions.prf.results.second = base64ToBuffer(cred.extensions.prf.results.second);
+              type: {
+                value: 'public-key',
+                writable: false,
+                enumerable: true,
+                configurable: true
+              },
+              rawId: {
+                value: base64ToBuffer(cred.rawId),
+                writable: false,
+                enumerable: true,
+                configurable: true
+              },
+              authenticatorAttachment: {
+                value: 'cross-platform',
+                writable: false,
+                enumerable: true,
+                configurable: true
+              },
+              response: {
+                value: response,
+                writable: false,
+                enumerable: true,
+                configurable: true
+              },
+              getClientExtensionResults: {
+                /**
+                 * getClientExtensionResults
+                 */
+                value: function() : any {
+                  const extensions: any = {};
+                  if (cred.extensions?.prf) {
+                    extensions.prf = { ...cred.extensions.prf };
+                    // Convert PRF results from base64url to ArrayBuffer if present
+                    if ((cred.extensions.prf as any).results) {
+                      extensions.prf.results = {
+                        first: base64ToBuffer((cred.extensions.prf as any).results.first)
+                      };
+                      if ((cred.extensions.prf as any).results.second) {
+                        extensions.prf.results.second = base64ToBuffer((cred.extensions.prf as any).results.second);
+                      }
                     }
                   }
-                }
-                return extensions;
+                  return extensions;
+                },
+                writable: true,
+                enumerable: true,
+                configurable: true
               }
-            };
+            });
+
+            // Ensure the credential is recognized as a PublicKeyCredential instance
+            Object.defineProperty(credential, Symbol.toStringTag, {
+              value: 'PublicKeyCredential',
+              writable: false,
+              enumerable: false,
+              configurable: true
+            });
+
             console.debug('[AliasVault] Page: Returned created credential object:', credential);
-            resolve(credential as any);
+            console.debug('[AliasVault] Page: instanceof check:', credential instanceof PublicKeyCredential);
+            resolve(credential);
           } catch (error) {
             console.error('[AliasVault] Page: Error creating credential object:', error);
             reject(error);
@@ -325,38 +402,104 @@ export default defineUnlistedScript(() => {
           const cred: ProviderGetCredential = e.detail.credential;
           console.debug('[AliasVault] Page: Returned GET credential readable object:', cred);
           console.debug('[AliasVault] Page: PRF Results from credential:', cred.prfResults);
-          const credential = {
-            id: cred.id,
-            type: 'public-key',
-            rawId: base64ToBuffer(cred.rawId),
-            authenticatorAttachment: 'cross-platform',
-            response: {
-              clientDataJSON: base64ToBuffer(cred.clientDataJSON),
-              authenticatorData: base64ToBuffer(cred.authenticatorData),
-              signature: base64ToBuffer(cred.signature),
-              userHandle: cred.userHandle ? base64ToBuffer(cred.userHandle) : null
+
+          // Create response object with proper prototype
+          const response = Object.create(AuthenticatorAssertionResponse.prototype);
+          Object.defineProperties(response, {
+            clientDataJSON: {
+              value: base64ToBuffer(cred.clientDataJSON),
+              writable: false,
+              enumerable: true,
+              configurable: true
             },
-            /**
-             * getClientExtensionResults
-             */
-            getClientExtensionResults() : any {
-              const extensions: any = {};
-              if (cred.prfResults) {
-                extensions.prf = {
-                  results: {
-                    first: base64ToBuffer(cred.prfResults.first)
-                  }
-                };
-                if (cred.prfResults.second) {
-                  extensions.prf.results.second = base64ToBuffer(cred.prfResults.second);
-                }
-              }
-              return extensions;
+            authenticatorData: {
+              value: base64ToBuffer(cred.authenticatorData),
+              writable: false,
+              enumerable: true,
+              configurable: true
+            },
+            signature: {
+              value: base64ToBuffer(cred.signature),
+              writable: false,
+              enumerable: true,
+              configurable: true
+            },
+            userHandle: {
+              value: cred.userHandle ? base64ToBuffer(cred.userHandle) : null,
+              writable: false,
+              enumerable: true,
+              configurable: true
             }
-          };
+          });
+
+          // Create credential object with proper prototype chain
+          const credential = Object.create(PublicKeyCredential.prototype);
+          Object.defineProperties(credential, {
+            id: {
+              value: cred.id,
+              writable: false,
+              enumerable: true,
+              configurable: true
+            },
+            type: {
+              value: 'public-key',
+              writable: false,
+              enumerable: true,
+              configurable: true
+            },
+            rawId: {
+              value: base64ToBuffer(cred.rawId),
+              writable: false,
+              enumerable: true,
+              configurable: true
+            },
+            authenticatorAttachment: {
+              value: 'cross-platform',
+              writable: false,
+              enumerable: true,
+              configurable: true
+            },
+            response: {
+              value: response,
+              writable: false,
+              enumerable: true,
+              configurable: true
+            },
+            getClientExtensionResults: {
+              /**
+               * getClientExtensionResults
+               */
+              value: function() : any {
+                const extensions: any = {};
+                if (cred.prfResults) {
+                  extensions.prf = {
+                    results: {
+                      first: base64ToBuffer(cred.prfResults.first)
+                    }
+                  };
+                  if (cred.prfResults.second) {
+                    extensions.prf.results.second = base64ToBuffer(cred.prfResults.second);
+                  }
+                }
+                return extensions;
+              },
+              writable: true,
+              enumerable: true,
+              configurable: true
+            }
+          });
+
+          // Ensure the credential is recognized as a PublicKeyCredential instance
+          Object.defineProperty(credential, Symbol.toStringTag, {
+            value: 'PublicKeyCredential',
+            writable: false,
+            enumerable: false,
+            configurable: true
+          });
 
           console.debug('[AliasVault] Page: Returned GET credential raw object:', credential);
-          resolve(credential as any);
+          console.debug('[AliasVault] Page: instanceof check:', credential instanceof PublicKeyCredential);
+          resolve(credential);
         } else {
           // Cancelled
           resolve(null);
