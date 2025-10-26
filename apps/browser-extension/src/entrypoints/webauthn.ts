@@ -64,8 +64,6 @@ export default defineUnlistedScript(() => {
       return originalCreate(options);
     }
 
-    console.debug('[AliasVault] Page: Received credential CREATE request with options:', options);
-
     // Send event to content script
     const requestId = Math.random().toString(36).substr(2, 9);
 
@@ -171,8 +169,8 @@ export default defineUnlistedScript(() => {
                   break;
                 }
               }
-            } catch (e) {
-              console.error('[AliasVault] Failed to parse authData from attestation object:', e);
+            } catch {
+              // Ignore
             }
 
             // Create response object with proper prototype
@@ -304,11 +302,8 @@ export default defineUnlistedScript(() => {
               configurable: true
             });
 
-            console.debug('[AliasVault] Page: Returned created credential object:', credential);
-            console.debug('[AliasVault] Page: instanceof check:', credential instanceof PublicKeyCredential);
             resolve(credential);
           } catch (error) {
-            console.error('[AliasVault] Page: Error creating credential object:', error);
             reject(error);
           }
         } else {
@@ -328,8 +323,6 @@ export default defineUnlistedScript(() => {
     if (!options?.publicKey) {
       return originalGet(options);
     }
-
-    console.debug('[AliasVault] Page: Received credential GET request with options:', options);
 
     // Send event to content script
     const requestId = Math.random().toString(36).substr(2, 9);
@@ -360,7 +353,6 @@ export default defineUnlistedScript(() => {
       },
       origin: window.location.origin
     };
-    console.debug('[AliasVault] Page: Sending GET request with serialized extensions:', eventDetail);
     const event = new CustomEvent<WebAuthnGetEventDetail>('aliasvault:webauthn:get', {
       detail: eventDetail
     });
@@ -400,8 +392,6 @@ export default defineUnlistedScript(() => {
         } else if (e.detail.credential) {
           // Create a proper credential object with required methods
           const cred: ProviderGetCredential = e.detail.credential;
-          console.debug('[AliasVault] Page: Returned GET credential readable object:', cred);
-          console.debug('[AliasVault] Page: PRF Results from credential:', cred.prfResults);
 
           // Create response object with proper prototype
           const response = Object.create(AuthenticatorAssertionResponse.prototype);
@@ -497,8 +487,6 @@ export default defineUnlistedScript(() => {
             configurable: true
           });
 
-          console.debug('[AliasVault] Page: Returned GET credential raw object:', credential);
-          console.debug('[AliasVault] Page: instanceof check:', credential instanceof PublicKeyCredential);
           resolve(credential);
         } else {
           // Cancelled
@@ -509,6 +497,4 @@ export default defineUnlistedScript(() => {
       window.addEventListener('aliasvault:webauthn:get:response', handler as EventListener);
     });
   };
-
-  console.debug('[AliasVault] WebAuthn inject script loaded successfully');
 });

@@ -117,7 +117,7 @@ export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
    * onerror
    */
   script.onerror = () : void => {
-    console.error('[AliasVault] WebAuthnInterceptor: Failed to load injected script');
+    // Ignore
   };
 
   interceptorInitialized = true;
