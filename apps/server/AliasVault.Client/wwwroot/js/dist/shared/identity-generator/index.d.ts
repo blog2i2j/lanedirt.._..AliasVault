@@ -90,7 +90,9 @@ declare class IdentityHelperUtils {
      */
     static normalizeBirthDateForDisplay(birthDate: string | undefined): string;
     /**
-     * Normalize a birth date for database.
+     * Normalize a birth date for database storage.
+     * Converts any date format to the standard format: "yyyy-MM-dd 00:00:00" (19 characters).
+     * BirthDate fields do not include time or milliseconds, just date with 00:00:00.
      */
     static normalizeBirthDateForDb(input: string | undefined): string;
     /**

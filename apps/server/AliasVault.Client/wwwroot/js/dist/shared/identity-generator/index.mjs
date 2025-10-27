@@ -1826,17 +1826,19 @@ var IdentityHelperUtils = class {
     return birthDate.split(/[T ]/)[0];
   }
   /**
-   * Normalize a birth date for database.
+   * Normalize a birth date for database storage.
+   * Converts any date format to the standard format: "yyyy-MM-dd 00:00:00" (19 characters).
+   * BirthDate fields do not include time or milliseconds, just date with 00:00:00.
    */
   static normalizeBirthDateForDb(input) {
     if (!input || input.trim() === "") {
       return "0001-01-01 00:00:00";
     }
     const trimmed = input.trim();
-    const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})[T ]?(\d{2}):?(\d{2}):?(\d{2})?/);
+    const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (match) {
-      const [_, y, m, d, h = "00", mi = "00", s = "00"] = match;
-      return `${y}-${m}-${d} ${h}:${mi}:${s}`;
+      const [_, y, m, d] = match;
+      return `${y}-${m}-${d} 00:00:00`;
     }
     const parsedDate = new Date(trimmed);
     if (!isNaN(parsedDate.getTime())) {
