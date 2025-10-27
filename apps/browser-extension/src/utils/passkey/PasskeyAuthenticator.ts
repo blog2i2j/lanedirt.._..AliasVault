@@ -43,7 +43,6 @@ export class PasskeyAuthenticator {
 
   /**
    * Create a new passkey (registration).
-   * Returns credential data ready for the browser extension to return to the RP, plus storage data.
    */
   public static async createPasskey(
     credentialIdBytes: Uint8Array,
@@ -54,25 +53,15 @@ export class PasskeyAuthenticator {
       enablePrf?: boolean;
       prfInputs?: { first: string; second?: string };
     }
-  ): Promise<{
-    credential: {
-      id: string;
-      rawId: string;
-      response: {
-        clientDataJSON: string;
-        attestationObject: string;
-      };
-      type: 'public-key';
-    };
-    stored: StoredPasskeyRecord;
-    prfEnabled?: boolean;
-    prfResults?: { first: ArrayBuffer; second?: ArrayBuffer };
-  }> {
+  ): Promise<PasskeyCreationResult> {
+    // 1. Validate algorithm support
     PasskeyAuthenticator.pickSupportedAlgorithm(req.publicKey.pubKeyCredParams);
 
+    // 2. Compute RP ID hash
     const rpId = req.publicKey.rp?.id || new URL(req.origin).hostname;
     const rpIdHash = new Uint8Array(await crypto.subtle.digest('SHA-256', PasskeyAuthenticator.te(rpId) as BufferSource));
 
+    // 3. Generate ES256 key pair
     const keyPair = await crypto.subtle.generateKey(
       { name: 'ECDSA', namedCurve: 'P-256' },
       true,
@@ -81,9 +70,11 @@ export class PasskeyAuthenticator {
     const pubJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
     const prvJwk = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
 
+    // 4. Build credential ID and COSE key
     const credentialIdB64u = PasskeyAuthenticator.toB64u(credentialIdBytes);
     const coseKey = PasskeyAuthenticator.buildCoseEc2Es256(pubJwk);
 
+    // 5. Build authenticator flags
     let flags = 0x41; // UP (bit 0) + AT (bit 6)
     const uvReq = req.publicKey.authenticatorSelection?.userVerification;
     const uvPerformed = !!opts?.uvPerformed;
@@ -93,13 +84,17 @@ export class PasskeyAuthenticator {
     flags |= 0x08; // BE (bit 3)
     flags |= 0x10; // BS (bit 4)
 
+    // 6. Sign count (always 0 for syncable credentials)
     const signCount = new Uint8Array([0, 0, 0, 0]);
 
+    // 7. Build attested credential data
     const credIdLenBytes = new Uint8Array([(credentialIdBytes.length >> 8) & 0xff, credentialIdBytes.length & 0xff]);
     const attestedCredData = PasskeyAuthenticator.concat(PasskeyAuthenticator.AAGUID, credIdLenBytes, credentialIdBytes, coseKey);
 
+    // 8. Build authenticator data
     const authenticatorData = PasskeyAuthenticator.concat(rpIdHash, new Uint8Array([flags]), signCount, attestedCredData);
 
+    // 9. Build client data JSON
     const challengeB64u = PasskeyAuthenticator.challengeToB64u(req.publicKey.challenge);
     const clientDataObj = {
       type: 'webauthn.create',
@@ -110,12 +105,14 @@ export class PasskeyAuthenticator {
     const clientDataJSONStr = JSON.stringify(clientDataObj);
     const clientDataJSONBytes = PasskeyAuthenticator.te(clientDataJSONStr);
 
+    // 10. Build attestation object
     const attPref = req.publicKey.attestation || 'none';
     const attObjBytes =
       attPref === 'none' || attPref === 'indirect'
         ? PasskeyAuthenticator.buildAttObjNone(authenticatorData)
         : await PasskeyAuthenticator.buildAttObjPackedSelf(authenticatorData, clientDataJSONBytes, keyPair.privateKey);
 
+    // 11. Process user ID
     let userIdB64: string | null = null;
     if (req.publicKey.user?.id) {
       userIdB64 = typeof req.publicKey.user.id === 'string'
@@ -123,6 +120,7 @@ export class PasskeyAuthenticator {
         : PasskeyAuthenticator.toB64(req.publicKey.user.id instanceof Uint8Array ? req.publicKey.user.id : new Uint8Array(req.publicKey.user.id));
     }
 
+    // 12. Generate PRF secret if requested
     let prfSecret: string | undefined;
     let prfEnabled = false;
     let prfResults: { first: ArrayBuffer; second?: ArrayBuffer } | undefined;
@@ -132,6 +130,7 @@ export class PasskeyAuthenticator {
       prfSecret = PasskeyAuthenticator.toB64u(prfSecretBytes);
       prfEnabled = true;
 
+      // 13. Evaluate PRF values if requested during registration
       if (opts?.prfInputs) {
         const firstSalt = PasskeyAuthenticator.fromB64u(opts.prfInputs.first);
         prfResults = {
@@ -145,6 +144,7 @@ export class PasskeyAuthenticator {
       }
     }
 
+    // 14. Build stored record
     const stored: StoredPasskeyRecord = {
       rpId,
       credentialId: credentialIdB64u,
@@ -156,6 +156,7 @@ export class PasskeyAuthenticator {
       prfSecret
     };
 
+    // 15. Build credential response
     const credential = {
       id: credentialIdB64u,
       rawId: credentialIdB64u,
@@ -177,20 +178,14 @@ export class PasskeyAuthenticator {
     req: GetRequest,
     storedRecord: StoredPasskeyRecord,
     opts?: { uvPerformed?: boolean; includeBEBS?: boolean; prfInputs?: { first: ArrayBuffer | Uint8Array; second?: ArrayBuffer | Uint8Array } }
-  ): Promise<{
-    id: string;
-    rawId: string;
-    clientDataJSON: string;
-    authenticatorData: string;
-    signature: string;
-    userHandle: string | null;
-    prfResults?: { first: ArrayBuffer; second?: ArrayBuffer };
-  }> {
+  ): Promise<PasskeyAssertionResult> {
     const rec = storedRecord;
 
+    // 1. Compute RP ID hash
     const rpId = req.publicKey.rpId || new URL(req.origin).hostname;
     const rpIdHash = new Uint8Array(await crypto.subtle.digest('SHA-256', PasskeyAuthenticator.te(rpId) as BufferSource));
 
+    // 2. Build authenticator flags
     let flags = 0x01; // UP (bit 0)
     const uvReq = req.publicKey.userVerification;
     const uvPerformed = !!opts?.uvPerformed;
@@ -201,10 +196,14 @@ export class PasskeyAuthenticator {
       flags |= 0x08; // BE (bit 3)
       flags |= 0x10; // BS (bit 4)
     }
+
+    // 3. Sign count (always 0 for syncable credentials)
     const signCount = new Uint8Array([0, 0, 0, 0]);
 
+    // 4. Build authenticator data
     const authenticatorData = PasskeyAuthenticator.concat(rpIdHash, new Uint8Array([flags]), signCount);
 
+    // 5. Build client data JSON
     const challengeB64u = PasskeyAuthenticator.challengeToB64u(req.publicKey.challenge);
     const clientDataObj = {
       type: 'webauthn.get',
@@ -215,9 +214,11 @@ export class PasskeyAuthenticator {
     const clientDataJSONStr = JSON.stringify(clientDataObj);
     const clientDataJSONBytes = PasskeyAuthenticator.te(clientDataJSONStr);
 
+    // 6. Build data to sign: authenticatorData || clientDataHash
     const clientDataHash = new Uint8Array(await crypto.subtle.digest('SHA-256', clientDataJSONBytes as BufferSource));
     const toSign = PasskeyAuthenticator.concat(authenticatorData, clientDataHash);
 
+    // 7. Import private key and sign
     const privateKey = await crypto.subtle.importKey(
       'jwk',
       rec.privateKey,
@@ -229,13 +230,16 @@ export class PasskeyAuthenticator {
       await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, privateKey, toSign as BufferSource)
     );
 
+    // 8. Convert raw signature to DER format
     const derSig = PasskeyAuthenticator.ecdsaRawToDer(rawSig);
 
+    // 9. Process user handle
     let userHandleB64u: string | null = null;
     if (rec.userId) {
       userHandleB64u = rec.userId.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
 
+    // 10. Evaluate PRF if requested
     let prfResults: { first: ArrayBuffer; second?: ArrayBuffer } | undefined;
     if (opts?.prfInputs && rec.prfSecret) {
       const prfSecretBytes = PasskeyAuthenticator.fromB64u(rec.prfSecret);
@@ -531,3 +535,45 @@ export class PasskeyAuthenticator {
     return out;
   }
 }
+
+/**
+ * Result of passkey creation containing credential and storage data.
+ */
+export type PasskeyCreationResult = {
+  /** The credential object returned to the RP. */
+  credential: {
+    id: string;
+    rawId: string;
+    response: {
+      clientDataJSON: string;
+      attestationObject: string;
+    };
+    type: 'public-key';
+  };
+  /** The stored passkey record for vault storage. */
+  stored: StoredPasskeyRecord;
+  /** Whether PRF extension is enabled. */
+  prfEnabled?: boolean;
+  /** PRF evaluation results if requested. */
+  prfResults?: { first: ArrayBuffer; second?: ArrayBuffer };
+};
+
+/**
+ * Result of passkey assertion containing authentication data.
+ */
+export type PasskeyAssertionResult = {
+  /** The credential identifier. */
+  id: string;
+  /** The raw credential identifier (base64url). */
+  rawId: string;
+  /** Client data JSON (base64url). */
+  clientDataJSON: string;
+  /** Authenticator data (base64url). */
+  authenticatorData: string;
+  /** Signature in DER format (base64url). */
+  signature: string;
+  /** User handle (base64url). */
+  userHandle: string | null;
+  /** PRF evaluation results if requested. */
+  prfResults?: { first: ArrayBuffer; second?: ArrayBuffer };
+};
