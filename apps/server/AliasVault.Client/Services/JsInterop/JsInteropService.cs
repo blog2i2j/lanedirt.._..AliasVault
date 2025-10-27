@@ -10,6 +10,7 @@ namespace AliasVault.Client.Services.JsInterop;
 using System.Security.Cryptography;
 using System.Text.Json;
 using AliasVault.Client.Services.JsInterop.Models;
+using AliasVault.Shared.Core;
 using Microsoft.JSInterop;
 
 /// <summary>
@@ -21,6 +22,8 @@ public sealed class JsInteropService(IJSRuntime jsRuntime)
     private const string _DEFAULT_VERSION = "0.0.0";
     private const string _VAULT_SQL_GENERATOR_FACTORY_FUNCTION = "CreateVaultSqlGenerator";
 
+    private readonly string _cacheBuster = AppInfo.GetFullVersion();
+
     private IJSObjectReference? _identityGeneratorModule;
     private IJSObjectReference? _passwordGeneratorModule;
     private IJSObjectReference? _vaultSqlInteropModule;
@@ -31,19 +34,19 @@ public sealed class JsInteropService(IJSRuntime jsRuntime)
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task InitializeAsync()
     {
-        _identityGeneratorModule = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/dist/shared/identity-generator/index.mjs");
+        _identityGeneratorModule = await jsRuntime.InvokeAsync<IJSObjectReference>("import", $"./js/dist/shared/identity-generator/index.mjs?v={_cacheBuster}");
         if (_identityGeneratorModule == null)
         {
             throw new InvalidOperationException("Failed to initialize identity generator module");
         }
 
-        _passwordGeneratorModule = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/dist/shared/password-generator/index.mjs");
+        _passwordGeneratorModule = await jsRuntime.InvokeAsync<IJSObjectReference>("import", $"./js/dist/shared/password-generator/index.mjs?v={_cacheBuster}");
         if (_passwordGeneratorModule == null)
         {
             throw new InvalidOperationException("Failed to initialize password generator module");
         }
 
-        _vaultSqlInteropModule = await jsRuntime.InvokeAsync<IJSObjectReference>("import", "./js/dist/shared/vault-sql/index.mjs");
+        _vaultSqlInteropModule = await jsRuntime.InvokeAsync<IJSObjectReference>("import", $"./js/dist/shared/vault-sql/index.mjs?v={_cacheBuster}");
         if (_vaultSqlInteropModule == null)
         {
             throw new InvalidOperationException("Failed to initialize vault SQL generator module");
