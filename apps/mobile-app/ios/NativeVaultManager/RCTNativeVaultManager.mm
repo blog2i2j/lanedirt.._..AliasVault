@@ -171,6 +171,10 @@
     [vaultManager registerCredentialIdentities:resolve rejecter:reject];
 }
 
+- (void)removeCredentialIdentities:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager removeCredentialIdentities:resolve rejecter:reject];
+}
+
 // MARK: - WebAPI Configuration
 
 - (void)setApiUrl:(NSString *)url resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {

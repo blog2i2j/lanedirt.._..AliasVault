@@ -476,6 +476,26 @@ public class VaultManager: NSObject {
         }
     }
 
+    @objc
+    func removeCredentialIdentities(_ resolve: @escaping RCTPromiseResolveBlock,
+                                   rejecter reject: @escaping RCTPromiseRejectBlock) {
+        Task {
+            do {
+                print("VaultManager: Removing all credential identities from iOS store")
+                try await CredentialIdentityStore.shared.removeAllCredentialIdentities()
+                await MainActor.run {
+                    print("VaultManager: Successfully removed all credential identities")
+                    resolve(nil)
+                }
+            } catch {
+                print("VaultManager: Failed to remove credential identities: \(error)")
+                await MainActor.run {
+                    reject("CREDENTIAL_REMOVAL_ERROR", "Failed to remove credential identities: \(error.localizedDescription)", error)
+                }
+            }
+        }
+    }
+
     // MARK: - WebAPI Configuration
 
     @objc

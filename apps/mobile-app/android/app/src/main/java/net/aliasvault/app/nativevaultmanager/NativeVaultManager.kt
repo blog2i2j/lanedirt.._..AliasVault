@@ -1033,6 +1033,27 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
         }.start()
     }
 
+    /**
+     * Remove all credential identities from the credential identity store.
+     * Called during logout to clear all locally stored credential metadata.
+     * @param promise The promise to resolve.
+     */
+    @ReactMethod
+    override fun removeCredentialIdentities(promise: Promise) {
+        try {
+            Log.d(TAG, "Removing all credential identities from Android store")
+            val identityStore = net.aliasvault.app.credentialprovider.CredentialIdentityStore.getInstance(
+                reactApplicationContext,
+            )
+            identityStore.removeAllCredentialIdentities()
+            Log.d(TAG, "Successfully removed all credential identities")
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error removing credential identities", e)
+            promise.reject("CREDENTIAL_REMOVAL_ERROR", "Failed to remove credential identities: ${e.message}", e)
+        }
+    }
+
     // MARK: - Username Management
 
     /**

@@ -55,6 +55,7 @@ export interface Spec extends TurboModule {
 
   // Credential identity management
   registerCredentialIdentities(): Promise<void>;
+  removeCredentialIdentities(): Promise<void>;
 
   // WebAPI configuration and token management
   setApiUrl(url: string): Promise<void>;

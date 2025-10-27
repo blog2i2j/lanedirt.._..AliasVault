@@ -206,6 +206,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await AsyncStorage.removeItem('refreshToken');
     await AsyncStorage.removeItem('authMethods');
 
+    // Clear credential identity store (passkey metadata)
+    try {
+      await NativeVaultManager.removeCredentialIdentities();
+    } catch (error) {
+      console.error('Failed to remove credential identities:', error);
+      // Non-fatal error - continue with logout
+    }
+
     dbContext?.clearDatabase();
 
     if (errorMessage) {

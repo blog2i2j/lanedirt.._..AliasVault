@@ -107,8 +107,10 @@ export default function UnlockScreen() : React.ReactNode {
           return;
         }
 
-        // Navigate to initialize page which will handle vault sync and then navigate to credentials
-        // This ensures we always check for vault updates even after local unlock
+        /*
+         * Navigate to initialize page which will handle vault sync and then navigate to credentials
+         * This ensures we always check for vault updates even after local unlock
+         */
         router.replace('/initialize');
       } else {
         Alert.alert(t('common.error'), t('auth.errors.incorrectPassword'));
