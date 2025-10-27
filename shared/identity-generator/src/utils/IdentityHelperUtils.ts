@@ -26,8 +26,10 @@ export class IdentityHelperUtils {
 
     const trimmed = input.trim();
 
-    // Check if the format is valid ISO-like string manually, to support pre-1970 dates
-    // Matches: yyyy-MM-dd, yyyy-MM-ddTHH:mm:ss, yyyy-MM-dd HH:mm:ss, yyyy-MM-dd HH:mm:ss.SSS, etc.
+    /*
+     * Check if the format is valid ISO-like string manually, to support pre-1970 dates
+     * Matches: yyyy-MM-dd, yyyy-MM-ddTHH:mm:ss, yyyy-MM-dd HH:mm:ss, yyyy-MM-dd HH:mm:ss.SSS, etc.
+     */
     const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (match) {
       const [_, y, m, d] = match;
