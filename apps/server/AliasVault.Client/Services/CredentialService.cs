@@ -14,6 +14,7 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
 using AliasClientDb;
+using AliasVault.Client.Utilities;
 using AliasVault.Shared.Models.WebApi.Favicon;
 using Microsoft.EntityFrameworkCore;
 
@@ -66,7 +67,7 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
             credential.Alias.LastName = identity.LastName;
             credential.Alias.NickName = identity.NickName;
             credential.Alias.Gender = identity.Gender;
-            credential.Alias.BirthDate = string.IsNullOrEmpty(identity.BirthDate) ? DateTime.MinValue : DateTime.Parse(identity.BirthDate);
+            credential.Alias.BirthDate = string.IsNullOrEmpty(identity.BirthDate) ? DateTime.MinValue : DateTimeFormatter.Parse(identity.BirthDate);
 
             // Set the email
             var emailDomain = GetDefaultEmailDomain();
@@ -154,10 +155,11 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
             loginObject.Service.Url = null;
         }
 
+        var currentDateTime = DateTime.UtcNow;
         var login = new Credential
         {
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow,
+            CreatedAt = currentDateTime,
+            UpdatedAt = currentDateTime,
             Notes = loginObject.Notes,
             Username = loginObject.Username,
             Alias = new Alias()
@@ -168,16 +170,16 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
                 BirthDate = loginObject.Alias.BirthDate,
                 Gender = loginObject.Alias.Gender,
                 Email = loginObject.Alias.Email,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
+                CreatedAt = currentDateTime,
+                UpdatedAt = currentDateTime,
             },
             Service = new Service()
             {
                 Name = loginObject.Service.Name,
                 Url = loginObject.Service.Url,
                 Logo = loginObject.Service.Logo,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
+                CreatedAt = currentDateTime,
+                UpdatedAt = currentDateTime,
             },
         };
 
@@ -242,8 +244,9 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
             loginObject.Service.Url = null;
         }
 
-        // Update all fields and collections.
-        UpdateBasicCredentialInfo(login, loginObject);
+        // Update all fields and collections with current timestamp.
+        var updateDateTime = DateTime.UtcNow;
+        UpdateBasicCredentialInfo(login, loginObject, updateDateTime);
         UpdateAttachments(context, login, loginObject);
         UpdateTotpCodes(context, login, loginObject);
 
@@ -270,6 +273,7 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
             .Include(x => x.Service)
             .Include(x => x.Attachments)
             .Include(x => x.TotpCodes)
+            .Include(x => x.Passkeys)
             .AsSplitQuery()
             .Where(x => x.Id == loginId)
             .Where(x => !x.IsDeleted)
@@ -281,6 +285,7 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
             loginObject.Passwords = loginObject.Passwords.Where(p => !p.IsDeleted).ToList();
             loginObject.Attachments = loginObject.Attachments.Where(a => !a.IsDeleted).ToList();
             loginObject.TotpCodes = loginObject.TotpCodes.Where(t => !t.IsDeleted).ToList();
+            loginObject.Passkeys = loginObject.Passkeys.Where(p => !p.IsDeleted).ToList();
         }
 
         return loginObject;
@@ -300,6 +305,7 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
             .Include(x => x.Service)
             .Include(x => x.Attachments.Where(a => !a.IsDeleted))
             .Include(x => x.TotpCodes.Where(t => !t.IsDeleted))
+            .Include(x => x.Passkeys.Where(p => !p.IsDeleted))
             .AsSplitQuery()
             .Where(x => !x.IsDeleted)
             .ToListAsync();
@@ -316,21 +322,33 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
         var context = await dbService.GetDbContextAsync();
 
         // Retrieve all aliases from client DB.
-        return await context.Credentials
+        var credentials = await context.Credentials
             .Include(x => x.Alias)
             .Include(x => x.Service)
+            .Include(x => x.Passkeys.Where(p => !p.IsDeleted))
+            .Include(x => x.Passwords.Where(p => !p.IsDeleted))
             .AsSplitQuery()
             .Where(x => !x.IsDeleted)
-            .Select(x => new CredentialListEntry
-            {
-                Id = x.Id,
-                Logo = x.Service.Logo,
-                Service = x.Service.Name,
-                Username = x.Username,
-                Email = x.Alias.Email,
-                CreatedAt = x.CreatedAt,
-            })
             .ToListAsync();
+
+        // Map to CredentialListEntry with proper boolean logic
+        return credentials.Select(x => new CredentialListEntry
+        {
+            Id = x.Id,
+            Logo = x.Service.Logo,
+            Service = x.Service.Name,
+            Username = x.Username,
+            Email = x.Alias.Email,
+            CreatedAt = x.CreatedAt,
+            HasPasskey = x.Passkeys != null && x.Passkeys.Any(),
+            HasAlias = !string.IsNullOrWhiteSpace(x.Alias.FirstName) ||
+                       !string.IsNullOrWhiteSpace(x.Alias.LastName) ||
+                       !string.IsNullOrWhiteSpace(x.Alias.NickName) ||
+                       !string.IsNullOrWhiteSpace(x.Alias.Gender) ||
+                       x.Alias.BirthDate.Year > 1,
+            HasUsernameOrPassword = !string.IsNullOrWhiteSpace(x.Username) ||
+                                    (x.Passwords != null && x.Passwords.Any(p => !string.IsNullOrWhiteSpace(p.Value))),
+        }).ToList();
     }
 
     /// <summary>
@@ -345,24 +363,34 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
         var context = await dbService.GetDbContextAsync();
 
         var login = await context.Credentials
+            .Include(x => x.Passkeys)
             .Where(x => x.Id == id)
             .FirstAsync();
 
+        var deleteDateTime = DateTime.UtcNow;
+
         login.IsDeleted = true;
-        login.UpdatedAt = DateTime.UtcNow;
+        login.UpdatedAt = deleteDateTime;
 
         // Mark associated alias and service as deleted
         var alias = await context.Aliases
             .Where(x => x.Id == login.Alias.Id)
             .FirstAsync();
         alias.IsDeleted = true;
-        alias.UpdatedAt = DateTime.UtcNow;
+        alias.UpdatedAt = deleteDateTime;
 
         var service = await context.Services
             .Where(x => x.Id == login.Service.Id)
             .FirstAsync();
         service.IsDeleted = true;
-        service.UpdatedAt = DateTime.UtcNow;
+        service.UpdatedAt = deleteDateTime;
+
+        // Mark associated passkeys as deleted
+        foreach (var passkey in login.Passkeys)
+        {
+            passkey.IsDeleted = true;
+            passkey.UpdatedAt = deleteDateTime;
+        }
 
         return await dbService.SaveDatabaseAsync();
     }
@@ -390,13 +418,38 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
     }
 
     /// <summary>
+    /// Deletes a passkey by marking it as deleted.
+    /// </summary>
+    /// <param name="passkeyId">The ID of the passkey to delete.</param>
+    /// <returns>A value indicating whether the deletion was successful.</returns>
+    public async Task<bool> DeletePasskeyAsync(Guid passkeyId)
+    {
+        var context = await dbService.GetDbContextAsync();
+        var passkey = await context.Passkeys.FirstOrDefaultAsync(p => p.Id == passkeyId);
+
+        if (passkey != null)
+        {
+            var deleteDateTime = DateTime.UtcNow;
+            passkey.IsDeleted = true;
+            passkey.UpdatedAt = deleteDateTime;
+            await context.SaveChangesAsync();
+
+            // Save to server
+            return await dbService.SaveDatabaseAsync();
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Update the basic credential information.
     /// </summary>
     /// <param name="login">The login object to update.</param>
     /// <param name="loginObject">The login object to update from.</param>
-    private static void UpdateBasicCredentialInfo(Credential login, Credential loginObject)
+    /// <param name="updateDateTime">The datetime to use for UpdatedAt fields.</param>
+    private static void UpdateBasicCredentialInfo(Credential login, Credential loginObject, DateTime updateDateTime)
     {
-        login.UpdatedAt = DateTime.UtcNow;
+        login.UpdatedAt = updateDateTime;
         login.Notes = loginObject.Notes;
         login.Username = loginObject.Username;
 
@@ -406,18 +459,18 @@ public sealed class CredentialService(HttpClient httpClient, DbService dbService
         login.Alias.BirthDate = loginObject.Alias.BirthDate;
         login.Alias.Gender = loginObject.Alias.Gender;
         login.Alias.Email = loginObject.Alias.Email;
-        login.Alias.UpdatedAt = DateTime.UtcNow;
+        login.Alias.UpdatedAt = updateDateTime;
 
         login.Passwords = loginObject.Passwords;
         if (login.Passwords.Count > 0)
         {
-            login.Passwords.First().UpdatedAt = DateTime.UtcNow;
+            login.Passwords.First().UpdatedAt = updateDateTime;
         }
 
         login.Service.Name = loginObject.Service.Name;
         login.Service.Url = loginObject.Service.Url;
         login.Service.Logo = loginObject.Service.Logo;
-        login.Service.UpdatedAt = DateTime.UtcNow;
+        login.Service.UpdatedAt = updateDateTime;
     }
 
     /// <summary>

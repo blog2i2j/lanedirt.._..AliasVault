@@ -60,8 +60,6 @@ class AutofillService : AutofillService() {
         }
 
         try {
-            Log.d(TAG, "onFillRequest called")
-
             // Check if request was cancelled
             if (cancellationSignal.isCanceled) {
                 return
@@ -123,15 +121,11 @@ class AutofillService : AutofillService() {
     }
 
     private fun launchActivityForAutofill(fieldFinder: FieldFinder, callback: (FillResponse?) -> Unit) {
-        Log.d(TAG, "Launching activity for autofill authentication")
-
         // Get the app/website information from assist structure.
         val appInfo = fieldFinder.getAppInfo()
-        Log.d(TAG, "Autofill request from: $appInfo")
 
         // Ignore requests from our own unlock page as this would cause a loop
         if (appInfo == "net.aliasvault.app") {
-            Log.d(TAG, "Skipping autofill request from AliasVault app itself")
             callback(null)
             return
         }
@@ -144,7 +138,6 @@ class AutofillService : AutofillService() {
             if (store.tryGetAllCredentials(object : CredentialOperationCallback {
                     override fun onSuccess(result: List<Credential>) {
                         try {
-                            Log.d(TAG, "Retrieved ${result.size} credentials")
                             if (result.isEmpty()) {
                                 // No credentials available
                                 Log.d(TAG, "No credentials available")
@@ -159,14 +152,14 @@ class AutofillService : AutofillService() {
                                 result
                             }
 
-                            // Further filter to only include credentials with autofillable data
+                            // Further filter to only include credentials with autofillable data.
+                            // This prevents from showing non-autofillable credentials like passkeys.
                             val filteredCredentials = filteredByApp.filter { credential ->
-                                // Include credential only if it has at least username/email or password
                                 val hasUsername = !credential.username.isNullOrEmpty()
                                 val hasEmail = credential.alias?.email?.isNotEmpty() == true
-                                val hasPassword = credential.password?.value != null
+                                val hasPassword = !credential.password?.value.isNullOrEmpty()
 
-                                hasUsername || hasEmail || hasPassword
+                                (hasUsername || hasEmail) && hasPassword
                             }
 
                             Log.d(
@@ -217,7 +210,6 @@ class AutofillService : AutofillService() {
                 })
             ) {
                 // Successfully used cached key - method returns true
-                Log.d(TAG, "Successfully retrieved credentials with unlocked vault")
                 return
             }
         }

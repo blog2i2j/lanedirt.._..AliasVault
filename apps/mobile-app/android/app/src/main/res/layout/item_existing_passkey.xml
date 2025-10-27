@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:background="@drawable/passkey_item_background"
+    android:clickable="true"
+    android:focusable="true"
+    android:padding="16dp"
+    android:layout_marginBottom="8dp"
+    android:gravity="center_vertical">
+
+    <!-- Icon -->
+    <ImageView
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@android:drawable/ic_lock_lock"
+        android:tint="@color/av_primary"
+        android:layout_marginEnd="12dp"
+        android:contentDescription="@string/passkey_info_icon" />
+
+    <!-- Content -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/passkeyDisplayName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:textColor="@color/av_text"
+            android:textStyle="bold"
+            android:ellipsize="end"
+            android:maxLines="1" />
+
+        <TextView
+            android:id="@+id/passkeySubtitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textColor="@color/av_text_muted"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:layout_marginTop="2dp" />
+    </LinearLayout>
+
+    <!-- Arrow icon -->
+    <ImageView
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:src="@android:drawable/ic_menu_more"
+        android:tint="@color/av_text_muted"
+        android:layout_marginStart="8dp"
+        android:contentDescription="@string/passkey_info_icon" />
+</LinearLayout>

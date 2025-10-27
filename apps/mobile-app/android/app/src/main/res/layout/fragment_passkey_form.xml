@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/av_background"
+    android:fitsSystemWindows="true">
+
+    <!-- Main content -->
+    <ScrollView
+        android:id="@+id/scrollView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:fitsSystemWindows="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp"
+            android:paddingBottom="80dp">
+
+            <!-- Logo -->
+            <ImageView
+                android:id="@+id/logoImage"
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="20dp"
+                android:layout_marginBottom="12dp"
+                android:src="@drawable/av_logo"
+                android:contentDescription="@string/app_name" />
+
+            <!-- Header -->
+            <TextView
+                android:id="@+id/headerTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/passkey_registration_title"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="@color/av_text"
+                android:gravity="center"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/headerSubtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:textColor="@color/av_text_muted"
+                android:gravity="center"
+                android:layout_marginBottom="20dp" />
+
+            <!-- Info notice -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="@drawable/info_notice_background"
+                android:padding="16dp"
+                android:layout_marginBottom="16dp"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@android:drawable/ic_dialog_info"
+                    android:tint="@color/av_primary"
+                    android:layout_marginEnd="12dp"
+                    android:contentDescription="@string/passkey_info_icon" />
+
+                <TextView
+                    android:id="@+id/infoExplanationText"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/passkey_create_explanation"
+                    android:textSize="12sp"
+                    android:textColor="@color/av_text_muted" />
+            </LinearLayout>
+
+            <!-- Display Name Input -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/displayNameLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/passkey_display_name_label"
+                app:boxBackgroundMode="outline"
+                app:boxStrokeColor="@color/av_primary"
+                app:hintTextColor="@color/av_primary"
+                app:boxBackgroundColor="@color/av_accent_background"
+                android:layout_marginBottom="16dp">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/displayNameInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="text"
+                    android:textSize="16sp"
+                    android:textColor="@color/av_text"
+                    android:maxLines="1" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Website (Read-only) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="8dp"
+                android:layout_marginBottom="4dp">
+
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@android:drawable/ic_menu_compass"
+                    android:tint="@color/av_icon"
+                    android:layout_marginEnd="8dp"
+                    android:contentDescription="@string/passkey_website_label" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/passkey_website_label"
+                    android:textSize="14sp"
+                    android:textColor="@color/av_text_muted"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:id="@+id/websiteText"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textSize="14sp"
+                    android:textColor="@color/av_text"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
+            </LinearLayout>
+
+            <!-- Username (Read-only, optional) -->
+            <LinearLayout
+                android:id="@+id/usernameContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="8dp"
+                android:layout_marginBottom="24dp"
+                android:visibility="gone">
+
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@android:drawable/ic_menu_myplaces"
+                    android:tint="@color/av_icon"
+                    android:layout_marginEnd="8dp"
+                    android:contentDescription="@string/passkey_username_label" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/passkey_username_label"
+                    android:textSize="14sp"
+                    android:textColor="@color/av_text_muted"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:id="@+id/usernameText"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textSize="14sp"
+                    android:textColor="@color/av_text"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <!-- Error message -->
+            <TextView
+                android:id="@+id/errorText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/av_error"
+                android:textSize="14sp"
+                android:layout_marginBottom="16dp"
+                android:visibility="gone" />
+
+            <!-- Action Buttons -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/saveButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/passkey_create_button"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="@color/av_primary"
+                android:layout_marginBottom="12dp"
+                app:cornerRadius="8dp"
+                app:icon="@android:drawable/ic_lock_lock"
+                app:iconTint="#FFFFFF"
+                app:iconGravity="textStart"
+                android:paddingVertical="14dp"
+                android:textSize="16sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/cancelButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/passkey_cancel_button"
+                android:textColor="@color/av_primary"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:paddingVertical="14dp"
+                android:textSize="16sp" />
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Loading overlay -->
+    <FrameLayout
+        android:id="@+id/loadingOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/av_loading_overlay"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <net.aliasvault.app.components.LoadingIndicator
+            android:id="@+id/loadingIndicator"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center" />
+    </FrameLayout>
+</FrameLayout>

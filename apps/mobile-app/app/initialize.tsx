@@ -22,6 +22,9 @@ export default function Initialize() : React.ReactNode {
   const [showSkipButton, setShowSkipButton] = useState(false);
   const hasInitialized = useRef(false);
   const skipButtonTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastStatusRef = useRef<string>('');
+  const canShowSkipButtonRef = useRef(false); // Only allow skip button after vault unlock
+  const abortControllerRef = useRef<AbortController | null>(null);
   const { t } = useTranslation();
   const app = useApp();
   const { syncVault } = useVaultSync();
@@ -29,9 +32,50 @@ export default function Initialize() : React.ReactNode {
   const colors = useColors();
 
   /**
+   * Update status with smart skip button logic.
+   * Normalizes status by removing animation dots and manages skip button visibility.
+   */
+  const updateStatus = useCallback((message: string): void => {
+    setStatus(message);
+
+    // Normalize status by removing animation dots for comparison
+    const normalizedMessage = message.replace(/\.+$/, '');
+    const normalizedLastStatus = lastStatusRef.current.replace(/\.+$/, '');
+
+    // Clear any existing timeout
+    if (skipButtonTimeoutRef.current) {
+      clearTimeout(skipButtonTimeoutRef.current);
+      skipButtonTimeoutRef.current = null;
+    }
+
+    // If status changed (excluding dots), hide skip button and reset timer
+    if (normalizedMessage !== normalizedLastStatus) {
+      setShowSkipButton(false);
+      lastStatusRef.current = message;
+
+      // Start new timer for the new status (only if skip button is allowed)
+      if (message && canShowSkipButtonRef.current) {
+        skipButtonTimeoutRef.current = setTimeout(() => {
+          setShowSkipButton(true);
+        }, 5000) as unknown as NodeJS.Timeout;
+      }
+    } else {
+      // Same status (excluding dots) - update ref but keep timer running
+      lastStatusRef.current = message;
+    }
+  }, []);
+
+  /**
    * Handle offline scenario - show alert with options to open local vault or retry sync.
    */
   const handleOfflineFlow = useCallback((): void => {
+    // Don't show the alert if we're already in offline mode
+    if (app.isOffline) {
+      console.debug('Already in offline mode, skipping offline flow alert');
+      router.replace('/(tabs)/credentials');
+      return;
+    }
+
     Alert.alert(
       t('app.alerts.syncIssue'),
       t('app.alerts.syncIssueMessage'),
@@ -42,7 +86,7 @@ export default function Initialize() : React.ReactNode {
            * Handle opening vault in read-only mode.
            */
           onPress: async () : Promise<void> => {
-            setStatus(t('app.status.openingVaultReadOnly'));
+            updateStatus(t('app.status.openingVaultReadOnly'));
             const { enabledAuthMethods } = await app.initializeAuth();
 
             try {
@@ -65,7 +109,7 @@ export default function Initialize() : React.ReactNode {
               }
 
               // Attempt to unlock vault
-              setStatus(t('app.status.unlockingVault'));
+              updateStatus(t('app.status.unlockingVault'));
               const isUnlocked = await dbContext.unlockVault();
 
               // Vault couldn't be unlocked
@@ -75,9 +119,7 @@ export default function Initialize() : React.ReactNode {
               }
 
               // Vault successfully unlocked - proceed with decryption
-              await new Promise(resolve => setTimeout(resolve, 750));
-              setStatus(t('app.status.decryptingVault'));
-              await new Promise(resolve => setTimeout(resolve, 750));
+              await new Promise(resolve => setTimeout(resolve, 500));
 
               // Migrations pending
               if (await dbContext.hasPendingMigrations()) {
@@ -99,14 +141,23 @@ export default function Initialize() : React.ReactNode {
            * Handle retrying the connection.
            */
           onPress: () : void => {
-            setStatus(t('app.status.retryingConnection'));
+            updateStatus(t('app.status.retryingConnection'));
             setShowSkipButton(false);
+
+            // Abort any pending sync operation
+            if (abortControllerRef.current) {
+              abortControllerRef.current.abort();
+              abortControllerRef.current = null;
+            }
 
             // Clear any existing timeout
             if (skipButtonTimeoutRef.current) {
               clearTimeout(skipButtonTimeoutRef.current);
               skipButtonTimeoutRef.current = null;
             }
+
+            // Reset status tracking
+            lastStatusRef.current = '';
 
             /**
              * Reset the hasInitialized flag and navigate to the same route
@@ -118,7 +169,7 @@ export default function Initialize() : React.ReactNode {
         }
       ]
     );
-  }, [dbContext, router, app, t]);
+  }, [dbContext, router, app, t, updateStatus]);
 
   useEffect(() => {
     // Ensure this only runs once.
@@ -133,89 +184,96 @@ export default function Initialize() : React.ReactNode {
      */
     const initializeApp = async () : Promise<void> => {
       /**
-       * Handle vault unlocking process.
-       */
-      async function handleVaultUnlock() : Promise<void> {
-        const { enabledAuthMethods } = await app.initializeAuth();
-
-        try {
-          const hasEncryptedDatabase = await NativeVaultManager.hasEncryptedDatabase();
-          if (hasEncryptedDatabase) {
-            const isFaceIDEnabled = enabledAuthMethods.includes('faceid');
-            if (!isFaceIDEnabled) {
-              router.replace('/unlock');
-              return;
-            }
-
-            setStatus(t('app.status.unlockingVault'));
-            const isUnlocked = await dbContext.unlockVault();
-            if (isUnlocked) {
-              await new Promise(resolve => setTimeout(resolve, 750));
-              setStatus(t('app.status.decryptingVault'));
-              await new Promise(resolve => setTimeout(resolve, 750));
-
-              // Check if the vault is up to date, if not, redirect to the upgrade page.
-              if (await dbContext.hasPendingMigrations()) {
-                router.replace('/upgrade');
-                return;
-              }
-
-              router.replace('/(tabs)/credentials');
-              return;
-            }
-
-            router.replace('/unlock');
-            return;
-          } else {
-            router.replace('/unlock');
-            return;
-          }
-        } catch (err) {
-          console.error('Error during vault unlock:', err);
-          router.replace('/unlock');
-          return;
-        }
-      }
-
-      /**
        * Initialize the app.
        */
       const initialize = async () : Promise<void> => {
-        const { isLoggedIn } = await app.initializeAuth();
+        const { isLoggedIn, enabledAuthMethods } = await app.initializeAuth();
 
         if (!isLoggedIn) {
           router.replace('/login');
           return;
         }
 
-        // First perform vault sync
+        /**
+         * If we already have an unlocked vault, we can skip the biometric unlock
+         * but still need to perform vault sync to check for updates.
+         */
+        const isAlreadyUnlocked = await NativeVaultManager.isVaultUnlocked();
+
+        if (!isAlreadyUnlocked) {
+          // Check if we have an encrypted database and if FaceID is enabled
+          try {
+            const hasEncryptedDatabase = await NativeVaultManager.hasEncryptedDatabase();
+
+            if (hasEncryptedDatabase) {
+              const isFaceIDEnabled = enabledAuthMethods.includes('faceid');
+
+              // Only attempt to unlock if FaceID is enabled
+              if (isFaceIDEnabled) {
+                // Unlock vault FIRST (before network sync) - this is not skippable
+                updateStatus(t('app.status.unlockingVault'));
+                const isUnlocked = await dbContext.unlockVault();
+
+                if (!isUnlocked) {
+                  // Failed to unlock, redirect to unlock screen
+                  router.replace('/unlock');
+                  return;
+                }
+
+                // Check if the vault needs migration before syncing
+                if (await dbContext.hasPendingMigrations()) {
+                  router.replace('/upgrade');
+                  return;
+                }
+
+                // Vault unlocked successfully - now allow skip button for network operations
+                canShowSkipButtonRef.current = true;
+              } else {
+                // No FaceID, redirect to unlock screen for manual unlock
+                router.replace('/unlock');
+                return;
+              }
+            }
+          } catch (err) {
+            console.error('Error during initial vault unlock:', err);
+            router.replace('/unlock');
+            return;
+          }
+        } else {
+          /**
+           * Vault already unlocked (e.g., from password unlock)
+           * Check if migrations are needed.
+           */
+          if (await dbContext.hasPendingMigrations()) {
+            router.replace('/upgrade');
+            return;
+          }
+
+          /**
+           * Allow skip button for sync operations since vault is already unlocked.
+           */
+          canShowSkipButtonRef.current = true;
+        }
+
+        // Create abort controller for sync operations
+        abortControllerRef.current = new AbortController();
+
+        // Now perform vault sync (network operations - these are skippable)
         await syncVault({
           initialSync: true,
+          abortSignal: abortControllerRef.current.signal,
           /**
            * Handle the status update.
            */
           onStatus: (message) => {
-            setStatus(message);
-
-            // Clear any existing timeout
-            if (skipButtonTimeoutRef.current) {
-              clearTimeout(skipButtonTimeoutRef.current);
-              skipButtonTimeoutRef.current = null;
-            }
-
-            // Show skip button after 5 seconds when we start loading
-            if (message && !showSkipButton) {
-              skipButtonTimeoutRef.current = setTimeout(() => {
-                setShowSkipButton(true);
-              }, 5000) as unknown as NodeJS.Timeout;
-            }
+            updateStatus(message);
           },
           /**
-           * Handle successful vault sync and continue with vault unlock flow.
+           * Handle successful vault sync.
            */
           onSuccess: async () => {
-          // Continue with the rest of the flow after successful sync
-            handleVaultUnlock();
+            // Vault already unlocked, just navigate to credentials
+            router.replace('/(tabs)/credentials');
           },
           /**
            * Handle offline state and prompt user for action.
@@ -232,6 +290,8 @@ export default function Initialize() : React.ReactNode {
              * Show modal with error message for other errors
              */
             Alert.alert(t('common.error'), error);
+            router.replace('/unlock');
+            return;
           },
           /**
            * On upgrade required.
@@ -253,18 +313,27 @@ export default function Initialize() : React.ReactNode {
         clearTimeout(skipButtonTimeoutRef.current);
       }
     };
-  }, [dbContext, syncVault, app, router, t, handleOfflineFlow, showSkipButton]);
+  }, [dbContext, syncVault, app, router, t, handleOfflineFlow, updateStatus]);
 
   /**
    * Handle skip button press by calling the offline handler.
    */
   const handleSkipPress = (): void => {
+    // Abort any pending sync operation
+    if (abortControllerRef.current) {
+      console.debug('Aborting pending sync operation');
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
     // Clear any existing timeout
     if (skipButtonTimeoutRef.current) {
       clearTimeout(skipButtonTimeoutRef.current);
+      skipButtonTimeoutRef.current = null;
     }
 
     setShowSkipButton(false);
+    lastStatusRef.current = '';
 
     handleOfflineFlow();
   };
@@ -302,7 +371,7 @@ export default function Initialize() : React.ReactNode {
       </View>
       {showSkipButton && (
         <TouchableOpacity style={styles.skipButton} onPress={handleSkipPress}>
-          <Ionicons name="close" size={20} color={colors.textMuted} />
+          <Ionicons name="play-forward-outline" size={20} color={colors.textMuted} />
         </TouchableOpacity>
       )}
     </ThemedView>

@@ -99,7 +99,7 @@ export default function UnlockScreen() : React.ReactNode {
 
       const passwordHashBase64 = Buffer.from(passwordHash).toString('base64');
 
-      // Initialize the database with the vault response and password
+      // Test the database connection with the derived encryption key
       if (await dbContext.testDatabaseConnection(passwordHashBase64)) {
         // Check if the vault is up to date, if not, redirect to the upgrade page.
         if (await dbContext.hasPendingMigrations()) {
@@ -107,8 +107,11 @@ export default function UnlockScreen() : React.ReactNode {
           return;
         }
 
-        // Navigate to credentials
-        router.replace('/(tabs)/credentials');
+        /*
+         * Navigate to initialize page which will handle vault sync and then navigate to credentials
+         * This ensures we always check for vault updates even after local unlock
+         */
+        router.replace('/initialize');
       } else {
         Alert.alert(t('common.error'), t('auth.errors.incorrectPassword'));
       }

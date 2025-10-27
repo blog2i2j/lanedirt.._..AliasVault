@@ -26,8 +26,44 @@ export default function ReinitializeScreen() : React.ReactNode {
   const [showSkipButton, setShowSkipButton] = useState(false);
   const hasInitialized = useRef(false);
   const skipButtonTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastStatusRef = useRef<string>('');
+  const canShowSkipButtonRef = useRef(false); // Only allow skip button after vault unlock
   const colors = useColors();
   const { t } = useTranslation();
+
+  /**
+   * Update status with smart skip button logic.
+   * Normalizes status by removing animation dots and manages skip button visibility.
+   */
+  const updateStatus = useCallback((message: string): void => {
+    setStatus(message);
+
+    // Normalize status by removing animation dots for comparison
+    const normalizedMessage = message.replace(/\.+$/, '');
+    const normalizedLastStatus = lastStatusRef.current.replace(/\.+$/, '');
+
+    // Clear any existing timeout
+    if (skipButtonTimeoutRef.current) {
+      clearTimeout(skipButtonTimeoutRef.current);
+      skipButtonTimeoutRef.current = null;
+    }
+
+    // If status changed (excluding dots), hide skip button and reset timer
+    if (normalizedMessage !== normalizedLastStatus) {
+      setShowSkipButton(false);
+      lastStatusRef.current = message;
+
+      // Start new timer for the new status (only if skip button is allowed)
+      if (message && canShowSkipButtonRef.current) {
+        skipButtonTimeoutRef.current = setTimeout(() => {
+          setShowSkipButton(true);
+        }, 5000) as unknown as NodeJS.Timeout;
+      }
+    } else {
+      // Same status (excluding dots) - update ref but keep timer running
+      lastStatusRef.current = message;
+    }
+  }, []);
 
   /**
    * Handle offline scenario - show alert with options to open local vault or retry sync.
@@ -43,7 +79,7 @@ export default function ReinitializeScreen() : React.ReactNode {
            * Handle opening vault in read-only mode.
            */
           onPress: async () : Promise<void> => {
-            setStatus(t('app.status.openingVaultReadOnly'));
+            updateStatus(t('app.status.openingVaultReadOnly'));
             const { enabledAuthMethods } = await app.initializeAuth();
 
             try {
@@ -66,7 +102,7 @@ export default function ReinitializeScreen() : React.ReactNode {
               }
 
               // Attempt to unlock vault
-              setStatus(t('app.status.unlockingVault'));
+              updateStatus(t('app.status.unlockingVault'));
               const isUnlocked = await dbContext.unlockVault();
 
               // Vault couldn't be unlocked
@@ -76,9 +112,7 @@ export default function ReinitializeScreen() : React.ReactNode {
               }
 
               // Vault successfully unlocked - proceed with decryption
-              await new Promise(resolve => setTimeout(resolve, 1000));
-              setStatus(t('app.status.decryptingVault'));
-              await new Promise(resolve => setTimeout(resolve, 1000));
+              await new Promise(resolve => setTimeout(resolve, 500));
 
               // Migrations pending
               if (await dbContext.hasPendingMigrations()) {
@@ -130,7 +164,7 @@ export default function ReinitializeScreen() : React.ReactNode {
            * Handle retrying the connection.
            */
           onPress: () : void => {
-            setStatus(t('app.status.retryingConnection'));
+            updateStatus(t('app.status.retryingConnection'));
             setShowSkipButton(false);
 
             // Clear any existing timeout
@@ -138,6 +172,9 @@ export default function ReinitializeScreen() : React.ReactNode {
               clearTimeout(skipButtonTimeoutRef.current);
               skipButtonTimeoutRef.current = null;
             }
+
+            // Reset status tracking
+            lastStatusRef.current = '';
 
             /**
              * Reset the hasInitialized flag and navigate to reinitialize route
@@ -149,7 +186,7 @@ export default function ReinitializeScreen() : React.ReactNode {
         }
       ]
     );
-  }, [app, dbContext, t]);
+  }, [app, dbContext, t, updateStatus]);
 
   useEffect(() => {
     if (hasInitialized.current) {
@@ -202,50 +239,10 @@ export default function ReinitializeScreen() : React.ReactNode {
     }
 
     /**
-     * Handle vault unlocking process.
-     */
-    async function handleVaultUnlock() : Promise<void> {
-      const { enabledAuthMethods } = await app.initializeAuth();
-
-      try {
-        const hasEncryptedDatabase = await NativeVaultManager.hasEncryptedDatabase();
-        if (hasEncryptedDatabase) {
-          const isFaceIDEnabled = enabledAuthMethods.includes('faceid');
-          if (!isFaceIDEnabled) {
-            router.replace('/unlock');
-            return;
-          }
-
-          setStatus(t('app.status.unlockingVault'));
-          const isUnlocked = await dbContext.unlockVault();
-          if (isUnlocked) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            setStatus(t('app.status.decryptingVault'));
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // Check if the vault is up to date, if not, redirect to the upgrade page.
-            if (await dbContext.hasPendingMigrations()) {
-              router.replace('/upgrade');
-              return;
-            }
-
-            redirectToReturnUrl();
-            return;
-          }
-        }
-
-        router.replace('/unlock');
-      } catch (err) {
-        console.error('Error during vault unlock:', err);
-        router.replace('/unlock');
-      }
-    }
-
-    /**
      * Initialize the app.
      */
     const initialize = async () : Promise<void> => {
-      const { isLoggedIn } = await app.initializeAuth();
+      const { isLoggedIn, enabledAuthMethods } = await app.initializeAuth();
 
       // If user is not logged in, navigate to login immediately
       if (!isLoggedIn) {
@@ -253,33 +250,91 @@ export default function ReinitializeScreen() : React.ReactNode {
         return;
       }
 
-      // If we already have an unlocked vault, we can skip the sync and go straight to the credentials screen
-      if (await NativeVaultManager.isVaultUnlocked()) {
-        router.replace('/(tabs)/credentials');
-        return;
+      /**
+       * If we already have an unlocked vault, we can skip the biometric unlock
+       * but still need to perform vault sync to check for updates.
+       */
+      const isAlreadyUnlocked = await NativeVaultManager.isVaultUnlocked();
+
+      if (!isAlreadyUnlocked) {
+        // Check if we have an encrypted database and if FaceID is enabled
+        try {
+          const hasEncryptedDatabase = await NativeVaultManager.hasEncryptedDatabase();
+
+          if (hasEncryptedDatabase) {
+            const isFaceIDEnabled = enabledAuthMethods.includes('faceid');
+
+            // Only attempt to unlock if FaceID is enabled
+            if (isFaceIDEnabled) {
+              // Unlock vault FIRST (before network sync) - this is not skippable
+              updateStatus(t('app.status.unlockingVault'));
+              const isUnlocked = await dbContext.unlockVault();
+
+              if (!isUnlocked) {
+                // Failed to unlock, redirect to unlock screen
+                router.replace('/unlock');
+                return;
+              }
+
+              // Add small delay for UX
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              updateStatus(t('app.status.decryptingVault'));
+              await new Promise(resolve => setTimeout(resolve, 1000));
+
+              // Check if the vault needs migration before syncing
+              if (await dbContext.hasPendingMigrations()) {
+                router.replace('/upgrade');
+                return;
+              }
+
+              // Vault unlocked successfully - now allow skip button for network operations
+              canShowSkipButtonRef.current = true;
+            } else {
+              // No FaceID, redirect to unlock screen
+              router.replace('/unlock');
+              return;
+            }
+          } else {
+            // No encrypted database, redirect to unlock screen
+            router.replace('/unlock');
+            return;
+          }
+        } catch (err) {
+          console.error('Error during initial vault unlock:', err);
+          router.replace('/unlock');
+          return;
+        }
+      } else {
+        /**
+         * Vault already unlocked (e.g., from password unlock)
+         * Check if migrations are needed.
+         */
+        if (await dbContext.hasPendingMigrations()) {
+          router.replace('/upgrade');
+          return;
+        }
+
+        /**
+         * Allow skip button for sync operations since vault is already unlocked.
+         */
+        canShowSkipButtonRef.current = true;
       }
 
-      // First perform vault sync
+      // Now perform vault sync (network operations - these are skippable)
       await syncVault({
         initialSync: true,
         /**
          * Handle the status update.
          */
         onStatus: (message) => {
-          setStatus(message);
-
-          // Show skip button after 5 seconds when we start loading
-          if (message && !skipButtonTimeoutRef.current) {
-            skipButtonTimeoutRef.current = setTimeout(() => {
-              setShowSkipButton(true);
-            }, 5000) as unknown as NodeJS.Timeout;
-          }
+          updateStatus(message);
         },
         /**
-         * Handle successful vault sync and continue with vault unlock flow.
+         * Handle successful vault sync.
          */
         onSuccess: async () => {
-          await handleVaultUnlock();
+          // Vault already unlocked, just navigate to return URL
+          redirectToReturnUrl();
         },
         /**
          * Handle error during vault sync.
@@ -287,8 +342,8 @@ export default function ReinitializeScreen() : React.ReactNode {
          */
         onError: (error: string) => {
           console.error('Vault sync error during reinitialize:', error);
-          // Even if sync fails, try to continue with local vault if available
-          handleVaultUnlock();
+          // Even if sync fails, vault is already unlocked, so navigate to return URL
+          redirectToReturnUrl();
         },
         /**
          * Handle offline state and prompt user for action.
@@ -306,7 +361,7 @@ export default function ReinitializeScreen() : React.ReactNode {
     };
 
     initialize();
-  }, [syncVault, app, dbContext, t, handleOfflineFlow]);
+  }, [syncVault, app, dbContext, t, handleOfflineFlow, updateStatus]);
 
   /**
    * Handle skip button press by calling the offline handler.
@@ -315,9 +370,11 @@ export default function ReinitializeScreen() : React.ReactNode {
     // Clear any existing timeout
     if (skipButtonTimeoutRef.current) {
       clearTimeout(skipButtonTimeoutRef.current);
+      skipButtonTimeoutRef.current = null;
     }
 
     setShowSkipButton(false);
+    lastStatusRef.current = '';
 
     handleOfflineFlow();
   };
@@ -377,7 +434,7 @@ export default function ReinitializeScreen() : React.ReactNode {
           {status ? <LoadingIndicator status={status} /> : null}
           {showSkipButton && (
             <TouchableOpacity style={styles.skipButton} onPress={handleSkipPress}>
-              <Ionicons name="close" size={20} color={colors.textMuted} />
+              <Ionicons name="play-forward-outline" size={20} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>

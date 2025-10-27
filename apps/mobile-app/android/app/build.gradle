@@ -183,6 +183,17 @@ dependencies {
     // Add biometric dependency for credential management
     implementation("androidx.biometric:biometric:1.1.0")
 
+    // Add Credential Manager dependencies for passkey support (Android 14+)
+    implementation("androidx.credentials:credentials:1.6.0-beta02")
+    implementation("androidx.credentials:credentials-play-services-auth:1.6.0-beta02")
+
+    // Add Material Design components for UI
+    implementation("com.google.android.material:material:1.11.0")
+
+    // Add Fragment and ViewModel dependencies for fragment-based UI
+    implementation("androidx.fragment:fragment-ktx:1.6.2")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
+
     // Add vector drawable support for SVG
     implementation("com.caverock:androidsvg-aar:1.4")
 
@@ -265,7 +276,8 @@ task lintCheck {
 
 // Add a task dependency to make ktlint run before build
 tasks.named("preBuild") {
-    dependsOn("ktlintCheck")
+    dependsOn("lintFormat")
+    dependsOn("lintCheck")
 }
 
 // Ensure codegen completes before ktlint tasks run

@@ -1,6 +1,7 @@
 import Foundation
 import SQLite
 import VaultModels
+import VaultUtils
 
 /// Extension for the VaultStore class to handle query management
 extension VaultStore {
@@ -118,19 +119,48 @@ extension VaultStore {
         let tempDbPath = FileManager.default.temporaryDirectory.appendingPathComponent("temp_db.sqlite")
         try Data().write(to: tempDbPath)
 
-        try dbConnection.attach(.uri(tempDbPath.path, parameters: [.mode(.readWrite)]), as: "target")
+        do {
+            try dbConnection.attach(.uri(tempDbPath.path, parameters: [.mode(.readWrite)]), as: "target")
 
-        let tables = try dbConnection.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
-        try dbConnection.execute("BEGIN TRANSACTION")
-        for table in tables {
-            guard let tableName = table[0] as? String else {
-                print("Warning: Unexpected value in table name column")
-                continue
+            let tables = try dbConnection.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+            try dbConnection.execute("BEGIN TRANSACTION")
+
+            for table in tables {
+                guard let tableName = table[0] as? String else {
+                    continue
+                }
+                try dbConnection.execute("CREATE TABLE target.\(tableName) AS SELECT * FROM main.\(tableName)")
             }
-            try dbConnection.execute("CREATE TABLE target.\(tableName) AS SELECT * FROM main.\(tableName)")
+
+            try dbConnection.execute("COMMIT")
+
+            // Retry DETACH with delay to handle database lock after COMMIT
+            // SQLite may not immediately release locks after COMMIT completes
+            var detachSuccess = false
+            var lastError: Error?
+
+            for attempt in 1...5 {
+                do {
+                    try dbConnection.execute("DETACH DATABASE target")
+                    detachSuccess = true
+                    break
+                } catch {
+                    lastError = error
+                    if "\(error)".lowercased().contains("locked") && attempt < 5 {
+                        Thread.sleep(forTimeInterval: 0.1)
+                    } else {
+                        break
+                    }
+                }
+            }
+
+            if !detachSuccess {
+                throw lastError ?? NSError(domain: "VaultStore", code: 5, userInfo: [NSLocalizedDescriptionKey: "Failed to detach database"])
+            }
+        } catch {
+            try? dbConnection.execute("DETACH DATABASE target")
+            throw error
         }
-        try dbConnection.execute("COMMIT")
-        try dbConnection.execute("DETACH DATABASE target")
 
         let rawData = try Data(contentsOf: tempDbPath)
         let base64String = rawData.base64EncodedString()
@@ -138,8 +168,7 @@ extension VaultStore {
         let encryptedBase64String = encryptedBase64Data.base64EncodedString()
 
         try storeEncryptedDatabase(encryptedBase64String)
-
-        try FileManager.default.removeItem(at: tempDbPath)
+        try? FileManager.default.removeItem(at: tempDbPath)
     }
 
     /// Rollback a transaction on the database on error.
@@ -156,8 +185,6 @@ extension VaultStore {
         guard let dbConnection = self.dbConnection else {
             throw NSError(domain: "VaultStore", code: 4, userInfo: [NSLocalizedDescriptionKey: "Database not initialized"])
         }
-
-        print("Executing get all credentials query..")
 
         let query = """
             WITH LatestPasswords AS (
@@ -224,8 +251,8 @@ extension VaultStore {
                 continue
             }
 
-            guard let createdAt = parseDateString(createdAtString),
-                let updatedAt = parseDateString(updatedAtString) else {
+            guard let createdAt = DateHelpers.parseDateString(createdAtString),
+                let updatedAt = DateHelpers.parseDateString(updatedAtString) else {
                 continue
             }
 
@@ -236,8 +263,8 @@ extension VaultStore {
                 let serviceCreatedAtString = row[11] as? String,
                 let serviceUpdatedAtString = row[12] as? String,
                 let serviceIsDeletedInt64 = row[13] as? Int64,
-                let serviceCreatedAt = parseDateString(serviceCreatedAtString),
-                let serviceUpdatedAt = parseDateString(serviceUpdatedAtString) else {
+                let serviceCreatedAt = DateHelpers.parseDateString(serviceCreatedAtString),
+                let serviceUpdatedAt = DateHelpers.parseDateString(serviceUpdatedAtString) else {
                 continue
             }
 
@@ -258,14 +285,14 @@ extension VaultStore {
                 let aliasCreatedAtString = row[26] as? String,
                 let aliasUpdatedAtString = row[27] as? String,
                 let aliasIsDeletedInt64 = row[28] as? Int64,
-                let aliasCreatedAt = parseDateString(aliasCreatedAtString),
-                let aliasUpdatedAt = parseDateString(aliasUpdatedAtString) {
+                let aliasCreatedAt = DateHelpers.parseDateString(aliasCreatedAtString),
+                let aliasUpdatedAt = DateHelpers.parseDateString(aliasUpdatedAtString) {
 
                 let aliasIsDeleted = aliasIsDeletedInt64 == 1
 
                 let aliasBirthDate: Date
                 if let aliasBirthDateString = row[24] as? String,
-                   let parsedBirthDate = parseDateString(aliasBirthDateString) {
+                   let parsedBirthDate = DateHelpers.parseDateString(aliasBirthDateString) {
                     aliasBirthDate = parsedBirthDate
                 } else {
                     // Use 0001-01-01 00:00 as the default date if birthDate is null
@@ -299,8 +326,8 @@ extension VaultStore {
             let passwordCreatedAtString = row[16] as? String,
             let passwordUpdatedAtString = row[17] as? String,
             let passwordIsDeletedInt64 = row[18] as? Int64,
-            let passwordCreatedAt = parseDateString(passwordCreatedAtString),
-            let passwordUpdatedAt = parseDateString(passwordUpdatedAtString) {
+            let passwordCreatedAt = DateHelpers.parseDateString(passwordCreatedAtString),
+            let passwordUpdatedAt = DateHelpers.parseDateString(passwordUpdatedAtString) {
 
                 let passwordIsDeleted = passwordIsDeletedInt64 == 1
 
@@ -314,6 +341,9 @@ extension VaultStore {
                 )
             }
 
+            // Load passkeys for this credential
+            let passkeys = try getPasskeys(forCredentialId: UUID(uuidString: idString)!)
+
             let credential = Credential(
                 id: UUID(uuidString: idString)!,
                 alias: alias,
@@ -321,6 +351,7 @@ extension VaultStore {
                 username: row[2] as? String,
                 notes: row[3] as? String,
                 password: password,
+                passkeys: passkeys,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 isDeleted: isDeleted
@@ -328,60 +359,20 @@ extension VaultStore {
             result.append(credential)
         }
 
-        print("Found \(result.count) credentials")
-
         return result
     }
     // swiftlint:enable function_body_length
 
-    /// Parse a date string to a Date object for use in queries.
-    private func parseDateString(_ dateString: String) -> Date? {
-        // Static date formatters for performance
-        struct StaticFormatters {
-            static let formatterWithMillis: DateFormatter = {
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
-                formatter.locale = Locale(identifier: "en_US_POSIX")
-                formatter.timeZone = TimeZone(secondsFromGMT: 0)
-                return formatter
-            }()
+    /// Get all credentials that have passkeys by filtering the result of getAllCredentials.
+    public func getAllCredentialsWithPasskeys() throws -> [Credential] {
+        var credentials = try getAllCredentials()
 
-            static let formatterWithoutMillis: DateFormatter = {
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                formatter.locale = Locale(identifier: "en_US_POSIX")
-                formatter.timeZone = TimeZone(secondsFromGMT: 0)
-                return formatter
-            }()
-
-            static let isoFormatter: ISO8601DateFormatter = {
-                let formatter = ISO8601DateFormatter()
-                formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                formatter.timeZone = TimeZone(secondsFromGMT: 0)
-                return formatter
-            }()
+        // Filter to only include credentials that actually have passkeys
+        credentials = credentials.filter { credential in
+            guard let passkeys = credential.passkeys else { return false }
+            return !passkeys.isEmpty
         }
 
-        let cleanedDateString = dateString.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // If ends with 'Z' or contains timezone, attempt ISO8601 parsing
-        if cleanedDateString.contains("Z") || cleanedDateString.contains("+") || cleanedDateString.contains("-") {
-            if let isoDate = StaticFormatters.isoFormatter.date(from: cleanedDateString) {
-                return isoDate
-            }
-        }
-
-        // Try parsing with milliseconds
-        if let dateWithMillis = StaticFormatters.formatterWithMillis.date(from: cleanedDateString) {
-            return dateWithMillis
-        }
-
-        // Try parsing without milliseconds
-        if let dateWithoutMillis = StaticFormatters.formatterWithoutMillis.date(from: cleanedDateString) {
-            return dateWithoutMillis
-        }
-
-        // If parsing still fails, return nil
-        return nil
+        return credentials
     }
 }

@@ -65,11 +65,6 @@ extension VaultStore {
         print("Stored key in memory, will be persisted in keychain upon succesful decrypt operation")
     }
 
-    /// Check if a encryption key is stored in memory
-    public func hasEncryptionKeyInMemory() -> Bool {
-        return self.encryptionKey != nil
-    }
-
     /// Store the key derivation parameters used for deriving the encryption key from the plain text password
     public func storeEncryptionKeyDerivationParams(_ keyDerivationParams: String) throws {
         // Store the key derivation params in memory
@@ -122,6 +117,25 @@ extension VaultStore {
 
             throw NSError(domain: "VaultStore", code: 12, userInfo: [NSLocalizedDescriptionKey: "Decryption failed"])
         }
+    }
+
+    /// Check if biometric authentication is enabled and available
+    /// Returns true if Face ID is enabled in settings AND the device supports biometric authentication
+    public func isBiometricAuthEnabled() -> Bool {
+        // Check if Face ID is enabled in app settings
+        guard self.enabledAuthMethods.contains(.faceID) else {
+            return false
+        }
+
+        #if targetEnvironment(simulator)
+            // In simulator, always return true if Face ID is enabled in settings
+            return true
+        #else
+            // Check if device supports biometric authentication
+            let context = LAContext()
+            var error: NSError?
+            return context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+        #endif
     }
 
     /// Get the encryption key - the key used to encrypt and decrypt the vault.

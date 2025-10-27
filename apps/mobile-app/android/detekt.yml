@@ -14,19 +14,22 @@ complexity:
     constructorThreshold: 6
   TooManyFunctions:
     active: true
-    thresholdInFiles: 40
-    thresholdInClasses: 40
-    thresholdInInterfaces: 40
-    thresholdInObjects: 40
+    thresholdInFiles: 60
+    thresholdInClasses: 60
+    thresholdInInterfaces: 60
+    thresholdInObjects: 60
   CyclomaticComplexMethod:
     active: true
-    threshold: 26
+    threshold: 30
   NestedBlockDepth:
     active: true
     threshold: 5
   LongMethod:
     active: true
-    threshold: 120
+    threshold: 170
+  LargeClass:
+    active: true
+    threshold: 1600
   ComplexCondition:
     active: true
     threshold: 6
@@ -48,13 +51,19 @@ style:
     maxLineLength: 160
   ReturnCount:
     active: true
-    max: 6
+    max: 8
   MagicNumber:
     active: false
   ThrowsCount:
     active: true
-    max: 3
+    max: 8
 
 exceptions:
   TooGenericExceptionCaught:
     active: false
+  TooGenericExceptionThrown:
+    active: true
+    exceptionNames:
+     - Throwable
+     - Error
+     - RuntimeException

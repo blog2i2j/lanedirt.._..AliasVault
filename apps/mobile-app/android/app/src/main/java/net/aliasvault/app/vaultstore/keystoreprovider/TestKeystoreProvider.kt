@@ -1,5 +1,7 @@
 package net.aliasvault.app.vaultstore.keystoreprovider
 
+import androidx.fragment.app.FragmentActivity
+
 /**
  * Test implementation of the keystore provider that does nothing and always returns false for biometric availability.
  * This is used for testing when biometrics are not available.
@@ -16,6 +18,10 @@ class TestKeystoreProvider : KeystoreProvider {
 
     override fun retrieveKey(callback: KeystoreOperationCallback) {
         // Do nothing in test implementation
+        callback.onError(Exception("No key found (test)"))
+    }
+
+    override fun retrieveKeyExternal(activity: FragmentActivity, callback: KeystoreOperationCallback) {
         callback.onError(Exception("No key found (test)"))
     }
 

@@ -30,7 +30,7 @@ export default function SettingsLayout(): React.ReactNode {
       <Stack.Screen
         name="ios-autofill"
         options={{
-          title: t('settings.iosAutofill'),
+          title: t('settings.autofill'),
           headerBackTitle: t('settings.title'),
           ...defaultHeaderOptions,
         }}
@@ -38,7 +38,7 @@ export default function SettingsLayout(): React.ReactNode {
       <Stack.Screen
         name="android-autofill"
         options={{
-          title: t('settings.androidAutofill'),
+          title: t('settings.autofill'),
           headerBackTitle: t('settings.title'),
           ...defaultHeaderOptions,
         }}
