@@ -28,8 +28,8 @@ for target in "${TARGETS[@]}"; do
   # (Re)create the target directory
   mkdir -p "$target"
 
-  # Copy all build outputs
-  cp -R "$dist_path"/* "$target/"
+  # Copy all build outputs (excluding .map files)
+  find "$dist_path" -type f ! -name "*.map" -exec sh -c 'mkdir -p "$1/$(dirname ${2#'"$dist_path"'/})" && cp "$2" "$1/${2#'"$dist_path"'/}"' sh "$target" {} \;
 
   # Write README
   cat > "$target/README.md" <<EOF

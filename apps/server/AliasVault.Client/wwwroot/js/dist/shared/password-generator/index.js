@@ -244,4 +244,3 @@ var CreatePasswordGenerator = (settings) => {
   CreatePasswordGenerator,
   PasswordGenerator
 });
-//# sourceMappingURL=index.js.map

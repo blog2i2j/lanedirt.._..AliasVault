@@ -18,11 +18,12 @@
     </PropertyGroup>
 
     <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-        <DebugSymbols>true</DebugSymbols>
+        <DebugSymbols>false</DebugSymbols>
         <DocumentationFile>bin\Release\net9.0\AliasVault.Client.xml</DocumentationFile>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <Optimize>True</Optimize>
         <CacheBuster>$([System.DateTime]::UtcNow.ToString("yyyyMMddHHmmss"))</CacheBuster>
+        <WasmDebugLevel>0</WasmDebugLevel>
     </PropertyGroup>
 
     <UsingTask TaskName="ReplaceText" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">

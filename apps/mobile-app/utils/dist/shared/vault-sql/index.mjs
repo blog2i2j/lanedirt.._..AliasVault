@@ -1561,4 +1561,3 @@ export {
   VAULT_VERSIONS,
   VaultSqlGenerator
 };
-//# sourceMappingURL=index.mjs.map
