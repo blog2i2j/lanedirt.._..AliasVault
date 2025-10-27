@@ -1,15 +1,16 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, StyleSheet } from 'react-native';
+import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 
+import { useColors } from '@/hooks/useColorScheme';
 import { useVaultSync } from '@/hooks/useVaultSync';
 
 import LoadingIndicator from '@/components/LoadingIndicator';
 import { ThemedView } from '@/components/themed/ThemedView';
-import { useAuth } from '@/context/AuthContext';
+import { useApp } from '@/context/AppContext';
 import { useDb } from '@/context/DbContext';
-import { useWebApi } from '@/context/WebApiContext';
 import NativeVaultManager from '@/specs/NativeVaultManager';
 
 /**
@@ -18,12 +19,106 @@ import NativeVaultManager from '@/specs/NativeVaultManager';
 export default function Initialize() : React.ReactNode {
   const router = useRouter();
   const [status, setStatus] = useState('');
+  const [showSkipButton, setShowSkipButton] = useState(false);
   const hasInitialized = useRef(false);
+  const skipButtonTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { t } = useTranslation();
-  const { initializeAuth } = useAuth();
+  const app = useApp();
   const { syncVault } = useVaultSync();
   const dbContext = useDb();
-  const webApi = useWebApi();
+  const colors = useColors();
+
+  /**
+   * Handle offline scenario - show alert with options to open local vault or retry sync.
+   */
+  const handleOfflineFlow = useCallback((): void => {
+    Alert.alert(
+      t('app.alerts.syncIssue'),
+      t('app.alerts.syncIssueMessage'),
+      [
+        {
+          text: t('app.alerts.openLocalVault'),
+          /**
+           * Handle opening vault in read-only mode.
+           */
+          onPress: async () : Promise<void> => {
+            setStatus(t('app.status.openingVaultReadOnly'));
+            const { enabledAuthMethods } = await app.initializeAuth();
+
+            try {
+              const hasEncryptedDatabase = await NativeVaultManager.hasEncryptedDatabase();
+
+              // No encrypted database
+              if (!hasEncryptedDatabase) {
+                router.replace('/unlock');
+                return;
+              }
+
+              // Set offline mode
+              app.setOfflineMode(true);
+
+              // FaceID not enabled
+              const isFaceIDEnabled = enabledAuthMethods.includes('faceid');
+              if (!isFaceIDEnabled) {
+                router.replace('/unlock');
+                return;
+              }
+
+              // Attempt to unlock vault
+              setStatus(t('app.status.unlockingVault'));
+              const isUnlocked = await dbContext.unlockVault();
+
+              // Vault couldn't be unlocked
+              if (!isUnlocked) {
+                router.replace('/unlock');
+                return;
+              }
+
+              // Vault successfully unlocked - proceed with decryption
+              await new Promise(resolve => setTimeout(resolve, 750));
+              setStatus(t('app.status.decryptingVault'));
+              await new Promise(resolve => setTimeout(resolve, 750));
+
+              // Migrations pending
+              if (await dbContext.hasPendingMigrations()) {
+                router.replace('/upgrade');
+                return;
+              }
+
+              // Success - navigate to credentials
+              router.replace('/(tabs)/credentials');
+            } catch (err) {
+              console.error('Error during offline vault unlock:', err);
+              router.replace('/unlock');
+            }
+          }
+        },
+        {
+          text: t('app.alerts.retrySync'),
+          /**
+           * Handle retrying the connection.
+           */
+          onPress: () : void => {
+            setStatus(t('app.status.retryingConnection'));
+            setShowSkipButton(false);
+
+            // Clear any existing timeout
+            if (skipButtonTimeoutRef.current) {
+              clearTimeout(skipButtonTimeoutRef.current);
+              skipButtonTimeoutRef.current = null;
+            }
+
+            /**
+             * Reset the hasInitialized flag and navigate to the same route
+             * to force a re-render and trigger the useEffect again
+             */
+            hasInitialized.current = false;
+            router.replace('/initialize');
+          }
+        }
+      ]
+    );
+  }, [dbContext, router, app, t]);
 
   useEffect(() => {
     // Ensure this only runs once.
@@ -41,7 +136,7 @@ export default function Initialize() : React.ReactNode {
        * Handle vault unlocking process.
        */
       async function handleVaultUnlock() : Promise<void> {
-        const { enabledAuthMethods } = await initializeAuth();
+        const { enabledAuthMethods } = await app.initializeAuth();
 
         try {
           const hasEncryptedDatabase = await NativeVaultManager.hasEncryptedDatabase();
@@ -75,7 +170,8 @@ export default function Initialize() : React.ReactNode {
             router.replace('/unlock');
             return;
           }
-        } catch {
+        } catch (err) {
+          console.error('Error during vault unlock:', err);
           router.replace('/unlock');
           return;
         }
@@ -85,7 +181,7 @@ export default function Initialize() : React.ReactNode {
        * Initialize the app.
        */
       const initialize = async () : Promise<void> => {
-        const { isLoggedIn } = await initializeAuth();
+        const { isLoggedIn } = await app.initializeAuth();
 
         if (!isLoggedIn) {
           router.replace('/login');
@@ -100,6 +196,19 @@ export default function Initialize() : React.ReactNode {
            */
           onStatus: (message) => {
             setStatus(message);
+
+            // Clear any existing timeout
+            if (skipButtonTimeoutRef.current) {
+              clearTimeout(skipButtonTimeoutRef.current);
+              skipButtonTimeoutRef.current = null;
+            }
+
+            // Show skip button after 5 seconds when we start loading
+            if (message && !showSkipButton) {
+              skipButtonTimeoutRef.current = setTimeout(() => {
+                setShowSkipButton(true);
+              }, 5000) as unknown as NodeJS.Timeout;
+            }
           },
           /**
            * Handle successful vault sync and continue with vault unlock flow.
@@ -111,44 +220,18 @@ export default function Initialize() : React.ReactNode {
           /**
            * Handle offline state and prompt user for action.
            */
-          onOffline: async () => {
-            Alert.alert(
-              t('app.alerts.syncIssue'),
-              t('app.alerts.syncIssueMessage'),
-              [
-                {
-                  text: t('app.alerts.openLocalVault'),
-                  /**
-                   * Handle opening vault in read-only mode.
-                   */
-                  onPress: async () : Promise<void> => {
-                    setStatus(t('app.status.openingVaultReadOnly'));
-                    await handleVaultUnlock();
-                  }
-                },
-                {
-                  text: t('app.alerts.retrySync'),
-                  /**
-                   * Handle retrying the connection.
-                   */
-                  onPress: () : void => {
-                    setStatus(t('app.status.retryingConnection'));
-                    initialize();
-                  }
-                }
-              ]
-            );
+          onOffline: () => {
+            handleOfflineFlow();
           },
           /**
            * Handle error during vault sync.
            */
           onError: async (error: string) => {
-          // Show modal with error message
+            /**
+             * Authentication errors are already handled in useVaultSync
+             * Show modal with error message for other errors
+             */
             Alert.alert(t('common.error'), error);
-
-            // The logout user and navigate to the login screen.
-            await webApi.logout(error);
-            router.replace('/login');
           },
           /**
            * On upgrade required.
@@ -163,19 +246,65 @@ export default function Initialize() : React.ReactNode {
     };
 
     initializeApp();
-  }, [dbContext, syncVault, initializeAuth, webApi, router, t]);
+
+    // Cleanup timeout on unmount
+    return (): void => {
+      if (skipButtonTimeoutRef.current) {
+        clearTimeout(skipButtonTimeoutRef.current);
+      }
+    };
+  }, [dbContext, syncVault, app, router, t, handleOfflineFlow, showSkipButton]);
+
+  /**
+   * Handle skip button press by calling the offline handler.
+   */
+  const handleSkipPress = (): void => {
+    // Clear any existing timeout
+    if (skipButtonTimeoutRef.current) {
+      clearTimeout(skipButtonTimeoutRef.current);
+    }
+
+    setShowSkipButton(false);
+
+    handleOfflineFlow();
+  };
 
   const styles = StyleSheet.create({
     container: {
       alignItems: 'center',
       flex: 1,
       justifyContent: 'center',
+      paddingHorizontal: 20,
+    },
+    skipButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.accentBackground,
+      paddingVertical: 8,
+      paddingHorizontal: 20,
+      borderRadius: 8,
+      width: 200,
+      borderWidth: 1,
+      borderColor: colors.accentBorder,
+    },
+    skipButtonText: {
+      marginLeft: 8,
+      fontSize: 16,
+      color: colors.textMuted,
     },
   });
 
   return (
     <ThemedView style={styles.container}>
-      {status ? <LoadingIndicator status={status} /> : null}
+      <View>
+        <LoadingIndicator status={status || ''} />
+      </View>
+      {showSkipButton && (
+        <TouchableOpacity style={styles.skipButton} onPress={handleSkipPress}>
+          <Ionicons name="close" size={20} color={colors.textMuted} />
+        </TouchableOpacity>
+      )}
     </ThemedView>
   );
 }

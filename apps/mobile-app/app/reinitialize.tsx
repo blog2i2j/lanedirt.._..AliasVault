@@ -1,7 +1,8 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Href, router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View, Alert } from 'react-native';
+import { StyleSheet, View, Alert, TouchableOpacity } from 'react-native';
 
 import { useColors } from '@/hooks/useColorScheme';
 import { useVaultSync } from '@/hooks/useVaultSync';
@@ -9,7 +10,7 @@ import { useVaultSync } from '@/hooks/useVaultSync';
 import LoadingIndicator from '@/components/LoadingIndicator';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedView } from '@/components/themed/ThemedView';
-import { useAuth } from '@/context/AuthContext';
+import { useApp } from '@/context/AppContext';
 import { useDb } from '@/context/DbContext';
 import NativeVaultManager from '@/specs/NativeVaultManager';
 
@@ -18,13 +19,137 @@ import NativeVaultManager from '@/specs/NativeVaultManager';
  * was cleared because of a time-out. When this happens, we need to re-initialize and unlock the vault.
  */
 export default function ReinitializeScreen() : React.ReactNode {
-  const authContext = useAuth();
+  const app = useApp();
   const dbContext = useDb();
   const { syncVault } = useVaultSync();
   const [status, setStatus] = useState('');
+  const [showSkipButton, setShowSkipButton] = useState(false);
   const hasInitialized = useRef(false);
+  const skipButtonTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const colors = useColors();
   const { t } = useTranslation();
+
+  /**
+   * Handle offline scenario - show alert with options to open local vault or retry sync.
+   */
+  const handleOfflineFlow = useCallback((): void => {
+    Alert.alert(
+      t('app.alerts.syncIssue'),
+      t('app.alerts.syncIssueMessage'),
+      [
+        {
+          text: t('app.alerts.openLocalVault'),
+          /**
+           * Handle opening vault in read-only mode.
+           */
+          onPress: async () : Promise<void> => {
+            setStatus(t('app.status.openingVaultReadOnly'));
+            const { enabledAuthMethods } = await app.initializeAuth();
+
+            try {
+              const hasEncryptedDatabase = await NativeVaultManager.hasEncryptedDatabase();
+
+              // No encrypted database
+              if (!hasEncryptedDatabase) {
+                router.replace('/unlock');
+                return;
+              }
+
+              // Set offline mode
+              app.setOfflineMode(true);
+
+              // FaceID not enabled
+              const isFaceIDEnabled = enabledAuthMethods.includes('faceid');
+              if (!isFaceIDEnabled) {
+                router.replace('/unlock');
+                return;
+              }
+
+              // Attempt to unlock vault
+              setStatus(t('app.status.unlockingVault'));
+              const isUnlocked = await dbContext.unlockVault();
+
+              // Vault couldn't be unlocked
+              if (!isUnlocked) {
+                router.replace('/unlock');
+                return;
+              }
+
+              // Vault successfully unlocked - proceed with decryption
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              setStatus(t('app.status.decryptingVault'));
+              await new Promise(resolve => setTimeout(resolve, 1000));
+
+              // Migrations pending
+              if (await dbContext.hasPendingMigrations()) {
+                router.replace('/upgrade');
+                return;
+              }
+
+              // Handle navigation based on return URL
+              if (!app.returnUrl?.path) {
+                router.replace('/(tabs)/credentials');
+                return;
+              }
+
+              // Navigate to return URL
+              const path = app.returnUrl.path as string;
+              const isDetailRoute = path.includes('credentials/');
+
+              if (!isDetailRoute) {
+                router.replace({
+                  pathname: path as '/',
+                  params: app.returnUrl.params as Record<string, string>
+                });
+                app.setReturnUrl(null);
+                return;
+              }
+
+              // Handle detail routes
+              const params = app.returnUrl.params as Record<string, string>;
+              router.replace('/(tabs)/credentials');
+              setTimeout(() => {
+                if (params.serviceUrl) {
+                  router.push(`${path}?serviceUrl=${params.serviceUrl}` as Href);
+                } else if (params.id) {
+                  router.push(`${path}?id=${params.id}` as Href);
+                } else {
+                  router.push(path as Href);
+                }
+              }, 0);
+              app.setReturnUrl(null);
+            } catch (err) {
+              console.error('Error during offline vault unlock:', err);
+              router.replace('/unlock');
+            }
+          }
+        },
+        {
+          text: t('app.alerts.retrySync'),
+          /**
+           * Handle retrying the connection.
+           */
+          onPress: () : void => {
+            setStatus(t('app.status.retryingConnection'));
+            setShowSkipButton(false);
+
+            // Clear any existing timeout
+            if (skipButtonTimeoutRef.current) {
+              clearTimeout(skipButtonTimeoutRef.current);
+              skipButtonTimeoutRef.current = null;
+            }
+
+            /**
+             * Reset the hasInitialized flag and navigate to reinitialize route
+             * to force a re-render and trigger the useEffect again
+             */
+            hasInitialized.current = false;
+            router.replace('/reinitialize');
+          }
+        }
+      ]
+    );
+  }, [app, dbContext, t]);
 
   useEffect(() => {
     if (hasInitialized.current) {
@@ -47,29 +172,29 @@ export default function ReinitializeScreen() : React.ReactNode {
         }, 0);
       }
 
-      if (authContext.returnUrl?.path) {
+      if (app.returnUrl?.path) {
         // Type assertion needed due to router type limitations
-        const path = authContext.returnUrl.path as '/';
+        const path = app.returnUrl.path as '/';
         const isDetailRoute = path.includes('credentials/');
         if (isDetailRoute) {
           // If there is a "serviceUrl" or "id" param from the return URL, use it.
-          const params = authContext.returnUrl.params as Record<string, string>;
+          const params = app.returnUrl.params as Record<string, string>;
 
           if (params.serviceUrl) {
-            simulateStackNavigation('/(tabs)/credentials', path + '?serviceUrl=' + params.serviceUrl);
+            simulateStackNavigation('/(tabs)/credentials', `${path}?serviceUrl=${params.serviceUrl}`);
           } else if (params.id) {
-            simulateStackNavigation('/(tabs)/credentials', path + '?id=' + params.id);
+            simulateStackNavigation('/(tabs)/credentials', `${path}?id=${params.id}`);
           } else {
-            simulateStackNavigation('/(tabs)/credentials', path);
+            simulateStackNavigation('/(tabs)/credentials', path as string);
           }
         } else {
           router.replace({
             pathname: path,
-            params: authContext.returnUrl.params as Record<string, string>
+            params: app.returnUrl.params as Record<string, string>
           });
         }
         // Clear the return URL after using it
-        authContext.setReturnUrl(null);
+        app.setReturnUrl(null);
       } else {
         // If there is no return URL, navigate to the credentials tab as default entry page.
         router.replace('/(tabs)/credentials');
@@ -80,7 +205,7 @@ export default function ReinitializeScreen() : React.ReactNode {
      * Handle vault unlocking process.
      */
     async function handleVaultUnlock() : Promise<void> {
-      const { enabledAuthMethods } = await authContext.initializeAuth();
+      const { enabledAuthMethods } = await app.initializeAuth();
 
       try {
         const hasEncryptedDatabase = await NativeVaultManager.hasEncryptedDatabase();
@@ -110,7 +235,8 @@ export default function ReinitializeScreen() : React.ReactNode {
         }
 
         router.replace('/unlock');
-      } catch {
+      } catch (err) {
+        console.error('Error during vault unlock:', err);
         router.replace('/unlock');
       }
     }
@@ -119,7 +245,7 @@ export default function ReinitializeScreen() : React.ReactNode {
      * Initialize the app.
      */
     const initialize = async () : Promise<void> => {
-      const { isLoggedIn } = await authContext.initializeAuth();
+      const { isLoggedIn } = await app.initializeAuth();
 
       // If user is not logged in, navigate to login immediately
       if (!isLoggedIn) {
@@ -141,6 +267,13 @@ export default function ReinitializeScreen() : React.ReactNode {
          */
         onStatus: (message) => {
           setStatus(message);
+
+          // Show skip button after 5 seconds when we start loading
+          if (message && !skipButtonTimeoutRef.current) {
+            skipButtonTimeoutRef.current = setTimeout(() => {
+              setShowSkipButton(true);
+            }, 5000) as unknown as NodeJS.Timeout;
+          }
         },
         /**
          * Handle successful vault sync and continue with vault unlock flow.
@@ -149,35 +282,19 @@ export default function ReinitializeScreen() : React.ReactNode {
           await handleVaultUnlock();
         },
         /**
+         * Handle error during vault sync.
+         * Authentication errors are already handled in useVaultSync.
+         */
+        onError: (error: string) => {
+          console.error('Vault sync error during reinitialize:', error);
+          // Even if sync fails, try to continue with local vault if available
+          handleVaultUnlock();
+        },
+        /**
          * Handle offline state and prompt user for action.
          */
         onOffline: () => {
-          Alert.alert(
-            t('app.alerts.syncIssue'),
-            t('app.alerts.syncIssueMessage'),
-            [
-              {
-                text: t('app.alerts.openLocalVault'),
-                /**
-                 * Handle opening vault in read-only mode.
-                 */
-                onPress: async () : Promise<void> => {
-                  setStatus(t('app.status.openingVaultReadOnly'));
-                  await handleVaultUnlock();
-                }
-              },
-              {
-                text: t('app.alerts.retrySync'),
-                /**
-                 * Handle retrying the connection.
-                 */
-                onPress: () : void => {
-                  setStatus(t('app.status.retryingConnection'));
-                  initialize();
-                }
-              }
-            ]
-          );
+          handleOfflineFlow();
         },
         /**
          * On upgrade required.
@@ -189,13 +306,32 @@ export default function ReinitializeScreen() : React.ReactNode {
     };
 
     initialize();
-  }, [syncVault, authContext, dbContext, t]);
+  }, [syncVault, app, dbContext, t, handleOfflineFlow]);
+
+  /**
+   * Handle skip button press by calling the offline handler.
+   */
+  const handleSkipPress = (): void => {
+    // Clear any existing timeout
+    if (skipButtonTimeoutRef.current) {
+      clearTimeout(skipButtonTimeoutRef.current);
+    }
+
+    setShowSkipButton(false);
+
+    handleOfflineFlow();
+  };
 
   const styles = StyleSheet.create({
     container: {
       alignItems: 'center',
       flex: 1,
       justifyContent: 'center',
+      paddingHorizontal: 20,
+    },
+    contentWrapper: {
+      alignItems: 'center',
+      width: '100%',
     },
     message1: {
       marginTop: 5,
@@ -203,20 +339,48 @@ export default function ReinitializeScreen() : React.ReactNode {
     },
     message2: {
       textAlign: 'center',
+      marginBottom: 10,
     },
     messageContainer: {
       backgroundColor: colors.accentBackground,
       borderRadius: 10,
       padding: 20,
+      alignItems: 'center',
+      width: '100%',
+      maxWidth: 300,
+    },
+    skipButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.accentBackground,
+      paddingVertical: 8,
+      paddingHorizontal: 20,
+      borderRadius: 8,
+      width: 200,
+      borderWidth: 1,
+      borderColor: colors.accentBorder,
+    },
+    skipButtonText: {
+      marginLeft: 8,
+      fontSize: 16,
+      color: colors.textMuted,
     },
   });
 
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.messageContainer}>
-        <ThemedText style={styles.message1}>{t('app.reinitialize.vaultAutoLockedMessage')}</ThemedText>
-        <ThemedText style={styles.message2}>{t('app.reinitialize.attemptingToUnlockMessage')}</ThemedText>
-        {status ? <LoadingIndicator status={status} /> : null}
+      <View style={styles.contentWrapper}>
+        <View style={styles.messageContainer}>
+          <ThemedText style={styles.message1}>{t('app.reinitialize.vaultAutoLockedMessage')}</ThemedText>
+          <ThemedText style={styles.message2}>{t('app.reinitialize.attemptingToUnlockMessage')}</ThemedText>
+          {status ? <LoadingIndicator status={status} /> : null}
+          {showSkipButton && (
+            <TouchableOpacity style={styles.skipButton} onPress={handleSkipPress}>
+              <Ionicons name="close" size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </ThemedView>
   );

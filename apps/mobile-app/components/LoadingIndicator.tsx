@@ -101,6 +101,10 @@ export default function LoadingIndicator({ status }: LoadingIndicatorProps): Rea
       justifyContent: 'center',
       padding: 20,
     },
+    contentContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     dot: {
       backgroundColor: colors.tertiary,
       borderRadius: 4,
@@ -135,7 +139,8 @@ export default function LoadingIndicator({ status }: LoadingIndicatorProps): Rea
 
   return (
     <View style={styles.container}>
-      <View style={styles.dotsContainer}>
+      <View style={styles.contentContainer}>
+        <View style={styles.dotsContainer}>
         <Animated.View
           style={[
             styles.dot,
@@ -181,10 +186,11 @@ export default function LoadingIndicator({ status }: LoadingIndicatorProps): Rea
           ]}
         />
       </View>
-      <Text style={styles.statusText}>
-        {statusTrimmed}
-        {shouldShowDots && dots}
-      </Text>
+        <Text style={styles.statusText}>
+          {statusTrimmed}
+          {shouldShowDots && dots}
+        </Text>
+      </View>
     </View>
   );
 }

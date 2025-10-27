@@ -202,8 +202,7 @@ namespace AliasServerDb.Migrations
 
                     b.Property<string>("DeviceIdentifier")
                         .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("ExpireDate")
                         .HasMaxLength(255)
@@ -288,10 +287,6 @@ namespace AliasServerDb.Migrations
 
                     b.Property<DateTime>("Timestamp")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("UserAgent")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
 
                     b.Property<string>("Username")
                         .IsRequired()
