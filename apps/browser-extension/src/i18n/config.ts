@@ -9,6 +9,7 @@ import fiTranslations from './locales/fi.json';
 import heTranslations from './locales/he.json';
 import itTranslations from './locales/it.json';
 import nlTranslations from './locales/nl.json';
+import ruTranslations from './locales/ru.json';
 import ukTranslations from './locales/uk.json';
 import zhTranslations from './locales/zh.json';
 
@@ -34,6 +35,9 @@ export const LANGUAGE_RESOURCES = {
   },
   nl: {
     translation: nlTranslations
+  },
+  ru: {
+    translation: ruTranslations
   },
   uk: {
     translation: ukTranslations
@@ -89,6 +93,12 @@ export const AVAILABLE_LANGUAGES: ILanguageConfig[] = [
     name: 'Portuguese Brazilian',
     nativeName: 'Português Brasileiro',
     flag: '🇧🇷'
+  },
+  {
+    code: 'ru',
+    name: 'Russian',
+    nativeName: 'Русский',
+    flag: '🇷🇺'
   },
   {
     code: 'uk',

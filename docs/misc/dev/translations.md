@@ -16,6 +16,7 @@ AliasVault supports multiple languages across all applications. Currently suppor
 - Hebrew
 - Italian
 - Portugese (Brazilian)
+- Russian
 - Ukrainian
 - Chinese (Simplified)
 
