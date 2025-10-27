@@ -16,6 +16,12 @@ import org.json.JSONObject
  * This class stores passkey metadata (rpId, userName, displayName, credentialId, userHandle)
  * in SharedPreferences so that passkeys can be displayed without unlocking the vault.
  *
+ * Security features:
+ * - Uses MODE_PRIVATE for app-private storage (no other apps can access)
+ * - Excluded from device backups (see backup_rules.xml and data_extraction_rules.xml)
+ * - Contains no passwords, only metadata (usernames, rpIds, displayNames)
+ * - Cleared when credential provider is disabled by user
+ *
  * Similar to iOS ASCredentialIdentityStore, but using SharedPreferences as Android's
  * Credential Manager API doesn't provide a system-level identity store.
  */
@@ -41,6 +47,8 @@ class CredentialIdentityStore private constructor(context: Context) {
         }
     }
 
+    // MODE_PRIVATE ensures only this app can access the data
+    // Backup exclusion rules prevent data from being backed up
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     /**
@@ -152,6 +160,21 @@ class CredentialIdentityStore private constructor(context: Context) {
         prefs.edit()
             .remove(KEY_PASSKEY_IDENTITIES)
             .apply()
+    }
+
+    /**
+     * Check if the credential identity store is empty.
+     * This is used to determine if initial sync is needed.
+     * @return true if the store has no credential identities
+     */
+    fun isStoreEmpty(): Boolean {
+        return try {
+            val jsonString = prefs.getString(KEY_PASSKEY_IDENTITIES, null)
+            jsonString == null || JSONArray(jsonString).length() == 0
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking if store is empty", e)
+            true // Assume empty if we can't read
+        }
     }
 
     /**
