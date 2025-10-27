@@ -395,13 +395,21 @@ public class VaultManager: NSObject {
     @objc
     func openAutofillSettingsPage(_ resolve: @escaping RCTPromiseResolveBlock,
                                  rejecter reject: @escaping RCTPromiseRejectBlock) {
-        if let settingsUrl = URL(string: "App-Prefs:root") {
-            DispatchQueue.main.async {
-                UIApplication.shared.open(settingsUrl)
-                resolve(nil)
+        DispatchQueue.main.async {
+            // Open main Settings app (root page)
+            // Note: Direct deep-linking to AutoFill settings is not available in iOS
+            // User needs to navigate to: General > AutoFill & Passwords
+            if let settingsUrl = URL(string: "App-prefs:") {
+                UIApplication.shared.open(settingsUrl) { success in
+                    if success {
+                        resolve(nil)
+                    } else {
+                        reject("SETTINGS_ERROR", "Failed to open settings", nil)
+                    }
+                }
+            } else {
+                reject("SETTINGS_ERROR", "Cannot create settings URL", nil)
             }
-        } else {
-            reject("SETTINGS_ERROR", "Cannot open settings", nil)
         }
     }
 
