@@ -195,6 +195,13 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
         if currentHostingController == nil {
             do {
                 try setupView(vaultStore: vaultStore)
+
+                // Perform initial credential sync if the credential identity store is empty
+                // This is an OOBE (Out Of Box Experience) step to populate the store on first use
+                // Note: Regular syncs happen in the main app, this is just a fallback
+                Task {
+                    await performInitialSyncIfNeeded(vaultStore: vaultStore)
+                }
             } catch {
                 print("Failed to setup view: \(error)")
                 let alert = UIAlertController(
@@ -348,6 +355,32 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
             self.isQuickReturnMode = true
             self.quickReturnPasskeyRequest = passkeyRequest
             return
+        }
+    }
+
+    /// Perform initial sync if credential identity store is empty
+    /// This is called on first autofill use as an OOBE step
+    private func performInitialSyncIfNeeded(vaultStore: VaultStore) async {
+        do {
+            // Check if the credential identity store is empty
+            let isEmpty = await CredentialIdentityStore.shared.isStoreEmpty()
+            guard isEmpty else {
+                print("Credential identity store already has entries, skipping initial sync")
+                return
+            }
+
+            print("Credential identity store is empty, performing initial sync")
+
+            // Get all credentials from the vault (already unlocked)
+            let credentials = try vaultStore.getAllCredentials()
+
+            // Save credentials to the iOS credential identity store
+            try await CredentialIdentityStore.shared.saveCredentialIdentities(credentials)
+
+            print("Initial credential sync completed successfully")
+        } catch {
+            // Log error but don't block the user - they can still use autofill
+            print("Initial credential sync failed: \(error)")
         }
     }
 

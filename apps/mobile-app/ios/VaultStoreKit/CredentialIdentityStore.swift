@@ -63,6 +63,13 @@ public class CredentialIdentityStore {
         }
     }
 
+    /// Check if the credential identity store supports incremental updates and has credentials
+    /// Returns true if the store is empty or doesn't support incremental updates
+    public func isStoreEmpty() async -> Bool {
+        let state = await storeState()
+        return !state.supportsIncrementalUpdates
+    }
+
     private static func effectiveDomain(from host: String) -> String {
         let parts = host.split(separator: ".")
         guard parts.count >= 2 else { return host }
