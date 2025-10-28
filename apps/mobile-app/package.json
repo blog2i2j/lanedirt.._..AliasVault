@@ -87,7 +87,6 @@
     "@eslint/js": "^9.35.0",
     "@react-native-community/cli": "^20.0.0",
     "@stylistic/eslint-plugin": "^5.3.1",
-    "@types/argon2-browser": "^1.18.4",
     "@types/fbemitter": "^2.0.35",
     "@types/jest": "^29.5.12",
     "@types/lodash": "^4.17.16",
