@@ -10,14 +10,18 @@ All data is encrypted at rest and in transit. This ensures that even if the Alia
 the user's data remains secure.
 
 ## Encryption algorithms
-The following encryption algorithms are used by AliasVault:
+The following encryption algorithms and standards are used by AliasVault:
 
-- [Argon2id](#argon2id)
-- [SRP](#srp)
-- [AES-GCM](#aes-gcm)
-- [RSA-OAEP](#rsa-oaep)
+### Core Vault Encryption
+- [Argon2id](#argon2id) - Key derivation from master password
+- [SRP](#srp) - Secure authentication protocol
+- [AES-GCM](#aes-gcm) - Vault data encryption
 
-Below is a detailed explanation of each encryption algorithm.
+### Additional Features
+- [RSA-OAEP](#rsa-oaep) - Email encryption
+- [Passkeys (WebAuthn)](#passkeys-webauthn) - Passwordless authentication
+
+Below is a detailed explanation of each encryption algorithm and standard.
 
 For more information about how these algorithms are specifically used in AliasVault, see the [Architecture Documentation](https://docs.aliasvault.net/architecture) section on the documentation site.
 
@@ -93,3 +97,39 @@ This implementation ensures that:
 - Even if the server is compromised, email contents remain encrypted and unreadable
 
 More information about RSA-OAEP can be found on the [RSA-OAEP](https://en.wikipedia.org/wiki/Optimal_asymmetric_encryption_padding) Wikipedia page.
+
+### Passkeys (WebAuthn)
+AliasVault includes a virtual passkey authenticator that is fully compatible with the WebAuthn Level 2 specification. This enables users to securely store and use passkeys across their devices through the encrypted vault, providing a seamless and secure alternative to traditional password authentication.
+
+#### Implementation Details
+AliasVault implements passkey functionality across all supported platforms:
+- **Browser Extension**: Virtual authenticator using the Web Crypto API
+- **iOS**: Native Swift implementation using CryptoKit
+- **Android**: Native Kotlin implementation using AndroidKeyStore
+
+All implementations follow the WebAuthn Level 2 specification and use:
+- ES256 (ECDSA P-256) for key pair generation
+- CBOR/COSE encoding for attestation objects
+- Proper authenticator data with WebAuthn flags (UP, UV, BE, BS, AT)
+- AliasVault AAGUID (Authenticator Attestation GUID): `a11a5faa-9f32-4b8c-8c5d-2f7d13e8c942`
+- Self-attestation (packed format) or none attestation
+- Sign count always 0 for syncable passkeys
+- BE/BS flags indicating backup-eligible and backed-up status
+
+#### Key Features
+1. **Zero-Knowledge Passkey Storage**: Passkey private keys are stored as encrypted entries in the user's vault alongside passwords and other credentials. The server never has access to the unencrypted private keys.
+
+2. **Cross-Platform Sync**: Passkeys automatically sync across all devices where the user's vault is accessible, enabling seamless authentication on any platform (browser extension, iOS app, or Android app).
+
+3. **PRF Extension Support**: Implements the hmac-secret (PRF) extension, allowing relying parties to derive additional secrets from passkeys for encryption keys or other cryptographic operations. Currently supported on browser extension and iOS; Android support is pending due to limited Android API support.
+
+4. **Standards Compliance**: Full adherence to WebAuthn Level 2 specification ensures compatibility with all WebAuthn-compliant relying parties and services.
+
+#### Security Benefits
+- Private keys remain encrypted in the vault at all times
+- All passkey operations (key generation, signing) occur on the client device
+- Passkeys benefit from the same zero-knowledge architecture as passwords
+- Cross-device sync provides convenience without compromising security
+- Eliminates phishing risks through cryptographic domain binding
+
+More information about WebAuthn can be found on the [WebAuthn specification](https://www.w3.org/TR/webauthn-2/) page.

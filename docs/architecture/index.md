@@ -70,6 +70,64 @@ You can also view the diagram in a browser-friendly HTML format: [AliasVault Sec
 
 > Note: The use of a symmetric key for email content encryption and asymmetric encryption for the symmetric key (hybrid encryption) is implemented due to RSA's limitations on encryption string length and for better performance.
 
+### 5. Passkey Authentication System
+
+AliasVault includes a virtual passkey authenticator that implements the WebAuthn Level 2 specification, allowing users to securely store and use passkeys for passwordless authentication across websites and services.
+
+#### Virtual Authenticator Implementation
+1. Platform Support
+    - Browser Extension: Virtual authenticator using Web Crypto API
+    - iOS: Native Swift implementation using CryptoKit
+    - Android: Native Kotlin implementation using AndroidKeyStore
+    - All platforms provide consistent WebAuthn Level 2 compliant behavior
+
+2. Key Management
+    - ES256 (ECDSA P-256) key pairs generated locally on client device
+    - Private keys stored as encrypted entries in the user's vault
+    - Public keys used for WebAuthn authentication with relying parties
+    - All key material encrypted using the same AES-256-GCM vault encryption
+
+#### Passkey Registration Process
+1. When registering a new passkey:
+    - Client generates an ES256 (ECDSA P-256) key pair locally
+    - Private key is encrypted and stored in the user's vault
+    - Public key is sent to the relying party (website/service)
+    - Attestation object created with proper WebAuthn flags:
+        - UP (User Present) - User interaction confirmed
+        - AT (Attested Credential Data) - New credential created
+        - UV (User Verified) - Optional, based on user verification requirement
+        - BE (Backup Eligible) - Credential can be backed up
+        - BS (Backup State) - Credential is backed up in vault
+
+2. Authenticator Data
+    - Uses AliasVault's unique AAGUID (Authenticator Attestation GUID): `a11a5faa-9f32-4b8c-8c5d-2f7d13e8c942`
+    - Sign count always 0 for syncable credentials
+    - Supports both "none" and "packed" self-attestation formats
+    - CBOR/COSE encoding for attestation objects
+
+#### Passkey Authentication Process
+1. When authenticating with an existing passkey:
+    - Client retrieves encrypted passkey from vault
+    - Private key decrypted locally using vault encryption key
+    - Client signs authentication challenge using private key
+    - Signature sent to relying party for verification
+    - All cryptographic operations performed client-side
+
+2. Cross-Platform Synchronization
+    - Passkeys automatically sync across all user devices
+    - Encrypted passkey data synchronized through vault sync mechanism
+    - Enables seamless authentication on browser extension, iOS app, and Android app
+    - Maintains zero-knowledge architecture during sync
+
+#### Additional Capabilities
+1. PRF Extension (hmac-secret)
+    - Supports WebAuthn PRF extension for deriving additional secrets
+    - Enables relying parties to use passkeys for encryption key derivation
+    - PRF secrets stored encrypted in vault alongside passkey data
+    - Implements HMAC-SHA256 for PRF evaluation
+    - PRF is supported via browser extension and iOS (0.24.0+)
+        - Android support is pending due to limited Android API support
+
 ## Security Benefits
 - Zero-knowledge architecture ensures user data privacy
 - Master password never leaves the client device
@@ -78,5 +136,8 @@ You can also view the diagram in a browser-friendly HTML format: [AliasVault Sec
 - Multi-layer encryption for emails provides secure communication
 - Optional 2FA adds an additional security layer
 - Use of established cryptographic standards (Argon2id, AES-256-GCM, RSA/OAEP)
+- Passkey private keys remain encrypted in vault at all times
+- Cross-platform passkey sync without compromising security
+- WebAuthn compliance eliminates phishing risks through domain binding
 
 This security architecture ensures that even if the server is compromised, user data remains secure as all sensitive operations and keys remain strictly on the client side.
