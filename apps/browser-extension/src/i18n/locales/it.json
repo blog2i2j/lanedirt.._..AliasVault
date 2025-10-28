@@ -37,7 +37,8 @@
       "migrationError": "Si è verificato un errore nel controllo delle migrazioni pendenti.",
       "wrongPassword": "Password non corretta. Riprova nuovamente.",
       "accountLocked": "Account temporaneamente bloccato a causa di troppi tentativi falliti.",
-      "networkError": "Errore di rete: Controlla la tua connessione e riprova."
+      "networkError": "Errore di rete: Controlla la tua connessione e riprova.",
+      "sessionExpired": "La tua sessione è scaduta. Effettua di nuovo il login."
     }
   },
   "menu": {
@@ -51,8 +52,10 @@
     "error": "Errore",
     "success": "Riuscito",
     "cancel": "Annulla",
+    "back": "Indietro",
     "use": "Usa",
     "delete": "Elimina",
+    "or": "O",
     "close": "Chiudi",
     "copied": "Copiato!",
     "openInNewWindow": "Apri in una nuova finestra",
@@ -90,6 +93,7 @@
     "errors": {
       "serverNotAvailable": "Il server di AliasVault non è disponibile. Riprova più tardi o contatta il supporto se il problema persiste.",
       "clientVersionNotSupported": "Questa versione dell'estensione del browser AliasVault non è più supportata dal server. Aggiorna l'estensione alla versione più recente.",
+      "browserExtensionOutdated": "Questa estensione del browser è obsoleta e non può essere utilizzata per accedere a questa cassaforte. Si prega di aggiornare questa estensione per continuare.",
       "serverVersionNotSupported": "Il server di AliasVault necessita un aggiornamento a una versione più recente per poter usare questa estensione. Contatta il supporto se hai bisogno di assistenza.",
       "unknownError": "Si è verificato un errore sconosciuto",
       "vaultNotAvailable": "Cassaforte non disponibile",
@@ -195,6 +199,8 @@
     "searchPlaceholder": "Cerca credenziali...",
     "welcomeTitle": "Benvenuto in AliasVault!",
     "welcomeDescription": "Per usare l'estensione browser AliasVault: naviga su un sito e usa la finestra di compilazione automatica per creare una nuova credenziale.",
+    "noPasskeysFound": "Non sono state ancora create chiavi di accesso. Le passkey vengono create visitando un sito web che offre le chiavi di accesso come metodo di autenticazione.",
+    "noMatchingCredentials": "Nessuna credenziale corrispondente trovata",
     "createdAt": "Creato",
     "updatedAt": "Ultimo aggiornamento",
     "autofill": "Compilazione automatica",
@@ -210,6 +216,12 @@
     "saveCredential": "Salva credenziale",
     "deleteCredentialTitle": "Elimina credenziale",
     "deleteCredentialConfirm": "Sei sicuro di voler eliminare queste credenziali? Questa azione non può essere annullata.",
+    "filters": {
+      "all": "(Tutte) Credenziali",
+      "passkeys": "Passkey",
+      "aliases": "Alias",
+      "userpass": "Password"
+    },
     "randomAlias": "Alias casuale",
     "manual": "Manuale",
     "service": "Servizio",
@@ -342,11 +354,23 @@
     "autofillSettings": "Impostazioni di riempimento automatico",
     "clipboardSettings": "Impostazioni appunti",
     "contextMenuSettings": "Preferenze menu contestuale",
+    "passkeySettings": "Impostazioni Passkey",
     "contextMenu": "Menu contestuale",
     "contextMenuEnabled": "Il menu contestuale è attivato",
     "contextMenuDisabled": "Il menu contestuale è disabilitato",
     "contextMenuDescription": "Click destro sui campi di input per accedere alle opzioni di AliasVault",
     "selectLanguage": "Seleziona la lingua",
+    "serverConfiguration": "Server Configuration",
+    "serverConfigurationDescription": "Configure the AliasVault server URL for self-hosted instances",
+    "customApiUrl": "API URL",
+    "customClientUrl": "Client URL",
+    "apiUrlHint": "The API endpoint URL (usually client URL + /api)",
+    "clientUrlHint": "The web interface URL of your self-hosted instance",
+    "autofillSettingsDescription": "Enable or disable the autofill popup on web pages",
+    "autofillEnabledDescription": "Autofill suggestions will appear on login forms",
+    "autofillDisabledDescription": "Autofill suggestions are disabled globally",
+    "languageSettings": "Language",
+    "languageSettingsDescription": "Choose your preferred language",
     "validation": {
       "apiUrlRequired": "L'URL API è obbligatorio",
       "apiUrlInvalid": "Inserisci un URL API valido",
@@ -354,12 +378,52 @@
       "clientUrlInvalid": "Inserisci un URL del client valido"
     }
   },
+  "passkeys": {
+    "passkey": "Passkey",
+    "site": "Sito",
+    "displayName": "Nome",
+    "helpText": "Le chiavi di accesso vengono create sul sito web quando richiesto. Non possono essere modificate manualmente. Per rimuovere questa chiave di accesso, è possibile eliminarla da questa credenziale. Per sostituire questa passkey o crearne una nuova, visitare il sito web e seguire i relativi suggerimenti.",
+    "passkeyMarkedForDeletion": "Passkey contrassegnata per l'eliminazione",
+    "passkeyWillBeDeleted": "Questa passkey verrà eliminata quando si salva questa credenziale.",
+    "bypass": {
+      "title": "Usa Browser Passkey",
+      "description": "Per quanto tempo vorresti usare il provider di chiavi di accesso del browser per {{origin}}?",
+      "thisTimeOnly": "Solo questa volta",
+      "alwaysForSite": "Sempre per questo sito"
+    },
+    "authenticate": {
+      "title": "Accedi con Passkey",
+      "signInFor": "Accedi con passkey per",
+      "selectPasskey": "Selezionare una passkey per accedere:",
+      "noPasskeysFound": "Nessuna passkey trovata per questo sito",
+      "useBrowserPasskey": "Usa Browser Passkey"
+    },
+    "create": {
+      "title": "Crea Passkey",
+      "createFor": "Crea una nuova passkey per",
+      "titleLabel": "Titolo",
+      "titlePlaceholder": "Inserisci un nome per questa passkey",
+      "createButton": "Crea Passkey",
+      "creatingButton": "Creazione in corso...",
+      "useBrowserPasskey": "Usa Browser Passkey",
+      "selectPasskeyToReplace": "Selezionare una chiave di accesso da sostituire:",
+      "createNewPasskey": "Crea Nuova Passkey",
+      "replacingPasskey": "Sostituzione passkey: {{displayName}}",
+      "confirmReplace": "Conferma la sostituzione"
+    },
+    "settings": {
+      "passkeyProvider": "Provider Passkey",
+      "passkeyProviderOn": "Passkey Provider attivo",
+      "enable": "Abilita AliasVault come provider di passkey",
+      "description": "Quando abilitato, AliasVault gestirà le richieste di passkey dai siti web. Quando un sito web richiede una passkey, verrà mostrato il popup di AliasVault invece dell'interfaccia nativa del browser o dell'interfaccia di password del sistema operativo."
+    }
+  },
   "upgrade": {
     "title": "Aggiorna Cassaforte",
     "subtitle": "AliasVault è stato aggiornato e la tua cassaforte deve essere aggiornata. Dovrebbe richiedere solo pochi secondi.",
     "versionInformation": "Informazioni sulla versione",
-    "yourVault": "La tua cassaforte:",
-    "newVersion": "Nuova versione:",
+    "yourVault": "Versione della tua cassaforte:",
+    "newVersion": "Nuova versione disponibile:",
     "upgrade": "Aggiorna cassaforte",
     "upgrading": "Aggiornamento in corso...",
     "logout": "Disconnetti",
