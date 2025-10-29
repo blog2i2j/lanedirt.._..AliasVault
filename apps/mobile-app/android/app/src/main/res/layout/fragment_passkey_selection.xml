@@ -81,20 +81,12 @@
                 android:paddingStart="4dp"
                 android:paddingEnd="4dp" />
 
-            <!-- Scrollable existing passkeys list (max 2.5 items visible) -->
             <LinearLayout
                 android:id="@+id/existingPasskeysContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
-
-                <LinearLayout
-                    android:id="@+id/existingPasskeysContainer"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical">
-                    <!-- Passkey items will be added programmatically -->
-                </LinearLayout>
+                <!-- Passkey items will be added programmatically -->
             </LinearLayout>
 
             <View
