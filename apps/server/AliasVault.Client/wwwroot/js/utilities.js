@@ -229,6 +229,8 @@ function initializeDarkMode() {
     }
 }
 
+window.darkModeCallback = null;
+
 function initDarkModeSwitcher() {
     const themeToggleDarkIcon = document.getElementById('theme-toggle-dark-icon');
     const themeToggleLightIcon = document.getElementById('theme-toggle-light-icon');
@@ -238,11 +240,18 @@ function initDarkModeSwitcher() {
         return;
     }
 
-    if (localStorage.getItem('color-theme') === 'dark' ||
-        (!localStorage.getItem('color-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    const isDark = localStorage.getItem('color-theme') === 'dark' ||
+        (!localStorage.getItem('color-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+    if (isDark) {
         themeToggleDarkIcon?.classList.remove('hidden');
     } else {
         themeToggleLightIcon?.classList.remove('hidden');
+    }
+
+    // Notify Blazor of initial state
+    if (window.darkModeCallback) {
+        window.darkModeCallback.invokeMethodAsync('OnThemeChanged', isDark);
     }
 
     let event = new Event('dark-mode');
@@ -253,6 +262,7 @@ function initDarkModeSwitcher() {
         themeToggleLightIcon.classList.toggle('hidden');
 
         // toggle dark mode
+        const newIsDark = !document.documentElement.classList.contains('dark');
         if (document.documentElement.classList.contains('dark')) {
             document.documentElement.classList.remove('dark');
             localStorage.setItem('color-theme', 'light');
@@ -261,9 +271,18 @@ function initDarkModeSwitcher() {
             localStorage.setItem('color-theme', 'dark');
         }
 
+        // Notify Blazor of theme change
+        if (window.darkModeCallback) {
+            window.darkModeCallback.invokeMethodAsync('OnThemeChanged', newIsDark);
+        }
+
         document.dispatchEvent(event);
     });
 }
+
+window.registerDarkModeCallback = function(callback) {
+    window.darkModeCallback = callback;
+};
 
 initializeDarkMode();
 

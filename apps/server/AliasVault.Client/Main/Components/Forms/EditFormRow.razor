@@ -1,4 +1,11 @@
-﻿<label for="@Id" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">@Label</label>
+﻿@if (LabelStyle == FormLabelStyle.Header)
+{
+    <label for="@Id" class="mb-4 text-xl font-semibold dark:text-white block">@Label</label>
+}
+else
+{
+    <label for="@Id" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">@Label</label>
+}
 <div class="relative">
     @if (Type == "textarea")
     {
@@ -11,6 +18,21 @@
 </div>
 
 @code {
+    /// <summary>
+    /// Defines the style for the form label.
+    /// </summary>
+    public enum FormLabelStyle
+    {
+        /// <summary>
+        /// Default label style - small font, medium weight.
+        /// </summary>
+        Default,
+
+        /// <summary>
+        /// Header label style - large font, semibold weight.
+        /// </summary>
+        Header
+    }
     /// <summary>
     /// Id for the input field.
     /// </summary>
@@ -52,6 +74,12 @@
     /// </summary>
     [Parameter]
     public string Placeholder { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Style of the label.
+    /// </summary>
+    [Parameter]
+    public FormLabelStyle LabelStyle { get; set; } = FormLabelStyle.Default;
 
     private async Task OnInputChanged(ChangeEventArgs e)
     {

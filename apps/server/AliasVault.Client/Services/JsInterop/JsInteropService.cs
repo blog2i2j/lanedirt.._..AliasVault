@@ -176,6 +176,16 @@ public sealed class JsInteropService(IJSRuntime jsRuntime)
         await jsRuntime.InvokeVoidAsync("window.topMenuClickOutsideHandler", objRef);
 
     /// <summary>
+    /// Registers a callback for dark mode theme changes.
+    /// </summary>
+    /// <typeparam name="TComponent">Component type.</typeparam>
+    /// <param name="objRef">DotNetObjectReference.</param>
+    /// <returns>Task.</returns>
+    public async Task RegisterDarkModeCallback<TComponent>(DotNetObjectReference<TComponent> objRef)
+        where TComponent : class =>
+        await jsRuntime.InvokeVoidAsync("window.registerDarkModeCallback", objRef);
+
+    /// <summary>
     /// Generates a new RSA key pair.
     /// </summary>
     /// <returns>Tuple with public and private key.</returns>
