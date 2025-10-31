@@ -290,7 +290,7 @@ public sealed class JsInteropService(IJSRuntime jsRuntime)
     {
         try
         {
-            var result = await jsRuntime.InvokeAsync<WebAuthnCreateCredentialResult>("createWebAuthnCredentialAndDeriveKey", "AliasVault | " + username);
+            var result = await jsRuntime.InvokeAsync<WebAuthnCreateCredentialResult>("createWebAuthnCredentialAndDeriveKey", username);
 
             if (result.CredentialId is not null &&
                 result.Salt is not null &&
