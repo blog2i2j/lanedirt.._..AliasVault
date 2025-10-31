@@ -2,7 +2,7 @@
 @inject JsInteropService JsInteropService
 @inject IStringLocalizerFactory LocalizerFactory
 @using Microsoft.Extensions.Localization
-@implements IDisposable
+@implements IAsyncDisposable
 @using Microsoft.JSInterop
 
 @if (IsVisible)
@@ -84,7 +84,7 @@
     }
 
     /// <inheritdoc />
-    public async void Dispose()
+    public async ValueTask DisposeAsync()
     {
         ClipboardCopyService.OnTimerProgress -= HandleTimerProgress;
 
@@ -92,6 +92,7 @@
         {
             await JsInteropService.UnregisterClipboardStatusCallback();
             _objRef.Dispose();
+            _objRef = null;
         }
     }
 

@@ -74,7 +74,13 @@ window.clipboardManager = {
     // Notify Blazor of status change
     notifyStatusChange: function(status) {
         if (this.statusCallback) {
-            this.statusCallback.invokeMethodAsync('OnClipboardStatusChange', status);
+            try {
+                this.statusCallback.invokeMethodAsync('OnClipboardStatusChange', status);
+            } catch (error) {
+                if (error.message && error.message.includes('tracked object')) {
+                    this.statusCallback = null;
+                }
+            }
         }
     },
 
