@@ -102,7 +102,7 @@ AliasVault takes security seriously and implements various measures to protect y
 - Zero-knowledge architecture ensures the server never has access to your unencrypted data
 
 For detailed information about our encryption implementation and security architecture, see the following documents:
-- [SECURITY.md](SECURITY.md)
+- [ARCHITECTURE.md](ARCHITECTURE.md)
 - [Security Architecture Diagram](https://docs.aliasvault.net/architecture)
 
 ## Features & Roadmap
