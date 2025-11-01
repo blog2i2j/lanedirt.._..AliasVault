@@ -408,10 +408,10 @@ const PasskeyAuthenticate: React.FC = () => {
                     }}
                   >
                     <div className="font-medium text-gray-900 dark:text-white text-sm truncate">
-                      {pk.displayName}
+                      {pk.serviceName}
                     </div>
                     <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
-                      <span className="truncate">{pk.serviceName}</span>
+                      <span className="truncate">{pk.displayName}</span>
                     </div>
                   </div>
                 ))}
