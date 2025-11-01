@@ -101,6 +101,7 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
         }
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, privateEmailDomains, showPrivateDomains]);
 
   // Handle local part changes
