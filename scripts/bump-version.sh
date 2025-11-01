@@ -590,6 +590,30 @@ elif [[ "$BUILD_ONLY" == true ]]; then
     echo "  Only build numbers were incremented"
 fi
 
+# Write version information to text files for build processes (only for marketing updates)
+if [[ "$MARKETING_UPDATE" == true ]]; then
+    echo ""
+    echo "--------------------------------"
+    echo "Writing version files for build processes..."
+    echo "--------------------------------"
+
+    # Create version directory if it doesn't exist
+    version_dir="../apps/.version"
+    mkdir -p "$version_dir"
+
+    # Write full version (with suffix if present)
+    full_version="${version}${version_suffix}"
+    echo "$full_version" > "$version_dir/version.txt"
+    echo "• Wrote full version to .version/version.txt: $full_version"
+
+    # Write individual version components
+    echo "$major" > "$version_dir/major.txt"
+    echo "$minor" > "$version_dir/minor.txt"
+    echo "$patch" > "$version_dir/patch.txt"
+    echo "$version_suffix" > "$version_dir/suffix.txt"
+    echo "• Wrote version components to .version/{major,minor,patch,suffix}.txt"
+fi
+
 if [[ "$BUILD_ONLY" == true ]]; then
     echo -e "\n✅ Build-only update completed!"
 elif [[ "$MARKETING_UPDATE" == true ]]; then
