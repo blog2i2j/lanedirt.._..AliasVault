@@ -289,7 +289,11 @@ export default function Initialize() : React.ReactNode {
              * Authentication errors are already handled in useVaultSync
              * Show modal with error message for other errors
              */
-            Alert.alert(t('common.error'), error);
+            Alert.alert(
+              t('common.error'),
+              error,
+              [{ text: t('common.ok'), style: 'default' }]
+            );
             router.replace('/unlock');
             return;
           },

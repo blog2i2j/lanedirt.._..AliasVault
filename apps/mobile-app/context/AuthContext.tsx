@@ -139,7 +139,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    */
   const initializeAuth = useCallback(async (): Promise<{ isLoggedIn: boolean; enabledAuthMethods: AuthMethod[] }> => {
     // Sync legacy config to native layer (can be removed in future version 0.25.0+)
-    syncLegacyConfigToNative();
+    // IMPORTANT: We must await this to ensure migration completes before checking auth status
+    await syncLegacyConfigToNative();
 
     const accessToken = await NativeVaultManager.getAccessToken();
     const username = await NativeVaultManager.getUsername();
@@ -219,7 +220,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (errorMessage) {
       // Show alert
-      Alert.alert(i18n.t('common.error'), errorMessage);
+      Alert.alert(
+        i18n.t('common.error'),
+        errorMessage,
+        [{ text: i18n.t('common.ok'), style: 'default' }]
+      );
     }
 
     setUsername(null);
