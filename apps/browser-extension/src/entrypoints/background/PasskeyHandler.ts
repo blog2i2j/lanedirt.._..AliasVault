@@ -27,6 +27,10 @@ import { browser, storage } from '#imports';
 const pendingRequests = new Map<string, {
   resolve: (value: any) => void;
   reject: (error: any) => void;
+  /**
+   * Store window ID in order to close the popup window from background script later.
+   */
+  windowId?: number;
 }>();
 
 // Store request data temporarily (to avoid URL length limits)
@@ -90,7 +94,7 @@ export async function handleWebAuthnCreate(data: any): Promise<any> {
 
     // Wait for response from popup
     return new Promise((resolve, reject) => {
-      pendingRequests.set(requestId, { resolve, reject });
+      pendingRequests.set(requestId, { resolve, reject, windowId: popup.id });
 
       // Clean up if popup is closed without response
       const checkClosed = setInterval(async () => {
@@ -149,7 +153,7 @@ export async function handleWebAuthnGet(data: any): Promise<any> {
 
     // Wait for response from popup
     return new Promise((resolve, reject) => {
-      pendingRequests.set(requestId, { resolve, reject });
+      pendingRequests.set(requestId, { resolve, reject, windowId: popup.id });
 
       // Clean up if popup is closed without response
       const checkClosed = setInterval(async () => {
@@ -183,6 +187,19 @@ export async function handlePasskeyPopupResponse(data: any): Promise<{ success: 
 
   if (!request) {
     return { success: false };
+  }
+
+  /**
+   * Close the popup window from background script to ensure it always works.
+   * Calling window.close() from the popup does not work in all browsers.
+   */
+  if (request.windowId) {
+    try {
+      await browser.windows.remove(request.windowId);
+    } catch (error) {
+      // Window might already be closed, ignore error
+      console.debug('Failed to close popup window:', error);
+    }
   }
 
   // Clean up both maps
