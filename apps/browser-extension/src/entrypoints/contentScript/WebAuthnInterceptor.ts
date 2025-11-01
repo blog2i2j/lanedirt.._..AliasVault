@@ -10,7 +10,20 @@ import type { WebAuthnSettingsResponse } from '@/utils/passkey/types';
 
 import { browser } from '#imports';
 
+// Firefox-specific global function for cloning objects into page context
+declare function cloneInto<T>(obj: T, targetScope: any): T;
+
 let interceptorInitialized = false;
+
+/**
+ * Track last cancelled request to prevent rapid-fire popups.
+ * This is used to track the last time a WebAuthn request was cancelled.
+ * Some websites try to automatically re-trigger a WebAuthn request after a cancellation.
+ * which results in a jarring UX for the user.
+ * This cooldown prevents rapid-fire popups by waiting for a short period after a cancellation.
+ */
+let lastCancelledTimestamp = 0;
+const CANCEL_COOLDOWN_MS = 500; // 500ms cooldown after a recent cancellation
 
 /**
  * Initialize the WebAuthn interceptor
@@ -24,17 +37,51 @@ export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
   window.addEventListener('aliasvault:webauthn:create', async (event: any) => {
     const { requestId, publicKey, origin } = event.detail;
 
+    /**
+     * Helper to dispatch event with Firefox compatibility
+     * Firefox has strict cross-context security, so we serialize to JSON and back
+     */
+    const dispatchResponse = (detail: any): void => {
+      let eventDetail: any;
+
+      /*
+       * For Firefox, we need to ensure the detail is accessible in the page context
+       * cloneInto is a global function in Firefox content scripts
+       */
+      if (typeof cloneInto !== 'undefined') {
+        // Firefox: serialize and clone into page context
+        const serialized = JSON.parse(JSON.stringify(detail));
+        eventDetail = cloneInto(serialized, (window as any).wrappedJSObject || window);
+      } else {
+        // Chrome/Edge: direct assignment works
+        eventDetail = detail;
+      }
+
+      window.dispatchEvent(new CustomEvent('aliasvault:webauthn:create:response', {
+        detail: eventDetail
+      }));
+    };
+
     try {
+      // Check if we're in cooldown period after a recent cancellation
+      const now = Date.now();
+      if (lastCancelledTimestamp > 0 && (now - lastCancelledTimestamp) < CANCEL_COOLDOWN_MS) {
+        // Silently fall back to native implementation during cooldown
+        dispatchResponse({
+          requestId,
+          fallback: true
+        });
+        return;
+      }
+
       // Check if passkey provider is enabled
       const enabled = await isWebAuthnInterceptionEnabled();
       if (!enabled) {
         // If disabled, signal fallback to native browser implementation
-        window.dispatchEvent(new CustomEvent('aliasvault:webauthn:create:response', {
-          detail: {
-            requestId,
-            fallback: true
-          }
-        }));
+        dispatchResponse({
+          requestId,
+          fallback: true
+        });
         return;
       }
 
@@ -44,20 +91,21 @@ export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
         origin
       }, 'background');
 
+      // Track if user cancelled to enable cooldown
+      if (result && typeof result === 'object' && (result as any).cancelled) {
+        lastCancelledTimestamp = Date.now();
+      }
+
       // Send response back to page
-      window.dispatchEvent(new CustomEvent('aliasvault:webauthn:create:response', {
-        detail: {
-          requestId,
-          ...(typeof result === 'object' && result !== null ? result : {})
-        }
-      }));
+      dispatchResponse({
+        requestId,
+        ...(typeof result === 'object' && result !== null ? result : {})
+      });
     } catch (error: any) {
-      window.dispatchEvent(new CustomEvent('aliasvault:webauthn:create:response', {
-        detail: {
-          requestId,
-          error: error.message
-        }
-      }));
+      dispatchResponse({
+        requestId,
+        error: error.message
+      });
     }
   });
 
@@ -65,17 +113,51 @@ export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
   window.addEventListener('aliasvault:webauthn:get', async (event: any) => {
     const { requestId, publicKey, origin } = event.detail;
 
+    /**
+     * Helper to dispatch event with Firefox compatibility
+     * Firefox has strict cross-context security, so we serialize to JSON and back
+     */
+    const dispatchResponse = (detail: any): void => {
+      let eventDetail: any;
+
+      /*
+       * For Firefox, we need to ensure the detail is accessible in the page context
+       * cloneInto is a global function in Firefox content scripts
+       */
+      if (typeof cloneInto !== 'undefined') {
+        // Firefox: serialize and clone into page context
+        const serialized = JSON.parse(JSON.stringify(detail));
+        eventDetail = cloneInto(serialized, (window as any).wrappedJSObject || window);
+      } else {
+        // Chrome/Edge: direct assignment works
+        eventDetail = detail;
+      }
+
+      window.dispatchEvent(new CustomEvent('aliasvault:webauthn:get:response', {
+        detail: eventDetail
+      }));
+    };
+
     try {
+      // Check if we're in cooldown period after a recent cancellation
+      const now = Date.now();
+      if (lastCancelledTimestamp > 0 && (now - lastCancelledTimestamp) < CANCEL_COOLDOWN_MS) {
+        // Silently fall back to native implementation during cooldown
+        dispatchResponse({
+          requestId,
+          fallback: true
+        });
+        return;
+      }
+
       // Check if passkey provider is enabled
       const enabled = await isWebAuthnInterceptionEnabled();
       if (!enabled) {
         // If disabled, signal fallback to native browser implementation
-        window.dispatchEvent(new CustomEvent('aliasvault:webauthn:get:response', {
-          detail: {
-            requestId,
-            fallback: true
-          }
-        }));
+        dispatchResponse({
+          requestId,
+          fallback: true
+        });
         return;
       }
 
@@ -85,20 +167,21 @@ export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
         origin
       }, 'background');
 
+      // Track if user cancelled to enable cooldown
+      if (result && typeof result === 'object' && (result as any).cancelled) {
+        lastCancelledTimestamp = Date.now();
+      }
+
       // Send response back to page
-      window.dispatchEvent(new CustomEvent('aliasvault:webauthn:get:response', {
-        detail: {
-          requestId,
-          ...(typeof result === 'object' && result !== null ? result : {})
-        }
-      }));
+      dispatchResponse({
+        requestId,
+        ...(typeof result === 'object' && result !== null ? result : {})
+      });
     } catch (error: any) {
-      window.dispatchEvent(new CustomEvent('aliasvault:webauthn:get:response', {
-        detail: {
-          requestId,
-          error: error.message
-        }
-      }));
+      dispatchResponse({
+        requestId,
+        error: error.message
+      });
     }
   });
 
