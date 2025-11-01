@@ -179,7 +179,11 @@ export default function CredentialsScreen() : React.ReactNode {
            * Authentication errors are handled in useVaultSync
            * For other errors, show alert
            */
-          Alert.alert(t('common.error'), error);
+          Alert.alert(
+            t('common.error'),
+            error,
+            [{ text: t('common.ok'), style: 'default' }]
+          );
         },
         /**
          * On upgrade required.

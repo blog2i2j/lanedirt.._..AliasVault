@@ -71,7 +71,11 @@ export default function UnlockScreen() : React.ReactNode {
    */
   const handleUnlock = async () : Promise<void> => {
     if (!password) {
-      Alert.alert(t('common.error'), t('auth.errors.enterPassword'));
+      Alert.alert(
+        t('common.error'),
+        t('auth.errors.enterPassword'),
+        [{ text: t('common.ok'), style: 'default' }]
+      );
       return;
     }
 
@@ -113,7 +117,11 @@ export default function UnlockScreen() : React.ReactNode {
          */
         router.replace('/initialize');
       } else {
-        Alert.alert(t('common.error'), t('auth.errors.incorrectPassword'));
+        Alert.alert(
+          t('common.error'),
+          t('auth.errors.incorrectPassword'),
+          [{ text: t('common.ok'), style: 'default' }]
+        );
       }
     } catch (error) {
       if (error instanceof VaultVersionIncompatibleError) {
@@ -122,7 +130,11 @@ export default function UnlockScreen() : React.ReactNode {
       }
 
       console.error('Unlock error:', error);
-      Alert.alert(t('common.error'), t('auth.errors.incorrectPassword'));
+      Alert.alert(
+        t('common.error'),
+        t('auth.errors.incorrectPassword'),
+        [{ text: t('common.ok'), style: 'default' }]
+      );
     } finally {
       setIsLoading(false);
     }

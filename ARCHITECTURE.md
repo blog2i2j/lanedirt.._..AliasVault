@@ -1,5 +1,5 @@
-# SECURITY.md
-This document describes the encryption algorithms used by AliasVault in order to keep its user data secure.
+# ARCHITECTURE.md
+This document provides a high-level overview of the AliasVault architecture, focusing on the encryption algorithms used to ensure the security of user data.
 
 ## Overview
 AliasVault features a [zero-knowledge architecture](https://en.wikipedia.org/wiki/Zero-knowledge_service) and uses a combination of encryption algorithms to protect the data of its users.

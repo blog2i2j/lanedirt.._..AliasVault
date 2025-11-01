@@ -26,6 +26,9 @@
 		CE0CAFE12D81A9F8006174AB /* assets in Resources */ = {isa = PBXBuildFile; fileRef = CE0CAFD92D81A9F8006174AB /* assets */; };
 		CE0CAFE22D81A9F8006174AB /* src in Resources */ = {isa = PBXBuildFile; fileRef = CE0CAFDA2D81A9F8006174AB /* src */; };
 		CE0E5BB02E7D8BA600515C80 /* AliasVault.icon in Resources */ = {isa = PBXBuildFile; fileRef = CE0E5BAF2E7D8BA600515C80 /* AliasVault.icon */; };
+		CEA194E42EB6221B00EAB23B /* webauthn.js in Resources */ = {isa = PBXBuildFile; fileRef = CEA194E32EB6221B00EAB23B /* webauthn.js */; };
+		CEA194E72EB6248D00EAB23B /* offscreen.html in Resources */ = {isa = PBXBuildFile; fileRef = CEA194E52EB6248D00EAB23B /* offscreen.html */; };
+		CEA194E82EB6248D00EAB23B /* offscreen.js in Resources */ = {isa = PBXBuildFile; fileRef = CEA194E62EB6248D00EAB23B /* offscreen.js */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -78,6 +81,9 @@
 		CE0CAFD92D81A9F8006174AB /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; name = assets; path = "../../../dist/safari-mv2/assets"; sourceTree = "<group>"; };
 		CE0CAFDA2D81A9F8006174AB /* src */ = {isa = PBXFileReference; lastKnownFileType = folder; name = src; path = "../../../dist/safari-mv2/src"; sourceTree = "<group>"; };
 		CE0E5BAF2E7D8BA600515C80 /* AliasVault.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AliasVault.icon; sourceTree = "<group>"; };
+		CEA194E32EB6221B00EAB23B /* webauthn.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = webauthn.js; path = "/Users/user/Projects/AliasVault/apps/browser-extension/dist/safari-mv2/webauthn.js"; sourceTree = "<absolute>"; };
+		CEA194E52EB6248D00EAB23B /* offscreen.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = offscreen.html; path = "/Users/user/Projects/AliasVault/apps/browser-extension/dist/safari-mv2/offscreen.html"; sourceTree = "<absolute>"; };
+		CEA194E62EB6248D00EAB23B /* offscreen.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = offscreen.js; path = "/Users/user/Projects/AliasVault/apps/browser-extension/dist/safari-mv2/offscreen.js"; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -157,6 +163,9 @@
 		CE0CAFD22D81A9F8006174AB /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				CEA194E52EB6248D00EAB23B /* offscreen.html */,
+				CEA194E62EB6248D00EAB23B /* offscreen.js */,
+				CEA194E32EB6221B00EAB23B /* webauthn.js */,
 				CE0CAFD32D81A9F8006174AB /* background.js */,
 				CE0CAFD42D81A9F8006174AB /* popup.html */,
 				CE0CAFD52D81A9F8006174AB /* chunks */,
@@ -266,8 +275,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				CE0CAFDD2D81A9F8006174AB /* chunks in Resources */,
+				CEA194E42EB6221B00EAB23B /* webauthn.js in Resources */,
 				CE0CAFE02D81A9F8006174AB /* icon in Resources */,
 				CE0CAFE12D81A9F8006174AB /* assets in Resources */,
+				CEA194E72EB6248D00EAB23B /* offscreen.html in Resources */,
+				CEA194E82EB6248D00EAB23B /* offscreen.js in Resources */,
 				CE0CAFE22D81A9F8006174AB /* src in Resources */,
 				CE0CAFDB2D81A9F8006174AB /* background.js in Resources */,
 				CE0CAFDF2D81A9F8006174AB /* manifest.json in Resources */,
@@ -451,7 +463,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2400102;
+				CURRENT_PROJECT_VERSION = 2400300;
 				DEVELOPMENT_TEAM = 8PHW4HN3F7;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -483,7 +495,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "AliasVault Extension/AliasVault_Extension.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2400102;
+				CURRENT_PROJECT_VERSION = 2400300;
 				DEVELOPMENT_TEAM = 8PHW4HN3F7;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -519,7 +531,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2400102;
+				CURRENT_PROJECT_VERSION = 2400300;
 				DEVELOPMENT_TEAM = 8PHW4HN3F7;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -558,7 +570,7 @@
 				CODE_SIGN_ENTITLEMENTS = AliasVault/AliasVault.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2400102;
+				CURRENT_PROJECT_VERSION = 2400300;
 				DEVELOPMENT_TEAM = 8PHW4HN3F7;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;

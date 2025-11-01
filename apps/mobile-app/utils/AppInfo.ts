@@ -8,7 +8,7 @@ export class AppInfo {
   /**
    * The current mobile app version. This should be updated with each release of the mobile app.
    */
-  public static readonly VERSION = '0.24.0-alpha';
+  public static readonly VERSION = '0.24.0-beta';
 
   /**
    * The API version to send to the server (base semver without stage suffixes).

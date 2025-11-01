@@ -68,7 +68,11 @@ export default function UpgradeScreen() : React.ReactNode {
    */
   const handleUpgrade = async (): Promise<void> => {
     if (!sqliteClient || !currentVersion || !latestVersion) {
-      Alert.alert(t('common.error'), t('upgrade.alerts.unableToGetVersionInfo'));
+      Alert.alert(
+        t('common.error'),
+        t('upgrade.alerts.unableToGetVersionInfo'),
+        [{ text: t('common.ok'), style: 'default' }]
+      );
       return;
     }
 
@@ -101,7 +105,11 @@ export default function UpgradeScreen() : React.ReactNode {
    */
   const performUpgrade = async (): Promise<void> => {
     if (!sqliteClient || !currentVersion || !latestVersion) {
-      Alert.alert(t('common.error'), t('upgrade.alerts.unableToGetVersionInfo'));
+      Alert.alert(
+        t('common.error'),
+        t('upgrade.alerts.unableToGetVersionInfo'),
+        [{ text: t('common.ok'), style: 'default' }]
+      );
       return;
     }
 
@@ -162,13 +170,21 @@ export default function UpgradeScreen() : React.ReactNode {
          */
         onError: (error: Error) => {
           console.error('Upgrade failed:', error);
-          Alert.alert(t('upgrade.alerts.upgradeFailed'), error.message);
+          Alert.alert(
+            t('upgrade.alerts.upgradeFailed'),
+            error.message,
+            [{ text: t('common.ok'), style: 'default' }]
+          );
         }
       });
 
     } catch (error) {
       console.error('Upgrade failed:', error);
-      Alert.alert(t('upgrade.alerts.upgradeFailed'), error instanceof Error ? error.message : t('common.errors.unknownError'));
+      Alert.alert(
+        t('upgrade.alerts.upgradeFailed'),
+        error instanceof Error ? error.message : t('common.errors.unknownError'),
+        [{ text: t('common.ok'), style: 'default' }]
+      );
     } finally {
       setIsLoading(false);
       setUpgradeStatus(t('upgrade.status.preparingUpgrade'));

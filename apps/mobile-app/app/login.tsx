@@ -191,7 +191,11 @@ export default function LoginScreen() : React.ReactNode {
         checkSuccess = false;
 
         // Show modal with error message
-        Alert.alert(t('common.error'), message);
+        Alert.alert(
+          t('common.error'),
+          message,
+          [{ text: t('common.ok'), style: 'default' }]
+        );
         // Error will trigger logout through the sync process
         setIsLoading(false);
       },
