@@ -552,14 +552,13 @@ export default function AddEditCredentialScreen() : React.ReactNode {
       marginLeft: 6,
     },
     headerLeftButton: {
-      padding: 10,
-      paddingLeft: 0,
+      paddingHorizontal: 8,
     },
     headerLeftButtonText: {
       color: colors.primary,
     },
     headerRightButton: {
-      padding: 10,
+      paddingHorizontal: 8,
     },
     headerRightButtonDisabled: {
       opacity: 0.5,
