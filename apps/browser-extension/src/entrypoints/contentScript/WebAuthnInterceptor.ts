@@ -26,6 +26,27 @@ let lastCancelledTimestamp = 0;
 const CANCEL_COOLDOWN_MS = 500; // 500ms cooldown after a recent cancellation
 
 /**
+ * Check if page is ready for WebAuthn interactions.
+ * Safari and other browsers can trigger WebAuthn requests during URL autocomplete
+ * or page prefetch, which creates popups before the user actually navigates to the page.
+ * We check if the document is visible and interactive to prevent these spurious requests.
+ */
+function isPageReadyForWebAuthn(): boolean {
+  // If page is hidden (prefetch/background tab), block the request
+  if (document.hidden || document.visibilityState === 'hidden') {
+    return false;
+  }
+
+  // If document is still loading (not even interactive), block the request
+  if (document.readyState === 'loading') {
+    return false;
+  }
+
+  // Page is visible and at least interactive - allow the request
+  return true;
+}
+
+/**
  * Initialize the WebAuthn interceptor
  */
 export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
@@ -63,6 +84,11 @@ export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
     };
 
     try {
+      /**
+       * Note: We don't block create (registration) requests based on page readiness.
+       * Registration is always user-initiated (button click), so it's never spurious.
+       */
+
       // Check if we're in cooldown period after a recent cancellation
       const now = Date.now();
       if (lastCancelledTimestamp > 0 && (now - lastCancelledTimestamp) < CANCEL_COOLDOWN_MS) {
@@ -139,6 +165,15 @@ export async function initializeWebAuthnInterceptor(_ctx: any): Promise<void> {
     };
 
     try {
+      // Block requests if page isn't ready (prevents prefetch/autocomplete popups)
+      if (!isPageReadyForWebAuthn()) {
+        dispatchResponse({
+          requestId,
+          fallback: true
+        });
+        return;
+      }
+
       // Check if we're in cooldown period after a recent cancellation
       const now = Date.now();
       if (lastCancelledTimestamp > 0 && (now - lastCancelledTimestamp) < CANCEL_COOLDOWN_MS) {
