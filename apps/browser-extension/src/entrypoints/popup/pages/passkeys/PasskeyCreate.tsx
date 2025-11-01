@@ -397,8 +397,10 @@ const PasskeyCreate: React.FC = () => {
               extensions: prfExtensionResponse
             };
 
-            // Send response back to background
-            // The background script will close the window (Safari-compatible)
+            /*
+             * Send response back to background
+             * The background script will close the window (Safari-compatible)
+             */
             await sendMessage('PASSKEY_POPUP_RESPONSE', {
               requestId: request.requestId,
               credential: flattenedCredential
@@ -447,8 +449,10 @@ const PasskeyCreate: React.FC = () => {
     }
     // For 'once', we don't store anything - just bypass this one time
 
-    // Tell background to use native implementation
-    // The background script will close the window (Safari-compatible)
+    /*
+     * Tell background to use native implementation
+     * The background script will close the window (Safari-compatible)
+     */
     await sendMessage('PASSKEY_POPUP_RESPONSE', {
       requestId: request.requestId,
       fallback: true
@@ -463,8 +467,10 @@ const PasskeyCreate: React.FC = () => {
       return;
     }
 
-    // Tell background user cancelled
-    // The background script will close the window (Safari-compatible)
+    /*
+     * Tell background user cancelled
+     * The background script will close the window (Safari-compatible)
+     */
     await sendMessage('PASSKEY_POPUP_RESPONSE', {
       requestId: request.requestId,
       cancelled: true

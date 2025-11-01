@@ -37,7 +37,11 @@ export default defineConfig({
         }
       },
       web_accessible_resources: [{
-        resources: ["webauthn.js"],
+        resources: [
+          "webauthn.js",
+          "src/sql-wasm.wasm",
+          "src/argon2.wasm"
+        ],
         matches: ["<all_urls>"]
       }]
     };

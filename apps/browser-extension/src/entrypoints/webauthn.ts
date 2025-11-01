@@ -23,8 +23,11 @@ export default defineUnlistedScript(() => {
   }
   (window as any).__aliasVaultWebAuthnIntercepted = true;
 
-  const originalCreate = navigator.credentials.create.bind(navigator.credentials);
-  const originalGet = navigator.credentials.get.bind(navigator.credentials);
+  // Get the original implementations from the reservation script or bind directly
+  const queue = (window as any).__aliasVaultWebAuthnQueue;
+  const originalCreate = queue?.originalCreate || navigator.credentials.create.bind(navigator.credentials);
+  const originalGet = queue?.originalGet || navigator.credentials.get.bind(navigator.credentials);
+  const pendingQueue = queue?.pendingQueue || [];
 
   /**
    * Helper to convert ArrayBuffer to base64
@@ -497,4 +500,100 @@ export default defineUnlistedScript(() => {
       window.addEventListener('aliasvault:webauthn:get:response', handler as EventListener);
     });
   };
+
+  /*
+   * Store references to our override functions so we can re-apply them if needed.
+   * We need to capture these before any potential overwrites.
+   */
+  const getOverrideRef = navigator.credentials.get;
+  const createOverrideRef = navigator.credentials.create;
+
+  // Add markers to our functions for easier verification
+  (getOverrideRef as any).__aliasVaultPatched = true;
+  (createOverrideRef as any).__aliasVaultPatched = true;
+
+  /**
+   * Apply or re-apply the monkey patches
+   */
+  const applyPatches = (): void => {
+    const currentGet = navigator.credentials.get;
+    const currentCreate = navigator.credentials.create;
+
+    // Re-apply get if it's missing our marker
+    if (!(currentGet as any).__aliasVaultPatched) {
+      console.warn('[AliasVault] Re-applying credentials.get patch');
+      navigator.credentials.get = getOverrideRef;
+    }
+
+    // Re-apply create if it's missing our marker
+    if (!(currentCreate as any).__aliasVaultPatched) {
+      console.warn('[AliasVault] Re-applying credentials.create patch');
+      navigator.credentials.create = createOverrideRef;
+    }
+  };
+
+  /**
+   * Verification function to check if monkey patches are still in place
+   * @returns True if patches are verified, false otherwise
+   */
+  const verifyPatches = (): boolean => {
+    const get = navigator.credentials.get;
+    const create = navigator.credentials.create;
+
+    // Check for our marker
+    if (!(get as any).__aliasVaultPatched || !(create as any).__aliasVaultPatched) {
+      console.error('[AliasVault] CRITICAL: Monkey patch markers missing!', {
+        hasGetMarker: !!(get as any).__aliasVaultPatched,
+        hasCreateMarker: !!(create as any).__aliasVaultPatched
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  // Verify immediately
+  if (!verifyPatches()) {
+    console.error('[AliasVault] Initial verification failed - re-applying patches');
+    applyPatches();
+  }
+
+  // Periodic verification for first 5 seconds (catches if something overwrites us)
+  let checkCount = 0;
+  const verifyInterval = setInterval(() => {
+    checkCount++;
+    if (!verifyPatches()) {
+      console.error('[AliasVault] Periodic verification failed - re-applying patches!');
+      applyPatches();
+    }
+
+    if (checkCount >= 10) {
+      clearInterval(verifyInterval);
+    }
+  }, 500);
+
+  /*
+   * Process any queued requests from the reservation script.
+   * This handles the case where the page called navigator.credentials
+   * before our full implementation finished loading.
+   */
+  if (pendingQueue.length > 0) {
+    pendingQueue.forEach((request: any) => {
+      if (request.type === 'create') {
+        navigator.credentials.create(request.options)
+          .then(request.resolve)
+          .catch(request.reject);
+      } else if (request.type === 'get') {
+        navigator.credentials.get(request.options)
+          .then(request.resolve)
+          .catch(request.reject);
+      }
+    });
+    // Clear the queue
+    pendingQueue.length = 0;
+  }
+
+  // Clean up the reservation script globals
+  delete (window as any).__aliasVaultWebAuthnQueue;
+  delete (window as any).__aliasVaultWebAuthnReserved;
 });
