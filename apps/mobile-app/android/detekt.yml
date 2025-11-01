@@ -57,6 +57,8 @@ style:
   ThrowsCount:
     active: true
     max: 8
+  ForbiddenComment:
+    active: false  # Allow TODO, FIXME, STOPSHIP comments in code
 
 exceptions:
   TooGenericExceptionCaught:

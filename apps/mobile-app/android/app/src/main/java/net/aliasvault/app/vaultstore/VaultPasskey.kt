@@ -297,22 +297,29 @@ class VaultPasskey(
         val publicKeyString = String(passkey.publicKey, Charsets.UTF_8)
         val privateKeyString = String(passkey.privateKey, Charsets.UTF_8)
 
-        db.query(
-            insert,
-            arrayOf(
-                passkey.id.toString().uppercase(),
-                passkey.parentCredentialId.toString().uppercase(),
-                passkey.rpId,
-                passkey.userHandle,
-                publicKeyString,
-                privateKeyString,
-                passkey.prfKey,
-                passkey.displayName,
-                DateHelpers.toStandardFormat(passkey.createdAt),
-                DateHelpers.toStandardFormat(passkey.updatedAt),
-                if (passkey.isDeleted) 1 else 0,
-            ),
-        )
+        val statement = db.compileStatement(insert)
+        statement.use {
+            it.bindString(1, passkey.id.toString().uppercase())
+            it.bindString(2, passkey.parentCredentialId.toString().uppercase())
+            it.bindString(3, passkey.rpId)
+            if (passkey.userHandle != null) {
+                it.bindBlob(4, passkey.userHandle)
+            } else {
+                it.bindNull(4)
+            }
+            it.bindString(5, publicKeyString)
+            it.bindString(6, privateKeyString)
+            if (passkey.prfKey != null) {
+                it.bindBlob(7, passkey.prfKey)
+            } else {
+                it.bindNull(7)
+            }
+            it.bindString(8, passkey.displayName)
+            it.bindString(9, DateHelpers.toStandardFormat(passkey.createdAt))
+            it.bindString(10, DateHelpers.toStandardFormat(passkey.updatedAt))
+            it.bindLong(11, if (passkey.isDeleted) 1 else 0)
+            it.executeInsert()
+        }
     }
 
     /**
@@ -352,6 +359,7 @@ class VaultPasskey(
             db.insert("Services", null, serviceValues)
 
             // Create a minimal alias with empty fields and default birthdate
+            // TODO: when birthdate field is made optional, this can be removed
             val aliasId = UUID.randomUUID()
             val aliasInsert = """
                 INSERT INTO Aliases (Id, FirstName, LastName, NickName, BirthDate, Gender, Email,
@@ -359,21 +367,20 @@ class VaultPasskey(
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """.trimIndent()
 
-            db.query(
-                aliasInsert,
-                arrayOf(
-                    aliasId.toString().uppercase(),
-                    "",
-                    "",
-                    "",
-                    DateHelpers.toStandardFormat(MIN_DATE),
-                    "",
-                    "",
-                    timestamp,
-                    timestamp,
-                    0,
-                ),
-            )
+            val aliasStatement = db.compileStatement(aliasInsert)
+            aliasStatement.use {
+                it.bindString(1, aliasId.toString().uppercase())
+                it.bindString(2, "")
+                it.bindString(3, "")
+                it.bindString(4, "")
+                it.bindString(5, DateHelpers.toStandardFormat(MIN_DATE))
+                it.bindString(6, "")
+                it.bindString(7, "")
+                it.bindString(8, timestamp)
+                it.bindString(9, timestamp)
+                it.bindLong(10, 0)
+                it.executeInsert()
+            }
 
             // Create the credential with the alias
             val credentialInsert = """
@@ -381,19 +388,22 @@ class VaultPasskey(
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """.trimIndent()
 
-            db.query(
-                credentialInsert,
-                arrayOf(
-                    credentialId.toString().uppercase(),
-                    serviceId.toString().uppercase(),
-                    aliasId.toString().uppercase(),
-                    userName,
-                    null,
-                    timestamp,
-                    timestamp,
-                    0,
-                ),
-            )
+            val credentialStatement = db.compileStatement(credentialInsert)
+            credentialStatement.use {
+                it.bindString(1, credentialId.toString().uppercase())
+                it.bindString(2, serviceId.toString().uppercase())
+                it.bindString(3, aliasId.toString().uppercase())
+                if (userName != null) {
+                    it.bindString(4, userName)
+                } else {
+                    it.bindNull(4)
+                }
+                it.bindNull(5) // Notes
+                it.bindString(6, timestamp)
+                it.bindString(7, timestamp)
+                it.bindLong(8, 0)
+                it.executeInsert()
+            }
 
             // Insert the passkey
             insertPasskey(passkey)
@@ -479,7 +489,14 @@ class VaultPasskey(
                         WHERE Id = ?
                     """.trimIndent()
 
-                    db.query(serviceUpdate, arrayOf(logo, displayName, timestamp, serviceId))
+                    val updateStatement = db.compileStatement(serviceUpdate)
+                    updateStatement.use { stmt ->
+                        stmt.bindBlob(1, logo)
+                        stmt.bindString(2, displayName)
+                        stmt.bindString(3, timestamp)
+                        stmt.bindString(4, serviceId)
+                        stmt.executeUpdateDelete()
+                    }
                 }
             }
         }
@@ -491,7 +508,12 @@ class VaultPasskey(
             WHERE Id = ?
         """.trimIndent()
 
-        db.query(deleteQuery, arrayOf(timestamp, oldPasskeyId.toString().uppercase()))
+        val deleteStatement = db.compileStatement(deleteQuery)
+        deleteStatement.use {
+            it.bindString(1, timestamp)
+            it.bindString(2, oldPasskeyId.toString().uppercase())
+            it.executeUpdateDelete()
+        }
 
         // Create the new passkey with the same credential ID
         val updatedPasskey = newPasskey.copy(
