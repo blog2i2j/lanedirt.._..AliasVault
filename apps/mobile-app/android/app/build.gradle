@@ -185,7 +185,6 @@ dependencies {
 
     // Add Credential Manager dependencies for passkey support (Android 14+)
     implementation("androidx.credentials:credentials:1.6.0-beta02")
-    implementation("androidx.credentials:credentials-play-services-auth:1.6.0-beta02")
 
     // Add Material Design components for UI
     implementation("com.google.android.material:material:1.11.0")
