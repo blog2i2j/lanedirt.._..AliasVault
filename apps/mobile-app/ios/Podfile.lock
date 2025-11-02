@@ -1669,55 +1669,6 @@ PODS:
     - React
   - react-native-get-random-values (1.11.0):
     - React-Core
-  - react-native-keyboard-controller (1.18.6):
-    - DoubleConversion
-    - glog
-    - hermes-engine
-    - RCT-Folly (= 2024.11.18.00)
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-hermes
-    - React-ImageManager
-    - React-jsi
-    - react-native-keyboard-controller/common (= 1.18.6)
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - Yoga
-  - react-native-keyboard-controller/common (1.18.6):
-    - DoubleConversion
-    - glog
-    - hermes-engine
-    - RCT-Folly (= 2024.11.18.00)
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-hermes
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - Yoga
   - react-native-quick-crypto (0.7.17):
     - DoubleConversion
     - glog
@@ -2567,7 +2518,6 @@ DEPENDENCIES:
   - react-native-aes-gcm-crypto (from `../node_modules/react-native-aes-gcm-crypto`)
   - react-native-context-menu-view (from `../node_modules/react-native-context-menu-view`)
   - react-native-get-random-values (from `../node_modules/react-native-get-random-values`)
-  - react-native-keyboard-controller (from `../node_modules/react-native-keyboard-controller`)
   - react-native-quick-crypto (from `../node_modules/react-native-quick-crypto`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - "react-native-slider (from `../node_modules/@react-native-community/slider`)"
@@ -2761,8 +2711,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-context-menu-view"
   react-native-get-random-values:
     :path: "../node_modules/react-native-get-random-values"
-  react-native-keyboard-controller:
-    :path: "../node_modules/react-native-keyboard-controller"
   react-native-quick-crypto:
     :path: "../node_modules/react-native-quick-crypto"
   react-native-safe-area-context:
@@ -2917,7 +2865,6 @@ SPEC CHECKSUMS:
   react-native-aes-gcm-crypto: d572dd7a69f31c539bb8309b3a829bfa3bfad244
   react-native-context-menu-view: 3a8fb510448efa9d477f645dafa889ef1c78daaa
   react-native-get-random-values: d16467cf726c618e9c7a8c3c39c31faa2244bbba
-  react-native-keyboard-controller: 16d80dc94f13d201ae48530023940260fc63eb0a
   react-native-quick-crypto: 25eea8fe1d2a2ae24b609cb8061b7ef5873e7615
   react-native-safe-area-context: 895c49ee2613865f90318789be89a8e286fe7b69
   react-native-slider: 78ccabe016aef7418b1a846b31115b4165c4dde6

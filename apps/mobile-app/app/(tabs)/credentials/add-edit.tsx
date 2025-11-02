@@ -7,8 +7,7 @@ import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-rout
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Resolver, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View, Alert, Keyboard, Platform } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { StyleSheet, View, Alert, Keyboard, Platform, ScrollView, KeyboardAvoidingView } from 'react-native';
 import Toast from 'react-native-toast-message';
 
 import { CreateIdentityGenerator, IdentityGenerator, IdentityHelperUtils } from '@/utils/dist/shared/identity-generator';
@@ -652,306 +651,311 @@ export default function AddEditCredentialScreen() : React.ReactNode {
       )}
 
       <ThemedContainer style={styles.container}>
-        <KeyboardAwareScrollView
-          enabled={true}
-          contentContainerStyle={styles.contentContainer}
-          keyboardShouldPersistTaps="handled"
-          bottomOffset={30}
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 30 : 80}
         >
-          {!isEditMode && (
-            <View style={styles.modeSelector}>
-              <RobustPressable
-                style={[styles.modeButton, mode === 'random' && styles.modeButtonActive]}
-                onPress={() => setMode('random')}
-              >
-                <MaterialIcons
-                  name="auto-fix-high"
-                  size={20}
-                  color={mode === 'random' ? colors.primarySurfaceText : colors.text}
-                />
-                <ThemedText style={[styles.modeButtonText, mode === 'random' && styles.modeButtonTextActive]}>
-                  {t('credentials.randomAlias')}
-                </ThemedText>
-              </RobustPressable>
-              <RobustPressable
-                style={[styles.modeButton, mode === 'manual' && styles.modeButtonActive]}
-                onPress={() => setMode('manual')}
-              >
-                <MaterialIcons
-                  name="person"
-                  size={20}
-                  color={mode === 'manual' ? colors.primarySurfaceText : colors.text}
-                />
-                <ThemedText style={[styles.modeButtonText, mode === 'manual' && styles.modeButtonTextActive]}>
-                  {t('credentials.manual')}
-                </ThemedText>
-              </RobustPressable>
-            </View>
-          )}
-
-          <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>{t('credentials.service')}</ThemedText>
-            <ValidatedFormField
-              ref={serviceNameRef}
-              control={control}
-              name="ServiceName"
-              label={t('credentials.serviceName')}
-              required
-            />
-            <ValidatedFormField
-              control={control}
-              name="ServiceUrl"
-              label={t('credentials.serviceUrl')}
-            />
-          </View>
-          {(mode === 'manual' || isEditMode) && (
-            <>
-              <View style={styles.section}>
-                <ThemedText style={styles.sectionTitle}>{t('credentials.loginCredentials')}</ThemedText>
-
-                {watch('HasPasskey') ? (
-                  <>
-                    {/* When passkey exists: username, passkey, email, password */}
-                    <ValidatedFormField
-                      control={control}
-                      name="Username"
-                      label={t('credentials.username')}
-                      buttons={[
-                        {
-                          icon: "refresh",
-                          onPress: generateRandomUsername
-                        }
-                      ]}
-                    />
-                    {!passkeyMarkedForDeletion && (
-                      <View style={{
-                        backgroundColor: colors.background,
-                        borderColor: colors.accentBorder,
-                        borderRadius: 8,
-                        borderWidth: 1,
-                        marginTop: 8,
-                        marginBottom: 8,
-                        padding: 12,
-                      }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                          <MaterialIcons
-                            name="vpn-key"
-                            size={20}
-                            color={colors.primary}
-                            style={{ marginRight: 8, marginTop: 2 }}
-                          />
-                          <View style={{ flex: 1 }}>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                              <ThemedText style={{ color: colors.text, fontSize: 14, fontWeight: '600' }}>
-                                {t('passkeys.passkey')}
-                              </ThemedText>
-                              <RobustPressable
-                                onPress={() => setPasskeyMarkedForDeletion(true)}
-                                style={{
-                                  padding: 6,
-                                  borderRadius: 4,
-                                  backgroundColor: colors.destructive + '15'
-                                }}
-                              >
-                                <MaterialIcons
-                                  name="delete"
-                                  size={18}
-                                  color={colors.destructive}
-                                />
-                              </RobustPressable>
-                            </View>
-                            {watch('PasskeyRpId') && (
-                              <View style={{ marginBottom: 4 }}>
-                                <ThemedText style={{ color: colors.textMuted, fontSize: 12 }}>
-                                  {t('passkeys.site')}:{' '}
-                                  <ThemedText style={{ color: colors.text, fontSize: 12 }}>
-                                    {watch('PasskeyRpId')}
-                                  </ThemedText>
-                                </ThemedText>
-                              </View>
-                            )}
-                            {watch('PasskeyDisplayName') && (
-                              <View style={{ marginBottom: 4 }}>
-                                <ThemedText style={{ color: colors.textMuted, fontSize: 12 }}>
-                                  {t('passkeys.displayName')}:{' '}
-                                  <ThemedText style={{ color: colors.text, fontSize: 12 }}>
-                                    {watch('PasskeyDisplayName')}
-                                  </ThemedText>
-                                </ThemedText>
-                              </View>
-                            )}
-                            <ThemedText style={{ color: colors.textMuted, fontSize: 11, marginTop: 4 }}>
-                              {t('passkeys.helpText')}
-                            </ThemedText>
-                          </View>
-                        </View>
-                      </View>
-                    )}
-                    {passkeyMarkedForDeletion && (
-                      <View style={{
-                        backgroundColor: colors.errorBackground,
-                        borderColor: colors.errorBorder,
-                        borderRadius: 8,
-                        borderWidth: 1,
-                        marginTop: 8,
-                        marginBottom: 8,
-                        padding: 12,
-                      }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                          <MaterialIcons
-                            name="vpn-key"
-                            size={20}
-                            color={colors.errorText}
-                            style={{ marginRight: 8, marginTop: 2 }}
-                          />
-                          <View style={{ flex: 1 }}>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                              <ThemedText style={{ color: colors.errorText, fontSize: 14, fontWeight: '600' }}>
-                                {t('passkeys.passkeyMarkedForDeletion')}
-                              </ThemedText>
-                              <RobustPressable
-                                onPress={() => setPasskeyMarkedForDeletion(false)}
-                                style={{ padding: 4 }}
-                              >
-                                <MaterialIcons
-                                  name="undo"
-                                  size={18}
-                                  color={colors.textMuted}
-                                />
-                              </RobustPressable>
-                            </View>
-                            <ThemedText style={{ color: colors.errorText, fontSize: 11 }}>
-                              {t('passkeys.passkeyWillBeDeleted')}
-                            </ThemedText>
-                          </View>
-                        </View>
-                      </View>
-                    )}
-                    <EmailDomainField
-                      value={watch('Alias.Email') ?? ''}
-                      onChange={(newValue) => setValue('Alias.Email', newValue)}
-                      label={t('credentials.email')}
-                    />
-                    <AdvancedPasswordField
-                      control={control}
-                      name="Password"
-                      label={t('credentials.password')}
-                      showPassword={isPasswordVisible}
-                      onShowPasswordChange={setIsPasswordVisible}
-                      isNewCredential={!isEditMode}
-                    />
-                  </>
-                ) : (
-                  <>
-                    {/* When no passkey: email, username, password */}
-                    <EmailDomainField
-                      value={watch('Alias.Email') ?? ''}
-                      onChange={(newValue) => setValue('Alias.Email', newValue)}
-                      label={t('credentials.email')}
-                    />
-                    <ValidatedFormField
-                      control={control}
-                      name="Username"
-                      label={t('credentials.username')}
-                      buttons={[
-                        {
-                          icon: "refresh",
-                          onPress: generateRandomUsername
-                        }
-                      ]}
-                    />
-                    <AdvancedPasswordField
-                      control={control}
-                      name="Password"
-                      label={t('credentials.password')}
-                      showPassword={isPasswordVisible}
-                      onShowPasswordChange={setIsPasswordVisible}
-                      isNewCredential={!isEditMode}
-                    />
-                  </>
-                )}
-              </View>
-
-              <View style={styles.section}>
-                <ThemedText style={styles.sectionTitle}>{t('credentials.alias')}</ThemedText>
+          <ScrollView
+            contentContainerStyle={styles.contentContainer}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {!isEditMode && (
+              <View style={styles.modeSelector}>
                 <RobustPressable
-                  style={[
-                    styles.generateButton,
-                    hasAliasValues ? styles.generateButtonSecondary : styles.generateButtonPrimary
-                  ]}
-                  onPress={handleGenerateRandomAlias}
+                  style={[styles.modeButton, mode === 'random' && styles.modeButtonActive]}
+                  onPress={() => setMode('random')}
                 >
                   <MaterialIcons
-                    name={hasAliasValues ? "clear" : "auto-fix-high"}
+                    name="auto-fix-high"
                     size={20}
-                    color="#fff"
+                    color={mode === 'random' ? colors.primarySurfaceText : colors.text}
                   />
-                  <ThemedText style={styles.generateButtonText}>
-                    {hasAliasValues ? t('credentials.clearAliasFields') : t('credentials.generateRandomAlias')}
+                  <ThemedText style={[styles.modeButtonText, mode === 'random' && styles.modeButtonTextActive]}>
+                    {t('credentials.randomAlias')}
                   </ThemedText>
                 </RobustPressable>
-                <ValidatedFormField
-                  control={control}
-                  name="Alias.FirstName"
-                  label={t('credentials.firstName')}
-                />
-                <ValidatedFormField
-                  control={control}
-                  name="Alias.LastName"
-                  label={t('credentials.lastName')}
-                />
-                <ValidatedFormField
-                  control={control}
-                  name="Alias.NickName"
-                  label={t('credentials.nickName')}
-                />
-                <ValidatedFormField
-                  control={control}
-                  name="Alias.Gender"
-                  label={t('credentials.gender')}
-                />
-                <ValidatedFormField
-                  control={control}
-                  name="Alias.BirthDate"
-                  label={t('credentials.birthDate')}
-                  placeholder={t('credentials.birthDatePlaceholder')}
-                />
-              </View>
-
-              <View style={styles.section}>
-                <ThemedText style={styles.sectionTitle}>{t('credentials.metadata')}</ThemedText>
-
-                <ValidatedFormField
-                  control={control}
-                  name="Notes"
-                  label={t('credentials.notes')}
-                  multiline={true}
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                />
-                {/* TODO: Add TOTP management */}
-              </View>
-
-              <View style={styles.section}>
-                <ThemedText style={styles.sectionTitle}>{t('credentials.attachments')}</ThemedText>
-
-                <AttachmentUploader
-                  attachments={attachments}
-                  onAttachmentsChange={setAttachments}
-                />
-              </View>
-
-              {isEditMode && (
                 <RobustPressable
-                  style={styles.deleteButton}
-                  onPress={handleDelete}
+                  style={[styles.modeButton, mode === 'manual' && styles.modeButtonActive]}
+                  onPress={() => setMode('manual')}
                 >
-                  <ThemedText style={styles.deleteButtonText}>{t('credentials.deleteCredential')}</ThemedText>
+                  <MaterialIcons
+                    name="person"
+                    size={20}
+                    color={mode === 'manual' ? colors.primarySurfaceText : colors.text}
+                  />
+                  <ThemedText style={[styles.modeButtonText, mode === 'manual' && styles.modeButtonTextActive]}>
+                    {t('credentials.manual')}
+                  </ThemedText>
                 </RobustPressable>
-              )}
-            </>
-          )}
-        </KeyboardAwareScrollView>
+              </View>
+            )}
+
+            <View style={styles.section}>
+              <ThemedText style={styles.sectionTitle}>{t('credentials.service')}</ThemedText>
+              <ValidatedFormField
+                ref={serviceNameRef}
+                control={control}
+                name="ServiceName"
+                label={t('credentials.serviceName')}
+                required
+              />
+              <ValidatedFormField
+                control={control}
+                name="ServiceUrl"
+                label={t('credentials.serviceUrl')}
+              />
+            </View>
+            {(mode === 'manual' || isEditMode) && (
+              <>
+                <View style={styles.section}>
+                  <ThemedText style={styles.sectionTitle}>{t('credentials.loginCredentials')}</ThemedText>
+
+                  {watch('HasPasskey') ? (
+                    <>
+                      {/* When passkey exists: username, passkey, email, password */}
+                      <ValidatedFormField
+                        control={control}
+                        name="Username"
+                        label={t('credentials.username')}
+                        buttons={[
+                          {
+                            icon: "refresh",
+                            onPress: generateRandomUsername
+                          }
+                        ]}
+                      />
+                      {!passkeyMarkedForDeletion && (
+                        <View style={{
+                          backgroundColor: colors.background,
+                          borderColor: colors.accentBorder,
+                          borderRadius: 8,
+                          borderWidth: 1,
+                          marginTop: 8,
+                          marginBottom: 8,
+                          padding: 12,
+                        }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                            <MaterialIcons
+                              name="vpn-key"
+                              size={20}
+                              color={colors.primary}
+                              style={{ marginRight: 8, marginTop: 2 }}
+                            />
+                            <View style={{ flex: 1 }}>
+                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                <ThemedText style={{ color: colors.text, fontSize: 14, fontWeight: '600' }}>
+                                  {t('passkeys.passkey')}
+                                </ThemedText>
+                                <RobustPressable
+                                  onPress={() => setPasskeyMarkedForDeletion(true)}
+                                  style={{
+                                    padding: 6,
+                                    borderRadius: 4,
+                                    backgroundColor: colors.destructive + '15'
+                                  }}
+                                >
+                                  <MaterialIcons
+                                    name="delete"
+                                    size={18}
+                                    color={colors.destructive}
+                                  />
+                                </RobustPressable>
+                              </View>
+                              {watch('PasskeyRpId') && (
+                                <View style={{ marginBottom: 4 }}>
+                                  <ThemedText style={{ color: colors.textMuted, fontSize: 12 }}>
+                                    {t('passkeys.site')}:{' '}
+                                    <ThemedText style={{ color: colors.text, fontSize: 12 }}>
+                                      {watch('PasskeyRpId')}
+                                    </ThemedText>
+                                  </ThemedText>
+                                </View>
+                              )}
+                              {watch('PasskeyDisplayName') && (
+                                <View style={{ marginBottom: 4 }}>
+                                  <ThemedText style={{ color: colors.textMuted, fontSize: 12 }}>
+                                    {t('passkeys.displayName')}:{' '}
+                                    <ThemedText style={{ color: colors.text, fontSize: 12 }}>
+                                      {watch('PasskeyDisplayName')}
+                                    </ThemedText>
+                                  </ThemedText>
+                                </View>
+                              )}
+                              <ThemedText style={{ color: colors.textMuted, fontSize: 11, marginTop: 4 }}>
+                                {t('passkeys.helpText')}
+                              </ThemedText>
+                            </View>
+                          </View>
+                        </View>
+                      )}
+                      {passkeyMarkedForDeletion && (
+                        <View style={{
+                          backgroundColor: colors.errorBackground,
+                          borderColor: colors.errorBorder,
+                          borderRadius: 8,
+                          borderWidth: 1,
+                          marginTop: 8,
+                          marginBottom: 8,
+                          padding: 12,
+                        }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                            <MaterialIcons
+                              name="vpn-key"
+                              size={20}
+                              color={colors.errorText}
+                              style={{ marginRight: 8, marginTop: 2 }}
+                            />
+                            <View style={{ flex: 1 }}>
+                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                <ThemedText style={{ color: colors.errorText, fontSize: 14, fontWeight: '600' }}>
+                                  {t('passkeys.passkeyMarkedForDeletion')}
+                                </ThemedText>
+                                <RobustPressable
+                                  onPress={() => setPasskeyMarkedForDeletion(false)}
+                                  style={{ padding: 4 }}
+                                >
+                                  <MaterialIcons
+                                    name="undo"
+                                    size={18}
+                                    color={colors.textMuted}
+                                  />
+                                </RobustPressable>
+                              </View>
+                              <ThemedText style={{ color: colors.errorText, fontSize: 11 }}>
+                                {t('passkeys.passkeyWillBeDeleted')}
+                              </ThemedText>
+                            </View>
+                          </View>
+                        </View>
+                      )}
+                      <EmailDomainField
+                        value={watch('Alias.Email') ?? ''}
+                        onChange={(newValue) => setValue('Alias.Email', newValue)}
+                        label={t('credentials.email')}
+                      />
+                      <AdvancedPasswordField
+                        control={control}
+                        name="Password"
+                        label={t('credentials.password')}
+                        showPassword={isPasswordVisible}
+                        onShowPasswordChange={setIsPasswordVisible}
+                        isNewCredential={!isEditMode}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      {/* When no passkey: email, username, password */}
+                      <EmailDomainField
+                        value={watch('Alias.Email') ?? ''}
+                        onChange={(newValue) => setValue('Alias.Email', newValue)}
+                        label={t('credentials.email')}
+                      />
+                      <ValidatedFormField
+                        control={control}
+                        name="Username"
+                        label={t('credentials.username')}
+                        buttons={[
+                          {
+                            icon: "refresh",
+                            onPress: generateRandomUsername
+                          }
+                        ]}
+                      />
+                      <AdvancedPasswordField
+                        control={control}
+                        name="Password"
+                        label={t('credentials.password')}
+                        showPassword={isPasswordVisible}
+                        onShowPasswordChange={setIsPasswordVisible}
+                        isNewCredential={!isEditMode}
+                      />
+                    </>
+                  )}
+                </View>
+
+                <View style={styles.section}>
+                  <ThemedText style={styles.sectionTitle}>{t('credentials.alias')}</ThemedText>
+                  <RobustPressable
+                    style={[
+                      styles.generateButton,
+                      hasAliasValues ? styles.generateButtonSecondary : styles.generateButtonPrimary
+                    ]}
+                    onPress={handleGenerateRandomAlias}
+                  >
+                    <MaterialIcons
+                      name={hasAliasValues ? "clear" : "auto-fix-high"}
+                      size={20}
+                      color="#fff"
+                    />
+                    <ThemedText style={styles.generateButtonText}>
+                      {hasAliasValues ? t('credentials.clearAliasFields') : t('credentials.generateRandomAlias')}
+                    </ThemedText>
+                  </RobustPressable>
+                  <ValidatedFormField
+                    control={control}
+                    name="Alias.FirstName"
+                    label={t('credentials.firstName')}
+                  />
+                  <ValidatedFormField
+                    control={control}
+                    name="Alias.LastName"
+                    label={t('credentials.lastName')}
+                  />
+                  <ValidatedFormField
+                    control={control}
+                    name="Alias.NickName"
+                    label={t('credentials.nickName')}
+                  />
+                  <ValidatedFormField
+                    control={control}
+                    name="Alias.Gender"
+                    label={t('credentials.gender')}
+                  />
+                  <ValidatedFormField
+                    control={control}
+                    name="Alias.BirthDate"
+                    label={t('credentials.birthDate')}
+                    placeholder={t('credentials.birthDatePlaceholder')}
+                  />
+                </View>
+
+                <View style={styles.section}>
+                  <ThemedText style={styles.sectionTitle}>{t('credentials.metadata')}</ThemedText>
+
+                  <ValidatedFormField
+                    control={control}
+                    name="Notes"
+                    label={t('credentials.notes')}
+                    multiline={true}
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                  />
+                  {/* TODO: Add TOTP management */}
+                </View>
+
+                <View style={styles.section}>
+                  <ThemedText style={styles.sectionTitle}>{t('credentials.attachments')}</ThemedText>
+
+                  <AttachmentUploader
+                    attachments={attachments}
+                    onAttachmentsChange={setAttachments}
+                  />
+                </View>
+
+                {isEditMode && (
+                  <RobustPressable
+                    style={styles.deleteButton}
+                    onPress={handleDelete}
+                  >
+                    <ThemedText style={styles.deleteButtonText}>{t('credentials.deleteCredential')}</ThemedText>
+                  </RobustPressable>
+                )}
+              </>
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
       </ThemedContainer>
       <AliasVaultToast />
     </>
