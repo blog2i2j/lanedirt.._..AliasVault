@@ -228,52 +228,58 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
         // If we're in quick return mode, now trigger the unlock and complete the request
         // The loading view is already visible from viewWillAppear
         if isQuickReturnMode {
-            let vaultStore = VaultStore()
+            // Dispatch async to ensure the view is fully rendered before showing biometric prompt
+            // This prevents a race condition where the first tap doesn't trigger the biometric UI
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
 
-            if !sanityChecks(vaultStore: vaultStore) {
-                return
-            }
+                let vaultStore = VaultStore()
 
-            // Check if biometric authentication is available
-            if !vaultStore.isBiometricAuthEnabled() {
-                print("Quick return failed: Biometric auth not enabled")
-                self.extensionContext.cancelRequest(withError: NSError(
-                    domain: ASExtensionErrorDomain,
-                    code: ASExtensionError.failed.rawValue,
-                    userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("biometric_auth_required_message", comment: "Please enable Face ID in the main AliasVault app to use autofill.")]
-                ))
-                return
-            }
-
-            do {
-                try vaultStore.unlockVault()
-
-                if let passkeyRequest = quickReturnPasskeyRequest {
-                    handleQuickReturnPasskeyCredential(vaultStore: vaultStore, request: passkeyRequest)
-                } else if let passwordRequest = quickReturnPasswordRequest {
-                    handleQuickReturnPasswordCredential(vaultStore: vaultStore, request: passwordRequest)
+                if !self.sanityChecks(vaultStore: vaultStore) {
+                    return
                 }
-            } catch let error as NSError {
-                print("Quick return vault unlock failed: \(error)")
 
-                // Provide specific error message based on error code
-                var errorMessage = error.localizedDescription
-                if error.domain == "VaultStore" {
-                    switch error.code {
-                    case 3:
-                        errorMessage = NSLocalizedString("no_encryption_key_message", comment: "No encryption key found. Please unlock the vault in the main AliasVault app first.")
-                    case 9:
-                        errorMessage = NSLocalizedString("keychain_error_message", comment: "Failed to retrieve encryption key. This may be due to cancelled biometric authentication.")
-                    default:
-                        break
+                // Check if biometric authentication is available
+                if !vaultStore.isBiometricAuthEnabled() {
+                    print("Quick return failed: Biometric auth not enabled")
+                    self.extensionContext.cancelRequest(withError: NSError(
+                        domain: ASExtensionErrorDomain,
+                        code: ASExtensionError.failed.rawValue,
+                        userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("biometric_auth_required_message", comment: "Please enable Face ID in the main AliasVault app to use autofill.")]
+                    ))
+                    return
+                }
+
+                do {
+                    try vaultStore.unlockVault()
+
+                    if let passkeyRequest = self.quickReturnPasskeyRequest {
+                        self.handleQuickReturnPasskeyCredential(vaultStore: vaultStore, request: passkeyRequest)
+                    } else if let passwordRequest = self.quickReturnPasswordRequest {
+                        self.handleQuickReturnPasswordCredential(vaultStore: vaultStore, request: passwordRequest)
                     }
-                }
+                } catch let error as NSError {
+                    print("Quick return vault unlock failed: \(error)")
 
-                self.extensionContext.cancelRequest(withError: NSError(
-                    domain: ASExtensionErrorDomain,
-                    code: ASExtensionError.failed.rawValue,
-                    userInfo: [NSLocalizedDescriptionKey: errorMessage]
-                ))
+                    // Provide specific error message based on error code
+                    var errorMessage = error.localizedDescription
+                    if error.domain == "VaultStore" {
+                        switch error.code {
+                        case 3:
+                            errorMessage = NSLocalizedString("no_encryption_key_message", comment: "No encryption key found. Please unlock the vault in the main AliasVault app first.")
+                        case 9:
+                            errorMessage = NSLocalizedString("keychain_error_message", comment: "Failed to retrieve encryption key. This may be due to cancelled biometric authentication.")
+                        default:
+                            break
+                        }
+                    }
+
+                    self.extensionContext.cancelRequest(withError: NSError(
+                        domain: ASExtensionErrorDomain,
+                        code: ASExtensionError.failed.rawValue,
+                        userInfo: [NSLocalizedDescriptionKey: errorMessage]
+                    ))
+                }
             }
         }
     }

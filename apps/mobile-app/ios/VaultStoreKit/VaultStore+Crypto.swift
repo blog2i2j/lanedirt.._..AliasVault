@@ -222,6 +222,10 @@ extension VaultStore {
         context.interactionNotAllowed = false
         context.localizedReason = "Authenticate to unlock your vault"
 
+        // Add a small delay to ensure the context is fully ready
+        // This helps prevent race conditions where the biometric prompt doesn't show on first tap
+        Thread.sleep(forTimeInterval: 0.05)
+
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: VaultConstants.keychainService,
