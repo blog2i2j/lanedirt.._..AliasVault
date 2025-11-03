@@ -1,19 +1,26 @@
 #! /bin/bash
 source /etc/profile.d/bsenv.sh
 export GRADLE_USER_HOME=$home_vagrant/.gradle
-export fdroid="sudo --preserve-env --user vagrant
-       env PATH=$fdroidserver:$PATH
-       env PYTHONPATH=$fdroidserver:$fdroidserver/examples
-       env PYTHONUNBUFFERED=true
-       env TERM=$TERM
-       env HOME=$home_vagrant
-       fdroid"
 
-# Go to build directory
-cd build
+# Set up environment for fdroid (no sudo needed, we're already vagrant user)
+export PATH=$fdroidserver:$PATH
+export PYTHONPATH=$fdroidserver:$fdroidserver/examples
+export PYTHONUNBUFFERED=true
+export HOME=$home_vagrant
+
+# Clone dirs
+git clone https://gitlab.com/fdroid/fdroidserver.git --depth 1 /home/vagrant/fdroidserver
+git clone https://gitlab.com/fdroid/fdroiddata.git --depth 1 /home/vagrant/build
+
+# Overwrite metatdata for on-demand main branch build
+cp -R net.aliasvault.app.yml /home/vagrant/build/metadata/net.aliasvault.app.yml
+
+# go to build
+cd /home/vagrant/build
+
 # Fetch dependent libraries (if any)
-$fdroid fetchsrclibs net.aliasvault.app --verbose
+fdroid fetchsrclibs net.aliasvault.app --verbose
 # Format build receipe
-$fdroid rewritemeta net.aliasvault.app
+fdroid rewritemeta net.aliasvault.app
 # Build app and scan for any binary files that are prohibited
-$fdroid build --verbose --latest --scan-binary --on-server --no-tarball net.aliasvault.app
+fdroid build --verbose --latest --scan-binary --on-server --no-tarball net.aliasvault.app
