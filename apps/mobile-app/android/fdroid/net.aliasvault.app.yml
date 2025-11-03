@@ -13,8 +13,8 @@ RepoType: git
 Repo: https://github.com/lanedirt/AliasVault.git
 
 Builds:
-  - versionName: 0.99.0-test1
-    versionCode: 9999
+  - versionName: 0.1.0
+    versionCode: 1
     commit: main
     subdir: apps/mobile-app/android/app/
     sudo:
