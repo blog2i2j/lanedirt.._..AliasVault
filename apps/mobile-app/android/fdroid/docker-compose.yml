@@ -13,7 +13,7 @@ services:
       # Overwrite the net.aliasvault.app.yml file with the local one which forces build to use latest commit from main branch
       - ./net.aliasvault.app.yml:/build/metadata/net.aliasvault.app.yml
       # Add build script to the container
-      - ./build.sh:/build.sh:Z
+      - ./scripts/build.sh:/build.sh:Z
     # Increase memory limits for Gradle builds
     shm_size: '2gb'
     mem_limit: 12g
