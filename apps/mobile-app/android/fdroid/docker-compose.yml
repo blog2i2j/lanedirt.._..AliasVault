@@ -1,0 +1,25 @@
+services:
+  fdroid-buildserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fdroid-buildserver
+    entrypoint: ["/bin/bash"]
+    stdin_open: true   # equivalent to -i
+    tty: true          # equivalent to -t
+    volumes:
+      - ./fdroidserver:/home/vagrant/fdroidserver:Z
+      - ./fdroiddata:/build:z
+      # Overwrite the net.aliasvault.app.yml file with the local one which forces build to use latest commit from main branch
+      - ./net.aliasvault.app.yml:/build/metadata/net.aliasvault.app.yml
+      # Add build script to the container
+      - ./build.sh:/build.sh:Z
+    # Increase memory limits for Gradle builds
+    shm_size: '2gb'
+    mem_limit: 12g
+    memswap_limit: 12g
+    cpus: 4
+    environment:
+      - GRADLE_OPTS=-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError
+      - JAVA_OPTS=-Xmx4g -XX:MaxMetaspaceSize=1g
+    restart: "no"
