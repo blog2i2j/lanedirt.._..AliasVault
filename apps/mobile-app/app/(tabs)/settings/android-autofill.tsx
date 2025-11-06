@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View, TouchableOpacity, Linking, Switch } from 'react-native';
-import { useState, useEffect } from 'react';
 
 import { useColors } from '@/hooks/useColorScheme';
 
@@ -25,7 +25,10 @@ export default function AndroidAutofillScreen() : React.ReactNode {
    * Load the show search text setting on mount.
    */
   useEffect(() => {
-    const loadSettings = async () => {
+    /**
+     * Load the show search text setting.
+     */
+    const loadSettings = async () : Promise<void> => {
       try {
         const value = await NativeVaultManager.getAutofillShowSearchText();
         setShowSearchText(value);
