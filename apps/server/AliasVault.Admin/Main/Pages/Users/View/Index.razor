@@ -94,11 +94,15 @@ else
                                         }
                                     </div>
                                     <div class="text-left">
-                                        <div class="text-xl text-center font-semibold text-gray-900 dark:text-white">@UserUsageStats.TotalEmailClaims.ToString("N0")</div>
-                                        <div class="text-sm text-center text-gray-600 dark:text-gray-400">Total Email Claims</div>
+                                        <div class="text-xl text-center font-semibold text-gray-900 dark:text-white">@UserUsageStats.TotalActiveEmailClaims.ToString("N0")</div>
+                                        <div class="text-sm text-center text-gray-600 dark:text-gray-400">Active Email Claims</div>
                                         @if (UserUsageStats.RecentEmailClaims72h > 0)
                                         {
                                             <div class="text-xs text-center text-green-500 dark:text-green-400">(+@UserUsageStats.RecentEmailClaims72h.ToString("N0") in last 72h)</div>
+                                        }
+                                        @if (UserUsageStats.TotalDisabledEmailClaims > 0)
+                                        {
+                                            <div class="text-xs text-center text-red-400 dark:text-red-300">(@UserUsageStats.TotalDisabledEmailClaims.ToString("N0") disabled)</div>
                                         }
                                     </div>
                                     <div class="text-left">

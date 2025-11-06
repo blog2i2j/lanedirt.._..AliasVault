@@ -18,9 +18,14 @@ public class UserUsageStatistics
     public int TotalCredentials { get; set; }
 
     /// <summary>
-    /// Gets or sets the total number of email claims (all-time).
+    /// Gets or sets the total number of active email claims (all-time).
     /// </summary>
-    public int TotalEmailClaims { get; set; }
+    public int TotalActiveEmailClaims { get; set; }
+
+    /// <summary>
+    /// Gets or sets the total number of disabled email claims (all-time).
+    /// </summary>
+    public int TotalDisabledEmailClaims { get; set; }
 
     /// <summary>
     /// Gets or sets the total number of received emails (all-time).

@@ -302,8 +302,13 @@ public class StatisticsService
         if (latestVault != null)
         {
             stats.TotalCredentials = latestVault.CredentialsCount;
-            stats.TotalEmailClaims = latestVault.EmailClaimsCount;
+            stats.TotalActiveEmailClaims = latestVault.EmailClaimsCount;
         }
+
+        // Get total disabled email claims (all-time) - query UserEmailClaims directly
+        stats.TotalDisabledEmailClaims = await context.UserEmailClaims
+            .Where(uec => uec.UserId == userId && uec.Disabled)
+            .CountAsync();
 
         // Get total received emails (all-time) - using UserEncryptionKey relationship
         stats.TotalReceivedEmails = await context.Emails
