@@ -104,6 +104,7 @@ jobs:
           node-version: '18'
 
       - name: Install dependencies
+        working-directory: apps/server
         run: dotnet workload install wasm-tools
 
       - name: Build server
