@@ -79,6 +79,11 @@ else
 
     [SupplyParameterFromForm] private InputModel Input { get; set; } = default!;
 
+    protected override void OnInitialized()
+    {
+        Input ??= new();
+    }
+
     /// <inheritdoc/>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

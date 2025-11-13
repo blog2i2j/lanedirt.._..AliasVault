@@ -52,6 +52,7 @@
     /// <inheritdoc />
     protected override async Task OnInitializedAsync()
     {
+        Input ??= new();
         await base.OnInitializedAsync();
 
         // Ensure the user has gone through the username & password screen first

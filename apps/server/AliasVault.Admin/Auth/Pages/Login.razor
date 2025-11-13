@@ -75,6 +75,11 @@ else
 
     private bool IsAdminConfigured { get; set; } = true;
 
+    protected override void OnInitialized()
+    {
+        Input ??= new();
+    }
+
     /// <inheritdoc />
     protected override async Task OnInitializedAsync()
     {
