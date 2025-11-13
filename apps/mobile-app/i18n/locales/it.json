@@ -16,8 +16,13 @@
     "loadMore": "Carica altro",
     "use": "Usa",
     "confirm": "Conferma",
+    "next": "Next",
+    "notice": "Notice",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
     "errors": {
-      "unknownError": "Si è verificato un errore sconosciuto. Riprova."
+      "unknownError": "Si è verificato un errore sconosciuto. Riprova.",
+      "unknownErrorTryAgain": "An unknown error occurred. Please try again."
     }
   },
   "auth": {
@@ -34,6 +39,10 @@
     "verifyingAuthCode": "Verifica codice di autenticazione",
     "verify": "Verifica",
     "unlockVault": "Sblocca Cassaforte",
+    "unlockWithPin": "Unlock with PIN",
+    "useMasterPassword": "Use Master Password",
+    "enterPin": "Enter PIN",
+    "enterPinToUnlock": "Enter your PIN to unlock your vault",
     "enterPassword": "Inserisci la tua password per sbloccare la cassaforte",
     "enterPasswordPlaceholder": "Password",
     "enterAuthCode": "Inserire codice a 6 cifre",
@@ -126,7 +135,7 @@
     "noMatchingCredentials": "Nessuna credenziale corrispondente trovata",
     "noCredentialsFound": "Nessuna credenziale trovata. Creane una per iniziare. Consiglio: puoi anche accedere al sito AliasVault per importare credenziali da altri gestori password.",
     "noPasskeysFound": "Non sono state ancora create passkey. Le passkey vengono create visitando un sito web che offre le passkey come metodo di autenticazione.",
-    "noAttachmentsFound": "No credentials with attachments found",
+    "noAttachmentsFound": "Non sono state trovate credenziali con allegati",
     "recentEmails": "Email recenti",
     "loadingEmails": "Caricamento email...",
     "noEmailsYet": "Nessuna email ricevuta.",
@@ -157,7 +166,7 @@
       "passkeys": "Passkey",
       "aliases": "Alias",
       "userpass": "Password",
-      "attachments": "Attachments"
+      "attachments": "Allegati"
     },
     "twoFactorAuth": "Autenticazione a due fattori",
     "totpCode": "Codice TOTP",
@@ -224,7 +233,10 @@
       "openAutofillSettings": "Apri Impostazioni Di Riempimento Automatico",
       "buttonTip": "Se il pulsante qui sopra non funziona, potrebbe essere bloccato a causa delle impostazioni di sicurezza. È possibile andare manualmente in Impostazioni Android → Gestione generale → Password e riempimento automatico.",
       "step2": "2. Alcune applicazioni, ad esempio Google Chrome, potrebbero richiedere la configurazione manuale nelle loro impostazioni per consentire applicazioni di riempimento automatico di terze parti. Tuttavia, la maggior parte delle app dovrebbe funzionare con il riempimento automatico di default.",
-      "alreadyConfigured": "L'ho già configurato"
+      "alreadyConfigured": "L'ho già configurato",
+      "advancedOptions": "Opzioni avanzate",
+      "showSearchText": "Visualizza testo di ricerca",
+      "showSearchTextDescription": "Includere il testo che AliasVault riceve da Android usato per cercare credenziali corrispondenti"
     },
     "vaultUnlock": "Metodo di sblocco cassaforte",
     "autoLock": "Blocco automatico per Timeout",
@@ -280,8 +292,19 @@
       "biometricEnabled": "{{biometric}} abilitato con successo",
       "biometricNotAvailable": "{{biometric}} non disponibile",
       "biometricDisabledMessage": "{{biometric}} è disabilitato per AliasVault. Per usarlo, abilitalo prima nelle impostazioni del dispositivo.",
-      "biometricHelp": "La chiave di decrittazione della cassaforte sarà memorizzata in modo sicuro sul dispositivo tramite {{keystore}} e potrà essere usata con {{biometric}}.",
+      "biometricHelp": "Use biometrics to unlock your vault, which is secured by the {{keystore}}.",
       "biometricUnavailableHelp": "{{biometric}} non è disponibile. Tocca per aprire le impostazioni o vai alle impostazioni del dispositivo per abilitarlo e configurarlo.",
+      "pin": "PIN Code",
+      "pinDescription": "Use a custom PIN code to unlock your vault more quickly.",
+      "pinEnabled": "PIN unlock enabled successfully",
+      "pinDisabled": "PIN unlock has been disabled",
+      "setupPin": "Setup PIN",
+      "enterNewPin": "Enter New PIN",
+      "enterNewPinDescription": "Choose a PIN to unlock your vault",
+      "confirmPin": "Confirm PIN",
+      "confirmPinDescription": "Re-enter your PIN to confirm",
+      "pinMismatch": "PINs do not match. Please try again.",
+      "pinLocked": "PIN locked after too many failed attempts. Please use your master password.",
       "passwordHelp": "Reinserisci la password principale per sbloccare la cassaforte. Sempre abilitato come opzione di fallback.",
       "keystoreIOS": "Keychain iOS",
       "keystoreAndroid": "Keystore Android"
