@@ -20,7 +20,6 @@
     "unlockWithPin": "Unlock with PIN",
     "enterPinToUnlock": "Enter your PIN to unlock your vault",
     "useMasterPassword": "Use Master Password",
-    "pinUnlockTip": "You can also type your PIN using your keyboard",
     "unlockTitle": "Unlock Your Vault",
     "logout": "Logout",
     "logoutConfirm": "Are you sure you want to logout?",
