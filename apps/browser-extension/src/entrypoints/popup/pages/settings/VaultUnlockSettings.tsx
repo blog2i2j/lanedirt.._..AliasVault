@@ -117,7 +117,7 @@ const VaultUnlockSettings: React.FC = () => {
       const encryptionKey = encryptionKeyResponse as string;
 
       if (!encryptionKey) {
-        setError(t('settings.unlockMethod.unlockVaultFirst'));
+        setError(t('common.errors.unknownErrorTryAgain'));
         hideLoading();
         return;
       }
