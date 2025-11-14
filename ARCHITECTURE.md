@@ -2,12 +2,17 @@
 This document provides a high-level overview of the AliasVault architecture, focusing on the encryption algorithms used to ensure the security of user data.
 
 ## Overview
-AliasVault features a [zero-knowledge architecture](https://en.wikipedia.org/wiki/Zero-knowledge_service) and uses a combination of encryption algorithms to protect the data of its users.
+AliasVault implements zero-knowledge encryption using a combination of encryption algorithms to protect the privacy of its users.
 
-The basic premise is that the master password chosen by the user upon registration forms the basis for all encryption
-and decryption operations. This master password is never transmitted over the network and only resides on the client.
-All data is encrypted at rest and in transit. This ensures that even if the AliasVault servers are compromised,
-the user's data remains secure.
+The basic premise is that the master password chosen by the user upon registration forms the basis for all encryption and decryption operations. This master password is never transmitted over the network and only resides on the client.
+
+### What is Zero-Knowledge Encrypted
+- **Vault Data**: Your entire vault (passwords, usernames, notes, passkeys, email addresses, etc.) is fully encrypted client-side before being sent to the server. The server cannot decrypt any vault contents.
+- **Email Contents**: When emails are received by the server, their contents are immediately encrypted with your public key (from your vault) before being saved. Only you can decrypt and read these emails with your private key.
+
+*Note: email aliases are stored on the server as "claims" which are linked to internal user IDs for routing purposes.*
+
+This ensures that even if the AliasVault servers are compromised, vault contents and email messages remain secure and unreadable.
 
 ## Encryption algorithms
 The following encryption algorithms and standards are used by AliasVault:

@@ -30,8 +30,8 @@ AliasVault is a self-hosted password and (email) alias manager that helps you:
 
 ## Key Features
 
-### Zero-Knowledge Architecture
-All data is end-to-end encrypted on the client. Your master password never leaves your device, and the server never has access to your data.
+### Zero-Knowledge Encryption
+Your entire vault (usernames, passwords, notes, passkeys etc.) is fully encrypted client-side before being sent to the server. Your master password never leaves your device, and the server cannot decrypt any vault contents. When emails are received by the server, they are immediately encrypted with your public key before being saved, ensuring only you can read them. Email aliases themselves are registered on the server as "claims" linked to your account for routing purposes, but no personally identifiable information is required.
 
 ### Built-in Email Server
 Generate virtual email addresses for each identity. Emails sent to these addresses are instantly visible in the AliasVault app.

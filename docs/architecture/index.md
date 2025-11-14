@@ -7,7 +7,13 @@ nav_order: 5
 
 # Architecture
 
-AliasVault implements a zero-knowledge architecture where sensitive user data and passwords never leave the client device in unencrypted form. Below is a detailed explanation of how the system secures user data and communications.
+AliasVault implements zero-knowledge encryption where sensitive user data never leaves the client device in unencrypted form. Below is a detailed explanation of how the system secures user data and communications.
+
+**What is Zero-Knowledge in AliasVault**:
+- **Vault Data** (usernames, passwords, notes, passkeys etc.) is fully encrypted client-side before being sent to the server. The server cannot decrypt any vault contents.
+- **Email Contents**: When emails are received by the server, their contents are immediately encrypted with your public key before being saved. Only you can decrypt and read them with your private key.
+
+*Note: email aliases are stored on the server as "claims" which are linked to internal user IDs for routing purposes.*
 
 ## Diagram
 The security architecture diagram below illustrates all encryption and authentication processes used in AliasVault to secure user data and communications.
@@ -55,7 +61,7 @@ You can also view the diagram in a browser-friendly HTML format: [AliasVault Sec
 
 #### Email Reception Process
 1. When an email is received, the server:
-    - Verifies if the recipient has a valid email claim
+    - Verifies if the recipient (email address) matches a valid email claim
     - If no valid claim exists, the email is rejected
     - If valid, generates a random 256-bit symmetric key
     - Encrypts the email content using this symmetric key
@@ -129,15 +135,17 @@ AliasVault includes a virtual passkey authenticator that implements the WebAuthn
         - Android support is pending due to limited Android API support
 
 ## Security Benefits
-- Zero-knowledge architecture ensures user data privacy
+- Zero-knowledge encryption: entire vault is encrypted client-side before transmission
+- Email contents are encrypted with your public key immediately upon receipt by the server
 - Master password never leaves the client device
 - All sensitive operations (key derivation, encryption/decryption) happen locally
-- Server stores only encrypted data
-- Multi-layer encryption for emails provides secure communication
+- Server stores only encrypted vault data and encrypted email contents
+- Multi-layer hybrid encryption for emails provides secure communication
 - Optional 2FA adds an additional security layer
 - Use of established cryptographic standards (Argon2id, AES-256-GCM, RSA/OAEP)
 - Passkey private keys remain encrypted in vault at all times
 - Cross-platform passkey sync without compromising security
 - WebAuthn compliance eliminates phishing risks through domain binding
+- No personally identifiable information required for registration
 
-This security architecture ensures that even if the server is compromised, user data remains secure as all sensitive operations and keys remain strictly on the client side.
+This security architecture ensures that even if the server is compromised, vault contents and email messages remain secure and unreadable as all sensitive operations and keys remain strictly on the client side. Email aliases (stored on the server as "claims" for routing) are linked to internal user IDs, not real-world identities.
