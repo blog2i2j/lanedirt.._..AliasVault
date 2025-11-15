@@ -370,7 +370,7 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
         await context.SaveChangesAsync();
 
         await authLoggingService.LogAuthEventSuccessAsync(user.UserName!, AuthEventType.Logout);
-        return Ok(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.REFRESH_TOKEN_REVOKED_SUCCESSFULLY, 200));
+        return Ok();
     }
 
     /// <summary>

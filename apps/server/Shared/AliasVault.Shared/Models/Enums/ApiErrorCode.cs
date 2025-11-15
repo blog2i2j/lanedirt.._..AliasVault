@@ -35,11 +35,6 @@ public enum ApiErrorCode
     INVALID_REFRESH_TOKEN,
 
     /// <summary>
-    /// Refresh token was successfully revoked.
-    /// </summary>
-    REFRESH_TOKEN_REVOKED_SUCCESSFULLY,
-
-    /// <summary>
     /// Public registration is disabled on this server.
     /// </summary>
     PUBLIC_REGISTRATION_DISABLED,
@@ -108,11 +103,6 @@ public enum ApiErrorCode
     /// There are pending database migrations.
     /// </summary>
     PENDING_MIGRATIONS,
-
-    /// <summary>
-    /// System is OK.
-    /// </summary>
-    SYSTEM_OK,
 
     /// <summary>
     /// Internal server error occurred.
