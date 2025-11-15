@@ -534,6 +534,191 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
     }
 
     /// <summary>
+    /// Initiates a mobile unlock request by creating a QR code challenge.
+    /// </summary>
+    /// <param name="model">The mobile unlock initiate request model.</param>
+    /// <returns>IActionResult.</returns>
+    [HttpPost("mobile-unlock/initiate")]
+    [AllowAnonymous]
+    public async Task<IActionResult> InitiateMobileUnlock([FromBody] MobileUnlockInitiateRequest model)
+    {
+        await using var context = await dbContextFactory.CreateDbContextAsync();
+
+        // Generate a unique request ID
+        var requestId = Guid.NewGuid().ToString("N");
+
+        // Create the unlock request
+        var unlockRequest = new MobileUnlockRequest
+        {
+            Id = requestId,
+            ClientPublicKey = model.ClientPublicKey,
+            Fulfilled = false,
+            CreatedAt = timeProvider.UtcNow,
+            ExpiresAt = timeProvider.UtcNow.AddMinutes(2),
+            ClientIpAddress = IpAddressUtility.GetIpFromContext(HttpContext),
+        };
+
+        context.MobileUnlockRequests.Add(unlockRequest);
+        await context.SaveChangesAsync();
+
+        return Ok(new MobileUnlockInitiateResponse(requestId));
+    }
+
+    /// <summary>
+    /// Polls the status of a mobile unlock request.
+    /// </summary>
+    /// <param name="requestId">The unique identifier for the unlock request.</param>
+    /// <returns>IActionResult.</returns>
+    [HttpGet("mobile-unlock/poll/{requestId}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> PollMobileUnlock(string requestId)
+    {
+        await using var context = await dbContextFactory.CreateDbContextAsync();
+
+        var unlockRequest = await context.MobileUnlockRequests.FirstOrDefaultAsync(r => r.Id == requestId);
+
+        // Check if request exists and hasn't expired
+        if (unlockRequest == null || unlockRequest.ExpiresAt < timeProvider.UtcNow)
+        {
+            // Clean up expired request if it exists
+            if (unlockRequest != null)
+            {
+                context.MobileUnlockRequests.Remove(unlockRequest);
+                await context.SaveChangesAsync();
+            }
+
+            return NotFound(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.MOBILE_UNLOCK_REQUEST_NOT_FOUND, 404));
+        }
+
+        // If not fulfilled, return pending status
+        if (!unlockRequest.Fulfilled)
+        {
+            return Ok(new MobileUnlockPollResponse(false, null, null, null, null, null, null));
+        }
+
+        // Request is fulfilled - get user and generate token
+        var user = await userManager.FindByNameAsync(unlockRequest.Username!);
+        if (user == null)
+        {
+            // Clean up the request
+            context.MobileUnlockRequests.Remove(unlockRequest);
+            await context.SaveChangesAsync();
+            return BadRequest(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.USER_NOT_FOUND, 400));
+        }
+
+        // Check if the account is blocked.
+        if (user.Blocked)
+        {
+            context.MobileUnlockRequests.Remove(unlockRequest);
+            await context.SaveChangesAsync();
+            await authLoggingService.LogAuthEventFailAsync(user.UserName!, AuthEventType.Login, AuthFailureReason.AccountBlocked);
+            return BadRequest(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.ACCOUNT_BLOCKED, 400));
+        }
+
+        // Check if the account is locked out.
+        if (await userManager.IsLockedOutAsync(user))
+        {
+            context.MobileUnlockRequests.Remove(unlockRequest);
+            await context.SaveChangesAsync();
+            await authLoggingService.LogAuthEventFailAsync(user.UserName!, AuthEventType.Login, AuthFailureReason.AccountLocked);
+            return BadRequest(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.ACCOUNT_LOCKED, 400));
+        }
+
+        // Generate token for the user
+        var tokenModel = await GenerateNewTokensForUser(user, extendedLifetime: true);
+
+        // Log successful authentication
+        await authLoggingService.LogAuthEventSuccessAsync(user.UserName!, AuthEventType.Login);
+
+        // Reset failed login attempts.
+        await userManager.ResetAccessFailedCountAsync(user);
+
+        // Return fulfilled response with encrypted key and token
+        var response = new MobileUnlockPollResponse(
+            true,
+            unlockRequest.EncryptedDecryptionKey,
+            unlockRequest.Username,
+            tokenModel,
+            unlockRequest.Salt,
+            unlockRequest.EncryptionType,
+            unlockRequest.EncryptionSettings);
+
+        // Clear sensitive data but keep the record for statistics
+        unlockRequest.ClientPublicKey = string.Empty;
+        unlockRequest.EncryptedDecryptionKey = null;
+        unlockRequest.Salt = null;
+        unlockRequest.EncryptionType = null;
+        unlockRequest.EncryptionSettings = null;
+        unlockRequest.RetrievedAt = timeProvider.UtcNow;
+        await context.SaveChangesAsync();
+
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Submits a mobile unlock response from the mobile app.
+    /// </summary>
+    /// <param name="model">The mobile unlock submit request model.</param>
+    /// <returns>IActionResult.</returns>
+    [HttpPost("mobile-unlock/submit")]
+    [Authorize]
+    public async Task<IActionResult> SubmitMobileUnlock([FromBody] MobileUnlockSubmitRequest model)
+    {
+        await using var context = await dbContextFactory.CreateDbContextAsync();
+
+        // Get the authenticated user
+        var user = await userManager.GetUserAsync(User);
+        if (user == null)
+        {
+            return Unauthorized(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.USER_NOT_FOUND, 401));
+        }
+
+        // Verify the username matches the authenticated user
+        if (user.UserName != model.Username)
+        {
+            return BadRequest(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.USERNAME_MISMATCH, 400));
+        }
+
+        var unlockRequest = await context.MobileUnlockRequests.FirstOrDefaultAsync(r => r.Id == model.RequestId);
+
+        // Check if request exists and hasn't expired
+        if (unlockRequest == null || unlockRequest.ExpiresAt < timeProvider.UtcNow)
+        {
+            // Clean up expired request if it exists
+            if (unlockRequest != null)
+            {
+                context.MobileUnlockRequests.Remove(unlockRequest);
+                await context.SaveChangesAsync();
+            }
+
+            return NotFound(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.MOBILE_UNLOCK_REQUEST_NOT_FOUND, 404));
+        }
+
+        // Check if already fulfilled
+        if (unlockRequest.Fulfilled)
+        {
+            return BadRequest(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.MOBILE_UNLOCK_REQUEST_ALREADY_FULFILLED, 400));
+        }
+
+        // Get latest vault encryption settings for the user
+        var latestVaultEncryptionSettings = AuthHelper.GetUserLatestVaultEncryptionSettings(user);
+
+        // Update the unlock request with the encrypted key and user info
+        unlockRequest.EncryptedDecryptionKey = model.EncryptedDecryptionKey;
+        unlockRequest.Username = model.Username;
+        unlockRequest.Salt = latestVaultEncryptionSettings.Salt;
+        unlockRequest.EncryptionType = latestVaultEncryptionSettings.EncryptionType;
+        unlockRequest.EncryptionSettings = latestVaultEncryptionSettings.EncryptionSettings;
+        unlockRequest.Fulfilled = true;
+        unlockRequest.FulfilledAt = timeProvider.UtcNow;
+        unlockRequest.MobileIpAddress = IpAddressUtility.GetIpFromContext(HttpContext);
+
+        await context.SaveChangesAsync();
+
+        return Ok();
+    }
+
+    /// <summary>
     /// Confirms the account deletion process.
     /// </summary>
     /// <param name="model">The login initiate request model.</param>
