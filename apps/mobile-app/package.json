@@ -38,6 +38,7 @@
     "@types/jsrsasign": "^10.5.15",
     "expo": "^53.0.22",
     "expo-blur": "~14.1.5",
+    "expo-camera": "^17.0.9",
     "expo-clipboard": "~7.1.5",
     "expo-constants": "~17.1.7",
     "expo-dev-client": "~5.1.8",

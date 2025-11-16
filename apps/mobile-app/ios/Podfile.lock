@@ -272,6 +272,10 @@ PODS:
     - ExpoModulesCore
   - ExpoBlur (14.1.5):
     - ExpoModulesCore
+  - ExpoCamera (17.0.9):
+    - ExpoModulesCore
+    - ZXingObjC/OneD
+    - ZXingObjC/PDF417
   - ExpoClipboard (7.1.5):
     - ExpoModulesCore
   - ExpoDocumentPicker (13.1.6):
@@ -2445,6 +2449,11 @@ PODS:
   - SwiftLint (0.59.1)
   - SWXMLHash (7.0.2)
   - Yoga (0.0.0)
+  - ZXingObjC/Core (3.6.9)
+  - ZXingObjC/OneD (3.6.9):
+    - ZXingObjC/Core
+  - ZXingObjC/PDF417 (3.6.9):
+    - ZXingObjC/Core
 
 DEPENDENCIES:
   - boost (from `../node_modules/react-native/third-party-podspecs/boost.podspec`)
@@ -2459,6 +2468,7 @@ DEPENDENCIES:
   - expo-dev-menu-interface (from `../node_modules/expo-dev-menu-interface/ios`)
   - ExpoAsset (from `../node_modules/expo-asset/ios`)
   - ExpoBlur (from `../node_modules/expo-blur/ios`)
+  - ExpoCamera (from `../node_modules/expo-camera/ios`)
   - ExpoClipboard (from `../node_modules/expo-clipboard/ios`)
   - ExpoDocumentPicker (from `../node_modules/expo-document-picker/ios`)
   - ExpoFileSystem (from `../node_modules/expo-file-system/ios`)
@@ -2572,6 +2582,7 @@ SPEC REPOS:
     - SQLite.swift
     - SwiftLint
     - SWXMLHash
+    - ZXingObjC
 
 EXTERNAL SOURCES:
   boost:
@@ -2598,6 +2609,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-asset/ios"
   ExpoBlur:
     :path: "../node_modules/expo-blur/ios"
+  ExpoCamera:
+    :path: "../node_modules/expo-camera/ios"
   ExpoClipboard:
     :path: "../node_modules/expo-clipboard/ios"
   ExpoDocumentPicker:
@@ -2807,6 +2820,7 @@ SPEC CHECKSUMS:
   expo-dev-menu-interface: 609c35ae8b97479cdd4c9e23c8cf6adc44beea0e
   ExpoAsset: ef06e880126c375f580d4923fdd1cdf4ee6ee7d6
   ExpoBlur: 3c8885b9bf9eef4309041ec87adec48b5f1986a9
+  ExpoCamera: 2a87c210f8955350ea5c70f1d539520b2fc5d940
   ExpoClipboard: 436f6de6971f14eb75ae160e076d9cb3b19eb795
   ExpoDocumentPicker: b263a279685b6640b8c8bc70d71c83067aeaae55
   ExpoFileSystem: 7f92f7be2f5c5ed40a7c9efc8fa30821181d9d63
@@ -2911,6 +2925,7 @@ SPEC CHECKSUMS:
   SwiftLint: 3d48e2fb2a3468fdaccf049e5e755df22fb40c2c
   SWXMLHash: dd733a457e9c4fe93b1538654057aefae4acb382
   Yoga: dc7c21200195acacb62fa920c588e7c2106de45e
+  ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
 PODFILE CHECKSUM: ac288e273086bafdd610cafff08ccca0d164f7c3
 

@@ -72,6 +72,8 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>AliasVault supports scanning QR codes for logging into your vault on web or desktop without re-entering your master password.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>AliasVault uses Face ID to securely store your encryption key, allowing you to access your encrypted data with facial authentication.</string>
 	<key>NSUserActivityTypes</key>
