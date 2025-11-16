@@ -46,7 +46,14 @@
 		<dict>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>net.aliasvault.app</string>
+				<string>aliasvault</string>
+			</array>
+			<key>CFBundleURLName</key>
+			<string>net.aliasvault.app</string>
+		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
 				<string>net.aliasvault.app</string>
 			</array>
 		</dict>

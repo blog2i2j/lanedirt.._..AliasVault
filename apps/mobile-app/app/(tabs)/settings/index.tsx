@@ -481,6 +481,19 @@ export default function SettingsScreen() : React.ReactNode {
           <View style={styles.separator} />
           <TouchableOpacity
             style={styles.settingItem}
+            onPress={() => router.push('/(tabs)/settings/qr-scanner')}
+          >
+            <View style={styles.settingItemIcon}>
+              <Ionicons name="qr-code" size={20} color={colors.text} />
+            </View>
+            <View style={styles.settingItemContent}>
+              <ThemedText style={styles.settingItemText}>{t('settings.qrScanner.title')}</ThemedText>
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+            </View>
+          </TouchableOpacity>
+          <View style={styles.separator} />
+          <TouchableOpacity
+            style={styles.settingItem}
             onPress={() => router.push('/(tabs)/settings/security')}
           >
             <View style={styles.settingItemIcon}>

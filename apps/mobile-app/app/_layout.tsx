@@ -60,6 +60,37 @@ function RootLayoutNav() : React.ReactNode {
 
   useEffect(() => {
     /**
+     * Handle deep link URL by navigating to the appropriate route.
+     */
+    const handleDeepLink = (url: string) : void => {
+      // Remove all supported URL schemes to get the path
+      let path = url
+        .replace('net.aliasvault.app://', '')
+        .replace('aliasvault://', '')
+        .replace('exp+aliasvault://', '');
+
+      // Handle mobile unlock QR code scans from native camera
+      if (path.startsWith('mobile-unlock/')) {
+        // Process the QR code directly by simulating what the scanner would do
+        // Since we already have the URL from the camera, we can process it immediately
+        router.push(`/(tabs)/settings/qr-scanner?url=${encodeURIComponent(`aliasvault://${path}`)}` as Href);
+        return;
+      }
+
+      // Handle credential detail routes
+      const isDetailRoute = path.includes('credentials/');
+      if (isDetailRoute) {
+        // First go to the credentials tab.
+        router.replace('/(tabs)/credentials');
+
+        // Then push the target route inside the credentials tab.
+        setTimeout(() => {
+          router.push(path as Href);
+        }, 0);
+      }
+    };
+
+    /**
      * Redirect to a explicit target page if we have one (in case of non-happy path).
      * Otherwise check for a deep link and simulate stack navigation.
      * If neither is present, we let the router redirect us to the default route.
@@ -73,29 +104,24 @@ function RootLayoutNav() : React.ReactNode {
         // If we have an explicit redirect target, we navigate to it. This overrides potential deep link handling.
         router.replace(redirectTarget as Href);
       } else {
-        // Check if we have an initial URL to handle (deep link from most likely the autofill extension).
+        // Check if we have an initial URL to handle (deep link from camera, autofill, etc.).
         const initialUrl = await Linking.getInitialURL();
         if (initialUrl) {
-          /**
-           * Check for certain supported deep link routes, and if found, ensure we simulate the stack navigation
-           * as otherwise the "back" button for navigation will not work as expected.
-           */
-          const path = initialUrl.replace('net.aliasvault.app://', '');
-          const isDetailRoute = path.includes('credentials/');
-          if (isDetailRoute) {
-            // First go to the credentials tab.
-            router.replace('/(tabs)/credentials');
-
-            // Then push the target route inside the credentials tab.
-            setTimeout(() => {
-              router.push(path as Href);
-            }, 0);
-          }
+          handleDeepLink(initialUrl);
         }
       }
     };
 
     redirect();
+
+    // Listen for deep links when app is already running
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      handleDeepLink(url);
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, [bootComplete, redirectTarget, router]);
 
   const styles = StyleSheet.create({

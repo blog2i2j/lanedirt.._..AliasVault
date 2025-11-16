@@ -126,6 +126,13 @@ export default function SettingsLayout(): React.ReactNode {
           ...defaultHeaderOptions,
         }}
       />
+      <Stack.Screen
+        name="qr-scanner"
+        options={{
+          title: t('settings.qrScanner.title'),
+          ...defaultHeaderOptions,
+        }}
+      />
     </Stack>
   );
 }
