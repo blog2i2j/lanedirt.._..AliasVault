@@ -104,14 +104,18 @@ type ValidateLoginRequest2Fa = {
     clientSessionProof: string;
 };
 /**
+ * Token model type.
+ */
+type TokenModel = {
+    token: string;
+    refreshToken: string;
+};
+/**
  * Validate login response type.
  */
 type ValidateLoginResponse = {
     requiresTwoFactor: boolean;
-    token?: {
-        token: string;
-        refreshToken: string;
-    };
+    token?: TokenModel;
     serverSessionProof: string;
 };
 
@@ -380,4 +384,37 @@ declare enum AuthEventType {
     AccountDeletion = 99
 }
 
-export { type ApiErrorResponse, AuthEventType, type AuthLogModel, type BadRequestResponse, type DeleteAccountInitiateRequest, type DeleteAccountInitiateResponse, type DeleteAccountRequest, type Email, type EmailAttachment, type FaviconExtractModel, type LoginRequest, type LoginResponse, type MailboxBulkRequest, type MailboxBulkResponse, type MailboxEmail, type PasswordChangeInitiateResponse, type RefreshToken, type StatusResponse, type ValidateLoginRequest, type ValidateLoginRequest2Fa, type ValidateLoginResponse, type Vault, type VaultPasswordChangeRequest, type VaultPostResponse, type VaultResponse };
+/**
+ * Mobile unlock initiate request type.
+ */
+type MobileUnlockInitiateRequest = {
+    clientPublicKey: string;
+};
+/**
+ * Mobile unlock initiate response type.
+ */
+type MobileUnlockInitiateResponse = {
+    requestId: string;
+};
+/**
+ * Mobile unlock submit request type.
+ */
+type MobileUnlockSubmitRequest = {
+    requestId: string;
+    encryptedDecryptionKey: string;
+    username: string;
+};
+/**
+ * Mobile unlock poll response type.
+ */
+type MobileUnlockPollResponse = {
+    fulfilled: boolean;
+    encryptedDecryptionKey: string | null;
+    username: string | null;
+    token: TokenModel | null;
+    salt: string | null;
+    encryptionType: string | null;
+    encryptionSettings: string | null;
+};
+
+export { type ApiErrorResponse, AuthEventType, type AuthLogModel, type BadRequestResponse, type DeleteAccountInitiateRequest, type DeleteAccountInitiateResponse, type DeleteAccountRequest, type Email, type EmailAttachment, type FaviconExtractModel, type LoginRequest, type LoginResponse, type MailboxBulkRequest, type MailboxBulkResponse, type MailboxEmail, type MobileUnlockInitiateRequest, type MobileUnlockInitiateResponse, type MobileUnlockPollResponse, type MobileUnlockSubmitRequest, type PasswordChangeInitiateResponse, type RefreshToken, type StatusResponse, type TokenModel, type ValidateLoginRequest, type ValidateLoginRequest2Fa, type ValidateLoginResponse, type Vault, type VaultPasswordChangeRequest, type VaultPostResponse, type VaultResponse };
