@@ -577,7 +577,7 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
         var unlockRequest = await context.MobileUnlockRequests.FirstOrDefaultAsync(r => r.Id == requestId);
 
         // Check if request exists and hasn't expired
-        if (unlockRequest == null || unlockRequest.CreatedAt.AddMinutes(2) < timeProvider.UtcNow)
+        if (unlockRequest == null || unlockRequest.ExpiresAt < timeProvider.UtcNow)
         {
             // Clean up expired request if it exists
             if (unlockRequest != null)
@@ -655,29 +655,6 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
     }
 
     /// <summary>
-    /// Gets the public key for a mobile unlock request (for mobile app to encrypt).
-    /// </summary>
-    /// <param name="requestId">The unique identifier for the unlock request.</param>
-    /// <returns>IActionResult.</returns>
-    [HttpGet("mobile-unlock/request/{requestId}")]
-    [Authorize]
-    public async Task<IActionResult> GetMobileUnlockRequest(string requestId)
-    {
-        await using var context = await dbContextFactory.CreateDbContextAsync();
-
-        var unlockRequest = await context.MobileUnlockRequests.FirstOrDefaultAsync(r => r.Id == requestId);
-
-        // Check if request exists and hasn't expired
-        if (unlockRequest == null || unlockRequest.CreatedAt.AddMinutes(2) < timeProvider.UtcNow)
-        {
-            return NotFound(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.MOBILE_UNLOCK_REQUEST_NOT_FOUND, 404));
-        }
-
-        // Return only the public key (sensitive data)
-        return Ok(new { clientPublicKey = unlockRequest.ClientPublicKey });
-    }
-
-    /// <summary>
     /// Submits a mobile unlock response from the mobile app.
     /// </summary>
     /// <param name="model">The mobile unlock submit request model.</param>
@@ -704,7 +681,7 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
         var unlockRequest = await context.MobileUnlockRequests.FirstOrDefaultAsync(r => r.Id == model.RequestId);
 
         // Check if request exists and hasn't expired
-        if (unlockRequest == null || unlockRequest.CreatedAt.AddMinutes(2) < timeProvider.UtcNow)
+        if (unlockRequest == null || unlockRequest.ExpiresAt < timeProvider.UtcNow)
         {
             // Clean up expired request if it exists
             if (unlockRequest != null)
