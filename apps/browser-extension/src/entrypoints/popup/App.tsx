@@ -13,6 +13,7 @@ import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 import { NavigationProvider } from '@/entrypoints/popup/context/NavigationContext';
 import AuthSettings from '@/entrypoints/popup/pages/auth/AuthSettings';
 import Login from '@/entrypoints/popup/pages/auth/Login';
+import MobileUnlock from '@/entrypoints/popup/pages/auth/MobileUnlock';
 import Unlock from '@/entrypoints/popup/pages/auth/Unlock';
 import UnlockSuccess from '@/entrypoints/popup/pages/auth/UnlockSuccess';
 import Upgrade from '@/entrypoints/popup/pages/auth/Upgrade';
@@ -178,6 +179,7 @@ const App: React.FC = () => {
     { path: '/', element: <Index />, showBackButton: false },
     { path: '/reinitialize', element: <Reinitialize />, showBackButton: false },
     { path: '/login', element: <Login />, showBackButton: false, layout: LayoutType.AUTH },
+    { path: '/mobile-unlock', element: <MobileUnlock />, showBackButton: false, layout: LayoutType.AUTH },
     { path: '/unlock', element: <Unlock />, showBackButton: false, layout: LayoutType.AUTH },
     { path: '/unlock-success', element: <UnlockSuccess />, showBackButton: false },
     { path: '/upgrade', element: <Upgrade />, showBackButton: false },

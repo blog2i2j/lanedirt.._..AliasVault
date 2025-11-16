@@ -402,9 +402,12 @@ const Login: React.FC = () => {
             <span className="text-sm text-gray-700 dark:text-gray-200">{t('auth.rememberMe')}</span>
           </label>
         </div>
-        <div className="flex w-full">
+        <div className="flex flex-col w-full space-y-2">
           <Button type="submit">
             {t('auth.loginButton')}
+          </Button>
+          <Button type="button" onClick={() => navigate('/mobile-unlock')} variant="secondary">
+            {t('auth.unlockWithMobile')}
           </Button>
         </div>
       </form>
