@@ -114,9 +114,9 @@ export default function QRConfirmScreen() : React.ReactNode {
         try {
           await NativeVaultManager.showPinUnlock();
           authenticated = true;
-        } catch (pinError: any) {
+        } catch (pinError: unknown) {
           // User cancelled PIN or PIN failed
-          console.log('PIN unlock cancelled or failed:', pinError);
+          console.error('PIN unlock cancelled or failed:', pinError);
           Alert.alert(
             t('common.error'),
             t('settings.qrScanner.mobileUnlock.authenticationFailed')
@@ -130,7 +130,7 @@ export default function QRConfirmScreen() : React.ReactNode {
           authenticated = await NativeVaultManager.authenticateUser(
             t('settings.qrScanner.mobileUnlock.authenticationRequired')
           );
-        } catch (authError: any) {
+        } catch (authError: unknown) {
           console.error('Biometric authentication error:', authError);
           Alert.alert(
             t('common.error'),

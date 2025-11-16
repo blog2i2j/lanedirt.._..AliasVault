@@ -22,10 +22,12 @@ export default function QRResultScreen() : React.ReactNode {
 
   const isSuccess = success === 'true';
 
+  /**
+   * Handle dismiss which will go back to the settings tab.
+   */
   const handleDismiss = () : void => {
     /*
-     * Switch to credentials tab immediately for smooth UX,
-     * then clean up the settings stack in the background.
+     * Go back to the settings tab.
      */
     router.back();
   };

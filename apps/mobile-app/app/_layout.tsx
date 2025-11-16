@@ -118,7 +118,7 @@ function RootLayoutNav() : React.ReactNode {
       handleDeepLink(url);
     });
 
-    return () => {
+    return (): void => {
       subscription.remove();
     };
   }, [bootComplete, redirectTarget, router]);

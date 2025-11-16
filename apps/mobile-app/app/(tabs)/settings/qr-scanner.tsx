@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState, useEffect } from 'react';
-import { View, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { useEffect, useCallback } from 'react';
+import { View, Alert, StyleSheet } from 'react-native';
 
 import { useColors } from '@/hooks/useColorScheme';
 import { useMinDurationLoading } from '@/hooks/useMinDurationLoading';
@@ -16,8 +16,10 @@ import { useWebApi } from '@/context/WebApiContext';
 // QR Code type prefixes
 const QR_CODE_PREFIXES = {
   MOBILE_UNLOCK: 'aliasvault://mobile-unlock/',
-  // Future: PASSKEY: 'aliasvault://passkey/',
-  // Future: SHARE_CREDENTIAL: 'aliasvault://share/',
+  /*
+   * Future: PASSKEY: 'aliasvault://passkey/',
+   * Future: SHARE_CREDENTIAL: 'aliasvault://share/',
+   */
 } as const;
 
 type QRCodeType = keyof typeof QR_CODE_PREFIXES;
@@ -25,7 +27,7 @@ type QRCodeType = keyof typeof QR_CODE_PREFIXES;
 /**
  * Scanned QR code data.
  */
-interface ScannedQRCode {
+type ScannedQRCode = {
   type: QRCodeType | null;
   payload: string;
   rawData: string;
@@ -60,6 +62,9 @@ export default function QRScannerScreen() : React.ReactNode {
 
   // Request camera permission on mount
   useEffect(() => {
+    /**
+     * Request camera permission.
+     */
     const requestCameraPermission = async () : Promise<void> => {
       if (!permission) {
         return; // Still loading permission status
@@ -73,50 +78,21 @@ export default function QRScannerScreen() : React.ReactNode {
         Alert.alert(
           t('settings.qrScanner.cameraPermissionTitle'),
           t('settings.qrScanner.cameraPermissionMessage'),
-          [{ text: t('common.ok'), onPress: () => router.back() }]
+          [{ text: t('common.ok'), /**
+           * Go back to the settings tab.
+           */
+            onPress: (): void => router.back() }]
         );
       }
     };
 
     requestCameraPermission();
-  }, [permission?.granted]);
-
-  // Handle QR code URL passed from deep link (e.g., from native camera)
-  useEffect(() => {
-    if (url && typeof url === 'string') {
-      handleBarcodeScanned({ data: url });
-    }
-  }, [url]);
-
-  /**
-   * Handle barcode scanned - validate request and navigate to confirmation.
-   */
-  const handleBarcodeScanned = ({ data }: { data: string }) : void => {
-    // Prevent multiple scans
-    if (isLoadingAfterScan) {
-      return;
-    }
-
-    // Parse the QR code to determine its type
-    const parsedData = parseQRCode(data);
-
-    if (!parsedData.type) {
-      Alert.alert(
-        t('settings.qrScanner.invalidQrCode'),
-        t('settings.qrScanner.notAliasVaultQr'),
-        [{ text: t('common.ok'), onPress: () => router.back() }]
-      );
-      return;
-    }
-
-    // Validate the request and navigate (with min 500ms loading)
-    validateAndNavigate(parsedData);
-  };
+  }, [permission, requestPermission, t]);
 
   /**
    * Validate the QR request with the server before navigating.
    */
-  const validateAndNavigate = async (parsedData: ScannedQRCode) : Promise<void> => {
+  const validateAndNavigate = useCallback(async (parsedData: ScannedQRCode) : Promise<void> => {
     setIsLoadingAfterScan(true);
 
     try {
@@ -127,8 +103,10 @@ export default function QRScannerScreen() : React.ReactNode {
           { method: 'GET' }
         );
 
-        // Request is valid, navigate to confirmation page
-        // Min duration of 500ms is handled by useMinDurationLoading
+        /*
+         * Request is valid, navigate to confirmation page
+         * Min duration of 500ms is handled by useMinDurationLoading
+         */
         setIsLoadingAfterScan(false);
 
         router.replace({
@@ -156,7 +134,42 @@ export default function QRScannerScreen() : React.ReactNode {
         [{ text: t('common.ok') }]
       );
     }
-  };
+  }, [webApi, setIsLoadingAfterScan, t]);
+
+  /**
+   * Handle barcode scanned - validate request and navigate to confirmation.
+   */
+  const handleBarcodeScanned = useCallback(({ data }: { data: string }) : void => {
+    // Prevent multiple scans
+    if (isLoadingAfterScan) {
+      return;
+    }
+
+    // Parse the QR code to determine its type
+    const parsedData = parseQRCode(data);
+
+    if (!parsedData.type) {
+      Alert.alert(
+        t('settings.qrScanner.invalidQrCode'),
+        t('settings.qrScanner.notAliasVaultQr'),
+        [{ text: t('common.ok'), /**
+         * Go back to the settings tab.
+         */
+          onPress: (): void => router.back() }]
+      );
+      return;
+    }
+
+    // Validate the request and navigate (with min 500ms loading)
+    validateAndNavigate(parsedData);
+  }, [isLoadingAfterScan, t, validateAndNavigate]);
+
+  // Handle QR code URL passed from deep link (e.g., from native camera)
+  useEffect(() => {
+    if (url && typeof url === 'string') {
+      handleBarcodeScanned({ data: url });
+    }
+  }, [url, handleBarcodeScanned]);
 
   const styles = StyleSheet.create({
     camera: {

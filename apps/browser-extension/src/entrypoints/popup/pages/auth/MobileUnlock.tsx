@@ -123,6 +123,7 @@ const MobileUnlock: React.FC = () => {
         clearInterval(countdownIntervalRef.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /**
