@@ -71,8 +71,7 @@ function RootLayoutNav() : React.ReactNode {
 
       // Handle mobile unlock QR code scans from native camera
       if (path.startsWith('mobile-unlock/')) {
-        // Process the QR code directly by simulating what the scanner would do
-        // Since we already have the URL from the camera, we can process it immediately
+        // Process the QR code
         router.push(`/(tabs)/settings/qr-scanner?url=${encodeURIComponent(`aliasvault://${path}`)}` as Href);
         return;
       }
