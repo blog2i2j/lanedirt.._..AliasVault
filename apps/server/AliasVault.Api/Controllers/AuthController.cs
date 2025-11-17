@@ -15,6 +15,7 @@ using AliasServerDb;
 using AliasVault.Api.Helpers;
 using AliasVault.Auth;
 using AliasVault.Cryptography.Client;
+using AliasVault.Cryptography.Server;
 using AliasVault.Shared.Core;
 using AliasVault.Shared.Models.Enums;
 using AliasVault.Shared.Models.WebApi;
@@ -590,14 +591,20 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
         // If not fulfilled, return pending status
         if (loginRequest.FulfilledAt == null)
         {
-            return Ok(new MobileLoginPollResponse(false, null, null, null, null, null, null));
+            return Ok(new MobileLoginPollResponse(false, null, null, null, null, null));
         }
 
-        // Sanity check: check if user exists.
-        var user = await userManager.FindByNameAsync(loginRequest.Username!);
+        // Check if already retrieved (one-time use protection)
+        if (loginRequest.RetrievedAt != null)
+        {
+            return NotFound(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.MOBILE_LOGIN_REQUEST_NOT_FOUND, 404));
+        }
+
+        // Sanity check: check if user exists using UserId FK
+        var user = await userManager.FindByIdAsync(loginRequest.UserId!);
         if (user == null)
         {
-            await authLoggingService.LogAuthEventFailAsync(loginRequest.Username!, AuthEventType.MobileLogin, AuthFailureReason.InvalidUsername);
+            await authLoggingService.LogAuthEventFailAsync("n/a", AuthEventType.MobileLogin, AuthFailureReason.InvalidUsername);
             return BadRequest(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.USER_NOT_FOUND, 400));
         }
 
@@ -618,29 +625,36 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
         // Generate token for the user
         var tokenModel = await GenerateNewTokensForUser(user, extendedLifetime: true);
 
+        // Generate a single symmetric key for encrypting all fields
+        var symmetricKey = Cryptography.Server.Encryption.GenerateRandomSymmetricKey();
+
+        // Encrypt each field with the symmetric key (returns base64)
+        var encryptedToken = Cryptography.Server.Encryption.SymmetricEncrypt(tokenModel.Token, symmetricKey);
+        var encryptedRefreshToken = Cryptography.Server.Encryption.SymmetricEncrypt(tokenModel.RefreshToken, symmetricKey);
+        var encryptedDecryptionKey = Cryptography.Server.Encryption.SymmetricEncrypt(loginRequest.EncryptedDecryptionKey!, symmetricKey);
+        var encryptedUsername = Cryptography.Server.Encryption.SymmetricEncrypt(user.UserName!, symmetricKey);
+
+        // Encrypt the symmetric key with the client's RSA public key (returns base64)
+        var encryptedSymmetricKey = Cryptography.Server.Encryption.EncryptSymmetricKeyWithRsa(symmetricKey, loginRequest.ClientPublicKey);
+
         // Log successful mobile login authentication
         await authLoggingService.LogAuthEventSuccessAsync(user.UserName!, AuthEventType.MobileLogin);
 
-        // Return fulfilled response with encrypted key and token
-        var response = new MobileLoginPollResponse(
-            true,
-            loginRequest.EncryptedDecryptionKey,
-            loginRequest.Username,
-            tokenModel,
-            loginRequest.Salt,
-            loginRequest.EncryptionType,
-            loginRequest.EncryptionSettings);
-
-        // Clear sensitive data but keep the record for statistics
+        // Mark as retrieved and clear sensitive data
         loginRequest.ClientPublicKey = string.Empty;
         loginRequest.EncryptedDecryptionKey = null;
-        loginRequest.Salt = null;
-        loginRequest.EncryptionType = null;
-        loginRequest.EncryptionSettings = null;
         loginRequest.RetrievedAt = timeProvider.UtcNow;
         await context.SaveChangesAsync();
 
-        return Ok(response);
+        // Return response with encrypted symmetric key and encrypted fields
+        // Client will decrypt username to call /login endpoint for salt and encryption settings
+        return Ok(new MobileLoginPollResponse(
+            true,
+            encryptedSymmetricKey,
+            encryptedToken,
+            encryptedRefreshToken,
+            encryptedDecryptionKey,
+            encryptedUsername));
     }
 
     /// <summary>
@@ -684,12 +698,6 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
             return Unauthorized(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.USER_NOT_FOUND, 401));
         }
 
-        // Verify the username matches the authenticated user
-        if (user.UserName != model.Username)
-        {
-            return BadRequest(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.USERNAME_MISMATCH, 400));
-        }
-
         var loginRequest = await context.MobileLoginRequests.FirstOrDefaultAsync(r => r.Id == model.RequestId);
 
         // Check if request exists and hasn't expired
@@ -704,15 +712,8 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
             return BadRequest(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.MOBILE_LOGIN_REQUEST_ALREADY_FULFILLED, 400));
         }
 
-        // Get latest vault encryption settings for the user
-        var latestVaultEncryptionSettings = AuthHelper.GetUserLatestVaultEncryptionSettings(user);
-
-        // Update the login request with the encrypted key and user info
+        // Update the login request with the encrypted key and user ID
         loginRequest.EncryptedDecryptionKey = model.EncryptedDecryptionKey;
-        loginRequest.Username = model.Username;
-        loginRequest.Salt = latestVaultEncryptionSettings.Salt;
-        loginRequest.EncryptionType = latestVaultEncryptionSettings.EncryptionType;
-        loginRequest.EncryptionSettings = latestVaultEncryptionSettings.EncryptionSettings;
         loginRequest.UserId = user.Id;
         loginRequest.FulfilledAt = timeProvider.UtcNow;
         loginRequest.MobileIpAddress = IpAddressUtility.GetIpFromContext(HttpContext);

@@ -36,30 +36,6 @@ public class MobileLoginRequest
     public string? EncryptedDecryptionKey { get; set; }
 
     /// <summary>
-    /// Gets or sets the username provided by the mobile app.
-    /// Will be null until mobile app responds.
-    /// </summary>
-    public string? Username { get; set; }
-
-    /// <summary>
-    /// Gets or sets the salt for the user.
-    /// Will be populated when mobile app provides the username.
-    /// </summary>
-    public string? Salt { get; set; }
-
-    /// <summary>
-    /// Gets or sets the encryption type for the user.
-    /// Will be populated when mobile app provides the username.
-    /// </summary>
-    public string? EncryptionType { get; set; }
-
-    /// <summary>
-    /// Gets or sets the encryption settings for the user.
-    /// Will be populated when mobile app provides the username.
-    /// </summary>
-    public string? EncryptionSettings { get; set; }
-
-    /// <summary>
     /// Gets or sets the created timestamp.
     /// </summary>
     public DateTime CreatedAt { get; set; }

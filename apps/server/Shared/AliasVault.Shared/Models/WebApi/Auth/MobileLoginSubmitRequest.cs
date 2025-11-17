@@ -12,5 +12,4 @@ namespace AliasVault.Shared.Models.WebApi.Auth;
 /// </summary>
 /// <param name="RequestId">The unique identifier for this login request.</param>
 /// <param name="EncryptedDecryptionKey">The encrypted decryption key (base64 encoded).</param>
-/// <param name="Username">The username of the user logging in.</param>
-public record MobileLoginSubmitRequest(string RequestId, string EncryptedDecryptionKey, string Username);
+public record MobileLoginSubmitRequest(string RequestId, string EncryptedDecryptionKey);

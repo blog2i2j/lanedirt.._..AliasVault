@@ -509,12 +509,6 @@ namespace AliasServerDb.Migrations
                     b.Property<string>("EncryptedDecryptionKey")
                         .HasColumnType("text");
 
-                    b.Property<string>("EncryptionSettings")
-                        .HasColumnType("text");
-
-                    b.Property<string>("EncryptionType")
-                        .HasColumnType("text");
-
                     b.Property<DateTime?>("FulfilledAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -524,13 +518,7 @@ namespace AliasServerDb.Migrations
                     b.Property<DateTime?>("RetrievedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Salt")
-                        .HasColumnType("text");
-
                     b.Property<string>("UserId")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Username")
                         .HasColumnType("text");
 
                     b.HasKey("Id");

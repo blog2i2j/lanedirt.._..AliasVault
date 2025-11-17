@@ -99,9 +99,6 @@ public class LogCleanupTask : IMaintenanceTask
                 // Clear all sensitive data
                 request.ClientPublicKey = string.Empty;
                 request.EncryptedDecryptionKey = null;
-                request.Salt = null;
-                request.EncryptionType = null;
-                request.EncryptionSettings = null;
                 request.ClearedAt = now;
             }
 

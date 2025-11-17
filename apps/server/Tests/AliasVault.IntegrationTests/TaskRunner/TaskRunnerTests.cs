@@ -546,10 +546,7 @@ public class TaskRunnerTests
             Id = Guid.NewGuid().ToString(),
             ClientPublicKey = "stale-public-key",
             EncryptedDecryptionKey = "encrypted-key-data",
-            Username = "testuser",
-            Salt = "test-salt",
-            EncryptionType = "Argon2id",
-            EncryptionSettings = "{\"iterations\":3}",
+            UserId = "user-id-1",
             CreatedAt = DateTime.UtcNow.AddMinutes(-15),
             FulfilledAt = DateTime.UtcNow.AddMinutes(-12), // Fulfilled 12 minutes ago (exceeds 10 min timeout)
             RetrievedAt = null, // Not yet retrieved
@@ -565,10 +562,7 @@ public class TaskRunnerTests
             Id = Guid.NewGuid().ToString(),
             ClientPublicKey = "recent-public-key",
             EncryptedDecryptionKey = "encrypted-key-data",
-            Username = "testuser2",
-            Salt = "test-salt",
-            EncryptionType = "Argon2id",
-            EncryptionSettings = "{\"iterations\":3}",
+            UserId = "user-id-2",
             CreatedAt = DateTime.UtcNow.AddMinutes(-6),
             FulfilledAt = DateTime.UtcNow.AddMinutes(-5), // Fulfilled 5 minutes ago (under 10 min timeout)
             RetrievedAt = null,
@@ -584,7 +578,7 @@ public class TaskRunnerTests
             Id = Guid.NewGuid().ToString(),
             ClientPublicKey = "completed-public-key",
             EncryptedDecryptionKey = "encrypted-key-data",
-            Username = "testuser3",
+            UserId = "user-id-3",
             CreatedAt = DateTime.UtcNow.AddMinutes(-15),
             FulfilledAt = DateTime.UtcNow.AddMinutes(-12),
             RetrievedAt = DateTime.UtcNow.AddMinutes(-11), // Already retrieved
@@ -611,15 +605,12 @@ public class TaskRunnerTests
             // Stale request should have sensitive data cleared
             Assert.That(staleAfterCleanup.ClientPublicKey, Is.Empty, "Stale request ClientPublicKey should be cleared");
             Assert.That(staleAfterCleanup.EncryptedDecryptionKey, Is.Null, "Stale request EncryptedDecryptionKey should be cleared");
-            Assert.That(staleAfterCleanup.Salt, Is.Null, "Stale request Salt should be cleared");
-            Assert.That(staleAfterCleanup.EncryptionType, Is.Null, "Stale request EncryptionType should be cleared");
-            Assert.That(staleAfterCleanup.EncryptionSettings, Is.Null, "Stale request EncryptionSettings should be cleared");
             Assert.That(staleAfterCleanup.ClearedAt, Is.Not.Null, "Stale request ClearedAt should be set");
 
             // Metadata should be preserved for abuse tracking
             Assert.That(staleAfterCleanup.ClientIpAddress, Is.EqualTo("192.168.1.1"), "Client IP should be preserved");
             Assert.That(staleAfterCleanup.MobileIpAddress, Is.EqualTo("10.0.0.1"), "Mobile IP should be preserved");
-            Assert.That(staleAfterCleanup.Username, Is.EqualTo("testuser"), "Username should be preserved");
+            Assert.That(staleAfterCleanup.UserId, Is.EqualTo("user-id-1"), "UserId should be preserved");
         });
 
         var recentAfterCleanup = recentRequest;

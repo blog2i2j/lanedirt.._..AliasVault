@@ -1,4 +1,5 @@
 @page "/mobile-login-history"
+@using AliasVault.Admin.Main.Models
 @using AliasVault.RazorComponents.Tables
 @using Microsoft.AspNetCore.WebUtilities
 @inject NavigationManager NavigationManager
@@ -91,15 +92,15 @@ else
                     <SortableTableColumn>
                         @if (request.RetrievedAt.HasValue)
                         {
-                            <StatusPill Enabled="true" TextTrue="Retrieved" />
+                            <StatusPill Color="green" Enabled="true" TextTrue="Retrieved" />
                         }
                         else if (request.FulfilledAt.HasValue)
                         {
-                            <StatusPill Enabled="true" TextTrue="Fulfilled" />
+                            <StatusPill Color="yellow" Enabled="true" TextTrue="Fulfilled" />
                         }
                         else
                         {
-                            <StatusPill Enabled="false" TextFalse="Pending" />
+                            <StatusPill Color="red" Enabled="false" TextFalse="Pending" />
                         }
                     </SortableTableColumn>
                 </SortableTableRow>
@@ -209,7 +210,16 @@ else
             StateHasChanged();
 
             await using var dbContext = await DbContextFactory.CreateDbContextAsync(cancellationToken);
-            IQueryable<MobileLoginRequest> query = dbContext.MobileLoginRequests;
+
+            // Join with AliasVaultUsers table to get username via UserId FK
+            var query = from request in dbContext.MobileLoginRequests
+                        join user in dbContext.AliasVaultUsers on request.UserId equals user.Id into userJoin
+                        from user in userJoin.DefaultIfEmpty()
+                        select new MobileLoginRequestWithUsername
+                        {
+                            Request = request,
+                            Username = user != null ? user.UserName : null
+                        };
 
             query = ApplySearchFilter(query);
             query = ApplyStatusFilter(query);
@@ -221,13 +231,13 @@ else
                 .Take(PageSize)
                 .Select(r => new
                 {
-                    r.CreatedAt,
-                    r.ClientIpAddress,
-                    r.MobileIpAddress,
-                    r.FulfilledAt,
-                    r.RetrievedAt,
+                    r.Request.CreatedAt,
+                    r.Request.ClientIpAddress,
+                    r.Request.MobileIpAddress,
+                    r.Request.FulfilledAt,
+                    r.Request.RetrievedAt,
                     r.Username,
-                    r.UserId
+                    r.Request.UserId
                 })
                 .ToListAsync(cancellationToken);
 
@@ -257,7 +267,7 @@ else
         }
     }
 
-    private IQueryable<MobileLoginRequest> ApplySearchFilter(IQueryable<MobileLoginRequest> query)
+    private IQueryable<MobileLoginRequestWithUsername> ApplySearchFilter(IQueryable<MobileLoginRequestWithUsername> query)
     {
         if (SearchTerm.Length > 0)
         {
@@ -271,15 +281,15 @@ else
             var searchTerm = SearchTerm.Trim().ToLower();
             query = query.Where(r =>
                 (r.Username != null && EF.Functions.Like(r.Username.ToLower(), "%" + searchTerm + "%")) ||
-                (r.ClientIpAddress != null && EF.Functions.Like(r.ClientIpAddress.ToLower(), "%" + searchTerm + "%")) ||
-                (r.MobileIpAddress != null && EF.Functions.Like(r.MobileIpAddress.ToLower(), "%" + searchTerm + "%"))
+                (r.Request.ClientIpAddress != null && EF.Functions.Like(r.Request.ClientIpAddress.ToLower(), "%" + searchTerm + "%")) ||
+                (r.Request.MobileIpAddress != null && EF.Functions.Like(r.Request.MobileIpAddress.ToLower(), "%" + searchTerm + "%"))
             );
         }
 
         return query;
     }
 
-    private IQueryable<MobileLoginRequest> ApplyStatusFilter(IQueryable<MobileLoginRequest> query)
+    private IQueryable<MobileLoginRequestWithUsername> ApplyStatusFilter(IQueryable<MobileLoginRequestWithUsername> query)
     {
         if (!string.IsNullOrEmpty(SelectedStatusFilter))
         {
@@ -293,13 +303,13 @@ else
             switch (SelectedStatusFilter)
             {
                 case "retrieved":
-                    query = query.Where(r => r.RetrievedAt != null);
+                    query = query.Where(r => r.Request.RetrievedAt != null);
                     break;
                 case "fulfilled":
-                    query = query.Where(r => r.FulfilledAt != null && r.RetrievedAt == null);
+                    query = query.Where(r => r.Request.FulfilledAt != null && r.Request.RetrievedAt == null);
                     break;
                 case "pending":
-                    query = query.Where(r => r.FulfilledAt == null);
+                    query = query.Where(r => r.Request.FulfilledAt == null);
                     break;
             }
         }
@@ -307,34 +317,34 @@ else
         return query;
     }
 
-    private IQueryable<MobileLoginRequest> ApplySort(IQueryable<MobileLoginRequest> query)
+    private IQueryable<MobileLoginRequestWithUsername> ApplySort(IQueryable<MobileLoginRequestWithUsername> query)
     {
         switch (SortColumn)
         {
             case "CreatedAt":
                 query = SortDirection == SortDirection.Ascending
-                    ? query.OrderBy(x => x.CreatedAt)
-                    : query.OrderByDescending(x => x.CreatedAt);
+                    ? query.OrderBy(x => x.Request.CreatedAt)
+                    : query.OrderByDescending(x => x.Request.CreatedAt);
                 break;
             case "ClientIpAddress":
                 query = SortDirection == SortDirection.Ascending
-                    ? query.OrderBy(x => x.ClientIpAddress)
-                    : query.OrderByDescending(x => x.ClientIpAddress);
+                    ? query.OrderBy(x => x.Request.ClientIpAddress)
+                    : query.OrderByDescending(x => x.Request.ClientIpAddress);
                 break;
             case "MobileIpAddress":
                 query = SortDirection == SortDirection.Ascending
-                    ? query.OrderBy(x => x.MobileIpAddress)
-                    : query.OrderByDescending(x => x.MobileIpAddress);
+                    ? query.OrderBy(x => x.Request.MobileIpAddress)
+                    : query.OrderByDescending(x => x.Request.MobileIpAddress);
                 break;
             case "FulfilledAt":
                 query = SortDirection == SortDirection.Ascending
-                    ? query.OrderBy(x => x.FulfilledAt)
-                    : query.OrderByDescending(x => x.FulfilledAt);
+                    ? query.OrderBy(x => x.Request.FulfilledAt)
+                    : query.OrderByDescending(x => x.Request.FulfilledAt);
                 break;
             case "RetrievedAt":
                 query = SortDirection == SortDirection.Ascending
-                    ? query.OrderBy(x => x.RetrievedAt)
-                    : query.OrderByDescending(x => x.RetrievedAt);
+                    ? query.OrderBy(x => x.Request.RetrievedAt)
+                    : query.OrderByDescending(x => x.Request.RetrievedAt);
                 break;
             case "Username":
                 query = SortDirection == SortDirection.Ascending
@@ -342,7 +352,7 @@ else
                     : query.OrderByDescending(x => x.Username);
                 break;
             default:
-                query = query.OrderByDescending(x => x.CreatedAt);
+                query = query.OrderByDescending(x => x.Request.CreatedAt);
                 break;
         }
 
