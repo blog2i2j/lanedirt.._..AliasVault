@@ -12,11 +12,10 @@ using Microsoft.EntityFrameworkCore;
 /// <summary>
 /// Mobile login request entity for storing temporary login requests.
 /// </summary>
+[Index(nameof(RetrievedAt), nameof(ClearedAt), nameof(FulfilledAt), Name = "IX_RetrievedAt_ClearedAt_FulfilledAt")]
 [Index(nameof(ClientIpAddress), Name = "IX_ClientIpAddress")]
 [Index(nameof(MobileIpAddress), Name = "IX_MobileIpAddress")]
 [Index(nameof(CreatedAt), Name = "IX_CreatedAt")]
-[Index(nameof(FulfilledAt), Name = "IX_FulfilledAt")]
-[Index(nameof(RetrievedAt), Name = "IX_RetrievedAt")]
 [Index(nameof(UserId), Name = "IX_UserId")]
 public class MobileLoginRequest
 {
@@ -74,6 +73,13 @@ public class MobileLoginRequest
     /// Gets or sets the retrieved timestamp (when client successfully retrieved and decrypted).
     /// </summary>
     public DateTime? RetrievedAt { get; set; }
+
+    /// <summary>
+    /// Gets or sets the timestamp when sensitive data was cleared from this record.
+    /// Sensitive data (ClientPublicKey, EncryptedDecryptionKey, Salt, etc.) is cleared
+    /// after a timeout period to minimize risk if server is compromised.
+    /// </summary>
+    public DateTime? ClearedAt { get; set; }
 
     /// <summary>
     /// Gets or sets the IP address of the client that initiated the request.

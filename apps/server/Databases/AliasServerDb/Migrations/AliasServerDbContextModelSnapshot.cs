@@ -493,6 +493,9 @@ namespace AliasServerDb.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("ClearedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("ClientIpAddress")
                         .HasColumnType("text");
 
@@ -536,11 +539,9 @@ namespace AliasServerDb.Migrations
 
                     b.HasIndex(new[] { "CreatedAt" }, "IX_CreatedAt");
 
-                    b.HasIndex(new[] { "FulfilledAt" }, "IX_FulfilledAt");
-
                     b.HasIndex(new[] { "MobileIpAddress" }, "IX_MobileIpAddress");
 
-                    b.HasIndex(new[] { "RetrievedAt" }, "IX_RetrievedAt");
+                    b.HasIndex(new[] { "RetrievedAt", "ClearedAt", "FulfilledAt" }, "IX_RetrievedAt_ClearedAt_FulfilledAt");
 
                     b.HasIndex(new[] { "UserId" }, "IX_UserId");
 

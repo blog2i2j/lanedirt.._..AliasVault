@@ -9,7 +9,7 @@
 <PageHeader
     BreadcrumbItems="@BreadcrumbItems"
     Title="@(TotalRecords > 0 ? $"Mobile Login History ({TotalRecords:N0})" : "Mobile Login History")"
-    Description="View all mobile login requests with IP addresses, timestamps, and fulfillment status.">
+    Description="View all 'login with mobile app' login requests, including IP addresses, timestamps, and whether they were fulfilled. Each record represents a single attempt to log in using the mobile app.">
     <CustomActions>
         <RefreshButton OnClick="() => RefreshData(CancellationToken.None)" ButtonText="Refresh" />
     </CustomActions>
