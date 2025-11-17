@@ -136,7 +136,7 @@ export default function SettingsLayout(): React.ReactNode {
       <Stack.Screen
         name="qr-confirm"
         options={{
-          title: t('settings.qrScanner.mobileUnlock.confirmTitle'),
+          title: t('settings.qrScanner.mobileLogin.confirmTitle'),
           ...defaultHeaderOptions,
         }}
       />

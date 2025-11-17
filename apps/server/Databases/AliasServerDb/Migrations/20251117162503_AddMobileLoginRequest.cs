@@ -6,13 +6,13 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace AliasServerDb.Migrations
 {
     /// <inheritdoc />
-    public partial class AddMobileUnlockRequest : Migration
+    public partial class AddMobileLoginRequest : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "MobileUnlockRequests",
+                name: "MobileLoginRequests",
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "text", nullable: false),
@@ -22,24 +22,34 @@ namespace AliasServerDb.Migrations
                     Salt = table.Column<string>(type: "text", nullable: true),
                     EncryptionType = table.Column<string>(type: "text", nullable: true),
                     EncryptionSettings = table.Column<string>(type: "text", nullable: true),
-                    Fulfilled = table.Column<bool>(type: "boolean", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     FulfilledAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     RetrievedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     ClientIpAddress = table.Column<string>(type: "text", nullable: true),
-                    MobileIpAddress = table.Column<string>(type: "text", nullable: true)
+                    MobileIpAddress = table.Column<string>(type: "text", nullable: true),
+                    UserId = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MobileUnlockRequests", x => x.Id);
+                    table.PrimaryKey("PK_MobileLoginRequests", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_MobileLoginRequests_AliasVaultUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AliasVaultUsers",
+                        principalColumn: "Id");
                 });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MobileLoginRequests_UserId",
+                table: "MobileLoginRequests",
+                column: "UserId");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "MobileUnlockRequests");
+                name: "MobileLoginRequests");
         }
     }
 }

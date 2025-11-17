@@ -8,14 +8,14 @@ import { useAuth } from '@/entrypoints/popup/context/AuthContext';
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 import { useWebApi } from '@/entrypoints/popup/context/WebApiContext';
-import { MobileUnlockUtility } from '@/entrypoints/popup/utils/MobileUnlockUtility';
+import { MobileLoginUtility } from '@/entrypoints/popup/utils/MobileLoginUtility';
 
 import type { VaultResponse } from '@/utils/dist/shared/models/webapi';
 
 /**
- * Mobile unlock page - scan QR code with mobile device to unlock.
+ * Mobile login page - scan QR code with mobile device to login.
  */
-const MobileUnlock: React.FC = () => {
+const MobileLogin: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const webApi = useWebApi();
@@ -26,7 +26,7 @@ const MobileUnlock: React.FC = () => {
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number>(120); // 2 minutes in seconds
-  const mobileUnlockRef = useRef<MobileUnlockUtility | null>(null);
+  const mobileLoginRef = useRef<MobileLoginUtility | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Countdown timer effect
@@ -54,23 +54,23 @@ const MobileUnlock: React.FC = () => {
 
   useEffect(() => {
     /**
-     * Initialize mobile unlock on component mount.
+     * Initialize mobile login on component mount.
      */
-    const initiateMobileUnlock = async () : Promise<void> => {
+    const initiateMobileLogin = async () : Promise<void> => {
       try {
         showLoading();
         setError(null);
 
-        // Initialize mobile unlock utility
-        if (!mobileUnlockRef.current) {
-          mobileUnlockRef.current = new MobileUnlockUtility(webApi);
+        // Initialize mobile login utility
+        if (!mobileLoginRef.current) {
+          mobileLoginRef.current = new MobileLoginUtility(webApi);
         }
 
-        // Initiate mobile unlock and get QR code data
-        const requestId = await mobileUnlockRef.current.initiate();
+        // Initiate mobile login and get QR code data
+        const requestId = await mobileLoginRef.current.initiate();
 
-        // Generate QR code with AliasVault prefix for mobile unlock
-        const qrData = `aliasvault://mobile-unlock/${requestId}`;
+        // Generate QR code with AliasVault prefix for mobile login
+        const qrData = `aliasvault://mobile-login/${requestId}`;
         const qrDataUrl = await QRCode.toDataURL(qrData, {
           width: 256,
           margin: 2,
@@ -80,7 +80,7 @@ const MobileUnlock: React.FC = () => {
         hideLoading();
 
         // Start polling for response
-        await mobileUnlockRef.current.startPolling(
+        await mobileLoginRef.current.startPolling(
           async (username, token, refreshToken, decryptionKey, salt, encryptionType, encryptionSettings) => {
             showLoading();
             try {
@@ -121,12 +121,12 @@ const MobileUnlock: React.FC = () => {
       }
     };
 
-    initiateMobileUnlock();
+    initiateMobileLogin();
 
     // Cleanup on unmount
     return (): void => {
-      if (mobileUnlockRef.current) {
-        mobileUnlockRef.current.cleanup();
+      if (mobileLoginRef.current) {
+        mobileLoginRef.current.cleanup();
       }
       if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current);
@@ -190,8 +190,8 @@ const MobileUnlock: React.FC = () => {
    * Handle back button.
    */
   const handleBack = () : void => {
-    if (mobileUnlockRef.current) {
-      mobileUnlockRef.current.cleanup();
+    if (mobileLoginRef.current) {
+      mobileLoginRef.current.cleanup();
     }
     if (countdownIntervalRef.current) {
       clearInterval(countdownIntervalRef.current);
@@ -241,4 +241,4 @@ const MobileUnlock: React.FC = () => {
   );
 };
 
-export default MobileUnlock;
+export default MobileLogin;

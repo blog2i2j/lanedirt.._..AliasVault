@@ -1,4 +1,4 @@
-@page "/user/mobile-unlock"
+@page "/user/mobile-login"
 @inherits AliasVault.Client.Auth.Pages.Base.LoginBase
 @layout Auth.Layout.MainLayout
 @attribute [AllowAnonymous]
@@ -34,7 +34,7 @@
 
         @if (!string.IsNullOrEmpty(_qrCodeUrl))
         {
-            <div id="mobile-unlock-qr" data-url="@_qrCodeUrl" class="@(_isLoading ? "hidden" : "") mb-4 p-4 bg-white rounded-lg border-4 border-gray-200 dark:border-gray-600">
+            <div id="mobile-login-qr" data-url="@_qrCodeUrl" class="@(_isLoading ? "hidden" : "") mb-4 p-4 bg-white rounded-lg border-4 border-gray-200 dark:border-gray-600">
                 <!-- QR code will be rendered here -->
             </div>
             @if (!_isLoading)
@@ -59,11 +59,11 @@
     private string? _qrCodeUrl;
     private string? _errorMessage;
     private int _timeRemaining = 120; // 2 minutes in seconds
-    private MobileUnlockUtility? _mobileUnlockUtility;
+    private MobileLoginUtility? _mobileLoginUtility;
     private bool _isLoading = true;
     private System.Threading.Timer? _countdownTimer;
 
-    private IStringLocalizer Localizer => LocalizerFactory.Create("Pages.Auth.MobileUnlock", "AliasVault.Client");
+    private IStringLocalizer Localizer => LocalizerFactory.Create("Pages.Auth.MobileLogin", "AliasVault.Client");
     private IStringLocalizer ApiErrorLocalizer => LocalizerFactory.Create("ApiErrors", "AliasVault.Client");
     private IStringLocalizer SharedLocalizer => LocalizerFactory.Create("SharedResources", "AliasVault.Client");
 
@@ -88,14 +88,14 @@
 
         if (firstRender)
         {
-            await InitiateMobileUnlockAsync();
+            await InitiateMobileLoginAsync();
         }
     }
 
     /// <summary>
-    /// Initialize mobile unlock on component mount.
+    /// Initialize mobile login on component mount.
     /// </summary>
-    private async Task InitiateMobileUnlockAsync()
+    private async Task InitiateMobileLoginAsync()
     {
         try
         {
@@ -103,19 +103,19 @@
             _errorMessage = null;
             StateHasChanged();
 
-            // Initialize mobile unlock utility
-            _mobileUnlockUtility = new MobileUnlockUtility(Http, JsInteropService, ScopedServices.GetRequiredService<ILogger<MobileUnlockUtility>>());
+            // Initialize mobile login utility
+            _mobileLoginUtility = new MobileLoginUtility(Http, JsInteropService, ScopedServices.GetRequiredService<ILogger<MobileLoginUtility>>());
 
-            // Initiate mobile unlock and get QR code data
-            var requestId = await _mobileUnlockUtility.InitiateAsync();
+            // Initiate mobile login and get QR code data
+            var requestId = await _mobileLoginUtility.InitiateAsync();
 
-            // Generate QR code with AliasVault prefix for mobile unlock
-            _qrCodeUrl = $"aliasvault://mobile-unlock/{requestId}";
+            // Generate QR code with AliasVault prefix for mobile login
+            _qrCodeUrl = $"aliasvault://mobile-login/{requestId}";
 
             // Render QR code first while still showing loading animation
             StateHasChanged();
             await Task.Delay(100); // Give DOM time to render
-            await JsInteropService.GenerateQrCode("mobile-unlock-qr");
+            await JsInteropService.GenerateQrCode("mobile-login-qr");
 
             // Wait for QR code to be fully rendered before hiding loading animation
             await Task.Delay(500);
@@ -127,7 +127,7 @@
             StartCountdownTimer();
 
             // Start polling for response
-            await _mobileUnlockUtility.StartPollingAsync(
+            await _mobileLoginUtility.StartPollingAsync(
                 HandleSuccessfulAuthAsync,
                 HandleErrorAsync);
         }
@@ -198,7 +198,7 @@
     /// </summary>
     private void HandleCancel()
     {
-        _mobileUnlockUtility?.Cleanup();
+        _mobileLoginUtility?.Cleanup();
         _countdownTimer?.Dispose();
         NavigationManager.NavigateTo("/user/login");
     }
@@ -228,7 +228,7 @@
             else
             {
                 _countdownTimer?.Dispose();
-                _mobileUnlockUtility?.StopPolling();
+                _mobileLoginUtility?.StopPolling();
             }
         }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
     }
@@ -236,7 +236,7 @@
     /// <inheritdoc/>
     public void Dispose()
     {
-        _mobileUnlockUtility?.Dispose();
+        _mobileLoginUtility?.Dispose();
         _countdownTimer?.Dispose();
     }
 }

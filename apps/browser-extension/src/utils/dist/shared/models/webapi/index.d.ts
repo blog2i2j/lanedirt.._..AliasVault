@@ -385,29 +385,29 @@ declare enum AuthEventType {
 }
 
 /**
- * Mobile unlock initiate request type.
+ * Mobile login initiate request type.
  */
-type MobileUnlockInitiateRequest = {
+type MobileLoginInitiateRequest = {
     clientPublicKey: string;
 };
 /**
- * Mobile unlock initiate response type.
+ * Mobile login initiate response type.
  */
-type MobileUnlockInitiateResponse = {
+type MobileLoginInitiateResponse = {
     requestId: string;
 };
 /**
- * Mobile unlock submit request type.
+ * Mobile login submit request type.
  */
-type MobileUnlockSubmitRequest = {
+type MobileLoginSubmitRequest = {
     requestId: string;
     encryptedDecryptionKey: string;
     username: string;
 };
 /**
- * Mobile unlock poll response type.
+ * Mobile login poll response type.
  */
-type MobileUnlockPollResponse = {
+type MobileLoginPollResponse = {
     fulfilled: boolean;
     encryptedDecryptionKey: string | null;
     username: string | null;
@@ -417,4 +417,4 @@ type MobileUnlockPollResponse = {
     encryptionSettings: string | null;
 };
 
-export { type ApiErrorResponse, AuthEventType, type AuthLogModel, type BadRequestResponse, type DeleteAccountInitiateRequest, type DeleteAccountInitiateResponse, type DeleteAccountRequest, type Email, type EmailAttachment, type FaviconExtractModel, type LoginRequest, type LoginResponse, type MailboxBulkRequest, type MailboxBulkResponse, type MailboxEmail, type MobileUnlockInitiateRequest, type MobileUnlockInitiateResponse, type MobileUnlockPollResponse, type MobileUnlockSubmitRequest, type PasswordChangeInitiateResponse, type RefreshToken, type StatusResponse, type TokenModel, type ValidateLoginRequest, type ValidateLoginRequest2Fa, type ValidateLoginResponse, type Vault, type VaultPasswordChangeRequest, type VaultPostResponse, type VaultResponse };
+export { type ApiErrorResponse, AuthEventType, type AuthLogModel, type BadRequestResponse, type DeleteAccountInitiateRequest, type DeleteAccountInitiateResponse, type DeleteAccountRequest, type Email, type EmailAttachment, type FaviconExtractModel, type LoginRequest, type LoginResponse, type MailboxBulkRequest, type MailboxBulkResponse, type MailboxEmail, type MobileLoginInitiateRequest, type MobileLoginInitiateResponse, type MobileLoginPollResponse, type MobileLoginSubmitRequest, type PasswordChangeInitiateResponse, type RefreshToken, type StatusResponse, type TokenModel, type ValidateLoginRequest, type ValidateLoginRequest2Fa, type ValidateLoginResponse, type Vault, type VaultPasswordChangeRequest, type VaultPostResponse, type VaultResponse };

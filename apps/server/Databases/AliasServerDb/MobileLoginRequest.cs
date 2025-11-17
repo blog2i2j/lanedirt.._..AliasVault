@@ -1,5 +1,5 @@
 //-----------------------------------------------------------------------
-// <copyright file="MobileUnlockRequest.cs" company="aliasvault">
+// <copyright file="MobileLoginRequest.cs" company="aliasvault">
 // Copyright (c) aliasvault. All rights reserved.
 // Licensed under the AGPLv3 license. See LICENSE.md file in the project root for full license information.
 // </copyright>
@@ -10,7 +10,7 @@ namespace AliasServerDb;
 /// <summary>
 /// Mobile unlock request entity for storing temporary unlock requests.
 /// </summary>
-public class MobileUnlockRequest
+public class MobileLoginRequest
 {
     /// <summary>
     /// Gets or sets the unique identifier for this unlock request.
@@ -53,11 +53,6 @@ public class MobileUnlockRequest
     public string? EncryptionSettings { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether this request has been fulfilled.
-    /// </summary>
-    public bool Fulfilled { get; set; }
-
-    /// <summary>
     /// Gets or sets the created timestamp.
     /// </summary>
     public DateTime CreatedAt { get; set; }
@@ -81,4 +76,15 @@ public class MobileUnlockRequest
     /// Gets or sets the IP address of the mobile device that fulfilled the request.
     /// </summary>
     public string? MobileIpAddress { get; set; }
+
+    /// <summary>
+    /// Gets or sets the user ID (foreign key to AliasVaultUser).
+    /// Null when record is created, populated when mobile app fulfills the request.
+    /// </summary>
+    public string? UserId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the navigation property to the user.
+    /// </summary>
+    public virtual AliasVaultUser? User { get; set; }
 }

@@ -135,12 +135,12 @@ public enum ApiErrorCode
     VAULT_NOT_UP_TO_DATE,
 
     /// <summary>
-    /// Mobile unlock request not found or expired.
+    /// Mobile login request not found or expired.
     /// </summary>
-    MOBILE_UNLOCK_REQUEST_NOT_FOUND,
+    MOBILE_LOGIN_REQUEST_NOT_FOUND,
 
     /// <summary>
-    /// Mobile unlock request already fulfilled.
+    /// Mobile login request already fulfilled.
     /// </summary>
-    MOBILE_UNLOCK_REQUEST_ALREADY_FULFILLED,
+    MOBILE_LOGIN_REQUEST_ALREADY_FULFILLED,
 }

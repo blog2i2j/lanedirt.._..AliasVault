@@ -69,8 +69,8 @@ function RootLayoutNav() : React.ReactNode {
         .replace('aliasvault://', '')
         .replace('exp+aliasvault://', '');
 
-      // Handle mobile unlock QR code scans from native camera
-      if (path.startsWith('mobile-unlock/')) {
+      // Handle mobile login QR code scans from native camera
+      if (path.startsWith('mobile-login/')) {
         // Process the QR code
         router.push(`/(tabs)/settings/qr-scanner?url=${encodeURIComponent(`aliasvault://${path}`)}` as Href);
         return;

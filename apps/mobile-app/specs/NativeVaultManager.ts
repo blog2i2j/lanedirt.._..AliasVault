@@ -99,8 +99,8 @@ export interface Spec extends TurboModule {
   showPinUnlock(): Promise<void>;
   showPinSetup(): Promise<void>;
 
-  // Mobile unlock methods
-  encryptDecryptionKeyForMobileUnlock(publicKeyJWK: string): Promise<string>;
+  // Mobile login methods
+  encryptDecryptionKeyForMobileLogin(publicKeyJWK: string): Promise<string>;
 
   // Re-authentication methods
   // Authenticate user with biometric or PIN. If title/subtitle are null/empty, defaults to "Unlock Vault" context.

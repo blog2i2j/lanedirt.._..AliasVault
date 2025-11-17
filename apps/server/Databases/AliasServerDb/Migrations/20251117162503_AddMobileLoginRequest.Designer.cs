@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AliasServerDb.Migrations
 {
     [DbContext(typeof(AliasServerDbContext))]
-    [Migration("20251115104944_AddMobileUnlockRequest")]
-    partial class AddMobileUnlockRequest
+    [Migration("20251117162503_AddMobileLoginRequest")]
+    partial class AddMobileLoginRequest
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -491,7 +491,7 @@ namespace AliasServerDb.Migrations
                     b.ToTable("Logs", (string)null);
                 });
 
-            modelBuilder.Entity("AliasServerDb.MobileUnlockRequest", b =>
+            modelBuilder.Entity("AliasServerDb.MobileLoginRequest", b =>
                 {
                     b.Property<string>("Id")
                         .HasColumnType("text");
@@ -515,9 +515,6 @@ namespace AliasServerDb.Migrations
                     b.Property<string>("EncryptionType")
                         .HasColumnType("text");
 
-                    b.Property<bool>("Fulfilled")
-                        .HasColumnType("boolean");
-
                     b.Property<DateTime?>("FulfilledAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -530,12 +527,17 @@ namespace AliasServerDb.Migrations
                     b.Property<string>("Salt")
                         .HasColumnType("text");
 
+                    b.Property<string>("UserId")
+                        .HasColumnType("text");
+
                     b.Property<string>("Username")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
 
-                    b.ToTable("MobileUnlockRequests");
+                    b.HasIndex("UserId");
+
+                    b.ToTable("MobileLoginRequests");
                 });
 
             modelBuilder.Entity("AliasServerDb.ServerSetting", b =>
@@ -913,6 +915,15 @@ namespace AliasServerDb.Migrations
                         .IsRequired();
 
                     b.Navigation("Email");
+                });
+
+            modelBuilder.Entity("AliasServerDb.MobileLoginRequest", b =>
+                {
+                    b.HasOne("AliasServerDb.AliasVaultUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("AliasServerDb.UserEmailClaim", b =>

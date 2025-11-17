@@ -1,20 +1,20 @@
 import { Buffer } from 'buffer';
 
-import type { MobileUnlockInitiateResponse, MobileUnlockPollResponse } from '@/utils/dist/shared/models/webapi';
+import type { MobileLoginInitiateResponse, MobileLoginPollResponse } from '@/utils/dist/shared/models/webapi';
 import EncryptionUtility from '@/utils/EncryptionUtility';
 import type { WebApiService } from '@/utils/WebApiService';
 
 /**
- * Utility class for mobile unlock operations
+ * Utility class for mobile login operations
  */
-export class MobileUnlockUtility {
+export class MobileLoginUtility {
   private webApi: WebApiService;
   private pollingInterval: NodeJS.Timeout | null = null;
   private requestId: string | null = null;
   private privateKey: string | null = null;
 
   /**
-   * Constructor for the MobileUnlockUtility class.
+   * Constructor for the MobileLoginUtility class.
    *
    * @param {WebApiService} webApi - The WebApiService instance.
    */
@@ -23,7 +23,7 @@ export class MobileUnlockUtility {
   }
 
   /**
-   * Initiates a mobile unlock request and returns the QR code data
+   * Initiates a mobile login request and returns the QR code data
    */
   public async initiate(): Promise<string> {
     // Generate RSA key pair
@@ -31,7 +31,7 @@ export class MobileUnlockUtility {
     this.privateKey = keyPair.privateKey;
 
     // Send public key to server (no auth required)
-    const response = await this.webApi.rawFetch('auth/mobile-unlock/initiate', {
+    const response = await this.webApi.rawFetch('auth/mobile-login/initiate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -42,12 +42,12 @@ export class MobileUnlockUtility {
     });
 
     if (!response.ok) {
-      const error = new Error(`Failed to initiate mobile unlock: ${response.status}`) as Error & { status: number };
+      const error = new Error(`Failed to initiate mobile login: ${response.status}`) as Error & { status: number };
       error.status = response.status;
       throw error;
     }
 
-    const data = await response.json() as MobileUnlockInitiateResponse;
+    const data = await response.json() as MobileLoginInitiateResponse;
     this.requestId = data.requestId;
 
     // Return QR code data (request ID)
@@ -55,7 +55,7 @@ export class MobileUnlockUtility {
   }
 
   /**
-   * Starts polling the server for mobile unlock response
+   * Starts polling the server for mobile login response
    */
   public async startPolling(
     onSuccess: (username: string, token: string, refreshToken: string, decryptionKey: string, salt: string, encryptionType: string, encryptionSettings: string) => void,
@@ -66,7 +66,7 @@ export class MobileUnlockUtility {
     }
 
     /**
-     * Polls the server for mobile unlock response
+     * Polls the server for mobile login response
      */
     const pollFn = async (): Promise<void> => {
       try {
@@ -76,7 +76,7 @@ export class MobileUnlockUtility {
         }
 
         const response = await this.webApi.rawFetch(
-          `auth/mobile-unlock/poll/${this.requestId}`,
+          `auth/mobile-login/poll/${this.requestId}`,
           {
             method: 'GET',
           }
@@ -88,13 +88,13 @@ export class MobileUnlockUtility {
             this.stopPolling();
             this.privateKey = null;
             this.requestId = null;
-            onError('Mobile unlock request expired');
+            onError('Mobile login request expired');
             return;
           }
           throw new Error(`Polling failed: ${response.status}`);
         }
 
-        const data = await response.json() as MobileUnlockPollResponse;
+        const data = await response.json() as MobileLoginPollResponse;
 
         if (data.fulfilled && data.encryptedDecryptionKey && data.username && data.token && data.salt && data.encryptionType && data.encryptionSettings) {
           // Stop polling
@@ -141,7 +141,7 @@ export class MobileUnlockUtility {
         this.stopPolling();
         this.privateKey = null;
         this.requestId = null;
-        onError('Mobile unlock request timed out');
+        onError('Mobile login request timed out');
       }
     }, 120000);
   }

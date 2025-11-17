@@ -17,7 +17,7 @@ import { useWebApi } from '@/context/WebApiContext';
 import NativeVaultManager from '@/specs/NativeVaultManager';
 
 /**
- * QR Code confirmation screen for mobile unlock.
+ * QR Code confirmation screen for mobile login.
  */
 export default function QRConfirmScreen() : React.ReactNode {
   const colors = useColors();
@@ -30,24 +30,24 @@ export default function QRConfirmScreen() : React.ReactNode {
   const [isProcessing, setIsProcessing] = useState(false);
 
   /**
-   * Handle mobile unlock QR code.
+   * Handle mobile login QR code.
    */
-  const handleMobileUnlock = async (requestId: string) : Promise<void> => {
+  const handleMobileLogin = async (requestId: string) : Promise<void> => {
     try {
       // Fetch the public key from server
       const response = await webApi.authFetch<{ clientPublicKey: string }>(
-        `auth/mobile-unlock/request/${requestId}`,
+        `auth/mobile-login/request/${requestId}`,
         { method: 'GET' }
       );
 
       const publicKeyJWK = response.clientPublicKey;
 
       // Encrypt the decryption key using native module
-      const encryptedKey = await NativeVaultManager.encryptDecryptionKeyForMobileUnlock(publicKeyJWK);
+      const encryptedKey = await NativeVaultManager.encryptDecryptionKeyForMobileLogin(publicKeyJWK);
 
       // Submit the encrypted key to the server
       await webApi.authFetch(
-        'auth/mobile-unlock/submit',
+        'auth/mobile-login/submit',
         {
           method: 'POST',
           headers: {
@@ -66,11 +66,11 @@ export default function QRConfirmScreen() : React.ReactNode {
         pathname: '/(tabs)/settings/qr-result',
         params: {
           success: 'true',
-          message: t('settings.qrScanner.mobileUnlock.successDescription'),
+          message: t('settings.qrScanner.mobileLogin.successDescription'),
         },
       });
     } catch (error) {
-      console.error('Mobile unlock error:', error);
+      console.error('Mobile login error:', error);
       let errorMsg = t('common.errors.unknownErrorTryAgain');
 
       // Error! Navigate to result page
@@ -126,7 +126,7 @@ export default function QRConfirmScreen() : React.ReactNode {
       if (!isBiometricEnabled && !isPinEnabled) {
         Alert.alert(
           t('common.error'),
-          t('settings.qrScanner.mobileUnlock.noAuthMethodEnabled'),
+          t('settings.qrScanner.mobileLogin.noAuthMethodEnabled'),
           [
             {
               text: t('common.ok'),
@@ -142,8 +142,8 @@ export default function QRConfirmScreen() : React.ReactNode {
 
       // Authenticate user with either biometric or PIN (automatically detected)
       const authenticated = await NativeVaultManager.authenticateUser(
-        t('settings.qrScanner.mobileUnlock.confirmTitle'),
-        t('settings.qrScanner.mobileUnlock.confirmSubtitle')
+        t('settings.qrScanner.mobileLogin.confirmTitle'),
+        t('settings.qrScanner.mobileLogin.confirmSubtitle')
       );
 
       if (!authenticated) {
@@ -151,8 +151,8 @@ export default function QRConfirmScreen() : React.ReactNode {
         return;
       }
 
-      // Process the mobile unlock
-      await handleMobileUnlock(requestId);
+      // Process the mobile login
+      await handleMobileLogin(requestId);
     } catch (error) {
       console.error('Authentication or QR code processing error:', error);
       Alert.alert(
@@ -225,10 +225,10 @@ export default function QRConfirmScreen() : React.ReactNode {
       <ThemedScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <View style={styles.confirmationContainer}>
           <ThemedText style={styles.confirmationTitle}>
-            {t('settings.qrScanner.mobileUnlock.confirmTitle')}
+            {t('settings.qrScanner.mobileLogin.confirmTitle')}
           </ThemedText>
           <ThemedText style={styles.confirmationText}>
-            {t('settings.qrScanner.mobileUnlock.confirmMessage')}
+            {t('settings.qrScanner.mobileLogin.confirmMessage')}
           </ThemedText>
           <View style={styles.usernameDisplayContainer}>
             <UsernameDisplay />

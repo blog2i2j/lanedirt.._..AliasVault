@@ -3,11 +3,11 @@ import Security
 
 /// Extension for the VaultStore class to handle RSA public key encryption
 extension VaultStore {
-    /// Encrypts the vault's encryption key using an RSA public key for mobile unlock
+    /// Encrypts the vault's encryption key using an RSA public key for mobile login
     /// This method gets the internal encryption key and encrypts it with the provided public key
     /// - Parameter publicKeyJWK: The RSA public key in JWK format (JSON string)
     /// - Returns: The encrypted encryption key
-    public func encryptDecryptionKeyForMobileUnlock(publicKeyJWK: String) throws -> Data {
+    public func encryptDecryptionKeyForMobileLogin(publicKeyJWK: String) throws -> Data {
         // Get the current encryption key from the vault store
         // This will only work if the vault is unlocked (encryption key is in memory)
         let encryptionKey = try getEncryptionKey()

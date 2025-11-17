@@ -21,4 +21,4 @@ export * from './PasswordChangeInitiateResponse';
 export * from './VaultPasswordChangeRequest';
 export * from './BadRequestResponse';
 export * from './AuthEventType';
-export * from './MobileUnlock';
+export * from './MobileLogin';

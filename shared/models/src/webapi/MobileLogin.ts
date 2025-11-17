@@ -1,32 +1,32 @@
 import type { TokenModel } from './ValidateLogin';
 
 /**
- * Mobile unlock initiate request type.
+ * Mobile login initiate request type.
  */
-export type MobileUnlockInitiateRequest = {
+export type MobileLoginInitiateRequest = {
     clientPublicKey: string;
 }
 
 /**
- * Mobile unlock initiate response type.
+ * Mobile login initiate response type.
  */
-export type MobileUnlockInitiateResponse = {
+export type MobileLoginInitiateResponse = {
     requestId: string;
 }
 
 /**
- * Mobile unlock submit request type.
+ * Mobile login submit request type.
  */
-export type MobileUnlockSubmitRequest = {
+export type MobileLoginSubmitRequest = {
     requestId: string;
     encryptedDecryptionKey: string;
     username: string;
 }
 
 /**
- * Mobile unlock poll response type.
+ * Mobile login poll response type.
  */
-export type MobileUnlockPollResponse = {
+export type MobileLoginPollResponse = {
     fulfilled: boolean;
     encryptedDecryptionKey: string | null;
     username: string | null;

@@ -138,9 +138,9 @@ public class AliasServerDbContext : WorkerStatusDbContext, IDataProtectionKeyCon
     public DbSet<TaskRunnerJob> TaskRunnerJobs { get; set; }
 
     /// <summary>
-    /// Gets or sets the MobileUnlockRequests DbSet.
+    /// Gets or sets the MobileLoginRequests DbSet.
     /// </summary>
-    public DbSet<MobileUnlockRequest> MobileUnlockRequests { get; set; }
+    public DbSet<MobileLoginRequest> MobileLoginRequests { get; set; }
 
     /// <summary>
     /// Sets up the connection string if it is not already configured.

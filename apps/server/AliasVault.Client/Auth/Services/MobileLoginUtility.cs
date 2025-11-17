@@ -1,5 +1,5 @@
 //-----------------------------------------------------------------------
-// <copyright file="MobileUnlockUtility.cs" company="aliasvault">
+// <copyright file="MobileLoginUtility.cs" company="aliasvault">
 // Copyright (c) aliasvault. All rights reserved.
 // Licensed under the AGPLv3 license. See LICENSE.md file in the project root for full license information.
 // </copyright>
@@ -18,11 +18,11 @@ using Microsoft.Extensions.Logging;
 /// <summary>
 /// Utility class for logging in with mobile app functionality.
 /// </summary>
-public sealed class MobileUnlockUtility : IDisposable
+public sealed class MobileLoginUtility : IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly JsInteropService _jsInteropService;
-    private readonly ILogger<MobileUnlockUtility> _logger;
+    private readonly ILogger<MobileLoginUtility> _logger;
 
     private Timer? _pollingTimer;
     private string? _requestId;
@@ -30,12 +30,12 @@ public sealed class MobileUnlockUtility : IDisposable
     private CancellationTokenSource? _cancellationTokenSource;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MobileUnlockUtility"/> class.
+    /// Initializes a new instance of the <see cref="MobileLoginUtility"/> class.
     /// </summary>
     /// <param name="httpClient">The HTTP client.</param>
     /// <param name="jsInteropService">The JS interop service.</param>
     /// <param name="logger">The logger.</param>
-    public MobileUnlockUtility(HttpClient httpClient, JsInteropService jsInteropService, ILogger<MobileUnlockUtility> logger)
+    public MobileLoginUtility(HttpClient httpClient, JsInteropService jsInteropService, ILogger<MobileLoginUtility> logger)
     {
         _httpClient = httpClient;
         _jsInteropService = jsInteropService;
@@ -43,7 +43,7 @@ public sealed class MobileUnlockUtility : IDisposable
     }
 
     /// <summary>
-    /// Initiates a mobile unlock request and returns the request ID for QR code generation.
+    /// Initiates a mobile login request and returns the request ID for QR code generation.
     /// </summary>
     /// <returns>The request ID.</returns>
     /// <exception cref="HttpRequestException">Thrown when the request fails with status code.</exception>
@@ -54,18 +54,18 @@ public sealed class MobileUnlockUtility : IDisposable
         _privateKey = keyPair.PrivateKey;
 
         // Send public key to server
-        var request = new MobileUnlockInitiateRequest(keyPair.PublicKey);
-        var response = await _httpClient.PostAsJsonAsync("v1/Auth/mobile-unlock/initiate", request);
+        var request = new MobileLoginInitiateRequest(keyPair.PublicKey);
+        var response = await _httpClient.PostAsJsonAsync("v1/Auth/mobile-login/initiate", request);
 
         if (!response.IsSuccessStatusCode)
         {
-            throw new HttpRequestException($"Failed to initiate mobile unlock: {response.StatusCode}", null, response.StatusCode);
+            throw new HttpRequestException($"Failed to initiate mobile login: {response.StatusCode}", null, response.StatusCode);
         }
 
-        var result = await response.Content.ReadFromJsonAsync<MobileUnlockInitiateResponse>();
+        var result = await response.Content.ReadFromJsonAsync<MobileLoginInitiateResponse>();
         if (result == null)
         {
-            throw new InvalidOperationException("Failed to parse mobile unlock initiate response");
+            throw new InvalidOperationException("Failed to parse mobile login initiate response");
         }
 
         _requestId = result.RequestId;
@@ -73,7 +73,7 @@ public sealed class MobileUnlockUtility : IDisposable
     }
 
     /// <summary>
-    /// Starts polling the server for mobile unlock response.
+    /// Starts polling the server for mobile login response.
     /// </summary>
     /// <param name="onSuccess">Callback for successful authentication.</param>
     /// <param name="onError">Callback for errors.</param>
@@ -98,7 +98,7 @@ public sealed class MobileUnlockUtility : IDisposable
                     if (!_cancellationTokenSource.IsCancellationRequested)
                     {
                         StopPolling();
-                        onError("Mobile unlock request timed out");
+                        onError("Mobile login request timed out");
                     }
                 },
                 TaskScheduler.Default);
@@ -143,7 +143,7 @@ public sealed class MobileUnlockUtility : IDisposable
 
         try
         {
-            var response = await _httpClient.GetAsync($"v1/Auth/mobile-unlock/poll/{_requestId}");
+            var response = await _httpClient.GetAsync($"v1/Auth/mobile-login/poll/{_requestId}");
 
             if (!response.IsSuccessStatusCode)
             {
@@ -152,14 +152,14 @@ public sealed class MobileUnlockUtility : IDisposable
                     StopPolling();
                     _privateKey = null;
                     _requestId = null;
-                    onError("Mobile unlock request expired or not found");
+                    onError("Mobile login request expired or not found");
                     return;
                 }
 
                 throw new InvalidOperationException($"Polling failed: {response.StatusCode}");
             }
 
-            var result = await response.Content.ReadFromJsonAsync<MobileUnlockPollResponse>();
+            var result = await response.Content.ReadFromJsonAsync<MobileLoginPollResponse>();
 
             if (result?.Fulfilled == true && !string.IsNullOrEmpty(result.EncryptedDecryptionKey) && !string.IsNullOrEmpty(result.Username) && result.Token != null && !string.IsNullOrEmpty(result.Salt) && !string.IsNullOrEmpty(result.EncryptionType) && !string.IsNullOrEmpty(result.EncryptionSettings))
             {
@@ -179,7 +179,7 @@ public sealed class MobileUnlockUtility : IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during mobile unlock polling");
+            _logger.LogError(ex, "Error during mobile login polling");
             StopPolling();
             _privateKey = null;
             _requestId = null;

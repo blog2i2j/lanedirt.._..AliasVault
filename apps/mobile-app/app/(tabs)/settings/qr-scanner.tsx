@@ -15,7 +15,7 @@ import { useWebApi } from '@/context/WebApiContext';
 
 // QR Code type prefixes
 const QR_CODE_PREFIXES = {
-  MOBILE_UNLOCK: 'aliasvault://mobile-unlock/',
+  MOBILE_LOGIN: 'aliasvault://mobile-login/',
   /*
    * Future: PASSKEY: 'aliasvault://passkey/',
    * Future: SHARE_CREDENTIAL: 'aliasvault://share/',
@@ -96,10 +96,10 @@ export default function QRScannerScreen() : React.ReactNode {
     setIsLoadingAfterScan(true);
 
     try {
-      if (parsedData.type === 'MOBILE_UNLOCK') {
+      if (parsedData.type === 'MOBILE_LOGIN') {
         // Fetch the public key from server to validate the request exists
         await webApi.authFetch<{ clientPublicKey: string }>(
-          `auth/mobile-unlock/request/${parsedData.payload}`,
+          `auth/mobile-login/request/${parsedData.payload}`,
           { method: 'GET' }
         );
 
@@ -122,7 +122,7 @@ export default function QRScannerScreen() : React.ReactNode {
 
       if (error instanceof Error) {
         if (error.message.includes('404')) {
-          errorMsg = t('settings.qrScanner.mobileUnlock.requestExpired');
+          errorMsg = t('settings.qrScanner.mobileLogin.requestExpired');
         } else {
           errorMsg = t('common.errors.unknownErrorTryAgain');
         }
