@@ -2,6 +2,7 @@ import { Buffer } from 'buffer';
 
 import type { LoginResponse, MobileLoginInitiateResponse, MobileLoginPollResponse } from '@/utils/dist/shared/models/webapi';
 import EncryptionUtility from '@/utils/EncryptionUtility';
+import type { MobileLoginResult } from '@/utils/types/messaging/MobileLoginResult';
 import type { WebApiService } from '@/utils/WebApiService';
 
 /**
@@ -58,7 +59,7 @@ export class MobileLoginUtility {
    * Starts polling the server for mobile login response
    */
   public async startPolling(
-    onSuccess: (username: string, token: string, refreshToken: string, decryptionKey: string, salt: string, encryptionType: string, encryptionSettings: string) => void,
+    onSuccess: (result: MobileLoginResult) => void,
     onError: (error: string) => void
   ): Promise<void> {
     if (!this.requestId || !this.privateKey) {
@@ -134,8 +135,20 @@ export class MobileLoginUtility {
 
           const loginData = await loginResponse.json() as LoginResponse;
 
-          // Call success callback with all data
-          onSuccess(username, token, refreshToken, decryptionKey, loginData.salt, loginData.encryptionType, loginData.encryptionSettings);
+          // Create result object using the MobileLoginResult type
+          const result: MobileLoginResult = {
+            username: username,
+            token: token,
+            refreshToken: refreshToken,
+            decryptionKey: decryptionKey,
+            salt: loginData.salt,
+            encryptionType: loginData.encryptionType,
+            encryptionSettings: loginData.encryptionSettings,
+          };
+
+          // Call success callback with result object
+          onSuccess(result);
+
         }
       } catch (error) {
         this.stopPolling();

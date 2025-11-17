@@ -11,6 +11,7 @@ import { useWebApi } from '@/entrypoints/popup/context/WebApiContext';
 import { MobileLoginUtility } from '@/entrypoints/popup/utils/MobileLoginUtility';
 
 import type { VaultResponse } from '@/utils/dist/shared/models/webapi';
+import type { MobileLoginResult } from '@/utils/types/messaging/MobileLoginResult';
 
 /**
  * Mobile login page - scan QR code with mobile device to login.
@@ -81,19 +82,19 @@ const MobileLogin: React.FC = () => {
 
         // Start polling for response
         await mobileLoginRef.current.startPolling(
-          async (username, token, refreshToken, decryptionKey, salt, encryptionType, encryptionSettings) => {
+          async (result: MobileLoginResult) => {
             showLoading();
             try {
               // Handle successful authentication
               await handleSuccessfulAuth(
-                username,
-                token,
-                refreshToken,
-                decryptionKey,
+                result.username,
+                result.token,
+                result.refreshToken,
+                result.decryptionKey,
                 {
-                  salt,
-                  encryptionType,
-                  encryptionSettings,
+                  salt: result.salt,
+                  encryptionType: result.encryptionType,
+                  encryptionSettings: result.encryptionSettings,
                 }
               );
             } catch (err) {
