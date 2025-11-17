@@ -12,7 +12,6 @@ import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedScrollView } from '@/components/themed/ThemedScrollView';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { UsernameDisplay } from '@/components/ui/UsernameDisplay';
-import { useApp } from '@/context/AppContext';
 import { useWebApi } from '@/context/WebApiContext';
 import NativeVaultManager from '@/specs/NativeVaultManager';
 
@@ -22,7 +21,6 @@ import NativeVaultManager from '@/specs/NativeVaultManager';
 export default function QRConfirmScreen() : React.ReactNode {
   const colors = useColors();
   const { t } = useTranslation();
-  const { username } = useApp();
   const webApi = useWebApi();
   const insets = useSafeAreaInsets();
   const { requestId } = useLocalSearchParams<{ requestId: string }>();
@@ -56,7 +54,6 @@ export default function QRConfirmScreen() : React.ReactNode {
           body: JSON.stringify({
             requestId,
             encryptedDecryptionKey: encryptedKey,
-            username: username,
           }),
         }
       );
