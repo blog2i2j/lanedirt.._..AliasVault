@@ -94,7 +94,7 @@ export default function QRResultScreen() : React.ReactNode {
             <ThemedText style={styles.message}>
               {message || (isSuccess
                 ? t('settings.qrScanner.mobileUnlock.successDescription')
-                : t('settings.qrScanner.mobileUnlock.genericError'))}
+                : t('common.errors.unknownErrorTryAgain'))}
             </ThemedText>
           </View>
         </View>

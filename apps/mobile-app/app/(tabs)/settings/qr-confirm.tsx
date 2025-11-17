@@ -11,6 +11,7 @@ import { ThemedButton } from '@/components/themed/ThemedButton';
 import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedScrollView } from '@/components/themed/ThemedScrollView';
 import { ThemedText } from '@/components/themed/ThemedText';
+import { UsernameDisplay } from '@/components/ui/UsernameDisplay';
 import { useApp } from '@/context/AppContext';
 import { useWebApi } from '@/context/WebApiContext';
 import NativeVaultManager from '@/specs/NativeVaultManager';
@@ -70,15 +71,13 @@ export default function QRConfirmScreen() : React.ReactNode {
       });
     } catch (error) {
       console.error('Mobile unlock error:', error);
-      let errorMsg = t('settings.qrScanner.mobileUnlock.genericError');
+      let errorMsg = t('common.errors.unknownErrorTryAgain');
 
       if (error instanceof Error) {
-        if (error.message.includes('ENCRYPTION_ERROR')) {
-          errorMsg = t('settings.qrScanner.mobileUnlock.vaultLocked');
-        } else if (error.message.includes('404')) {
+        if (error.message.includes('404')) {
           errorMsg = t('settings.qrScanner.mobileUnlock.requestExpired');
-        } else if (error.message.includes('401') || error.message.includes('403')) {
-          errorMsg = t('settings.qrScanner.mobileUnlock.unauthorized');
+        } else {
+          errorMsg = t('common.errors.unknownErrorTryAgain');
         }
       }
 
@@ -186,8 +185,12 @@ export default function QRConfirmScreen() : React.ReactNode {
     confirmationText: {
       fontSize: 16,
       lineHeight: 24,
-      marginBottom: 12,
+      marginBottom: 16,
       textAlign: 'center',
+    },
+    usernameDisplayContainer: {
+      marginBottom: 12,
+      width: '100%',
     },
     buttonContainer: {
       gap: 12,
@@ -223,8 +226,11 @@ export default function QRConfirmScreen() : React.ReactNode {
             {t('settings.qrScanner.mobileUnlock.confirmTitle')}
           </ThemedText>
           <ThemedText style={styles.confirmationText}>
-            {t('settings.qrScanner.mobileUnlock.confirmMessage', { username })}
+            {t('settings.qrScanner.mobileUnlock.confirmMessage')}
           </ThemedText>
+          <View style={styles.usernameDisplayContainer}>
+            <UsernameDisplay />
+          </View>
         </View>
 
         <View style={styles.buttonContainer}>

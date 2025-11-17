@@ -118,13 +118,13 @@ export default function QRScannerScreen() : React.ReactNode {
       setIsLoadingAfterScan(false);
 
       console.error('QR validation error:', error);
-      let errorMsg = t('settings.qrScanner.mobileUnlock.genericError');
+      let errorMsg = t('common.errors.unknownErrorTryAgain');
 
       if (error instanceof Error) {
         if (error.message.includes('404')) {
           errorMsg = t('settings.qrScanner.mobileUnlock.requestExpired');
-        } else if (error.message.includes('401') || error.message.includes('403')) {
-          errorMsg = t('settings.qrScanner.mobileUnlock.unauthorized');
+        } else {
+          errorMsg = t('common.errors.unknownErrorTryAgain');
         }
       }
 
@@ -138,6 +138,7 @@ export default function QRScannerScreen() : React.ReactNode {
 
   /**
    * Handle barcode scanned - validate request and navigate to confirmation.
+   * Only processes AliasVault QR codes, silently ignores others.
    */
   const handleBarcodeScanned = useCallback(({ data }: { data: string }) : void => {
     // Prevent multiple scans
@@ -148,21 +149,14 @@ export default function QRScannerScreen() : React.ReactNode {
     // Parse the QR code to determine its type
     const parsedData = parseQRCode(data);
 
+    // Silently ignore non-AliasVault QR codes
     if (!parsedData.type) {
-      Alert.alert(
-        t('settings.qrScanner.invalidQrCode'),
-        t('settings.qrScanner.notAliasVaultQr'),
-        [{ text: t('common.ok'), /**
-         * Go back to the settings tab.
-         */
-          onPress: (): void => router.back() }]
-      );
       return;
     }
 
     // Validate the request and navigate (with min 500ms loading)
     validateAndNavigate(parsedData);
-  }, [isLoadingAfterScan, t, validateAndNavigate]);
+  }, [isLoadingAfterScan, validateAndNavigate]);
 
   // Handle QR code URL passed from deep link (e.g., from native camera)
   useEffect(() => {
