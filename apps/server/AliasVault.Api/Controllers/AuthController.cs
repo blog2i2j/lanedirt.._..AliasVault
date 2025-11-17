@@ -584,13 +584,6 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
         // Check if request exists and hasn't expired
         if (loginRequest == null || loginRequest.CreatedAt.AddMinutes(MobileLoginTimeoutMinutes) < timeProvider.UtcNow)
         {
-            // Clean up expired request if it exists
-            if (loginRequest != null)
-            {
-                context.MobileLoginRequests.Remove(loginRequest);
-                await context.SaveChangesAsync();
-            }
-
             return NotFound(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.MOBILE_LOGIN_REQUEST_NOT_FOUND, 404));
         }
 
@@ -600,31 +593,25 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
             return Ok(new MobileLoginPollResponse(false, null, null, null, null, null, null));
         }
 
-        // Request is fulfilled - get user and generate token
+        // Sanity check: check if user exists.
         var user = await userManager.FindByNameAsync(loginRequest.Username!);
         if (user == null)
         {
-            // Clean up the request
-            context.MobileLoginRequests.Remove(loginRequest);
-            await context.SaveChangesAsync();
+            await authLoggingService.LogAuthEventFailAsync(loginRequest.Username!, AuthEventType.MobileLogin, AuthFailureReason.InvalidUsername);
             return BadRequest(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.USER_NOT_FOUND, 400));
         }
 
-        // Check if the account is blocked.
+        // Sanity check: check if the account is blocked.
         if (user.Blocked)
         {
-            context.MobileLoginRequests.Remove(loginRequest);
-            await context.SaveChangesAsync();
-            await authLoggingService.LogAuthEventFailAsync(user.UserName!, AuthEventType.Login, AuthFailureReason.AccountBlocked);
+            await authLoggingService.LogAuthEventFailAsync(user.UserName!, AuthEventType.MobileLogin, AuthFailureReason.AccountBlocked);
             return BadRequest(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.ACCOUNT_BLOCKED, 400));
         }
 
-        // Check if the account is locked out.
+        // Sanity check: check if the account is locked out.
         if (await userManager.IsLockedOutAsync(user))
         {
-            context.MobileLoginRequests.Remove(loginRequest);
-            await context.SaveChangesAsync();
-            await authLoggingService.LogAuthEventFailAsync(user.UserName!, AuthEventType.Login, AuthFailureReason.AccountLocked);
+            await authLoggingService.LogAuthEventFailAsync(user.UserName!, AuthEventType.MobileLogin, AuthFailureReason.AccountLocked);
             return BadRequest(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.ACCOUNT_LOCKED, 400));
         }
 
@@ -708,13 +695,6 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
         // Check if request exists and hasn't expired
         if (loginRequest == null || loginRequest.CreatedAt.AddMinutes(MobileLoginTimeoutMinutes) < timeProvider.UtcNow)
         {
-            // Clean up expired request if it exists
-            if (loginRequest != null)
-            {
-                context.MobileLoginRequests.Remove(loginRequest);
-                await context.SaveChangesAsync();
-            }
-
             return NotFound(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.MOBILE_LOGIN_REQUEST_NOT_FOUND, 404));
         }
 
