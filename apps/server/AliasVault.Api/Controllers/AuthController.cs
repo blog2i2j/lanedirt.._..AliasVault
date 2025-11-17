@@ -50,6 +50,12 @@ using SecureRemotePassword;
 public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserManager<AliasVaultUser> userManager, SignInManager<AliasVaultUser> signInManager, IConfiguration configuration, IMemoryCache cache, ITimeProvider timeProvider, AuthLoggingService authLoggingService, Config config, ServerSettingsService settingsService) : ControllerBase
 {
     /// <summary>
+    /// Timeout in minutes for mobile unlock requests.
+    /// Requests older than this will be automatically expired and removed.
+    /// </summary>
+    private const int MobileUnlockTimeoutMinutes = 2;
+
+    /// <summary>
     /// Semaphore to prevent concurrent access to the database when generating new tokens for a user.
     /// </summary>
     private static readonly SemaphoreSlim Semaphore = new(1, 1);
@@ -577,7 +583,7 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
         var unlockRequest = await context.MobileUnlockRequests.FirstOrDefaultAsync(r => r.Id == requestId);
 
         // Check if request exists and hasn't expired
-        if (unlockRequest == null || unlockRequest.CreatedAt.AddMinutes(2) < timeProvider.UtcNow)
+        if (unlockRequest == null || unlockRequest.CreatedAt.AddMinutes(MobileUnlockTimeoutMinutes) < timeProvider.UtcNow)
         {
             // Clean up expired request if it exists
             if (unlockRequest != null)
@@ -668,7 +674,7 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
         var unlockRequest = await context.MobileUnlockRequests.FirstOrDefaultAsync(r => r.Id == requestId);
 
         // Check if request exists and hasn't expired
-        if (unlockRequest == null || unlockRequest.CreatedAt.AddMinutes(2) < timeProvider.UtcNow)
+        if (unlockRequest == null || unlockRequest.CreatedAt.AddMinutes(MobileUnlockTimeoutMinutes) < timeProvider.UtcNow)
         {
             return NotFound(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.MOBILE_UNLOCK_REQUEST_NOT_FOUND, 404));
         }
@@ -704,7 +710,7 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
         var unlockRequest = await context.MobileUnlockRequests.FirstOrDefaultAsync(r => r.Id == model.RequestId);
 
         // Check if request exists and hasn't expired
-        if (unlockRequest == null || unlockRequest.CreatedAt.AddMinutes(2) < timeProvider.UtcNow)
+        if (unlockRequest == null || unlockRequest.CreatedAt.AddMinutes(MobileUnlockTimeoutMinutes) < timeProvider.UtcNow)
         {
             // Clean up expired request if it exists
             if (unlockRequest != null)
