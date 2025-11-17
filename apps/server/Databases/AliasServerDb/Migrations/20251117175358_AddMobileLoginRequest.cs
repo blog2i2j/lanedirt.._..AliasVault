@@ -40,7 +40,32 @@ namespace AliasServerDb.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_MobileLoginRequests_UserId",
+                name: "IX_ClientIpAddress",
+                table: "MobileLoginRequests",
+                column: "ClientIpAddress");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CreatedAt",
+                table: "MobileLoginRequests",
+                column: "CreatedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FulfilledAt",
+                table: "MobileLoginRequests",
+                column: "FulfilledAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MobileIpAddress",
+                table: "MobileLoginRequests",
+                column: "MobileIpAddress");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RetrievedAt",
+                table: "MobileLoginRequests",
+                column: "RetrievedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserId",
                 table: "MobileLoginRequests",
                 column: "UserId");
         }

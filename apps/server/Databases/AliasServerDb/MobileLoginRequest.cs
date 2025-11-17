@@ -7,13 +7,21 @@
 
 namespace AliasServerDb;
 
+using Microsoft.EntityFrameworkCore;
+
 /// <summary>
-/// Mobile unlock request entity for storing temporary unlock requests.
+/// Mobile login request entity for storing temporary login requests.
 /// </summary>
+[Index(nameof(ClientIpAddress), Name = "IX_ClientIpAddress")]
+[Index(nameof(MobileIpAddress), Name = "IX_MobileIpAddress")]
+[Index(nameof(CreatedAt), Name = "IX_CreatedAt")]
+[Index(nameof(FulfilledAt), Name = "IX_FulfilledAt")]
+[Index(nameof(RetrievedAt), Name = "IX_RetrievedAt")]
+[Index(nameof(UserId), Name = "IX_UserId")]
 public class MobileLoginRequest
 {
     /// <summary>
-    /// Gets or sets the unique identifier for this unlock request.
+    /// Gets or sets the unique identifier for this login request.
     /// </summary>
     public string Id { get; set; } = string.Empty;
 

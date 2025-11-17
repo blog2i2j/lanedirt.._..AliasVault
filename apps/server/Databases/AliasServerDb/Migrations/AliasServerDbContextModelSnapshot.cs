@@ -532,7 +532,17 @@ namespace AliasServerDb.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex(new[] { "ClientIpAddress" }, "IX_ClientIpAddress");
+
+                    b.HasIndex(new[] { "CreatedAt" }, "IX_CreatedAt");
+
+                    b.HasIndex(new[] { "FulfilledAt" }, "IX_FulfilledAt");
+
+                    b.HasIndex(new[] { "MobileIpAddress" }, "IX_MobileIpAddress");
+
+                    b.HasIndex(new[] { "RetrievedAt" }, "IX_RetrievedAt");
+
+                    b.HasIndex(new[] { "UserId" }, "IX_UserId");
 
                     b.ToTable("MobileLoginRequests");
                 });

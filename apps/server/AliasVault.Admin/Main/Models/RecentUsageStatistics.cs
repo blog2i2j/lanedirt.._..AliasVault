@@ -26,4 +26,9 @@ public class RecentUsageStatistics
     /// Gets or sets the list of IP addresses with most registrations in the last 72 hours.
     /// </summary>
     public List<RecentUsageRegistrations> TopIpsByRegistrations72h { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets the list of IP addresses with most mobile login requests in the last 72 hours.
+    /// </summary>
+    public List<RecentUsageMobileLogins> TopIpsByMobileLogins72h { get; set; } = new();
 }

@@ -115,6 +115,7 @@ public class StatisticsService
             GetTopUsersByAliases72hAsync().ContinueWith(t => stats.TopUsersByAliases72h = t.Result),
             GetTopUsersByEmails72hAsync().ContinueWith(t => stats.TopUsersByEmails72h = t.Result),
             GetTopIpsByRegistrations72hAsync().ContinueWith(t => stats.TopIpsByRegistrations72h = t.Result),
+            GetTopIpsByMobileLogins72hAsync().ContinueWith(t => stats.TopIpsByMobileLogins72h = t.Result),
         };
 
         await Task.WhenAll(tasks);
@@ -568,6 +569,38 @@ public class StatisticsService
             OriginalIpAddress = ip.IpAddress!,
             IpAddress = AnonymizeIpAddress(ip.IpAddress!),
             RegistrationCount72h = ip.RegistrationCount72h,
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Gets the top 20 IP addresses by number of mobile login requests in the last 72 hours.
+    /// </summary>
+    /// <returns>List of top IP addresses by mobile login requests.</returns>
+    private async Task<List<RecentUsageMobileLogins>> GetTopIpsByMobileLogins72hAsync()
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        var cutoffDate = DateTime.UtcNow.AddHours(-72);
+
+        // Get mobile login requests by client IP
+        var topIps = await context.MobileLoginRequests
+            .Where(mlr => mlr.CreatedAt >= cutoffDate &&
+                         mlr.ClientIpAddress != null &&
+                         mlr.ClientIpAddress != "xxx.xxx.xxx.xxx")
+            .GroupBy(mlr => mlr.ClientIpAddress)
+            .Select(g => new
+            {
+                IpAddress = g.Key,
+                MobileLoginCount72h = g.Count(),
+            })
+            .OrderByDescending(ip => ip.MobileLoginCount72h)
+            .Take(20)
+            .ToListAsync();
+
+        return topIps.Select(ip => new RecentUsageMobileLogins
+        {
+            OriginalIpAddress = ip.IpAddress!,
+            IpAddress = AnonymizeIpAddress(ip.IpAddress!),
+            MobileLoginCount72h = ip.MobileLoginCount72h,
         }).ToList();
     }
 }

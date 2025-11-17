@@ -118,7 +118,7 @@
             await JsInteropService.GenerateQrCode("mobile-login-qr");
 
             // Wait for QR code to be fully rendered before hiding loading animation
-            await Task.Delay(500);
+            await Task.Delay(300);
 
             _isLoading = false;
             StateHasChanged();
