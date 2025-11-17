@@ -113,10 +113,7 @@ else
         </div>
 
         <button type="submit" class="w-full px-5 py-3 text-base font-medium text-center text-white bg-primary-700 rounded-lg hover:bg-primary-800 focus:ring-4 focus:ring-primary-300 dark:bg-primary-600 dark:hover:bg-primary-700 dark:focus:ring-primary-800 flex items-center justify-center gap-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
-            </svg>
-            @Localizer["LoginToAccountButton"]
+            @Localizer["LoginButton"]
         </button>
 
         <div class="relative hidden md:block">
@@ -124,7 +121,7 @@ else
                 <div class="w-full border-t border-gray-300 dark:border-gray-600"></div>
             </div>
             <div class="relative flex justify-center text-sm">
-                <span class="px-2 text-gray-500 bg-white dark:bg-gray-800 dark:text-gray-400">@Localizer["OrText"]</span>
+                <span class="px-2 text-gray-500 bg-white dark:bg-gray-800 dark:text-gray-400">@SharedLocalizer["Or"]</span>
             </div>
         </div>
 
@@ -157,6 +154,7 @@ else
 
     private IStringLocalizer Localizer => LocalizerFactory.Create("Components.Auth.Login", "AliasVault.Client");
     private IStringLocalizer ApiErrorLocalizer => LocalizerFactory.Create("ApiErrors", "AliasVault.Client");
+    private IStringLocalizer SharedLocalizer => LocalizerFactory.Create("SharedResources", "AliasVault.Client");
 
     private SrpEphemeral _clientEphemeral = new();
     private SrpSession _clientSession = new();

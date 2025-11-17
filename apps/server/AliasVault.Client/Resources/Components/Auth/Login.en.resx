@@ -104,10 +104,6 @@
     <value>Log in</value>
     <comment>Login button text</comment>
   </data>
-  <data name="LoginToAccountButton" xml:space="preserve">
-    <value>Log in to your account</value>
-    <comment>Extended login button text</comment>
-  </data>
 
   <!-- Links -->
   <data name="LostPasswordLink" xml:space="preserve">
@@ -130,11 +126,6 @@
     <value>Log in using mobile app</value>
     <comment>Link text for mobile device login</comment>
   </data>
-  <data name="OrText" xml:space="preserve">
-    <value>or</value>
-    <comment>Divider text between login options</comment>
-  </data>
-
   <!-- Descriptions and help text -->
   <data name="TwoFactorAuthenticationDescription" xml:space="preserve">
     <value>Your login is protected with an authenticator app. Enter your authenticator code below.</value>

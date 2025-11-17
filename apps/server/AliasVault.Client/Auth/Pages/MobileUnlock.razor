@@ -48,7 +48,7 @@
 
     <div class="flex w-full">
         <button type="button" @onclick="HandleCancel" class="w-full text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700">
-            @Localizer["CancelButton"]
+            @SharedLocalizer["Cancel"]
         </button>
     </div>
 </div>
@@ -65,6 +65,7 @@
 
     private IStringLocalizer Localizer => LocalizerFactory.Create("Pages.Auth.MobileUnlock", "AliasVault.Client");
     private IStringLocalizer ApiErrorLocalizer => LocalizerFactory.Create("ApiErrors", "AliasVault.Client");
+    private IStringLocalizer SharedLocalizer => LocalizerFactory.Create("SharedResources", "AliasVault.Client");
 
     /// <inheritdoc />
     protected override async Task OnInitializedAsync()
@@ -130,18 +131,10 @@
                 HandleSuccessfulAuthAsync,
                 HandleErrorAsync);
         }
-        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
-        {
-            // 404 means the mobile unlock endpoint doesn't exist - server version is too old
-            // TODO: this check can be removed at a later time when v1.0 is ready and 0.25.0 release has been out for a while.
-            _isLoading = false;
-            _errorMessage = Localizer["ServerVersionTooOld"];
-            StateHasChanged();
-        }
         catch (Exception)
         {
             _isLoading = false;
-            _errorMessage = Localizer["InitializationError"];
+            _errorMessage = SharedLocalizer["ErrorUnknown"];
             StateHasChanged();
         }
     }
@@ -185,7 +178,7 @@
         catch (Exception)
         {
             _isLoading = false;
-            _errorMessage = Localizer["LoginError"];
+            _errorMessage = SharedLocalizer["ErrorUnknown"];
             StateHasChanged();
         }
     }
