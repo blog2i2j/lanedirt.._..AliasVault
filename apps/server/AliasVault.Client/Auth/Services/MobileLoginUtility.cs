@@ -11,6 +11,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using AliasVault.Client.Auth.Models;
 using AliasVault.Client.Services.JsInterop;
 using AliasVault.Shared.Models.WebApi.Auth;
 using Microsoft.Extensions.Logging;
@@ -75,10 +76,10 @@ public sealed class MobileLoginUtility : IDisposable
     /// <summary>
     /// Starts polling the server for mobile login response.
     /// </summary>
-    /// <param name="onSuccess">Callback for successful authentication.</param>
+    /// <param name="onSuccess">Callback for successful authentication with decrypted login result.</param>
     /// <param name="onError">Callback for errors.</param>
     /// <returns>Task.</returns>
-    public Task StartPollingAsync(Func<string, string, string, string, string, string, string, Task> onSuccess, Action<string> onError)
+    public Task StartPollingAsync(Func<MobileLoginResult, Task> onSuccess, Action<string> onError)
     {
         if (string.IsNullOrEmpty(_requestId) || string.IsNullOrEmpty(_privateKey))
         {
@@ -134,7 +135,7 @@ public sealed class MobileLoginUtility : IDisposable
         Cleanup();
     }
 
-    private async Task PollServerAsync(Func<string, string, string, string, string, string, string, Task> onSuccess, Action<string> onError)
+    private async Task PollServerAsync(Func<MobileLoginResult, Task> onSuccess, Action<string> onError)
     {
         if (string.IsNullOrEmpty(_requestId) || _cancellationTokenSource?.IsCancellationRequested == true)
         {
@@ -161,20 +162,34 @@ public sealed class MobileLoginUtility : IDisposable
 
             var result = await response.Content.ReadFromJsonAsync<MobileLoginPollResponse>();
 
-            if (result?.Fulfilled == true && !string.IsNullOrEmpty(result.EncryptedDecryptionKey) && !string.IsNullOrEmpty(result.Username) && result.Token != null && !string.IsNullOrEmpty(result.Salt) && !string.IsNullOrEmpty(result.EncryptionType) && !string.IsNullOrEmpty(result.EncryptionSettings))
+            if (result?.Fulfilled == true && !string.IsNullOrEmpty(result.EncryptedSymmetricKey))
             {
                 // Stop polling
                 StopPolling();
 
-                // Decrypt the decryption key using private key
-                var decryptionKey = await _jsInteropService.DecryptWithPrivateKey(result.EncryptedDecryptionKey, _privateKey!);
+                // Decrypt the vault decryption key directly with RSA private key
+                var decryptionKey = await _jsInteropService.DecryptWithPrivateKey(result.EncryptedDecryptionKey!, _privateKey!);
+
+                // Decrypt the symmetric key with RSA private key
+                var symmetricKeyBase64 = await _jsInteropService.DecryptWithPrivateKey(result.EncryptedSymmetricKey, _privateKey!);
+
+                // Decrypt all remaining fields using the symmetric key
+                var token = await _jsInteropService.SymmetricDecrypt(result.EncryptedToken!, symmetricKeyBase64);
+                var refreshToken = await _jsInteropService.SymmetricDecrypt(result.EncryptedRefreshToken!, symmetricKeyBase64);
+                var username = await _jsInteropService.SymmetricDecrypt(result.EncryptedUsername!, symmetricKeyBase64);
 
                 // Clear sensitive data
                 _privateKey = null;
                 _requestId = null;
 
-                // Call success callback
-                await onSuccess(result.Username, result.Token.Token, result.Token.RefreshToken, decryptionKey, result.Salt, result.EncryptionType, result.EncryptionSettings);
+                // Call success callback with decrypted data
+                await onSuccess(new MobileLoginResult
+                {
+                    Username = username,
+                    Token = token,
+                    RefreshToken = refreshToken,
+                    DecryptionKey = decryptionKey,
+                });
             }
         }
         catch (Exception ex)

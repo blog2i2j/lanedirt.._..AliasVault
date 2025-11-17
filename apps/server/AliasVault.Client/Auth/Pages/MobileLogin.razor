@@ -4,9 +4,11 @@
 @attribute [AllowAnonymous]
 @using System.Text.Json
 @using AliasVault.Client.Auth.Components
+@using AliasVault.Client.Auth.Models
 @using AliasVault.Client.Auth.Services
 @using AliasVault.Client.Utilities
 @using AliasVault.Cryptography.Client
+@using AliasVault.Shared.Models.WebApi.Auth
 @using Microsoft.Extensions.Localization
 @implements IDisposable
 
@@ -140,9 +142,10 @@
     }
 
     /// <summary>
-    /// Handle successful authentication.
+    /// Handle successful authentication from mobile login.
     /// </summary>
-    private async Task HandleSuccessfulAuthAsync(string username, string token, string refreshToken, string decryptionKey, string salt, string encryptionType, string encryptionSettings)
+    /// <param name="result">The decrypted mobile login result containing authentication data.</param>
+    private async Task HandleSuccessfulAuthAsync(MobileLoginResult result)
     {
         try
         {
@@ -150,12 +153,33 @@
             _qrCodeUrl = null;
             StateHasChanged();
 
+            // Call /login endpoint to retrieve salt and encryption settings
+            var loginInitiateRequest = new { username = result.Username };
+            var loginResponse = await Http.PostAsJsonAsync("v1/Auth/login", loginInitiateRequest);
+
+            if (!loginResponse.IsSuccessStatusCode)
+            {
+                _isLoading = false;
+                _errorMessage = SharedLocalizer["ErrorUnknown"];
+                StateHasChanged();
+                return;
+            }
+
+            var loginData = await loginResponse.Content.ReadFromJsonAsync<LoginInitiateResponse>();
+            if (loginData == null)
+            {
+                _isLoading = false;
+                _errorMessage = SharedLocalizer["ErrorUnknown"];
+                StateHasChanged();
+                return;
+            }
+
             // Store the tokens in local storage
-            await AuthService.StoreAccessTokenAsync(token);
-            await AuthService.StoreRefreshTokenAsync(refreshToken);
+            await AuthService.StoreAccessTokenAsync(result.Token);
+            await AuthService.StoreRefreshTokenAsync(result.RefreshToken);
 
             // Convert decryption key from base64 string to byte array
-            var decryptionKeyBytes = Convert.FromBase64String(decryptionKey);
+            var decryptionKeyBytes = Convert.FromBase64String(result.DecryptionKey);
 
             // Store the encryption key in memory
             await AuthService.StoreEncryptionKeyAsync(decryptionKeyBytes);
