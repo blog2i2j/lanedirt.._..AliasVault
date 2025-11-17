@@ -7,6 +7,7 @@ var AuthEventType = /* @__PURE__ */ ((AuthEventType2) => {
   AuthEventType2[AuthEventType2["Login"] = 1] = "Login";
   AuthEventType2[AuthEventType2["TwoFactorAuthentication"] = 2] = "TwoFactorAuthentication";
   AuthEventType2[AuthEventType2["Logout"] = 3] = "Logout";
+  AuthEventType2[AuthEventType2["MobileLogin"] = 4] = "MobileLogin";
   AuthEventType2[AuthEventType2["TokenRefresh"] = 10] = "TokenRefresh";
   AuthEventType2[AuthEventType2["PasswordReset"] = 20] = "PasswordReset";
   AuthEventType2[AuthEventType2["PasswordChange"] = 21] = "PasswordChange";

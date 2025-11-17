@@ -355,6 +355,10 @@ declare enum AuthEventType {
      */
     Logout = 3,
     /**
+     * Represents a mobile login attempt (login via QR code from mobile app).
+     */
+    MobileLogin = 4,
+    /**
      * Represents JWT access token refresh event issued by client to API.
      */
     TokenRefresh = 10,

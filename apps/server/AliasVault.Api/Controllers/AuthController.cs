@@ -631,11 +631,8 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
         // Generate token for the user
         var tokenModel = await GenerateNewTokensForUser(user, extendedLifetime: true);
 
-        // Log successful authentication
-        await authLoggingService.LogAuthEventSuccessAsync(user.UserName!, AuthEventType.Login);
-
-        // Reset failed login attempts.
-        await userManager.ResetAccessFailedCountAsync(user);
+        // Log successful mobile login authentication
+        await authLoggingService.LogAuthEventSuccessAsync(user.UserName!, AuthEventType.MobileLogin);
 
         // Return fulfilled response with encrypted key and token
         var response = new MobileLoginPollResponse(
