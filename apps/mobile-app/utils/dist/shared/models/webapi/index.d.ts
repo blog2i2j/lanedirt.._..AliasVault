@@ -413,12 +413,11 @@ type MobileLoginSubmitRequest = {
  */
 type MobileLoginPollResponse = {
     fulfilled: boolean;
+    encryptedSymmetricKey: string | null;
+    encryptedToken: string | null;
+    encryptedRefreshToken: string | null;
     encryptedDecryptionKey: string | null;
-    username: string | null;
-    token: TokenModel | null;
-    salt: string | null;
-    encryptionType: string | null;
-    encryptionSettings: string | null;
+    encryptedUsername: string | null;
 };
 
 export { type ApiErrorResponse, AuthEventType, type AuthLogModel, type BadRequestResponse, type DeleteAccountInitiateRequest, type DeleteAccountInitiateResponse, type DeleteAccountRequest, type Email, type EmailAttachment, type FaviconExtractModel, type LoginRequest, type LoginResponse, type MailboxBulkRequest, type MailboxBulkResponse, type MailboxEmail, type MobileLoginInitiateRequest, type MobileLoginInitiateResponse, type MobileLoginPollResponse, type MobileLoginSubmitRequest, type PasswordChangeInitiateResponse, type RefreshToken, type StatusResponse, type TokenModel, type ValidateLoginRequest, type ValidateLoginRequest2Fa, type ValidateLoginResponse, type Vault, type VaultPasswordChangeRequest, type VaultPostResponse, type VaultResponse };

@@ -625,13 +625,15 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
         // Generate token for the user
         var tokenModel = await GenerateNewTokensForUser(user, extendedLifetime: true);
 
+        // Get encrypted decryption key from the login request and put it in memory
+        var encryptedDecryptionKey = loginRequest.EncryptedDecryptionKey!;
+
         // Generate a single symmetric key for encrypting all fields
         var symmetricKey = Cryptography.Server.Encryption.GenerateRandomSymmetricKey();
 
         // Encrypt each field with the symmetric key (returns base64)
         var encryptedToken = Cryptography.Server.Encryption.SymmetricEncrypt(tokenModel.Token, symmetricKey);
         var encryptedRefreshToken = Cryptography.Server.Encryption.SymmetricEncrypt(tokenModel.RefreshToken, symmetricKey);
-        var encryptedDecryptionKey = Cryptography.Server.Encryption.SymmetricEncrypt(loginRequest.EncryptedDecryptionKey!, symmetricKey);
         var encryptedUsername = Cryptography.Server.Encryption.SymmetricEncrypt(user.UserName!, symmetricKey);
 
         // Encrypt the symmetric key with the client's RSA public key (returns base64)
@@ -640,7 +642,7 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
         // Log successful mobile login authentication
         await authLoggingService.LogAuthEventSuccessAsync(user.UserName!, AuthEventType.MobileLogin);
 
-        // Mark as retrieved and clear sensitive data
+        // Mark as retrieved and clear sensitive data from database
         loginRequest.ClientPublicKey = string.Empty;
         loginRequest.EncryptedDecryptionKey = null;
         loginRequest.RetrievedAt = timeProvider.UtcNow;

@@ -16,7 +16,7 @@ namespace AliasVault.Shared.Models.WebApi.Auth;
 /// <param name="EncryptedSymmetricKey">The AES symmetric key encrypted with client's RSA public key (base64 encoded). Used to decrypt all encrypted fields. Null if not fulfilled.</param>
 /// <param name="EncryptedToken">The JWT token encrypted with AES symmetric key (base64 encoded). Null if not fulfilled.</param>
 /// <param name="EncryptedRefreshToken">The refresh token encrypted with AES symmetric key (base64 encoded). Null if not fulfilled.</param>
-/// <param name="EncryptedDecryptionKey">The vault decryption key encrypted with AES symmetric key (base64 encoded). Null if not fulfilled.</param>
+/// <param name="EncryptedDecryptionKey">The vault decryption key encrypted with client's RSA public key (base64 encoded). Null if not fulfilled.</param>
 /// <param name="EncryptedUsername">The username encrypted with AES symmetric key (base64 encoded). Retrieved from User via UserId FK. Null if not fulfilled.</param>
 public record MobileLoginPollResponse(
     bool Fulfilled,

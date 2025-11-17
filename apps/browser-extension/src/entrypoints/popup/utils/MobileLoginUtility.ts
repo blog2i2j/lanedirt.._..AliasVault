@@ -1,6 +1,6 @@
 import { Buffer } from 'buffer';
 
-import type { MobileLoginInitiateResponse, MobileLoginPollResponse } from '@/utils/dist/shared/models/webapi';
+import type { LoginResponse, MobileLoginInitiateResponse, MobileLoginPollResponse } from '@/utils/dist/shared/models/webapi';
 import EncryptionUtility from '@/utils/EncryptionUtility';
 import type { WebApiService } from '@/utils/WebApiService';
 
@@ -96,33 +96,46 @@ export class MobileLoginUtility {
 
         const data = await response.json() as MobileLoginPollResponse;
 
-        if (data.fulfilled && data.encryptedDecryptionKey && data.username && data.token && data.salt && data.encryptionType && data.encryptionSettings) {
+        if (data.fulfilled && data.encryptedSymmetricKey) {
           // Stop polling
           this.stopPolling();
 
-          // Decrypt the decryption key using private key
-          const decryptionKeyBytes = await EncryptionUtility.decryptWithPrivateKey(
-            data.encryptedDecryptionKey,
-            this.privateKey!
-          );
-
-          // Convert to base64 string
+          // Decrypt the encrypted decryption key with RSA private key
+          const decryptionKeyBytes = await EncryptionUtility.decryptWithPrivateKey(data.encryptedDecryptionKey!, this.privateKey!);
           const decryptionKey = Buffer.from(decryptionKeyBytes).toString('base64');
+
+          // Decrypt the other encrypted fields with the symmetric key
+          const symmetricKeyBytes = await EncryptionUtility.decryptWithPrivateKey(data.encryptedSymmetricKey, this.privateKey!);
+          const symmetricKey = Buffer.from(symmetricKeyBytes).toString('base64');
+
+          const token = await EncryptionUtility.symmetricDecrypt(data.encryptedToken!, symmetricKey);
+          const refreshToken = await EncryptionUtility.symmetricDecrypt(data.encryptedRefreshToken!, symmetricKey);
+          const username = await EncryptionUtility.symmetricDecrypt(data.encryptedUsername!, symmetricKey);
 
           // Clear sensitive data
           this.privateKey = null;
           this.requestId = null;
 
-          // Call success callback
-          onSuccess(
-            data.username,
-            data.token.token,
-            data.token.refreshToken,
-            decryptionKey,
-            data.salt,
-            data.encryptionType,
-            data.encryptionSettings
-          );
+          // Call /login endpoint with username to get salt and encryption settings
+          const loginResponse = await this.webApi.rawFetch('auth/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              username,
+            }),
+          });
+
+          if (!loginResponse.ok) {
+            onError('Failed to retrieve encryption settings');
+            return;
+          }
+
+          const loginData = await loginResponse.json() as LoginResponse;
+
+          // Call success callback with all data
+          onSuccess(username, token, refreshToken, decryptionKey, loginData.salt, loginData.encryptionType, loginData.encryptionSettings);
         }
       } catch (error) {
         this.stopPolling();

@@ -1,5 +1,3 @@
-import type { TokenModel } from './ValidateLogin';
-
 /**
  * Mobile login initiate request type.
  */
@@ -28,10 +26,9 @@ export type MobileLoginSubmitRequest = {
  */
 export type MobileLoginPollResponse = {
     fulfilled: boolean;
+    encryptedSymmetricKey: string | null;
+    encryptedToken: string | null;
+    encryptedRefreshToken: string | null;
     encryptedDecryptionKey: string | null;
-    username: string | null;
-    token: TokenModel | null;
-    salt: string | null;
-    encryptionType: string | null;
-    encryptionSettings: string | null;
+    encryptedUsername: string | null;
 }
