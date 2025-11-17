@@ -20,7 +20,7 @@ const MobileUnlock: React.FC = () => {
   const navigate = useNavigate();
   const webApi = useWebApi();
   const { initializeDatabase, storeEncryptionKey, storeEncryptionKeyDerivationParams } = useDb();
-  const { setAuthTokens } = useAuth();
+  const { setAuthTokens, clearAuth } = useAuth();
   const { showLoading, hideLoading, setIsInitialLoading } = useLoading();
 
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
@@ -108,7 +108,16 @@ const MobileUnlock: React.FC = () => {
         );
       } catch (err) {
         hideLoading();
-        setError(err instanceof Error ? err.message : t('auth.errors.serverError'));
+        // Check if this is a 404 error (endpoint doesn't exist - server version too old for this feature)
+        const errorWithStatus = err as Error & { status?: number };
+        // TODO: this check can be removed at a later time when v1.0 is ready and 0.25.0 release when this was introduced has been out for a while.
+        if (err instanceof Error && errorWithStatus.status === 404) {
+          // Clear auth and navigate back to login with error message
+          await clearAuth(t('common.errors.serverVersionTooOld'));
+          navigate('/login');
+        } else {
+          setError(err instanceof Error ? err.message : t('common.errors.unknownError'));
+        }
       }
     };
 
@@ -224,7 +233,7 @@ const MobileUnlock: React.FC = () => {
 
         <div className="flex w-full">
           <Button type="button" onClick={handleBack} variant="secondary">
-            {t('auth.cancel')}
+            {t('common.cancel')}
           </Button>
         </div>
       </div>

@@ -42,7 +42,9 @@ export class MobileUnlockUtility {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to initiate mobile unlock: ${response.status}`);
+      const error = new Error(`Failed to initiate mobile unlock: ${response.status}`) as Error & { status: number };
+      error.status = response.status;
+      throw error;
     }
 
     const data = await response.json() as MobileUnlockInitiateResponse;

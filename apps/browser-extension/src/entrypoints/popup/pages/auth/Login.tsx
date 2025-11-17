@@ -330,7 +330,7 @@ const Login: React.FC = () => {
               }}
               variant="secondary"
             >
-              {t('auth.cancel')}
+              {t('common.cancel')}
             </Button>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-4 text-center">
@@ -402,13 +402,32 @@ const Login: React.FC = () => {
             <span className="text-sm text-gray-700 dark:text-gray-200">{t('auth.rememberMe')}</span>
           </label>
         </div>
-        <div className="flex flex-col w-full space-y-2">
+        <div className="flex flex-col w-full space-y-4">
           <Button type="submit">
-            {t('auth.loginButton')}
+            <div className="flex items-center justify-center gap-2">
+              {t('auth.loginButton')}
+            </div>
           </Button>
-          <Button type="button" onClick={() => navigate('/mobile-unlock')} variant="secondary">
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 text-gray-500 bg-white dark:bg-gray-700 dark:text-gray-400">{t('common.or')}</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate('/mobile-unlock')}
+            className="w-full px-4 py-2 text-sm font-medium text-center text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 dark:bg-gray-600 dark:text-white dark:border-gray-500 dark:hover:bg-gray-500 dark:focus:ring-gray-700 flex items-center justify-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+            </svg>
             {t('auth.unlockWithMobile')}
-          </Button>
+          </button>
         </div>
       </form>
       <div className="text-center text-gray-600 dark:text-gray-400">

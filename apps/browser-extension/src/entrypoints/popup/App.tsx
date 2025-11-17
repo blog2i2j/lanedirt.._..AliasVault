@@ -113,7 +113,7 @@ const AppContent: React.FC<{
         <PasskeyLayout>
           {loadingOverlay}
           {message && (
-            <p className="text-red-500 mb-4">{message}</p>
+            <p className="mb-4 text-red-500 dark:text-red-400 text-sm">{message}</p>
           )}
           {routesComponent}
         </PasskeyLayout>
@@ -136,8 +136,8 @@ const AppContent: React.FC<{
             }}
           >
             {message && (
-              <div className="p-4">
-                <p className="text-red-500">{message}</p>
+              <div className="p-4 pt-0">
+                <p className="text-red-500 dark:text-red-400 text-sm">{message}</p>
               </div>
             )}
             {routesComponent}
