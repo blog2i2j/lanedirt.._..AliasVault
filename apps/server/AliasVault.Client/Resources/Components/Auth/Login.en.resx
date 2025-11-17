@@ -105,7 +105,7 @@
     <comment>Login button text</comment>
   </data>
   <data name="LoginToAccountButton" xml:space="preserve">
-    <value>Login to your account</value>
+    <value>Log in to your account</value>
     <comment>Extended login button text</comment>
   </data>
 
@@ -125,6 +125,14 @@
   <data name="LoginWithAuthenticatorLink" xml:space="preserve">
     <value>Log in with an authenticator code instead.</value>
     <comment>Link text for logging in with authenticator</comment>
+  </data>
+  <data name="MobileDeviceLink" xml:space="preserve">
+    <value>Log in using mobile app</value>
+    <comment>Link text for mobile device login</comment>
+  </data>
+  <data name="OrText" xml:space="preserve">
+    <value>or</value>
+    <comment>Divider text between login options</comment>
   </data>
 
   <!-- Descriptions and help text -->

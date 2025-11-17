@@ -112,10 +112,32 @@ else
             <a href="/user/forgot-password" class="ml-auto text-sm text-primary-700 hover:underline dark:text-primary-500">@Localizer["LostPasswordLink"]</a>
         </div>
 
-        <button type="submit" class="w-full px-5 py-3 text-base font-medium text-center text-white bg-primary-700 rounded-lg hover:bg-primary-800 focus:ring-4 focus:ring-primary-300 sm:w-auto dark:bg-primary-600 dark:hover:bg-primary-700 dark:focus:ring-primary-800">@Localizer["LoginToAccountButton"]</button>
+        <button type="submit" class="w-full px-5 py-3 text-base font-medium text-center text-white bg-primary-700 rounded-lg hover:bg-primary-800 focus:ring-4 focus:ring-primary-300 dark:bg-primary-600 dark:hover:bg-primary-700 dark:focus:ring-primary-800 flex items-center justify-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+            </svg>
+            @Localizer["LoginToAccountButton"]
+        </button>
+
+        <div class="relative hidden md:block">
+            <div class="absolute inset-0 flex items-center">
+                <div class="w-full border-t border-gray-300 dark:border-gray-600"></div>
+            </div>
+            <div class="relative flex justify-center text-sm">
+                <span class="px-2 text-gray-500 bg-white dark:bg-gray-800 dark:text-gray-400">@Localizer["OrText"]</span>
+            </div>
+        </div>
+
+        <a href="/user/mobile-unlock" class="hidden md:flex w-full px-5 py-3 text-base font-medium text-center text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:hover:bg-gray-600 dark:focus:ring-gray-700 items-center justify-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+            </svg>
+            @Localizer["MobileDeviceLink"]
+        </a>
+
         @if (Config.PublicRegistrationEnabled)
         {
-            <div class="text-sm font-medium text-gray-500 dark:text-gray-400">
+            <div class="text-sm font-medium text-gray-500 dark:text-gray-400 text-center">
                 @Localizer["NoAccountYetText"] <a href="/user/setup" class="text-primary-700 hover:underline dark:text-primary-500">@Localizer["CreateNewVaultLink"]</a>
             </div>
         }
