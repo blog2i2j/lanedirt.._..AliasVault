@@ -103,48 +103,35 @@ export default function QRConfirmScreen() : React.ReactNode {
     setIsProcessing(true);
 
     try {
-      let authenticated = false;
+      // Check if biometric or PIN is enabled
+      const authMethods = await NativeVaultManager.getAuthMethods();
+      const isPinEnabled = await NativeVaultManager.isPinEnabled();
+      const isBiometricEnabled = authMethods.includes('faceid');
 
-      // Check which authentication method is available
-      const pinEnabled = await NativeVaultManager.isPinEnabled();
-
-      if (pinEnabled) {
-        // PIN is enabled, use PIN unlock
-        try {
-          await NativeVaultManager.showPinUnlock();
-          authenticated = true;
-        } catch (pinError: unknown) {
-          // User cancelled PIN or PIN failed
-          console.error('PIN unlock cancelled or failed:', pinError);
-          Alert.alert(
-            t('common.error'),
-            t('settings.qrScanner.mobileUnlock.authenticationFailed')
-          );
-          setIsProcessing(false);
-          return;
-        }
-      } else {
-        // Try biometric authentication
-        try {
-          authenticated = await NativeVaultManager.authenticateUser(
-            t('settings.qrScanner.mobileUnlock.authenticationRequired')
-          );
-        } catch (authError: unknown) {
-          console.error('Biometric authentication error:', authError);
-          Alert.alert(
-            t('common.error'),
-            t('settings.qrScanner.mobileUnlock.authenticationFailed')
-          );
-          setIsProcessing(false);
-          return;
-        }
-      }
-
-      if (!authenticated) {
+      if (!isBiometricEnabled && !isPinEnabled) {
         Alert.alert(
           t('common.error'),
-          t('settings.qrScanner.mobileUnlock.authenticationFailed')
+          t('settings.qrScanner.mobileUnlock.noAuthMethodEnabled'),
+          [
+            {
+              text: t('common.ok'),
+              onPress: (): void => {
+                router.back();
+              },
+            },
+          ]
         );
+        setIsProcessing(false);
+        return;
+      }
+
+      // Authenticate user with either biometric or PIN (automatically detected)
+      const authenticated = await NativeVaultManager.authenticateUser(
+        t('settings.qrScanner.mobileUnlock.confirmTitle'),
+        t('settings.qrScanner.mobileUnlock.confirmSubtitle')
+      );
+
+      if (!authenticated) {
         setIsProcessing(false);
         return;
       }
@@ -152,7 +139,7 @@ export default function QRConfirmScreen() : React.ReactNode {
       // Process the mobile unlock
       await handleMobileUnlock(requestId);
     } catch (error) {
-      console.error('QR code processing error:', error);
+      console.error('Authentication or QR code processing error:', error);
       Alert.alert(
         t('common.error'),
         error instanceof Error ? error.message : t('common.errors.unknownError')

@@ -46,13 +46,13 @@ public struct PinUnlockView: View {
                     .padding(.bottom, 12)
 
                 // Title
-                Text(String(localized: "unlock_vault", bundle: locBundle))
+                Text(viewModel.customTitle ?? String(localized: "unlock_vault", bundle: locBundle))
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundColor(colors.text)
                     .padding(.bottom, 6)
 
                 // Subtitle
-                Text(String(format: String(localized: "enter_pin_to_unlock_vault", bundle: locBundle)))
+                Text(viewModel.customSubtitle ?? String(format: String(localized: "enter_pin_to_unlock_vault", bundle: locBundle)))
                     .font(.system(size: 15))
                     .foregroundColor(colors.text.opacity(0.7))
                     .multilineTextAlignment(.center)
@@ -219,15 +219,21 @@ public class PinUnlockViewModel: ObservableObject {
     @Published public var isUnlocking: Bool = false
 
     public let pinLength: Int?
+    public let customTitle: String?
+    public let customSubtitle: String?
     private let unlockHandler: (String) async throws -> Void
     private let cancelHandler: () -> Void
 
     public init(
         pinLength: Int?,
+        customTitle: String? = nil,
+        customSubtitle: String? = nil,
         unlockHandler: @escaping (String) async throws -> Void,
         cancelHandler: @escaping () -> Void
     ) {
         self.pinLength = pinLength
+        self.customTitle = customTitle
+        self.customSubtitle = customSubtitle
         self.unlockHandler = unlockHandler
         self.cancelHandler = cancelHandler
     }

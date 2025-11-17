@@ -100,7 +100,8 @@ export interface Spec extends TurboModule {
   encryptDecryptionKeyForMobileUnlock(publicKeyJWK: string): Promise<string>;
 
   // Re-authentication methods
-  authenticateUser(reason: string): Promise<boolean>;
+  // Authenticate user with biometric or PIN. If title/subtitle are null/empty, defaults to "Unlock Vault" context.
+  authenticateUser(title: string | null, subtitle: string | null): Promise<boolean>;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>('NativeVaultManager');

@@ -281,8 +281,8 @@
 
 // MARK: - Re-authentication
 
-- (void)authenticateUser:(NSString *)reason resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
-    [vaultManager authenticateUser:reason resolver:resolve rejecter:reject];
+- (void)authenticateUser:(NSString *)title subtitle:(NSString *)subtitle resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager authenticateUser:title subtitle:subtitle resolver:resolve rejecter:reject];
 }
 
 @end

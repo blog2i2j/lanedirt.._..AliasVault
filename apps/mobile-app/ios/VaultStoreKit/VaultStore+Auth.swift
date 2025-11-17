@@ -42,17 +42,26 @@ extension VaultStore {
         return self.enabledAuthMethods
     }
 
-    /// Authenticate the user using biometric authentication
+    /// Authenticate the user using biometric authentication only
+    /// Note: This method only handles biometric authentication. If PIN is enabled,
+    /// this will return false and the caller should use showPinUnlock instead.
     /// Returns true if authentication succeeded, false otherwise
-    public func authenticateUser(reason: String) throws -> Bool {
+    /// - Parameter title: The title for authentication. Optional, defaults to "Unlock Vault" context.
+    /// - Parameter subtitle: The subtitle for authentication. Optional, defaults to title or "Unlock Vault" context.
+    public func authenticateUser(title: String?, subtitle: String?) -> Bool {
+        // Use title if provided, otherwise default
+        let authReason = (title?.isEmpty == false) ? title! : "Unlock Vault"
+
+        // Check if PIN is enabled - if so, return false (caller should use PIN UI)
+        if isPinEnabled() {
+            print("PIN authentication is enabled, returning false")
+            return false
+        }
+
         // Check if biometric authentication is enabled
         guard self.enabledAuthMethods.contains(.faceID) else {
-            print("Biometric authentication not enabled")
-            throw NSError(
-                domain: "VaultStore",
-                code: 100,
-                userInfo: [NSLocalizedDescriptionKey: "Biometric authentication not enabled"]
-            )
+            print("No authentication method enabled")
+            return false
         }
 
         let context = LAContext()
@@ -61,11 +70,7 @@ extension VaultStore {
         // Check if biometric authentication is available
         guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
             print("Biometric authentication not available: \(error?.localizedDescription ?? "unknown error")")
-            throw NSError(
-                domain: "VaultStore",
-                code: 100,
-                userInfo: [NSLocalizedDescriptionKey: "Biometric authentication not available"]
-            )
+            return false
         }
 
         // Perform biometric authentication synchronously
@@ -74,7 +79,7 @@ extension VaultStore {
 
         context.evaluatePolicy(
             .deviceOwnerAuthenticationWithBiometrics,
-            localizedReason: reason
+            localizedReason: authReason
         ) { success, authError in
             authenticated = success
             if let authError = authError {

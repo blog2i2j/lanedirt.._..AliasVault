@@ -904,14 +904,69 @@ public class VaultManager: NSObject {
     }
 
     @objc
-    func authenticateUser(_ reason: String,
+    func authenticateUser(_ title: String?,
+                         subtitle: String?,
                          resolver resolve: @escaping RCTPromiseResolveBlock,
                          rejecter reject: @escaping RCTPromiseRejectBlock) {
-        do {
-            let authenticated = try vaultStore.authenticateUser(reason: reason)
+        // Check if PIN is enabled first
+        let pinEnabled = vaultStore.isPinEnabled()
+
+        if pinEnabled {
+            // PIN is enabled, show PIN unlock UI
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else {
+                    reject("INTERNAL_ERROR", "VaultManager instance deallocated", nil)
+                    return
+                }
+
+                // Get the root view controller from React Native
+                guard let rootVC = RCTPresentedViewController() else {
+                    reject("NO_VIEW_CONTROLLER", "No view controller available", nil)
+                    return
+                }
+
+                // Create PIN unlock view with ViewModel
+                // Use custom title/subtitle if provided, otherwise use defaults
+                let customTitle = (title?.isEmpty == false) ? title : nil
+                let customSubtitle = (subtitle?.isEmpty == false) ? subtitle : nil
+                let viewModel = PinUnlockViewModel(
+                    pinLength: self.vaultStore.getPinLength(),
+                    customTitle: customTitle,
+                    customSubtitle: customSubtitle,
+                    unlockHandler: { [weak self] pin in
+                        guard let self = self else {
+                            throw NSError(domain: "VaultManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "VaultManager instance deallocated"])
+                        }
+
+                        // Unlock vault with PIN (just validates, doesn't store in memory)
+                        _ = try self.vaultStore.unlockWithPin(pin)
+
+                        // Success - dismiss and resolve
+                        await MainActor.run {
+                            rootVC.dismiss(animated: true) {
+                                resolve(true)
+                            }
+                        }
+                    },
+                    cancelHandler: {
+                        // User cancelled - dismiss and resolve with false
+                        rootVC.dismiss(animated: true) {
+                            resolve(false)
+                        }
+                    }
+                )
+
+                let pinView = PinUnlockView(viewModel: viewModel)
+                let hostingController = UIHostingController(rootView: pinView)
+
+                // Present modally as full screen
+                hostingController.modalPresentationStyle = .fullScreen
+                rootVC.present(hostingController, animated: true)
+            }
+        } else {
+            // Use biometric authentication
+            let authenticated = vaultStore.authenticateUser(title: title, subtitle: subtitle)
             resolve(authenticated)
-        } catch {
-            reject("AUTH_ERROR", "Authentication failed: \(error.localizedDescription)", error)
         }
     }
 
