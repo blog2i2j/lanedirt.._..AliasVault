@@ -231,6 +231,12 @@
     [vaultManager clearUsername:resolve rejecter:reject];
 }
 
+// MARK: - Server Version Management
+
+- (void)isServerVersionGreaterThanOrEqualTo:(NSString *)targetVersion resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager isServerVersionGreaterThanOrEqualTo:targetVersion resolver:resolve rejecter:reject];
+}
+
 // MARK: - Offline Mode Management
 
 - (void)setOfflineMode:(BOOL)isOffline resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {

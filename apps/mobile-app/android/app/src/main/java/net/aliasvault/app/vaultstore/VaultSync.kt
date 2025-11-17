@@ -121,6 +121,9 @@ class VaultSync(
             throw VaultSyncError.ServerVersionNotSupported()
         }
 
+        // Store server version in metadata
+        vaultStore.metadata.setServerVersion(status.serverVersion)
+
         validateSrpSalt(status.srpSalt)
         return status
     }

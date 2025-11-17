@@ -649,6 +649,16 @@ public class VaultManager: NSObject {
         resolve(nil)
     }
 
+    // MARK: - Server Version Management
+
+    @objc
+    func isServerVersionGreaterThanOrEqualTo(_ targetVersion: String,
+                                            resolver resolve: @escaping RCTPromiseResolveBlock,
+                                            rejecter reject: @escaping RCTPromiseRejectBlock) {
+        let isGreaterOrEqual = vaultStore.isServerVersionGreaterThanOrEqualTo(targetVersion)
+        resolve(isGreaterOrEqual)
+    }
+
     // MARK: - Offline Mode Management
 
     @objc

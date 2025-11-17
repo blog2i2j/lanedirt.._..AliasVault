@@ -103,6 +103,41 @@ class VaultMetadataManager(
 
     // endregion
 
+    // region Server Version Management
+
+    /**
+     * Set the server API version.
+     */
+    fun setServerVersion(version: String) {
+        storageProvider.setServerVersion(version)
+    }
+
+    /**
+     * Get the server API version.
+     */
+    fun getServerVersion(): String? {
+        return storageProvider.getServerVersion()
+    }
+
+    /**
+     * Clear the server version.
+     */
+    fun clearServerVersion() {
+        storageProvider.clearServerVersion()
+    }
+
+    /**
+     * Check if the stored server version is greater than or equal to the specified version.
+     * @param targetVersion The version to compare against (e.g., "0.25.0")
+     * @return true if stored server version >= targetVersion, false if server version not available or less than target
+     */
+    fun isServerVersionGreaterThanOrEqualTo(targetVersion: String): Boolean {
+        val serverVersion = getServerVersion() ?: return false // No server version stored yet
+        return VersionComparison.isGreaterThanOrEqualTo(serverVersion, targetVersion)
+    }
+
+    // endregion
+
     // region Internal Helpers
 
     /**

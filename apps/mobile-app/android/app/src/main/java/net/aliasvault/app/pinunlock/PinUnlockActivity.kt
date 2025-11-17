@@ -64,6 +64,12 @@ class PinUnlockActivity : AppCompatActivity() {
         /** Intent extra key for the encryption key to use during setup. */
         const val EXTRA_SETUP_ENCRYPTION_KEY = "setup_encryption_key"
 
+        /** Intent extra key for custom title (optional). */
+        const val EXTRA_CUSTOM_TITLE = "custom_title"
+
+        /** Intent extra key for custom subtitle (optional). */
+        const val EXTRA_CUSTOM_SUBTITLE = "custom_subtitle"
+
         /** Mode: Unlock vault with existing PIN. */
         const val MODE_UNLOCK = "unlock"
 
@@ -113,9 +119,11 @@ class PinUnlockActivity : AppCompatActivity() {
             else -> PinMode.UNLOCK
         }
         setupEncryptionKey = intent.getStringExtra(EXTRA_SETUP_ENCRYPTION_KEY)
+        val customTitle = intent.getStringExtra(EXTRA_CUSTOM_TITLE)
+        val customSubtitle = intent.getStringExtra(EXTRA_CUSTOM_SUBTITLE)
 
         // Initialize configuration
-        configuration = viewModel.initializeConfiguration(mode)
+        configuration = viewModel.initializeConfiguration(mode, customTitle, customSubtitle)
 
         // Initialize views
         initializeViews()

@@ -22,7 +22,8 @@
     "disabled": "Disabled",
     "errors": {
       "unknownError": "An unknown error occurred. Please try again.",
-      "unknownErrorTryAgain": "An unknown error occurred. Please try again."
+      "unknownErrorTryAgain": "An unknown error occurred. Please try again.",
+      "serverVersionTooOld": "The AliasVault server needs to be updated to a newer version in order to use this feature. Please contact the server admin if you need help."
     }
   },
   "auth": {

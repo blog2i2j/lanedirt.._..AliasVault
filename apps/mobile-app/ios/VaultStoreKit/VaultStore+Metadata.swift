@@ -85,4 +85,33 @@ extension VaultStore {
     public func getOfflineMode() -> Bool {
         return userDefaults.bool(forKey: VaultConstants.offlineModeKey)
     }
+
+    // MARK: - Server Version Storage
+
+    /// Set the server API version
+    public func setServerVersion(_ version: String) {
+        userDefaults.set(version, forKey: VaultConstants.serverVersionKey)
+        userDefaults.synchronize()
+    }
+
+    /// Get the server API version
+    public func getServerVersion() -> String? {
+        return userDefaults.string(forKey: VaultConstants.serverVersionKey)
+    }
+
+    /// Clear the server version
+    public func clearServerVersion() {
+        userDefaults.removeObject(forKey: VaultConstants.serverVersionKey)
+        userDefaults.synchronize()
+    }
+
+    /// Check if the stored server version is greater than or equal to the specified version
+    /// - Parameter targetVersion: The version to compare against (e.g., "0.25.0")
+    /// - Returns: true if stored server version >= targetVersion, false if server version not available or less than target
+    public func isServerVersionGreaterThanOrEqualTo(_ targetVersion: String) -> Bool {
+        guard let serverVersion = getServerVersion() else {
+            return false // No server version stored yet
+        }
+        return VersionComparison.isGreaterThanOrEqualTo(serverVersion, targetVersion)
+    }
 }

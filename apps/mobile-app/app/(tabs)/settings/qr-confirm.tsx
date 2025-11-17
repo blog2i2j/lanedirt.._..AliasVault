@@ -73,14 +73,6 @@ export default function QRConfirmScreen() : React.ReactNode {
       console.error('Mobile unlock error:', error);
       let errorMsg = t('common.errors.unknownErrorTryAgain');
 
-      if (error instanceof Error) {
-        if (error.message.includes('404')) {
-          errorMsg = t('settings.qrScanner.mobileUnlock.requestExpired');
-        } else {
-          errorMsg = t('common.errors.unknownErrorTryAgain');
-        }
-      }
-
       // Error! Navigate to result page
       router.replace({
         pathname: '/(tabs)/settings/qr-result',
@@ -103,6 +95,29 @@ export default function QRConfirmScreen() : React.ReactNode {
     setIsProcessing(true);
 
     try {
+      // Check server version compatibility
+      const isVersionSupported = await NativeVaultManager.isServerVersionGreaterThanOrEqualTo('0.25.0');
+
+      if (!isVersionSupported) {
+        Alert.alert(
+          t('common.error'),
+          t('common.errors.serverVersionTooOld'),
+          [
+            {
+              text: t('common.ok'),
+              /**
+               * Go back to the settings tab.
+               */
+              onPress: (): void => {
+                router.back();
+              },
+            },
+          ]
+        );
+        setIsProcessing(false);
+        return;
+      }
+
       // Check if biometric or PIN is enabled
       const authMethods = await NativeVaultManager.getAuthMethods();
       const isPinEnabled = await NativeVaultManager.isPinEnabled();

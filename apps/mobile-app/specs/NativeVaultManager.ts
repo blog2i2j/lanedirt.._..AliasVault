@@ -85,6 +85,9 @@ export interface Spec extends TurboModule {
   setOfflineMode(isOffline: boolean): Promise<void>;
   getOfflineMode(): Promise<boolean>;
 
+  // Server version management
+  isServerVersionGreaterThanOrEqualTo(targetVersion: string): Promise<boolean>;
+
   // Vault sync and mutate
   isNewVaultVersionAvailable(): Promise<{ isNewVersionAvailable: boolean; newRevision: number | null }>;
   downloadVault(newRevision: number): Promise<boolean>;
