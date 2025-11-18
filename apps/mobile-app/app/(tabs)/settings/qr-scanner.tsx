@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { View, Alert, StyleSheet } from 'react-native';
 
 import { useColors } from '@/hooks/useColorScheme';
@@ -59,6 +59,8 @@ export default function QRScannerScreen() : React.ReactNode {
   const [permission, requestPermission] = useCameraPermissions();
   const [isLoadingAfterScan, setIsLoadingAfterScan] = useMinDurationLoading(false, 500);
   const { url } = useLocalSearchParams<{ url?: string }>();
+  const hasProcessedUrl = useRef(false);
+  const processedUrls = useRef(new Set<string>());
 
   // Request camera permission on mount
   useEffect(() => {
@@ -146,6 +148,12 @@ export default function QRScannerScreen() : React.ReactNode {
       return;
     }
 
+    // Prevent processing the same URL multiple times
+    if (processedUrls.current.has(data)) {
+      console.debug('QR code already processed, ignoring duplicate:', data);
+      return;
+    }
+
     // Parse the QR code to determine its type
     const parsedData = parseQRCode(data);
 
@@ -154,13 +162,26 @@ export default function QRScannerScreen() : React.ReactNode {
       return;
     }
 
+    // Mark this URL as processed
+    processedUrls.current.add(data);
+
     // Validate the request and navigate (with min 500ms loading)
     validateAndNavigate(parsedData);
   }, [isLoadingAfterScan, validateAndNavigate]);
 
-  // Handle QR code URL passed from deep link (e.g., from native camera)
+  /**
+   * Reset hasProcessedUrl when URL changes to allow processing new URLs.
+   */
   useEffect(() => {
-    if (url && typeof url === 'string') {
+    hasProcessedUrl.current = false;
+  }, [url]);
+
+  /**
+   * Handle QR code URL passed from deep link (e.g., from native camera).
+   */
+  useEffect(() => {
+    if (url && typeof url === 'string' && !hasProcessedUrl.current) {
+      hasProcessedUrl.current = true;
       handleBarcodeScanned({ data: url });
     }
   }, [url, handleBarcodeScanned]);

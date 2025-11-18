@@ -34,6 +34,7 @@ function RootLayoutNav() : React.ReactNode {
   const [bootComplete, setBootComplete] = useState(false);
   const [redirectTarget, setRedirectTarget] = useState<string | null>(null);
   const hasBooted = useRef(false);
+  const processedDeepLinks = useRef(new Set<string>());
 
   useEffect(() => {
     /**
@@ -51,7 +52,22 @@ function RootLayoutNav() : React.ReactNode {
       await initI18n();
 
       hasBooted.current = true;
-      setRedirectTarget('/initialize');
+      // Check if we have a pending deep link and pass it to initialize
+      const initialUrl = await Linking.getInitialURL();
+      if (initialUrl) {
+        const path = initialUrl
+          .replace('net.aliasvault.app://', '')
+          .replace('aliasvault://', '')
+          .replace('exp+aliasvault://', '');
+
+        if (path.startsWith('mobile-login/') || path.includes('credentials/')) {
+          setRedirectTarget(`/initialize?pendingDeepLink=${encodeURIComponent(initialUrl)}`);
+        } else {
+          setRedirectTarget('/initialize');
+        }
+      } else {
+        setRedirectTarget('/initialize');
+      }
       setBootComplete(true);
     };
 
@@ -63,6 +79,15 @@ function RootLayoutNav() : React.ReactNode {
      * Handle deep link URL by navigating to the appropriate route.
      */
     const handleDeepLink = (url: string) : void => {
+      // Prevent processing the same deep link multiple times
+      if (processedDeepLinks.current.has(url)) {
+        console.debug('Deep link already processed, ignoring duplicate:', url);
+        return;
+      }
+
+      // Mark this URL as processed
+      processedDeepLinks.current.add(url);
+
       // Remove all supported URL schemes to get the path
       let path = url
         .replace('net.aliasvault.app://', '')
@@ -71,7 +96,7 @@ function RootLayoutNav() : React.ReactNode {
 
       // Handle mobile login QR code scans from native camera
       if (path.startsWith('mobile-login/')) {
-        // Process the QR code
+        // Process the QR code (app already unlocked when listener fires)
         router.push(`/(tabs)/settings/qr-scanner?url=${encodeURIComponent(`aliasvault://${path}`)}` as Href);
         return;
       }
@@ -91,8 +116,6 @@ function RootLayoutNav() : React.ReactNode {
 
     /**
      * Redirect to a explicit target page if we have one (in case of non-happy path).
-     * Otherwise check for a deep link and simulate stack navigation.
-     * If neither is present, we let the router redirect us to the default route.
      */
     const redirect = async () : Promise<void> => {
       if (!bootComplete) {
@@ -100,20 +123,14 @@ function RootLayoutNav() : React.ReactNode {
       }
 
       if (redirectTarget) {
-        // If we have an explicit redirect target, we navigate to it. This overrides potential deep link handling.
+        // Navigate to the redirect target (may include pendingDeepLink param)
         router.replace(redirectTarget as Href);
-      } else {
-        // Check if we have an initial URL to handle (deep link from camera, autofill, etc.).
-        const initialUrl = await Linking.getInitialURL();
-        if (initialUrl) {
-          handleDeepLink(initialUrl);
-        }
       }
     };
 
     redirect();
 
-    // Listen for deep links when app is already running
+    // Listen for deep links when app is already running and unlocked
     const subscription = Linking.addEventListener('url', ({ url }) => {
       handleDeepLink(url);
     });

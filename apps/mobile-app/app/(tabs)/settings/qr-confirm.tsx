@@ -127,6 +127,9 @@ export default function QRConfirmScreen() : React.ReactNode {
           [
             {
               text: t('common.ok'),
+              /**
+               * Go back to the previous screen.
+               */
               onPress: (): void => {
                 router.back();
               },

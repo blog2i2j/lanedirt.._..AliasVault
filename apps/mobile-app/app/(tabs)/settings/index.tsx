@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useRef, useState, useCallback } from 'react';
 import { StyleSheet, View, ScrollView, TouchableOpacity, Animated, Platform, Alert, Linking } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useApiUrl } from '@/utils/ApiUrlUtility';
 import { AppInfo } from '@/utils/AppInfo';
@@ -17,7 +18,6 @@ import { InlineSkeletonLoader } from '@/components/ui/InlineSkeletonLoader';
 import { TitleContainer } from '@/components/ui/TitleContainer';
 import { UsernameDisplay } from '@/components/ui/UsernameDisplay';
 import { useApp } from '@/context/AppContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /**
  * Settings screen.

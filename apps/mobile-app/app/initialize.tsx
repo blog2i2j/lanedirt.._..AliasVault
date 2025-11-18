@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { Href, useRouter, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -18,6 +18,7 @@ import NativeVaultManager from '@/specs/NativeVaultManager';
  */
 export default function Initialize() : React.ReactNode {
   const router = useRouter();
+  const { pendingDeepLink } = useLocalSearchParams<{ pendingDeepLink?: string }>();
   const [status, setStatus] = useState('');
   const [showSkipButton, setShowSkipButton] = useState(false);
   const hasInitialized = useRef(false);
@@ -66,13 +67,46 @@ export default function Initialize() : React.ReactNode {
   }, []);
 
   /**
+   * Handle pending deep link after successful unlock.
+   */
+  const handlePendingDeepLink = useCallback((deepLink: string): void => {
+    // Remove all supported URL schemes to get the path
+    let path = deepLink
+      .replace('net.aliasvault.app://', '')
+      .replace('aliasvault://', '')
+      .replace('exp+aliasvault://', '');
+
+    // Handle mobile login QR code scans from native camera
+    if (path.startsWith('mobile-login/')) {
+      router.replace(`/(tabs)/settings/qr-scanner?url=${encodeURIComponent(`aliasvault://${path}`)}` as Href);
+      return;
+    }
+
+    // Handle credential detail routes
+    const isDetailRoute = path.includes('credentials/');
+    if (isDetailRoute) {
+      // First go to the credentials tab.
+      router.replace('/(tabs)/credentials');
+
+      // Then push the target route inside the credentials tab.
+      setTimeout(() => {
+        router.push(path as Href);
+      }, 0);
+    }
+  }, [router]);
+
+  /**
    * Handle offline scenario - show alert with options to open local vault or retry sync.
    */
   const handleOfflineFlow = useCallback((): void => {
     // Don't show the alert if we're already in offline mode
     if (app.isOffline) {
       console.debug('Already in offline mode, skipping offline flow alert');
-      router.replace('/(tabs)/credentials');
+      if (pendingDeepLink) {
+        handlePendingDeepLink(pendingDeepLink);
+      } else {
+        router.replace('/(tabs)/credentials');
+      }
       return;
     }
 
@@ -127,8 +161,12 @@ export default function Initialize() : React.ReactNode {
                 return;
               }
 
-              // Success - navigate to credentials
-              router.replace('/(tabs)/credentials');
+              // Success - check for pending deep link or navigate to credentials
+              if (pendingDeepLink) {
+                handlePendingDeepLink(pendingDeepLink);
+              } else {
+                router.replace('/(tabs)/credentials');
+              }
             } catch (err) {
               console.error('Error during offline vault unlock:', err);
               router.replace('/unlock');
@@ -169,7 +207,7 @@ export default function Initialize() : React.ReactNode {
         }
       ]
     );
-  }, [dbContext, router, app, t, updateStatus]);
+  }, [dbContext, router, app, t, updateStatus, pendingDeepLink, handlePendingDeepLink]);
 
   useEffect(() => {
     // Ensure this only runs once.
@@ -272,8 +310,13 @@ export default function Initialize() : React.ReactNode {
            * Handle successful vault sync.
            */
           onSuccess: async () => {
-            // Vault already unlocked, just navigate to credentials
-            router.replace('/(tabs)/credentials');
+            // Check if we have a pending deep link to process
+            if (pendingDeepLink) {
+              handlePendingDeepLink(pendingDeepLink);
+            } else {
+              // Vault already unlocked, just navigate to credentials
+              router.replace('/(tabs)/credentials');
+            }
           },
           /**
            * Handle offline state and prompt user for action.
@@ -317,7 +360,7 @@ export default function Initialize() : React.ReactNode {
         clearTimeout(skipButtonTimeoutRef.current);
       }
     };
-  }, [dbContext, syncVault, app, router, t, handleOfflineFlow, updateStatus]);
+  }, [dbContext, syncVault, app, router, t, handleOfflineFlow, updateStatus, pendingDeepLink, handlePendingDeepLink]);
 
   /**
    * Handle skip button press by calling the offline handler.
