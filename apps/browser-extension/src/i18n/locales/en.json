@@ -15,7 +15,7 @@
     "verify": "Verify",
     "twoFactorNote": "Note: if you don't have access to your authenticator device, you can reset your 2FA with a recovery code by logging in via the website.",
     "masterPassword": "Master Password",
-    "unlockVault": "Unlock Vault",
+    "unlockVault": "Unlock",
     "unlockWithPin": "Unlock with PIN",
     "enterPinToUnlock": "Enter your PIN to unlock your vault",
     "useMasterPassword": "Use Master Password",
