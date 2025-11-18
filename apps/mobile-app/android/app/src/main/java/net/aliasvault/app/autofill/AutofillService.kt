@@ -398,7 +398,7 @@ class AutofillService : AutofillService() {
         val encodedUrl = appInfo?.let { java.net.URLEncoder.encode(it, "UTF-8") } ?: ""
 
         // Create deep link URL
-        val deepLinkUrl = "net.aliasvault.app://credentials/add-edit-page?serviceUrl=$encodedUrl"
+        val deepLinkUrl = "aliasvault://credentials/add-edit-page?serviceUrl=$encodedUrl"
 
         // Add a click listener to open AliasVault app with deep link
         val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -477,7 +477,7 @@ class AutofillService : AutofillService() {
         val dataSetBuilder = Dataset.Builder(presentation)
 
         // Create deep link URL
-        val deepLinkUrl = "net.aliasvault.app://reinitialize"
+        val deepLinkUrl = "aliasvault://reinitialize"
 
         // Add a click listener to open AliasVault app with deep link
         val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -526,7 +526,7 @@ class AutofillService : AutofillService() {
         val encodedUrl = appInfo?.let { java.net.URLEncoder.encode(it, "UTF-8") } ?: ""
 
         // Create deep link URL to credentials page with service URL
-        val deepLinkUrl = "net.aliasvault.app://credentials?serviceUrl=$encodedUrl"
+        val deepLinkUrl = "aliasvault://credentials?serviceUrl=$encodedUrl"
 
         // Add a click listener to open AliasVault app with deep link
         val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -569,7 +569,7 @@ class AutofillService : AutofillService() {
         // Create deep link URL to open the credentials page
         val appInfo = fieldFinder.getAppInfo()
         val encodedUrl = appInfo?.let { java.net.URLEncoder.encode(it, "UTF-8") } ?: ""
-        val deepLinkUrl = "net.aliasvault.app://credentials?serviceUrl=$encodedUrl"
+        val deepLinkUrl = "aliasvault://credentials?serviceUrl=$encodedUrl"
 
         // Add a click listener to open AliasVault app with deep link
         val intent = Intent(Intent.ACTION_VIEW).apply {
