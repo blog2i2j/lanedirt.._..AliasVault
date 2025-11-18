@@ -57,6 +57,17 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
     private const int MobileLoginTimeoutMinutes = 3;
 
     /// <summary>
+    /// Access token validity in minutes.
+    /// </summary>
+    /// <remarks>
+    /// This is the time period for which the access token is valid.
+    /// It is used to authenticate the user for a limited time
+    /// and is short-lived by design. With the separate refresh token, the user can request a new access token
+    /// when this access token expires.
+    /// </remarks>
+    private const int AccessTokenValiditySeconds = 600;
+
+    /// <summary>
     /// Semaphore to prevent concurrent access to the database when generating new tokens for a user.
     /// </summary>
     private static readonly SemaphoreSlim Semaphore = new(1, 1);
@@ -969,7 +980,7 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
             issuer: configuration["Jwt:Issuer"] ?? string.Empty,
             audience: configuration["Jwt:Issuer"] ?? string.Empty,
             claims: claims,
-            expires: timeProvider.UtcNow.AddMinutes(10),
+            expires: timeProvider.UtcNow.AddSeconds(AccessTokenValiditySeconds),
             signingCredentials: credentials);
 
         return new JwtSecurityTokenHandler().WriteToken(token);

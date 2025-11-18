@@ -91,9 +91,12 @@ public static class AuthHelper
     {
         var userAgent = request.Headers.UserAgent.ToString();
         var acceptLanguage = request.Headers.AcceptLanguage.ToString();
-        var client = request.Headers["X-AliasVault-Client"].ToString();
 
-        var rawIdentifier = $"{client}|{userAgent}|{acceptLanguage}";
+        // Client header is usually formatted like "[client name]-[version]" e.g. "chrome-0.25.0", take only "chrome"
+        var clientHeader = request.Headers["X-AliasVault-Client"].ToString();
+        var clientName = clientHeader?.Split('-')[0] ?? "unknown";
+
+        var rawIdentifier = $"{clientName}|{userAgent}|{acceptLanguage}";
         return rawIdentifier;
     }
 }

@@ -135,7 +135,7 @@ const AppContent: React.FC<{
             }}
           >
             {message && (
-              <div className="p-4 pt-0">
+              <div className="px-4 pt-0">
                 <p className="text-red-500 dark:text-red-400 text-sm">{message}</p>
               </div>
             )}
