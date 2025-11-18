@@ -406,7 +406,6 @@ type MobileLoginInitiateResponse = {
 type MobileLoginSubmitRequest = {
     requestId: string;
     encryptedDecryptionKey: string;
-    username: string;
 };
 /**
  * Mobile login poll response type.

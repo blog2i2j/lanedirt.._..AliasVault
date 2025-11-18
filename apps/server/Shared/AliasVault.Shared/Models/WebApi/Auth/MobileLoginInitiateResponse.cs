@@ -10,5 +10,10 @@ namespace AliasVault.Shared.Models.WebApi.Auth;
 /// <summary>
 /// Response model for mobile login initiate request.
 /// </summary>
-/// <param name="RequestId">The unique identifier for this login request.</param>
-public record MobileLoginInitiateResponse(string RequestId);
+public class MobileLoginInitiateResponse
+{
+    /// <summary>
+    /// Gets or sets the unique identifier for this login request.
+    /// </summary>
+    public required string RequestId { get; set; }
+}

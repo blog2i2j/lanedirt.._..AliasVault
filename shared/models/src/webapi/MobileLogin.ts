@@ -18,7 +18,6 @@ export type MobileLoginInitiateResponse = {
 export type MobileLoginSubmitRequest = {
     requestId: string;
     encryptedDecryptionKey: string;
-    username: string;
 }
 
 /**

@@ -55,7 +55,10 @@ public sealed class MobileLoginUtility : IDisposable
         _privateKey = keyPair.PrivateKey;
 
         // Send public key to server
-        var request = new MobileLoginInitiateRequest(keyPair.PublicKey);
+        var request = new MobileLoginInitiateRequest
+        {
+            ClientPublicKey = keyPair.PublicKey,
+        };
         var response = await _httpClient.PostAsJsonAsync("v1/Auth/mobile-login/initiate", request);
 
         if (!response.IsSuccessStatusCode)

@@ -12,16 +12,37 @@ namespace AliasVault.Shared.Models.WebApi.Auth;
 /// All sensitive data is encrypted with AES-256, and the AES key is encrypted with client's RSA public key.
 /// Client decrypts username to call /login endpoint for salt and encryption settings.
 /// </summary>
-/// <param name="Fulfilled">Whether the request has been fulfilled by the mobile app.</param>
-/// <param name="EncryptedSymmetricKey">The AES symmetric key encrypted with client's RSA public key (base64 encoded). Used to decrypt all encrypted fields. Null if not fulfilled.</param>
-/// <param name="EncryptedToken">The JWT token encrypted with AES symmetric key (base64 encoded). Null if not fulfilled.</param>
-/// <param name="EncryptedRefreshToken">The refresh token encrypted with AES symmetric key (base64 encoded). Null if not fulfilled.</param>
-/// <param name="EncryptedDecryptionKey">The vault decryption key encrypted with client's RSA public key (base64 encoded). Null if not fulfilled.</param>
-/// <param name="EncryptedUsername">The username encrypted with AES symmetric key (base64 encoded). Retrieved from User via UserId FK. Null if not fulfilled.</param>
-public record MobileLoginPollResponse(
-    bool Fulfilled,
-    string? EncryptedSymmetricKey,
-    string? EncryptedToken,
-    string? EncryptedRefreshToken,
-    string? EncryptedDecryptionKey,
-    string? EncryptedUsername);
+public class MobileLoginPollResponse
+{
+    /// <summary>
+    /// Gets or sets a value indicating whether the request has been fulfilled by the mobile app.
+    /// </summary>
+    public required bool Fulfilled { get; set; }
+
+    /// <summary>
+    /// Gets or sets the AES symmetric key encrypted with client's RSA public key (base64 encoded).
+    /// Used to decrypt all encrypted fields. Null if not fulfilled.
+    /// </summary>
+    public string? EncryptedSymmetricKey { get; set; }
+
+    /// <summary>
+    /// Gets or sets the JWT token encrypted with AES symmetric key (base64 encoded). Null if not fulfilled.
+    /// </summary>
+    public string? EncryptedToken { get; set; }
+
+    /// <summary>
+    /// Gets or sets the refresh token encrypted with AES symmetric key (base64 encoded). Null if not fulfilled.
+    /// </summary>
+    public string? EncryptedRefreshToken { get; set; }
+
+    /// <summary>
+    /// Gets or sets the vault decryption key encrypted with client's RSA public key (base64 encoded). Null if not fulfilled.
+    /// </summary>
+    public string? EncryptedDecryptionKey { get; set; }
+
+    /// <summary>
+    /// Gets or sets the username encrypted with AES symmetric key (base64 encoded).
+    /// Retrieved from User via UserId FK. Null if not fulfilled.
+    /// </summary>
+    public string? EncryptedUsername { get; set; }
+}

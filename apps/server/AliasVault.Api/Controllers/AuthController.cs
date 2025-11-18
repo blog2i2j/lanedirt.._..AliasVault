@@ -566,7 +566,10 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
         context.MobileLoginRequests.Add(loginRequest);
         await context.SaveChangesAsync();
 
-        return Ok(new MobileLoginInitiateResponse(requestId));
+        return Ok(new MobileLoginInitiateResponse
+        {
+            RequestId = requestId,
+        });
     }
 
     /// <summary>
@@ -591,7 +594,15 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
         // If not fulfilled, return pending status
         if (loginRequest.FulfilledAt == null)
         {
-            return Ok(new MobileLoginPollResponse(false, null, null, null, null, null));
+            return Ok(new MobileLoginPollResponse
+            {
+                Fulfilled = false,
+                EncryptedSymmetricKey = null,
+                EncryptedToken = null,
+                EncryptedRefreshToken = null,
+                EncryptedDecryptionKey = null,
+                EncryptedUsername = null,
+            });
         }
 
         // Check if already retrieved (one-time use protection)
@@ -650,13 +661,15 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
 
         // Return response with encrypted symmetric key and encrypted fields
         // Client will decrypt username to call /login endpoint for salt and encryption settings
-        return Ok(new MobileLoginPollResponse(
-            true,
-            encryptedSymmetricKey,
-            encryptedToken,
-            encryptedRefreshToken,
-            encryptedDecryptionKey,
-            encryptedUsername));
+        return Ok(new MobileLoginPollResponse
+        {
+            Fulfilled = true,
+            EncryptedSymmetricKey = encryptedSymmetricKey,
+            EncryptedToken = encryptedToken,
+            EncryptedRefreshToken = encryptedRefreshToken,
+            EncryptedDecryptionKey = encryptedDecryptionKey,
+            EncryptedUsername = encryptedUsername,
+        });
     }
 
     /// <summary>

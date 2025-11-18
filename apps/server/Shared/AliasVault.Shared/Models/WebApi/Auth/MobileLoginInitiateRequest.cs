@@ -10,5 +10,10 @@ namespace AliasVault.Shared.Models.WebApi.Auth;
 /// <summary>
 /// Request model for initiating a mobile login request.
 /// </summary>
-/// <param name="ClientPublicKey">The public key from the client (base64 encoded).</param>
-public record MobileLoginInitiateRequest(string ClientPublicKey);
+public class MobileLoginInitiateRequest
+{
+    /// <summary>
+    /// Gets or sets the public key from the client (base64 encoded).
+    /// </summary>
+    public required string ClientPublicKey { get; set; }
+}
