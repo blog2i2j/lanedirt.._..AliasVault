@@ -193,14 +193,15 @@ export default function ReinitializeScreen() : React.ReactNode {
       const isAlreadyUnlocked = await NativeVaultManager.isVaultUnlocked();
 
       if (!isAlreadyUnlocked) {
-        // Check if we have an encrypted database and if FaceID is enabled
+        // Check if we have an encrypted database
         try {
           const hasEncryptedDatabase = await NativeVaultManager.hasEncryptedDatabase();
 
           if (hasEncryptedDatabase) {
             const isFaceIDEnabled = enabledAuthMethods.includes('faceid');
+            const isPinEnabled = await NativeVaultManager.isPinEnabled();
 
-            // Only attempt to unlock if FaceID is enabled
+            // Attempt automatic unlock if FaceID or PIN is enabled
             if (isFaceIDEnabled) {
               // Unlock vault FIRST (before network sync) - this is not skippable
               updateStatus(t('app.status.unlockingVault'));
@@ -225,8 +226,41 @@ export default function ReinitializeScreen() : React.ReactNode {
 
               // Vault unlocked successfully - now allow skip button for network operations
               canShowSkipButtonRef.current = true;
+            } else if (isPinEnabled) {
+              // Attempt PIN unlock
+              updateStatus(t('app.status.unlockingVault'));
+              try {
+                await NativeVaultManager.showPinUnlock();
+
+                // Check if vault is now unlocked
+                const isNowUnlocked = await NativeVaultManager.isVaultUnlocked();
+                if (!isNowUnlocked || !dbContext.dbAvailable) {
+                  // Failed to unlock, redirect to unlock screen
+                  router.replace('/unlock');
+                  return;
+                }
+
+                // Add small delay for UX
+                await new Promise(resolve => setTimeout(resolve, 300));
+                updateStatus(t('app.status.decryptingVault'));
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                // Check if the vault needs migration before syncing
+                if (await dbContext.hasPendingMigrations()) {
+                  router.replace('/upgrade');
+                  return;
+                }
+
+                // Vault unlocked successfully - now allow skip button for network operations
+                canShowSkipButtonRef.current = true;
+              } catch (pinErr) {
+                // PIN unlock failed or cancelled, redirect to unlock screen
+                console.error('PIN unlock failed during reinitialize:', pinErr);
+                router.replace('/unlock');
+                return;
+              }
             } else {
-              // No FaceID, redirect to unlock screen
+              // No FaceID or PIN, redirect to unlock screen
               router.replace('/unlock');
               return;
             }
