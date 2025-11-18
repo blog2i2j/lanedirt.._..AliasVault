@@ -17,6 +17,7 @@ import { InlineSkeletonLoader } from '@/components/ui/InlineSkeletonLoader';
 import { TitleContainer } from '@/components/ui/TitleContainer';
 import { UsernameDisplay } from '@/components/ui/UsernameDisplay';
 import { useApp } from '@/context/AppContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /**
  * Settings screen.
@@ -24,6 +25,7 @@ import { useApp } from '@/context/AppContext';
 export default function SettingsScreen() : React.ReactNode {
   const colors = useColors();
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const { getAuthMethodDisplayKey, shouldShowAutofillReminder, logout } = useApp();
   const { getAutoLockTimeout, getClipboardClearTimeout } = useApp();
   const { loadApiUrl, getDisplayUrl } = useApiUrl();
@@ -227,6 +229,22 @@ export default function SettingsScreen() : React.ReactNode {
   };
 
   const styles = StyleSheet.create({
+    fab: {
+      alignItems: 'center',
+      backgroundColor: colors.primary,
+      borderRadius: 28,
+      bottom: Platform.OS === 'ios' ? insets.bottom + 60 : 16,
+      elevation: 4,
+      height: 56,
+      justifyContent: 'center',
+      position: 'absolute',
+      right: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      width: 56,
+    },
     scrollContent: {
       paddingBottom: 80,
       paddingTop: Platform.OS === 'ios' ? 42 : 16,
@@ -481,19 +499,6 @@ export default function SettingsScreen() : React.ReactNode {
           <View style={styles.separator} />
           <TouchableOpacity
             style={styles.settingItem}
-            onPress={() => router.push('/(tabs)/settings/qr-scanner')}
-          >
-            <View style={styles.settingItemIcon}>
-              <Ionicons name="qr-code" size={20} color={colors.text} />
-            </View>
-            <View style={styles.settingItemContent}>
-              <ThemedText style={styles.settingItemText}>{t('settings.qrScanner.title')}</ThemedText>
-              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-            </View>
-          </TouchableOpacity>
-          <View style={styles.separator} />
-          <TouchableOpacity
-            style={styles.settingItem}
             onPress={() => router.push('/(tabs)/settings/security')}
           >
             <View style={styles.settingItemIcon}>
@@ -524,6 +529,15 @@ export default function SettingsScreen() : React.ReactNode {
           <ThemedText style={styles.versionText}>{t('settings.appVersion', { version: AppInfo.VERSION, url: getDisplayUrl() })}</ThemedText>
         </View>
       </Animated.ScrollView>
+
+      {/* Floating Action Button for QR Scanner - shown for testing both options */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => router.push('/(tabs)/settings/qr-scanner')}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="qr-code-outline" size={32} color={colors.primarySurfaceText} />
+      </TouchableOpacity>
     </ThemedContainer>
   );
 }

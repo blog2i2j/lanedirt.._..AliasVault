@@ -166,6 +166,10 @@ export default function QRScannerScreen() : React.ReactNode {
   }, [url, handleBarcodeScanned]);
 
   const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      paddingHorizontal: 0,
+    },
     camera: {
       flex: 1,
     },
@@ -227,7 +231,7 @@ export default function QRScannerScreen() : React.ReactNode {
   }
 
   return (
-    <ThemedContainer>
+    <ThemedContainer style={styles.container}>
       <View style={styles.cameraContainer}>
         <CameraView
           style={styles.camera}
