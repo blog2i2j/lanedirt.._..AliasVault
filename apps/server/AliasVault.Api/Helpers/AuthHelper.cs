@@ -77,9 +77,13 @@ public static class AuthHelper
     /// Generate a device identifier based on request headers. This is used to associate refresh tokens
     /// with a specific device for a specific user.
     ///
+    /// The identifier includes the client type (web app, browser extension, mobile app) to prevent
+    /// conflicts when a user is logged in on multiple clients from the same browser/device.
+    /// For example, logging out from the browser extension won't affect the web app session.
+    ///
     /// NOTE: current implementation means that only one refresh token can be valid for a
     /// specific user/device combo at a time. The identifier generation could be made more unique in the future
-    /// to prevent any unwanted conflicts.
+    /// to prevent any potential unwanted conflicts.
     /// </summary>
     /// <param name="request">The HttpRequest instance for the request that the client used.</param>
     /// <returns>Unique device identifier as string.</returns>
@@ -87,8 +91,9 @@ public static class AuthHelper
     {
         var userAgent = request.Headers.UserAgent.ToString();
         var acceptLanguage = request.Headers.AcceptLanguage.ToString();
+        var client = request.Headers["X-AliasVault-Client"].ToString();
 
-        var rawIdentifier = $"{userAgent}|{acceptLanguage}";
+        var rawIdentifier = $"{client}|{userAgent}|{acceptLanguage}";
         return rawIdentifier;
     }
 }
