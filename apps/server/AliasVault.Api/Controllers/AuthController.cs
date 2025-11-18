@@ -51,10 +51,10 @@ using SecureRemotePassword;
 public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserManager<AliasVaultUser> userManager, SignInManager<AliasVaultUser> signInManager, IConfiguration configuration, IMemoryCache cache, ITimeProvider timeProvider, AuthLoggingService authLoggingService, Config config, ServerSettingsService settingsService) : ControllerBase
 {
     /// <summary>
-    /// Timeout in minutes for mobile login requests.
+    /// Timeout in minutes for mobile login requests. Clients use 2 minutes for countdown, we use 3 here to give a bit of extra buffer time.
     /// Requests older than this will be automatically expired and removed.
     /// </summary>
-    private const int MobileLoginTimeoutMinutes = 2;
+    private const int MobileLoginTimeoutMinutes = 3;
 
     /// <summary>
     /// Semaphore to prevent concurrent access to the database when generating new tokens for a user.
