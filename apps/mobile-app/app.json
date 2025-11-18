@@ -5,7 +5,7 @@
     "version": "0.25.0-alpha",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "net.aliasvault.app",
+    "scheme": ["aliasvault", "net.aliasvault.app"],
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "platforms": [

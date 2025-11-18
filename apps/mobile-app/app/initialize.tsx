@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 
+import { PostUnlockNavigation } from '@/utils/PostUnlockNavigation';
+
 import { useColors } from '@/hooks/useColorScheme';
 import { useVaultSync } from '@/hooks/useVaultSync';
 
@@ -31,6 +33,16 @@ export default function Initialize() : React.ReactNode {
   const { syncVault } = useVaultSync();
   const dbContext = useDb();
   const colors = useColors();
+
+  /**
+   * Build unlock URL with pending deep link parameter if available.
+   */
+  const getUnlockUrl = useCallback((): Href => {
+    if (pendingDeepLink) {
+      return `/unlock?pendingDeepLink=${encodeURIComponent(pendingDeepLink)}` as Href;
+    }
+    return '/unlock';
+  }, [pendingDeepLink]);
 
   /**
    * Update status with smart skip button logic.
@@ -67,46 +79,21 @@ export default function Initialize() : React.ReactNode {
   }, []);
 
   /**
-   * Handle pending deep link after successful unlock.
-   */
-  const handlePendingDeepLink = useCallback((deepLink: string): void => {
-    // Remove all supported URL schemes to get the path
-    let path = deepLink
-      .replace('net.aliasvault.app://', '')
-      .replace('aliasvault://', '')
-      .replace('exp+aliasvault://', '');
-
-    // Handle mobile login QR code scans from native camera
-    if (path.startsWith('mobile-login/')) {
-      router.replace(`/(tabs)/settings/qr-scanner?url=${encodeURIComponent(`aliasvault://${path}`)}` as Href);
-      return;
-    }
-
-    // Handle credential detail routes
-    const isDetailRoute = path.includes('credentials/');
-    if (isDetailRoute) {
-      // First go to the credentials tab.
-      router.replace('/(tabs)/credentials');
-
-      // Then push the target route inside the credentials tab.
-      setTimeout(() => {
-        router.push(path as Href);
-      }, 0);
-    }
-  }, [router]);
-
-  /**
    * Handle offline scenario - show alert with options to open local vault or retry sync.
    */
   const handleOfflineFlow = useCallback((): void => {
     // Don't show the alert if we're already in offline mode
     if (app.isOffline) {
       console.debug('Already in offline mode, skipping offline flow alert');
-      if (pendingDeepLink) {
-        handlePendingDeepLink(pendingDeepLink);
-      } else {
-        router.replace('/(tabs)/credentials');
-      }
+      PostUnlockNavigation.navigate({
+        pendingDeepLink,
+        returnUrl: app.returnUrl,
+        router,
+        /**
+         * Clear the return URL after navigation.
+         */
+        clearReturnUrl: () => app.setReturnUrl(null),
+      });
       return;
     }
 
@@ -128,7 +115,7 @@ export default function Initialize() : React.ReactNode {
 
               // No encrypted database
               if (!hasEncryptedDatabase) {
-                router.replace('/unlock');
+                router.replace(getUnlockUrl());
                 return;
               }
 
@@ -138,7 +125,7 @@ export default function Initialize() : React.ReactNode {
               // FaceID not enabled
               const isFaceIDEnabled = enabledAuthMethods.includes('faceid');
               if (!isFaceIDEnabled) {
-                router.replace('/unlock');
+                router.replace(getUnlockUrl());
                 return;
               }
 
@@ -148,7 +135,7 @@ export default function Initialize() : React.ReactNode {
 
               // Vault couldn't be unlocked
               if (!isUnlocked) {
-                router.replace('/unlock');
+                router.replace(getUnlockUrl());
                 return;
               }
 
@@ -161,15 +148,19 @@ export default function Initialize() : React.ReactNode {
                 return;
               }
 
-              // Success - check for pending deep link or navigate to credentials
-              if (pendingDeepLink) {
-                handlePendingDeepLink(pendingDeepLink);
-              } else {
-                router.replace('/(tabs)/credentials');
-              }
+              // Success - use centralized navigation logic
+              PostUnlockNavigation.navigate({
+                pendingDeepLink,
+                returnUrl: app.returnUrl,
+                router,
+                /**
+                 * Clear the return URL after navigation.
+                 */
+                clearReturnUrl: () => app.setReturnUrl(null),
+              });
             } catch (err) {
               console.error('Error during offline vault unlock:', err);
-              router.replace('/unlock');
+              router.replace(getUnlockUrl());
             }
           }
         },
@@ -207,7 +198,7 @@ export default function Initialize() : React.ReactNode {
         }
       ]
     );
-  }, [dbContext, router, app, t, updateStatus, pendingDeepLink, handlePendingDeepLink]);
+  }, [dbContext, router, app, t, updateStatus, pendingDeepLink, getUnlockUrl]);
 
   useEffect(() => {
     // Ensure this only runs once.
@@ -254,7 +245,7 @@ export default function Initialize() : React.ReactNode {
 
                 if (!isUnlocked) {
                   // Failed to unlock, redirect to unlock screen
-                  router.replace('/unlock');
+                  router.replace(getUnlockUrl());
                   return;
                 }
 
@@ -268,13 +259,13 @@ export default function Initialize() : React.ReactNode {
                 canShowSkipButtonRef.current = true;
               } else {
                 // No FaceID, redirect to unlock screen for manual unlock
-                router.replace('/unlock');
+                router.replace(getUnlockUrl());
                 return;
               }
             }
           } catch (err) {
             console.error('Error during initial vault unlock:', err);
-            router.replace('/unlock');
+            router.replace(getUnlockUrl());
             return;
           }
         } else {
@@ -310,13 +301,16 @@ export default function Initialize() : React.ReactNode {
            * Handle successful vault sync.
            */
           onSuccess: async () => {
-            // Check if we have a pending deep link to process
-            if (pendingDeepLink) {
-              handlePendingDeepLink(pendingDeepLink);
-            } else {
-              // Vault already unlocked, just navigate to credentials
-              router.replace('/(tabs)/credentials');
-            }
+            // Use centralized navigation logic
+            PostUnlockNavigation.navigate({
+              pendingDeepLink,
+              returnUrl: app.returnUrl,
+              router,
+              /**
+               * Clear the return URL after navigation.
+               */
+              clearReturnUrl: () => app.setReturnUrl(null),
+            });
           },
           /**
            * Handle offline state and prompt user for action.
@@ -337,7 +331,7 @@ export default function Initialize() : React.ReactNode {
               error,
               [{ text: t('common.ok'), style: 'default' }]
             );
-            router.replace('/unlock');
+            router.replace(getUnlockUrl());
             return;
           },
           /**
@@ -360,7 +354,7 @@ export default function Initialize() : React.ReactNode {
         clearTimeout(skipButtonTimeoutRef.current);
       }
     };
-  }, [dbContext, syncVault, app, router, t, handleOfflineFlow, updateStatus, pendingDeepLink, handlePendingDeepLink]);
+  }, [dbContext, syncVault, app, router, t, handleOfflineFlow, updateStatus, pendingDeepLink, getUnlockUrl]);
 
   /**
    * Handle skip button press by calling the offline handler.

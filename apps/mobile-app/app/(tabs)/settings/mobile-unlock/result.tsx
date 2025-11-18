@@ -14,7 +14,7 @@ import { ThemedText } from '@/components/themed/ThemedText';
 /**
  * QR Code result screen - shows success or error after mobile unlock attempt.
  */
-export default function QRResultScreen() : React.ReactNode {
+export default function MobileUnlockResultScreen() : React.ReactNode {
   const colors = useColors();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -23,13 +23,11 @@ export default function QRResultScreen() : React.ReactNode {
   const isSuccess = success === 'true';
 
   /**
-   * Handle dismiss which will go back to the settings tab.
+   * Handle dismiss - navigate to settings tab.
+   * Uses replace to handle cases where this page is reached via deep link navigation.
    */
   const handleDismiss = () : void => {
-    /*
-     * Go back to the settings tab.
-     */
-    router.back();
+    router.replace('/(tabs)/settings');
   };
 
   const styles = StyleSheet.create({

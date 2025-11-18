@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { router, useLocalSearchParams } from 'expo-router';
+import { Href, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useCallback, useRef } from 'react';
 import { View, Alert, StyleSheet } from 'react-native';
 
@@ -15,10 +15,11 @@ import { useWebApi } from '@/context/WebApiContext';
 
 // QR Code type prefixes
 const QR_CODE_PREFIXES = {
-  MOBILE_LOGIN: 'aliasvault://mobile-login/',
+  MOBILE_UNLOCK: 'aliasvault://open/mobile-unlock/',
   /*
-   * Future: PASSKEY: 'aliasvault://passkey/',
-   * Future: SHARE_CREDENTIAL: 'aliasvault://share/',
+   * Future actions:
+   * PASSKEY_AUTH: 'aliasvault://open/passkey-auth/',
+   * SHARE_CREDENTIAL: 'aliasvault://open/share-credential/',
    */
 } as const;
 
@@ -98,7 +99,7 @@ export default function QRScannerScreen() : React.ReactNode {
     setIsLoadingAfterScan(true);
 
     try {
-      if (parsedData.type === 'MOBILE_LOGIN') {
+      if (parsedData.type === 'MOBILE_UNLOCK' || parsedData.type === 'MOBILE_LOGIN') {
         // Fetch the public key from server to validate the request exists
         await webApi.authFetch<{ clientPublicKey: string }>(
           `auth/mobile-login/request/${parsedData.payload}`,
@@ -111,10 +112,8 @@ export default function QRScannerScreen() : React.ReactNode {
          */
         setIsLoadingAfterScan(false);
 
-        router.replace({
-          pathname: '/(tabs)/settings/qr-confirm',
-          params: { requestId: parsedData.payload },
-        });
+        console.log('[_qrscanner] navigate to mobile-unlock with replace:', parsedData.payload);
+        router.replace(`/(tabs)/settings/mobile-unlock/${parsedData.payload}` as Href);
       }
     } catch (error) {
       setIsLoadingAfterScan(false);
@@ -124,6 +123,7 @@ export default function QRScannerScreen() : React.ReactNode {
 
       if (error instanceof Error) {
         if (error.message.includes('404')) {
+          // Request expired
           errorMsg = t('settings.qrScanner.mobileLogin.requestExpired');
         } else {
           errorMsg = t('common.errors.unknownErrorTryAgain');
@@ -135,6 +135,9 @@ export default function QRScannerScreen() : React.ReactNode {
         errorMsg,
         [{ text: t('common.ok') }]
       );
+
+      // On error, go back to the settings screen
+      router.replace('/(tabs)/settings');
     }
   }, [webApi, setIsLoadingAfterScan, t]);
 
@@ -150,7 +153,6 @@ export default function QRScannerScreen() : React.ReactNode {
 
     // Prevent processing the same URL multiple times
     if (processedUrls.current.has(data)) {
-      console.debug('QR code already processed, ignoring duplicate:', data);
       return;
     }
 

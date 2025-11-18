@@ -12,6 +12,7 @@ import { install } from 'react-native-quick-crypto';
 import { useColors, useColorScheme } from '@/hooks/useColorScheme';
 
 import SpaceMono from '@/assets/fonts/SpaceMono-Regular.ttf';
+import LoadingIndicator from '@/components/LoadingIndicator';
 import { ThemedView } from '@/components/themed/ThemedView';
 import { AliasVaultToast } from '@/components/Toast';
 import { AppProvider } from '@/context/AppContext';
@@ -34,7 +35,6 @@ function RootLayoutNav() : React.ReactNode {
   const [bootComplete, setBootComplete] = useState(false);
   const [redirectTarget, setRedirectTarget] = useState<string | null>(null);
   const hasBooted = useRef(false);
-  const processedDeepLinks = useRef(new Set<string>());
 
   useEffect(() => {
     /**
@@ -76,45 +76,6 @@ function RootLayoutNav() : React.ReactNode {
 
   useEffect(() => {
     /**
-     * Handle deep link URL by navigating to the appropriate route.
-     */
-    const handleDeepLink = (url: string) : void => {
-      // Prevent processing the same deep link multiple times
-      if (processedDeepLinks.current.has(url)) {
-        console.debug('Deep link already processed, ignoring duplicate:', url);
-        return;
-      }
-
-      // Mark this URL as processed
-      processedDeepLinks.current.add(url);
-
-      // Remove all supported URL schemes to get the path
-      let path = url
-        .replace('net.aliasvault.app://', '')
-        .replace('aliasvault://', '')
-        .replace('exp+aliasvault://', '');
-
-      // Handle mobile login QR code scans from native camera
-      if (path.startsWith('mobile-login/')) {
-        // Process the QR code (app already unlocked when listener fires)
-        router.push(`/(tabs)/settings/qr-scanner?url=${encodeURIComponent(`aliasvault://${path}`)}` as Href);
-        return;
-      }
-
-      // Handle credential detail routes
-      const isDetailRoute = path.includes('credentials/');
-      if (isDetailRoute) {
-        // First go to the credentials tab.
-        router.replace('/(tabs)/credentials');
-
-        // Then push the target route inside the credentials tab.
-        setTimeout(() => {
-          router.push(path as Href);
-        }, 0);
-      }
-    };
-
-    /**
      * Redirect to a explicit target page if we have one (in case of non-happy path).
      */
     const redirect = async () : Promise<void> => {
@@ -129,15 +90,6 @@ function RootLayoutNav() : React.ReactNode {
     };
 
     redirect();
-
-    // Listen for deep links when app is already running and unlocked
-    const subscription = Linking.addEventListener('url', ({ url }) => {
-      handleDeepLink(url);
-    });
-
-    return (): void => {
-      subscription.remove();
-    };
   }, [bootComplete, redirectTarget, router]);
 
   const styles = StyleSheet.create({
@@ -152,6 +104,7 @@ function RootLayoutNav() : React.ReactNode {
     return (
       <ThemedView style={styles.container}>
         {/* Loading state while booting */}
+        <LoadingIndicator />
       </ThemedView>
     );
   }

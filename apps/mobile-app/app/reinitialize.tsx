@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Href, router } from 'expo-router';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View, Alert, TouchableOpacity } from 'react-native';
+
+import { PostUnlockNavigation } from '@/utils/PostUnlockNavigation';
 
 import { useColors } from '@/hooks/useColorScheme';
 import { useVaultSync } from '@/hooks/useVaultSync';
@@ -120,38 +122,15 @@ export default function ReinitializeScreen() : React.ReactNode {
                 return;
               }
 
-              // Handle navigation based on return URL
-              if (!app.returnUrl?.path) {
-                router.replace('/(tabs)/credentials');
-                return;
-              }
-
-              // Navigate to return URL
-              const path = app.returnUrl.path as string;
-              const isDetailRoute = path.includes('credentials/');
-
-              if (!isDetailRoute) {
-                router.replace({
-                  pathname: path as '/',
-                  params: app.returnUrl.params as Record<string, string>
-                });
-                app.setReturnUrl(null);
-                return;
-              }
-
-              // Handle detail routes
-              const params = app.returnUrl.params as Record<string, string>;
-              router.replace('/(tabs)/credentials');
-              setTimeout(() => {
-                if (params.serviceUrl) {
-                  router.push(`${path}?serviceUrl=${params.serviceUrl}` as Href);
-                } else if (params.id) {
-                  router.push(`${path}?id=${params.id}` as Href);
-                } else {
-                  router.push(path as Href);
-                }
-              }, 0);
-              app.setReturnUrl(null);
+              // Use centralized navigation logic
+              PostUnlockNavigation.navigate({
+                returnUrl: app.returnUrl,
+                router,
+                /**
+                 * Clear the return URL after navigation.
+                 */
+                clearReturnUrl: () => app.setReturnUrl(null),
+              });
             } catch (err) {
               console.error('Error during offline vault unlock:', err);
               router.replace('/unlock');
@@ -194,49 +173,6 @@ export default function ReinitializeScreen() : React.ReactNode {
     }
 
     hasInitialized.current = true;
-
-    /**
-     * Redirect to the return URL.
-     */
-    function redirectToReturnUrl() : void {
-      /**
-       * Simulate stack navigation.
-       */
-      function simulateStackNavigation(from: string, to: string) : void {
-        router.replace(from as Href);
-        setTimeout(() => {
-          router.push(to as Href);
-        }, 0);
-      }
-
-      if (app.returnUrl?.path) {
-        // Type assertion needed due to router type limitations
-        const path = app.returnUrl.path as '/';
-        const isDetailRoute = path.includes('credentials/');
-        if (isDetailRoute) {
-          // If there is a "serviceUrl" or "id" param from the return URL, use it.
-          const params = app.returnUrl.params as Record<string, string>;
-
-          if (params.serviceUrl) {
-            simulateStackNavigation('/(tabs)/credentials', `${path}?serviceUrl=${params.serviceUrl}`);
-          } else if (params.id) {
-            simulateStackNavigation('/(tabs)/credentials', `${path}?id=${params.id}`);
-          } else {
-            simulateStackNavigation('/(tabs)/credentials', path as string);
-          }
-        } else {
-          router.replace({
-            pathname: path,
-            params: app.returnUrl.params as Record<string, string>
-          });
-        }
-        // Clear the return URL after using it
-        app.setReturnUrl(null);
-      } else {
-        // If there is no return URL, navigate to the credentials tab as default entry page.
-        router.replace('/(tabs)/credentials');
-      }
-    }
 
     /**
      * Initialize the app.
@@ -333,8 +269,14 @@ export default function ReinitializeScreen() : React.ReactNode {
          * Handle successful vault sync.
          */
         onSuccess: async () => {
-          // Vault already unlocked, just navigate to return URL
-          redirectToReturnUrl();
+          PostUnlockNavigation.navigate({
+            returnUrl: app.returnUrl,
+            router,
+            /**
+             * Clear the return URL after navigation.
+             */
+            clearReturnUrl: () => app.setReturnUrl(null),
+          });
         },
         /**
          * Handle error during vault sync.
@@ -342,8 +284,15 @@ export default function ReinitializeScreen() : React.ReactNode {
          */
         onError: (error: string) => {
           console.error('Vault sync error during reinitialize:', error);
-          // Even if sync fails, vault is already unlocked, so navigate to return URL
-          redirectToReturnUrl();
+          // Even if sync fails, vault is already unlocked, use centralized navigation
+          PostUnlockNavigation.navigate({
+            returnUrl: app.returnUrl,
+            router,
+            /**
+             * Clear the return URL after navigation.
+             */
+            clearReturnUrl: () => app.setReturnUrl(null),
+          });
         },
         /**
          * Handle offline state and prompt user for action.

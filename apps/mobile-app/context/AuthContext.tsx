@@ -6,7 +6,6 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { router, useGlobalSearchParams, usePathname } from 'expo-router';
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Alert, AppState, Platform } from 'react-native';
-
 import EncryptionUtility from '@/utils/EncryptionUtility';
 
 import { useDb } from '@/context/DbContext';
@@ -43,8 +42,8 @@ type AuthContextType = {
   // Autofill methods
   shouldShowAutofillReminder: boolean;
   markAutofillConfigured: () => Promise<void>;
-  // Return URL methods
-  returnUrl: { path: string; params?: object } | null;
+  // Return URL methods (basic return URL and deep link URL which if set acts as an override)
+  returnUrl: { path: string; params?: Record<string, string> | undefined } | null;
   setReturnUrl: (url: { path: string; params?: object } | null) => void;
 }
 
@@ -428,21 +427,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Handle app state changes
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', async (nextAppState) => {
+    const appstateSubscription = AppState.addEventListener('change', async (nextAppState) => {
       if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
         /**
          * App coming to foreground
          * Skip vault re-initialization checks during unlock, login, initialize, and reinitialize flows to prevent race conditions
          * where the AppState listener fires during app initialization, especially on iOS release builds.
          */
-        if (!pathname?.includes('unlock') && !pathname?.includes('login') && !pathname?.includes('initialize') && !pathname?.includes('reinitialize')) {
+        if (!pathname?.startsWith('unlock') && !pathname?.startsWith('login') && !pathname?.startsWith('initialize') && !pathname?.startsWith('reinitialize')) {
           try {
             // Check if vault is unlocked.
             const isUnlocked = await isVaultUnlocked();
             if (!isUnlocked) {
+              console.log('-------- vault NOT unlocked trigger detection here ---------------------')
               // Get current full URL including query params
               const currentRoute = lastRouteRef.current;
               if (currentRoute?.path) {
+                console.log('setting return url to current route so reinitialize takes care of it..?:', currentRoute.path, currentRoute.params);
                 setReturnUrl({
                   path: currentRoute.path,
                   params: currentRoute.params
@@ -462,7 +463,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return (): void => {
-      subscription.remove();
+      appstateSubscription.remove();
     };
   }, [isVaultUnlocked, pathname]);
 

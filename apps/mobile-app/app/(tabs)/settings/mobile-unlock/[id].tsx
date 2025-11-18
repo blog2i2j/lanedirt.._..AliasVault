@@ -18,23 +18,24 @@ import NativeVaultManager from '@/specs/NativeVaultManager';
 /**
  * QR Code confirmation screen for mobile login.
  */
-export default function QRConfirmScreen() : React.ReactNode {
+export default function MobileUnlockConfirmScreen() : React.ReactNode {
   const colors = useColors();
   const { t } = useTranslation();
   const webApi = useWebApi();
   const insets = useSafeAreaInsets();
-  const { requestId } = useLocalSearchParams<{ requestId: string }>();
+  const { id } = useLocalSearchParams();
 
   const [isProcessing, setIsProcessing] = useState(false);
 
   /**
    * Handle mobile login QR code.
    */
-  const handleMobileLogin = async (requestId: string) : Promise<void> => {
+  const handleMobileLogin = async (id: string) : Promise<void> => {
     try {
       // Fetch the public key from server
+      console.log('makig request to /auth/mobile-login/request', id);
       const response = await webApi.authFetch<{ clientPublicKey: string }>(
-        `auth/mobile-login/request/${requestId}`,
+        `auth/mobile-login/request/${id}`,
         { method: 'GET' }
       );
 
@@ -52,7 +53,7 @@ export default function QRConfirmScreen() : React.ReactNode {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            requestId,
+            requestId: id,
             encryptedDecryptionKey: encryptedKey,
           }),
         }
@@ -60,7 +61,7 @@ export default function QRConfirmScreen() : React.ReactNode {
 
       // Success! Navigate to result page
       router.replace({
-        pathname: '/(tabs)/settings/qr-result',
+        pathname: '/(tabs)/settings/mobile-unlock/result',
         params: {
           success: 'true',
           message: t('settings.qrScanner.mobileLogin.successDescription'),
@@ -72,7 +73,7 @@ export default function QRConfirmScreen() : React.ReactNode {
 
       // Error! Navigate to result page
       router.replace({
-        pathname: '/(tabs)/settings/qr-result',
+        pathname: '/(tabs)/settings/mobile-unlock/result',
         params: {
           success: 'false',
           message: errorMsg,
@@ -85,7 +86,7 @@ export default function QRConfirmScreen() : React.ReactNode {
    * Handle confirmation - authenticate user first, then process the scanned QR code.
    */
   const handleConfirm = async () : Promise<void> => {
-    if (!requestId) {
+    if (!id) {
       return;
     }
 
@@ -103,10 +104,10 @@ export default function QRConfirmScreen() : React.ReactNode {
             {
               text: t('common.ok'),
               /**
-               * Go back to the settings tab.
+               * Navigate to the settings tab.
                */
               onPress: (): void => {
-                router.back();
+                router.replace('/(tabs)/settings');
               },
             },
           ]
@@ -128,10 +129,10 @@ export default function QRConfirmScreen() : React.ReactNode {
             {
               text: t('common.ok'),
               /**
-               * Go back to the previous screen.
+               * Navigate to the settings tab.
                */
               onPress: (): void => {
-                router.back();
+                router.replace('/(tabs)/settings');
               },
             },
           ]
@@ -152,7 +153,7 @@ export default function QRConfirmScreen() : React.ReactNode {
       }
 
       // Process the mobile login
-      await handleMobileLogin(requestId);
+      await handleMobileLogin(id as string);
     } catch (error) {
       console.error('Authentication or QR code processing error:', error);
       Alert.alert(
@@ -165,10 +166,11 @@ export default function QRConfirmScreen() : React.ReactNode {
   };
 
   /**
-   * Handle dismiss - go back to settings.
+   * Handle dismiss - navigate to settings tab.
+   * Uses replace to handle cases where this page is the first in the navigation stack (deep link).
    */
   const handleDismiss = () : void => {
-    router.back();
+    router.replace('/(tabs)/settings');
   };
 
   const styles = StyleSheet.create({
@@ -207,6 +209,8 @@ export default function QRConfirmScreen() : React.ReactNode {
       backgroundColor: colors.secondary,
     },
   });
+
+  console.log('[_qrconfirm] rendered with id:', id);
 
   // Show loading during processing
   if (isProcessing) {

@@ -35,8 +35,8 @@ type AppContextType = {
   shouldShowAutofillReminder: boolean;
   markAutofillConfigured: () => Promise<void>;
   // Return URL methods
-  returnUrl: { path: string; params?: object } | null;
-  setReturnUrl: (url: { path: string; params?: object } | null) => void;
+  returnUrl: { path: string; params?: Record<string, string> | undefined } | null;
+  setReturnUrl: (url: { path: string; params?: Record<string, string> } | null) => void;
 }
 
 export type AuthMethod = 'faceid' | 'password';
@@ -126,7 +126,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     verifyPassword: auth.verifyPassword,
     getEncryptionKeyDerivationParams: auth.getEncryptionKeyDerivationParams,
     markAutofillConfigured: auth.markAutofillConfigured,
-    setReturnUrl: auth.setReturnUrl,
+    setReturnUrl: auth.setReturnUrl
   }), [
     auth.isInitialized,
     auth.isLoggedIn,
@@ -152,7 +152,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     auth.getEncryptionKeyDerivationParams,
     auth.markAutofillConfigured,
     auth.setReturnUrl,
-    logout,
+    logout
   ]);
 
   return (

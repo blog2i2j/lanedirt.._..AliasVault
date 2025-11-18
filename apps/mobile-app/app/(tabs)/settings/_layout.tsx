@@ -134,14 +134,14 @@ export default function SettingsLayout(): React.ReactNode {
         }}
       />
       <Stack.Screen
-        name="qr-confirm"
+        name="mobile-unlock/[id]"
         options={{
           title: t('settings.qrScanner.mobileLogin.confirmTitle'),
           ...defaultHeaderOptions,
         }}
       />
       <Stack.Screen
-        name="qr-result"
+        name="mobile-unlock/result"
         options={{
           title: t('common.success'),
           ...defaultHeaderOptions,

@@ -2,11 +2,12 @@ import { Buffer } from 'buffer';
 
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, View, TextInput, Alert, KeyboardAvoidingView, Platform, ScrollView, Dimensions, TouchableWithoutFeedback, Keyboard, Text, Pressable } from 'react-native';
 
 import EncryptionUtility from '@/utils/EncryptionUtility';
+import { PostUnlockNavigation } from '@/utils/PostUnlockNavigation';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
 
 import { useColors } from '@/hooks/useColorScheme';
@@ -26,8 +27,9 @@ import NativeVaultManager from '@/specs/NativeVaultManager';
  * Unlock screen.
  */
 export default function UnlockScreen() : React.ReactNode {
-  const { isLoggedIn, username, isBiometricsEnabled, getBiometricDisplayName, getEncryptionKeyDerivationParams, logout } = useApp();
+  const { isLoggedIn, username, isBiometricsEnabled, getBiometricDisplayName, getEncryptionKeyDerivationParams, logout, returnUrl, setReturnUrl } = useApp();
   const dbContext = useDb();
+  const { pendingDeepLink } = useLocalSearchParams<{ pendingDeepLink?: string }>();
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isBiometricsAvailable, setIsBiometricsAvailable] = useState(false);
@@ -79,10 +81,18 @@ export default function UnlockScreen() : React.ReactNode {
         }
 
         /*
-         * Navigate to initialize page which will handle vault sync and then navigate to credentials
-         * This ensures we always check for vault updates even after local unlock
+         * Navigate using centralized navigation logic
+         * This ensures we handle pending deep links and return URLs correctly
          */
-        router.replace('/initialize');
+        PostUnlockNavigation.navigate({
+          pendingDeepLink,
+          returnUrl,
+          router,
+          /**
+           * Clear the return URL after navigation.
+           */
+          clearReturnUrl: () => setReturnUrl(null),
+        });
       } else {
         // If db is not available for whatever reason, fallback to password unlock.
         setIsLoading(false);
@@ -106,7 +116,7 @@ export default function UnlockScreen() : React.ReactNode {
         return;
       }
     }
-  }, [dbContext, t, setPinAvailable]);
+  }, [dbContext, t, setPinAvailable, pendingDeepLink, returnUrl, setReturnUrl]);
 
   useEffect(() => {
     getKeyDerivationParams();
@@ -188,10 +198,18 @@ export default function UnlockScreen() : React.ReactNode {
         }
 
         /*
-         * Navigate to initialize page which will handle vault sync and then navigate to credentials
-         * This ensures we always check for vault updates even after local unlock
+         * Navigate using centralized navigation logic
+         * This ensures we handle pending deep links and return URLs correctly
          */
-        router.replace('/initialize');
+        PostUnlockNavigation.navigate({
+          pendingDeepLink,
+          returnUrl,
+          router,
+          /**
+           * Clear the return URL after navigation.
+           */
+          clearReturnUrl: () => setReturnUrl(null),
+        });
       } else {
         Alert.alert(
           t('common.error'),
