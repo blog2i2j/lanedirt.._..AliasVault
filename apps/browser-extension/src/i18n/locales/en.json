@@ -38,7 +38,8 @@
       "wrongPassword": "Incorrect password. Please try again.",
       "accountLocked": "Account temporarily locked due to too many failed attempts.",
       "networkError": "Network error. Please check your connection and try again.",
-      "sessionExpired": "Your session has expired. Please log in again."
+      "sessionExpired": "Your session has expired. Please log in again.",
+      "mobileLoginRequestExpired": "Mobile login request timed out. Please reload the page and try again."
     }
   },
   "menu": {

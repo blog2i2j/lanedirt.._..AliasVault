@@ -1,5 +1,7 @@
 import { Buffer } from 'buffer';
 
+import { MobileLoginErrorCode } from '@/entrypoints/popup/types/MobileLoginErrorCode';
+
 import type { LoginResponse, MobileLoginInitiateResponse, MobileLoginPollResponse } from '@/utils/dist/shared/models/webapi';
 import EncryptionUtility from '@/utils/EncryptionUtility';
 import type { MobileLoginResult } from '@/utils/types/messaging/MobileLoginResult';
@@ -25,34 +27,40 @@ export class MobileLoginUtility {
 
   /**
    * Initiates a mobile login request and returns the QR code data
+   * @throws {MobileLoginErrorCode} If initiation fails
    */
   public async initiate(): Promise<string> {
-    // Generate RSA key pair
-    const keyPair = await EncryptionUtility.generateRsaKeyPair();
-    this.privateKey = keyPair.privateKey;
+    try {
+      // Generate RSA key pair
+      const keyPair = await EncryptionUtility.generateRsaKeyPair();
+      this.privateKey = keyPair.privateKey;
 
-    // Send public key to server (no auth required)
-    const response = await this.webApi.rawFetch('auth/mobile-login/initiate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        clientPublicKey: keyPair.publicKey,
-      }),
-    });
+      // Send public key to server (no auth required)
+      const response = await this.webApi.rawFetch('auth/mobile-login/initiate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          clientPublicKey: keyPair.publicKey,
+        }),
+      });
 
-    if (!response.ok) {
-      const error = new Error(`Failed to initiate mobile login: ${response.status}`) as Error & { status: number };
-      error.status = response.status;
-      throw error;
+      if (!response.ok) {
+        throw MobileLoginErrorCode.GENERIC;
+      }
+
+      const data = await response.json() as MobileLoginInitiateResponse;
+      this.requestId = data.requestId;
+
+      // Return QR code data (request ID)
+      return this.requestId;
+    } catch (error) {
+      if (typeof error === 'string' && Object.values(MobileLoginErrorCode).includes(error as MobileLoginErrorCode)) {
+        throw error;
+      }
+      throw MobileLoginErrorCode.GENERIC;
     }
-
-    const data = await response.json() as MobileLoginInitiateResponse;
-    this.requestId = data.requestId;
-
-    // Return QR code data (request ID)
-    return this.requestId;
   }
 
   /**
@@ -60,7 +68,7 @@ export class MobileLoginUtility {
    */
   public async startPolling(
     onSuccess: (result: MobileLoginResult) => void,
-    onError: (error: string) => void
+    onError: (errorCode: MobileLoginErrorCode) => void
   ): Promise<void> {
     if (!this.requestId || !this.privateKey) {
       throw new Error('Must call initiate() before starting polling');
@@ -84,16 +92,20 @@ export class MobileLoginUtility {
         );
 
         if (!response.ok) {
+          console.log('polling failed', response.status);
           if (response.status === 404) {
             // Request expired or not found
             this.stopPolling();
             this.privateKey = null;
             this.requestId = null;
-            onError('Mobile login request expired');
+            console.log('request expired or not found');
+            onError(MobileLoginErrorCode.TIMEOUT);
             return;
           }
           throw new Error(`Polling failed: ${response.status}`);
         }
+
+        console.log('polling successful');
 
         const data = await response.json() as MobileLoginPollResponse;
 
@@ -129,7 +141,7 @@ export class MobileLoginUtility {
           });
 
           if (!loginResponse.ok) {
-            onError('Failed to retrieve encryption settings');
+            onError(MobileLoginErrorCode.GENERIC);
             return;
           }
 
@@ -154,7 +166,7 @@ export class MobileLoginUtility {
         this.stopPolling();
         this.privateKey = null;
         this.requestId = null;
-        onError(error instanceof Error ? error.message : 'Unknown error occurred');
+        onError(MobileLoginErrorCode.UNKNOWN_ERROR);
       }
     };
 
@@ -167,7 +179,7 @@ export class MobileLoginUtility {
         this.stopPolling();
         this.privateKey = null;
         this.requestId = null;
-        onError('Mobile login request timed out');
+        onError(MobileLoginErrorCode.REQUEST_TIMEOUT);
       }
     }, 120000);
   }

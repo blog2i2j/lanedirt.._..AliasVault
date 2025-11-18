@@ -2,6 +2,7 @@ import QRCode from 'qrcode';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { MobileLoginErrorCode } from '@/entrypoints/popup/types/MobileLoginErrorCode';
 import { MobileLoginUtility } from '@/entrypoints/popup/utils/MobileLoginUtility';
 
 import type { MobileLoginResult } from '@/utils/types/messaging/MobileLoginResult';
@@ -27,10 +28,24 @@ const MobileUnlockModal: React.FC<IMobileUnlockModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<MobileLoginErrorCode | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number>(120); // 2 minutes in seconds
   const mobileLoginRef = useRef<MobileLoginUtility | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  /**
+   * Get translated error message for error code.
+   */
+  const getErrorMessage = (errorCode: MobileLoginErrorCode): string => {
+    console.log('getErrorMessage', errorCode);
+    switch (errorCode) {
+      case MobileLoginErrorCode.TIMEOUT:
+        return t('auth.errors.mobileLoginRequestExpired');
+      case MobileLoginErrorCode.GENERIC:
+      default:
+        return t('common.errors.unknownError');
+    }
+  };
 
   // Countdown timer effect
   useEffect(() => {
@@ -95,22 +110,24 @@ const MobileUnlockModal: React.FC<IMobileUnlockModalProps> = ({
               await onSuccess(result);
               // Close modal after successful processing
               handleClose();
-            } catch (err) {
-              // Show error if success handler fails
-              setError(err instanceof Error ? err.message : t('common.errors.unknownError'));
+            } catch {
+              // Show error if success handler fails and hide QR code
+              setQrCodeUrl(null);
+              setError(MobileLoginErrorCode.GENERIC);
             }
           },
-          (errorMessage) => {
-            setError(errorMessage);
+          (errorCode) => {
+            // Hide QR code when error occurs
+            setQrCodeUrl(null);
+            setError(errorCode);
           }
         );
       } catch (err) {
-        // Check if this is a 404 error (endpoint doesn't exist - server version too old for this feature)
-        const errorWithStatus = err as Error & { status?: number };
-        if (err instanceof Error && errorWithStatus.status === 404) {
-          setError(t('common.errors.serverVersionTooOld'));
+        // err is a MobileLoginErrorCode thrown by initiate()
+        if (typeof err === 'string' && Object.values(MobileLoginErrorCode).includes(err as MobileLoginErrorCode)) {
+          setError(err as MobileLoginErrorCode);
         } else {
-          setError(err instanceof Error ? err.message : t('common.errors.unknownError'));
+          setError(MobileLoginErrorCode.GENERIC);
         }
       }
     };
@@ -192,7 +209,7 @@ const MobileUnlockModal: React.FC<IMobileUnlockModalProps> = ({
 
             {error && (
               <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 rounded text-red-700 dark:text-red-400 text-sm">
-                {error}
+                {getErrorMessage(error)}
               </div>
             )}
 
