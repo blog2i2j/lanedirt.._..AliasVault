@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AliasVault.Client.Auth.Models;
 using AliasVault.Client.Services.JsInterop;
+using AliasVault.Client.Utilities;
 using AliasVault.Shared.Models.WebApi.Auth;
 using Microsoft.Extensions.Logging;
 
@@ -47,42 +48,54 @@ public sealed class MobileLoginUtility : IDisposable
     /// Initiates a mobile login request and returns the request ID for QR code generation.
     /// </summary>
     /// <returns>The request ID.</returns>
-    /// <exception cref="HttpRequestException">Thrown when the request fails with status code.</exception>
+    /// <exception cref="MobileLoginException">Thrown when the request fails.</exception>
     public async Task<string> InitiateAsync()
     {
-        // Generate RSA key pair
-        var keyPair = await _jsInteropService.GenerateRsaKeyPair();
-        _privateKey = keyPair.PrivateKey;
-
-        // Send public key to server
-        var request = new MobileLoginInitiateRequest
+        try
         {
-            ClientPublicKey = keyPair.PublicKey,
-        };
-        var response = await _httpClient.PostAsJsonAsync("v1/Auth/mobile-login/initiate", request);
+            // Generate RSA key pair
+            var keyPair = await _jsInteropService.GenerateRsaKeyPair();
+            _privateKey = keyPair.PrivateKey;
 
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new HttpRequestException($"Failed to initiate mobile login: {response.StatusCode}", null, response.StatusCode);
+            // Send public key to server
+            var request = new MobileLoginInitiateRequest
+            {
+                ClientPublicKey = keyPair.PublicKey,
+            };
+            var response = await _httpClient.PostAsJsonAsync("v1/Auth/mobile-login/initiate", request);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new MobileLoginException(MobileLoginErrorCode.Generic);
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<MobileLoginInitiateResponse>();
+            if (result == null)
+            {
+                throw new MobileLoginException(MobileLoginErrorCode.Generic);
+            }
+
+            _requestId = result.RequestId;
+            return _requestId;
         }
-
-        var result = await response.Content.ReadFromJsonAsync<MobileLoginInitiateResponse>();
-        if (result == null)
+        catch (MobileLoginException)
         {
-            throw new InvalidOperationException("Failed to parse mobile login initiate response");
+            throw;
         }
-
-        _requestId = result.RequestId;
-        return _requestId;
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to initiate mobile login");
+            throw new MobileLoginException(MobileLoginErrorCode.Generic);
+        }
     }
 
     /// <summary>
     /// Starts polling the server for mobile login response.
     /// </summary>
     /// <param name="onSuccess">Callback for successful authentication with decrypted login result.</param>
-    /// <param name="onError">Callback for errors.</param>
+    /// <param name="onError">Callback for errors with error code.</param>
     /// <returns>Task.</returns>
-    public Task StartPollingAsync(Func<MobileLoginResult, Task> onSuccess, Action<string> onError)
+    public Task StartPollingAsync(Func<MobileLoginResult, Task> onSuccess, Action<MobileLoginErrorCode> onError)
     {
         if (string.IsNullOrEmpty(_requestId) || string.IsNullOrEmpty(_privateKey))
         {
@@ -102,7 +115,7 @@ public sealed class MobileLoginUtility : IDisposable
                     if (!_cancellationTokenSource.IsCancellationRequested)
                     {
                         StopPolling();
-                        onError("Mobile login request timed out");
+                        onError(MobileLoginErrorCode.Timeout);
                     }
                 },
                 TaskScheduler.Default);
@@ -138,7 +151,7 @@ public sealed class MobileLoginUtility : IDisposable
         Cleanup();
     }
 
-    private async Task PollServerAsync(Func<MobileLoginResult, Task> onSuccess, Action<string> onError)
+    private async Task PollServerAsync(Func<MobileLoginResult, Task> onSuccess, Action<MobileLoginErrorCode> onError)
     {
         if (string.IsNullOrEmpty(_requestId) || _cancellationTokenSource?.IsCancellationRequested == true)
         {
@@ -156,7 +169,7 @@ public sealed class MobileLoginUtility : IDisposable
                     StopPolling();
                     _privateKey = null;
                     _requestId = null;
-                    onError("Mobile login request expired or not found");
+                    onError(MobileLoginErrorCode.Timeout);
                     return;
                 }
 
@@ -201,7 +214,7 @@ public sealed class MobileLoginUtility : IDisposable
             StopPolling();
             _privateKey = null;
             _requestId = null;
-            onError(ex.Message);
+            onError(MobileLoginErrorCode.Generic);
         }
     }
 }

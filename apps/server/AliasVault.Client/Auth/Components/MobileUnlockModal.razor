@@ -1,6 +1,7 @@
 @using AliasVault.Client.Auth.Models
 @using AliasVault.Client.Auth.Services
 @using AliasVault.Client.Main.Components.Layout
+@using AliasVault.Client.Utilities
 @using Microsoft.Extensions.Localization
 @using Microsoft.Extensions.DependencyInjection
 @implements IDisposable
@@ -69,6 +70,7 @@
 
 @code {
     private string? _qrCodeUrl;
+    private MobileLoginErrorCode? _errorCode;
     private string? _errorMessage;
     private int _timeRemaining = 120; // 2 minutes in seconds
     private MobileLoginUtility? _mobileLoginUtility;
@@ -92,6 +94,8 @@
     private IServiceProvider ScopedServices { get; set; } = default!;
 
     private IStringLocalizer SharedLocalizer => LocalizerFactory.Create("SharedResources", "AliasVault.Client");
+
+    private IStringLocalizer MobileLoginLocalizer => LocalizerFactory.Create("MobileLogin", "AliasVault.Client");
 
     /// <summary>
     /// Whether the modal is open.
@@ -152,6 +156,7 @@
         try
         {
             _isLoading = true;
+            _errorCode = null;
             _errorMessage = null;
             _qrCodeUrl = null;
             _timeRemaining = 120;
@@ -186,11 +191,20 @@
                 HandleSuccessAsync,
                 HandleErrorAsync);
         }
+        catch (MobileLoginException ex)
+        {
+            Logger.LogError(ex, "Error initiating mobile login");
+            _isLoading = false;
+            _errorCode = ex.ErrorCode;
+            _errorMessage = GetErrorMessage(ex.ErrorCode);
+            StateHasChanged();
+        }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error initiating mobile login");
             _isLoading = false;
-            _errorMessage = SharedLocalizer["ErrorUnknown"];
+            _errorCode = MobileLoginErrorCode.Generic;
+            _errorMessage = GetErrorMessage(MobileLoginErrorCode.Generic);
             StateHasChanged();
         }
     }
@@ -219,11 +233,26 @@
     /// <summary>
     /// Handle error.
     /// </summary>
-    private void HandleErrorAsync(string errorMessage)
+    private void HandleErrorAsync(MobileLoginErrorCode errorCode)
     {
         _isLoading = false;
-        _errorMessage = errorMessage;
+        _qrCodeUrl = null; // Hide QR code when error occurs
+        _errorCode = errorCode;
+        _errorMessage = GetErrorMessage(errorCode);
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// Get translated error message for error code.
+    /// </summary>
+    private string GetErrorMessage(MobileLoginErrorCode errorCode)
+    {
+        return errorCode switch
+        {
+            MobileLoginErrorCode.Timeout => MobileLoginLocalizer["ErrorTimeout"],
+            MobileLoginErrorCode.Generic => SharedLocalizer["ErrorUnknown"],
+            _ => SharedLocalizer["ErrorUnknown"]
+        };
     }
 
     /// <summary>
@@ -246,6 +275,7 @@
         _countdownTimer?.Dispose();
         _countdownTimer = null;
         _qrCodeUrl = null;
+        _errorCode = null;
         _errorMessage = null;
         _timeRemaining = 120;
         _isLoading = true;
