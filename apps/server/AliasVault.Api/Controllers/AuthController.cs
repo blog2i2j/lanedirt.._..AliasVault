@@ -597,7 +597,7 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
         var loginRequest = await context.MobileLoginRequests.FirstOrDefaultAsync(r => r.Id == requestId);
 
         // Check if request exists and hasn't expired
-        if (loginRequest == null || loginRequest.CreatedAt.AddMinutes(MobileLoginTimeoutMinutes) < timeProvider.UtcNow)
+        if (loginRequest == null || loginRequest.CreatedAt.AddSeconds(MobileLoginTimeoutMinutes) < timeProvider.UtcNow)
         {
             return NotFound(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.MOBILE_LOGIN_REQUEST_NOT_FOUND, 404));
         }
@@ -697,7 +697,7 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
         var loginRequest = await context.MobileLoginRequests.FirstOrDefaultAsync(r => r.Id == requestId);
 
         // Check if request exists and hasn't expired
-        if (loginRequest == null || loginRequest.CreatedAt.AddMinutes(MobileLoginTimeoutMinutes) < timeProvider.UtcNow)
+        if (loginRequest == null || loginRequest.CreatedAt.AddSeconds(MobileLoginTimeoutMinutes) < timeProvider.UtcNow)
         {
             return NotFound(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.MOBILE_LOGIN_REQUEST_NOT_FOUND, 404));
         }
@@ -727,7 +727,7 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
         var loginRequest = await context.MobileLoginRequests.FirstOrDefaultAsync(r => r.Id == model.RequestId);
 
         // Check if request exists and hasn't expired
-        if (loginRequest == null || loginRequest.CreatedAt.AddMinutes(MobileLoginTimeoutMinutes) < timeProvider.UtcNow)
+        if (loginRequest == null || loginRequest.CreatedAt.AddSeconds(MobileLoginTimeoutMinutes) < timeProvider.UtcNow)
         {
             return NotFound(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.MOBILE_LOGIN_REQUEST_NOT_FOUND, 404));
         }

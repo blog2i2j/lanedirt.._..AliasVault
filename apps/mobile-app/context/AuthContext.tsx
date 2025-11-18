@@ -195,7 +195,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * This is called by AppContext after revoking tokens on the server.
    */
   const clearAuth = useCallback(async (errorMessage?: string): Promise<void> => {
-    console.log('Clearing auth --- attempt');
     // Clear credential identity store (password and passkey autofill metadata)
     try {
       await NativeVaultManager.removeCredentialIdentities();
@@ -439,7 +438,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Check if vault is unlocked.
             const isUnlocked = await isVaultUnlocked();
             if (!isUnlocked) {
-              console.log('-------- vault NOT unlocked trigger detection here ---------------------')
               // Get current full URL including query params
               const currentRoute = lastRouteRef.current;
               if (currentRoute?.path) {

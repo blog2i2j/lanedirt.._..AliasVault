@@ -33,7 +33,6 @@ export default function MobileUnlockConfirmScreen() : React.ReactNode {
   const handleMobileLogin = async (id: string) : Promise<void> => {
     try {
       // Fetch the public key from server
-      console.log('makig request to /auth/mobile-login/request', id);
       const response = await webApi.authFetch<{ clientPublicKey: string }>(
         `auth/mobile-login/request/${id}`,
         { method: 'GET' }
@@ -209,8 +208,6 @@ export default function MobileUnlockConfirmScreen() : React.ReactNode {
       backgroundColor: colors.secondary,
     },
   });
-
-  console.log('[_qrconfirm] rendered with id:', id);
 
   // Show loading during processing
   if (isProcessing) {

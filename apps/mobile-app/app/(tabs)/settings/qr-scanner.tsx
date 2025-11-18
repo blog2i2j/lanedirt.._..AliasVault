@@ -112,7 +112,6 @@ export default function QRScannerScreen() : React.ReactNode {
          */
         setIsLoadingAfterScan(false);
 
-        console.log('[_qrscanner] navigate to mobile-unlock with replace:', parsedData.payload);
         router.replace(`/(tabs)/settings/mobile-unlock/${parsedData.payload}` as Href);
       }
     } catch (error) {

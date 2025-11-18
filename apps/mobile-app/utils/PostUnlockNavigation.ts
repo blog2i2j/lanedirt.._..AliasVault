@@ -99,14 +99,12 @@ export class PostUnlockNavigation {
 
     // Priority 1: Handle pending deep link (e.g. from QR code scan or native autofill interface)
     if (pendingDeepLink) {
-      console.log('[_postunlocknavigation] navigate with pendingDeepLink:', pendingDeepLink);
       this.handlePendingDeepLink(pendingDeepLink, router);
       return;
     }
 
     // Priority 2: Handle return URL (from reinitialize flow)
     if (returnUrl?.path) {
-      console.log('[_postunlocknavigation] navigate with returnUrl:', returnUrl);
       this.handleReturnUrl(returnUrl, router);
       if (clearReturnUrl) {
         clearReturnUrl();

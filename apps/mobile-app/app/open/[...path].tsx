@@ -50,7 +50,6 @@ export default function ActionHandler() : null {
         }
 
         // First navigate to settings tab to establish correct navigation stack
-        console.log('[_actionhandler] navigate to qr-confirm');
         router.replace(`/(tabs)/settings/mobile-unlock/${requestId}` as Href);
         setHasNavigated(true);
         break;
