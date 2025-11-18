@@ -165,7 +165,7 @@
             var requestId = await _mobileLoginUtility.InitiateAsync();
 
             // Generate QR code with AliasVault prefix for mobile login
-            _qrCodeUrl = $"aliasvault://mobile-login/{requestId}";
+            _qrCodeUrl = $"aliasvault://open/mobile-unlock/{requestId}";
 
             // Render QR code while showing loading
             StateHasChanged();

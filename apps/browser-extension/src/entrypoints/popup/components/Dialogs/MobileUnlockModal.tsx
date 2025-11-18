@@ -79,7 +79,7 @@ const MobileUnlockModal: React.FC<IMobileUnlockModalProps> = ({
         const requestId = await mobileLoginRef.current.initiate();
 
         // Generate QR code with AliasVault prefix for mobile login
-        const qrData = `aliasvault://mobile-login/${requestId}`;
+        const qrData = `aliasvault://open/mobile-unlock/${requestId}`;
         const qrDataUrl = await QRCode.toDataURL(qrData, {
           width: 256,
           margin: 2,
