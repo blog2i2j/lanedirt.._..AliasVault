@@ -37,7 +37,6 @@ const MobileUnlockModal: React.FC<IMobileUnlockModalProps> = ({
    * Get translated error message for error code.
    */
   const getErrorMessage = (errorCode: MobileLoginErrorCode): string => {
-    console.log('getErrorMessage', errorCode);
     switch (errorCode) {
       case MobileLoginErrorCode.TIMEOUT:
         return t('auth.errors.mobileLoginRequestExpired');

@@ -441,7 +441,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               // Get current full URL including query params
               const currentRoute = lastRouteRef.current;
               if (currentRoute?.path) {
-                console.log('setting return url to current route so reinitialize takes care of it..?:', currentRoute.path, currentRoute.params);
                 setReturnUrl({
                   path: currentRoute.path,
                   params: currentRoute.params

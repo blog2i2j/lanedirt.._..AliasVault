@@ -107,8 +107,8 @@ public sealed class MobileLoginUtility : IDisposable
         // Start polling timer (every 3 seconds)
         _pollingTimer = new Timer(async _ => await PollServerAsync(onSuccess, onError), null, TimeSpan.Zero, TimeSpan.FromSeconds(3));
 
-        // Auto-stop after 2 minutes
-        Task.Delay(TimeSpan.FromMinutes(2), _cancellationTokenSource.Token)
+        // Auto-stop after 3.5 minutes (adds 1 minute buffer to default 2 minute timer for edge cases)
+        Task.Delay(TimeSpan.FromSeconds(210), _cancellationTokenSource.Token)
             .ContinueWith(
                 _ =>
                 {

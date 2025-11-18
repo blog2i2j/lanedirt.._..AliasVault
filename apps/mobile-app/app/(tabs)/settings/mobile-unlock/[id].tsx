@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Alert, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -26,6 +26,88 @@ export default function MobileUnlockConfirmScreen() : React.ReactNode {
   const { id } = useLocalSearchParams();
 
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isValidating, setIsValidating] = useState(true);
+
+  /*
+   * Validate request on component mount
+   */
+  useEffect(() => {
+    if (!id) {
+      Alert.alert(
+        t('common.error'),
+        t('common.errors.unknownErrorTryAgain'),
+        [
+          {
+            text: t('common.ok'),
+            /**
+             * Navigate back to settings.
+             */
+            onPress: (): void => router.back(),
+          },
+        ]
+      );
+      return;
+    }
+
+    /**
+     * Validate the mobile login request.
+     */
+    const validateRequest = async () : Promise<void> => {
+      try {
+        // Check server version compatibility first
+        const isVersionSupported = await NativeVaultManager.isServerVersionGreaterThanOrEqualTo('0.25.0');
+
+        if (!isVersionSupported) {
+          Alert.alert(
+            t('common.error'),
+            t('common.errors.serverVersionTooOld'),
+            [
+              {
+                text: t('common.ok'),
+                /**
+                 * Navigate back to settings.
+                 */
+                onPress: (): void => router.back(),
+              },
+            ]
+          );
+          return;
+        }
+
+        // Validate the request exists by fetching from server
+        await webApi.authFetch<{ clientPublicKey: string }>(
+          `auth/mobile-login/request/${id}`,
+          { method: 'GET' }
+        );
+
+        // Request is valid
+        setIsValidating(false);
+      } catch (error) {
+        console.error('Request validation error:', error);
+        let errorMsg = t('common.errors.unknownErrorTryAgain');
+
+        if (error instanceof Error && error.message.includes('404')) {
+          errorMsg = t('auth.errors.mobileLoginRequestExpired');
+        }
+
+        Alert.alert(
+          t('common.error'),
+          errorMsg,
+          [
+            {
+              text: t('common.ok'),
+              /**
+               * Navigate back to settings.
+               */
+              onPress: (): void => router.back(),
+            },
+          ]
+        );
+      }
+    };
+
+    validateRequest();
+  }, [id, webApi, t]);
 
   /**
    * Handle mobile login QR code.
@@ -92,29 +174,6 @@ export default function MobileUnlockConfirmScreen() : React.ReactNode {
     setIsProcessing(true);
 
     try {
-      // Check server version compatibility
-      const isVersionSupported = await NativeVaultManager.isServerVersionGreaterThanOrEqualTo('0.25.0');
-
-      if (!isVersionSupported) {
-        Alert.alert(
-          t('common.error'),
-          t('common.errors.serverVersionTooOld'),
-          [
-            {
-              text: t('common.ok'),
-              /**
-               * Navigate to the settings tab.
-               */
-              onPress: (): void => {
-                router.replace('/(tabs)/settings');
-              },
-            },
-          ]
-        );
-        setIsProcessing(false);
-        return;
-      }
-
       // Check if biometric or PIN is enabled
       const authMethods = await NativeVaultManager.getAuthMethods();
       const isPinEnabled = await NativeVaultManager.isPinEnabled();
@@ -209,8 +268,8 @@ export default function MobileUnlockConfirmScreen() : React.ReactNode {
     },
   });
 
-  // Show loading during processing
-  if (isProcessing) {
+  // Show loading during validation or processing
+  if (isValidating || isProcessing) {
     return (
       <ThemedContainer>
         <View style={styles.confirmationContainer}>

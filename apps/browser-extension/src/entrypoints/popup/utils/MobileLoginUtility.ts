@@ -92,20 +92,16 @@ export class MobileLoginUtility {
         );
 
         if (!response.ok) {
-          console.log('polling failed', response.status);
           if (response.status === 404) {
             // Request expired or not found
             this.stopPolling();
             this.privateKey = null;
             this.requestId = null;
-            console.log('request expired or not found');
             onError(MobileLoginErrorCode.TIMEOUT);
             return;
           }
           throw new Error(`Polling failed: ${response.status}`);
         }
-
-        console.log('polling successful');
 
         const data = await response.json() as MobileLoginPollResponse;
 
@@ -162,26 +158,26 @@ export class MobileLoginUtility {
           onSuccess(result);
 
         }
-      } catch (error) {
+      } catch {
         this.stopPolling();
         this.privateKey = null;
         this.requestId = null;
-        onError(MobileLoginErrorCode.UNKNOWN_ERROR);
+        onError(MobileLoginErrorCode.GENERIC);
       }
     };
 
     // Poll every 3 seconds
     this.pollingInterval = setInterval(pollFn, 3000);
 
-    // Stop polling after 2 minutes
+    // Stop polling after 3.5 minutes (adds 1.5 minute buffer to default 2 minute timer for edge cases)
     setTimeout(() => {
       if (this.pollingInterval) {
         this.stopPolling();
         this.privateKey = null;
         this.requestId = null;
-        onError(MobileLoginErrorCode.REQUEST_TIMEOUT);
+        onError(MobileLoginErrorCode.TIMEOUT);
       }
-    }, 120000);
+    }, 210000);
   }
 
   /**

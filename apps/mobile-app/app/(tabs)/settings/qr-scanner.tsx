@@ -5,13 +5,11 @@ import { useEffect, useCallback, useRef } from 'react';
 import { View, Alert, StyleSheet } from 'react-native';
 
 import { useColors } from '@/hooks/useColorScheme';
-import { useMinDurationLoading } from '@/hooks/useMinDurationLoading';
 import { useTranslation } from '@/hooks/useTranslation';
 
 import LoadingIndicator from '@/components/LoadingIndicator';
 import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedText } from '@/components/themed/ThemedText';
-import { useWebApi } from '@/context/WebApiContext';
 
 // QR Code type prefixes
 const QR_CODE_PREFIXES = {
@@ -56,9 +54,7 @@ function parseQRCode(data: string): ScannedQRCode {
 export default function QRScannerScreen() : React.ReactNode {
   const colors = useColors();
   const { t } = useTranslation();
-  const webApi = useWebApi();
   const [permission, requestPermission] = useCameraPermissions();
-  const [isLoadingAfterScan, setIsLoadingAfterScan] = useMinDurationLoading(false, 500);
   const { url } = useLocalSearchParams<{ url?: string }>();
   const hasProcessedUrl = useRef(false);
   const processedUrls = useRef(new Set<string>());
@@ -92,64 +88,12 @@ export default function QRScannerScreen() : React.ReactNode {
     requestCameraPermission();
   }, [permission, requestPermission, t]);
 
-  /**
-   * Validate the QR request with the server before navigating.
-   */
-  const validateAndNavigate = useCallback(async (parsedData: ScannedQRCode) : Promise<void> => {
-    setIsLoadingAfterScan(true);
-
-    try {
-      if (parsedData.type === 'MOBILE_UNLOCK' || parsedData.type === 'MOBILE_LOGIN') {
-        // Fetch the public key from server to validate the request exists
-        await webApi.authFetch<{ clientPublicKey: string }>(
-          `auth/mobile-login/request/${parsedData.payload}`,
-          { method: 'GET' }
-        );
-
-        /*
-         * Request is valid, navigate to confirmation page
-         * Min duration of 500ms is handled by useMinDurationLoading
-         */
-        setIsLoadingAfterScan(false);
-
-        router.replace(`/(tabs)/settings/mobile-unlock/${parsedData.payload}` as Href);
-      }
-    } catch (error) {
-      setIsLoadingAfterScan(false);
-
-      console.error('QR validation error:', error);
-      let errorMsg = t('common.errors.unknownErrorTryAgain');
-
-      if (error instanceof Error) {
-        if (error.message.includes('404')) {
-          // Request expired
-          errorMsg = t('settings.qrScanner.mobileLogin.requestExpired');
-        } else {
-          errorMsg = t('common.errors.unknownErrorTryAgain');
-        }
-      }
-
-      Alert.alert(
-        t('common.error'),
-        errorMsg,
-        [{ text: t('common.ok') }]
-      );
-
-      // On error, go back to the settings screen
-      router.replace('/(tabs)/settings');
-    }
-  }, [webApi, setIsLoadingAfterScan, t]);
-
-  /**
-   * Handle barcode scanned - validate request and navigate to confirmation.
+  /*
+   * Handle barcode scanned - parse and navigate to appropriate page.
    * Only processes AliasVault QR codes, silently ignores others.
+   * Validation is handled by the destination page.
    */
   const handleBarcodeScanned = useCallback(({ data }: { data: string }) : void => {
-    // Prevent multiple scans
-    if (isLoadingAfterScan) {
-      return;
-    }
-
     // Prevent processing the same URL multiple times
     if (processedUrls.current.has(data)) {
       return;
@@ -166,9 +110,14 @@ export default function QRScannerScreen() : React.ReactNode {
     // Mark this URL as processed
     processedUrls.current.add(data);
 
-    // Validate the request and navigate (with min 500ms loading)
-    validateAndNavigate(parsedData);
-  }, [isLoadingAfterScan, validateAndNavigate]);
+    /*
+     * Navigate to the appropriate page based on QR code type
+     * Validation will be handled by the destination page
+     */
+    if (parsedData.type === 'MOBILE_UNLOCK') {
+      router.replace(`/(tabs)/settings/mobile-unlock/${parsedData.payload}` as Href);
+    }
+  }, []);
 
   /**
    * Reset hasProcessedUrl when URL changes to allow processing new URLs.
@@ -229,17 +178,6 @@ export default function QRScannerScreen() : React.ReactNode {
       padding: 20,
     },
   });
-
-  // Show loading animation after scan
-  if (isLoadingAfterScan) {
-    return (
-      <ThemedContainer>
-        <View style={styles.loadingContainer}>
-          <LoadingIndicator />
-        </View>
-      </ThemedContainer>
-    );
-  }
 
   // Show permission request screen
   if (!permission || !permission.granted) {
