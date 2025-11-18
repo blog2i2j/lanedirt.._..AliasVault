@@ -540,13 +540,22 @@ public class TaskRunnerTests
         // Arrange
         await using var dbContext = await _testHostBuilder.GetDbContextAsync();
 
+        // Create test user
+        var user = new AliasVaultUser
+        {
+            UserName = "testuser",
+            Email = "testuser@example.tld",
+        };
+        dbContext.AliasVaultUsers.Add(user);
+        await dbContext.SaveChangesAsync();
+
         // Create fulfilled-but-not-retrieved request that's old enough to be cleared (> 10 minutes)
         var staleRequest = new MobileLoginRequest
         {
             Id = Guid.NewGuid().ToString(),
             ClientPublicKey = "stale-public-key",
             EncryptedDecryptionKey = "encrypted-key-data",
-            UserId = "user-id-1",
+            UserId = user.Id,
             CreatedAt = DateTime.UtcNow.AddMinutes(-15),
             FulfilledAt = DateTime.UtcNow.AddMinutes(-12), // Fulfilled 12 minutes ago (exceeds 10 min timeout)
             RetrievedAt = null, // Not yet retrieved
@@ -562,7 +571,7 @@ public class TaskRunnerTests
             Id = Guid.NewGuid().ToString(),
             ClientPublicKey = "recent-public-key",
             EncryptedDecryptionKey = "encrypted-key-data",
-            UserId = "user-id-2",
+            UserId = user.Id,
             CreatedAt = DateTime.UtcNow.AddMinutes(-6),
             FulfilledAt = DateTime.UtcNow.AddMinutes(-5), // Fulfilled 5 minutes ago (under 10 min timeout)
             RetrievedAt = null,
@@ -578,7 +587,7 @@ public class TaskRunnerTests
             Id = Guid.NewGuid().ToString(),
             ClientPublicKey = "completed-public-key",
             EncryptedDecryptionKey = "encrypted-key-data",
-            UserId = "user-id-3",
+            UserId = user.Id,
             CreatedAt = DateTime.UtcNow.AddMinutes(-15),
             FulfilledAt = DateTime.UtcNow.AddMinutes(-12),
             RetrievedAt = DateTime.UtcNow.AddMinutes(-11), // Already retrieved
@@ -610,7 +619,7 @@ public class TaskRunnerTests
             // Metadata should be preserved for abuse tracking
             Assert.That(staleAfterCleanup.ClientIpAddress, Is.EqualTo("192.168.1.1"), "Client IP should be preserved");
             Assert.That(staleAfterCleanup.MobileIpAddress, Is.EqualTo("10.0.0.1"), "Mobile IP should be preserved");
-            Assert.That(staleAfterCleanup.UserId, Is.EqualTo("user-id-1"), "UserId should be preserved");
+            Assert.That(staleAfterCleanup.UserId, Is.EqualTo(user.Id), "UserId should be preserved");
         });
 
         var recentAfterCleanup = recentRequest;
