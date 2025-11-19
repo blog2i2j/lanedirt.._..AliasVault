@@ -1,6 +1,6 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Href, Stack, useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef, useState } from 'react';
 import { Linking, StyleSheet, Platform } from 'react-native';
@@ -19,6 +19,7 @@ import { AppProvider } from '@/context/AppContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { ClipboardCountdownProvider } from '@/context/ClipboardCountdownContext';
 import { DbProvider } from '@/context/DbContext';
+import { NavigationProvider, useNavigation } from '@/context/NavigationContext';
 import { WebApiProvider } from '@/context/WebApiContext';
 import { initI18n } from '@/i18n';
 
@@ -31,9 +32,9 @@ function RootLayoutNav() : React.ReactNode {
   const colorScheme = useColorScheme();
   const colors = useColors();
   const router = useRouter();
+  const navigation = useNavigation();
 
   const [bootComplete, setBootComplete] = useState(false);
-  const [redirectTarget, setRedirectTarget] = useState<string | null>(null);
   const hasBooted = useRef(false);
 
   useEffect(() => {
@@ -52,6 +53,7 @@ function RootLayoutNav() : React.ReactNode {
       await initI18n();
 
       hasBooted.current = true;
+
       // Check if we have a pending deep link and pass it to initialize
       const initialUrl = await Linking.getInitialURL();
       if (initialUrl) {
@@ -60,19 +62,14 @@ function RootLayoutNav() : React.ReactNode {
           .replace('aliasvault://', '')
           .replace('exp+aliasvault://', '');
 
-        if (path.startsWith('mobile-login/') || path.includes('credentials/')) {
-          setRedirectTarget(`/initialize?pendingDeepLink=${encodeURIComponent(initialUrl)}`);
-        } else {
-          setRedirectTarget('/initialize');
-        }
-      } else {
-        setRedirectTarget('/initialize');
+        navigation.setReturnUrl({ path });
       }
+
       setBootComplete(true);
     };
 
     initializeApp();
-  }, []);
+  }, [navigation, router]);
 
   useEffect(() => {
     /**
@@ -83,14 +80,11 @@ function RootLayoutNav() : React.ReactNode {
         return;
       }
 
-      if (redirectTarget) {
-        // Navigate to the redirect target (may include pendingDeepLink param)
-        router.replace(redirectTarget as Href);
-      }
+      router.replace('/initialize');
     };
 
     redirect();
-  }, [bootComplete, redirectTarget, router]);
+  }, [bootComplete, router]);
 
   const styles = StyleSheet.create({
     container: {
@@ -177,18 +171,20 @@ export default function RootLayout() : React.ReactNode {
   }
 
   return (
-    <DbProvider>
-      <AuthProvider>
-        <WebApiProvider>
-          <AppProvider>
-            <ClipboardCountdownProvider>
-              <GestureHandlerRootView>
-                <RootLayoutNav />
-              </GestureHandlerRootView>
-            </ClipboardCountdownProvider>
-          </AppProvider>
-        </WebApiProvider>
-      </AuthProvider>
-    </DbProvider>
+    <NavigationProvider>
+      <DbProvider>
+        <AuthProvider>
+          <WebApiProvider>
+            <AppProvider>
+              <ClipboardCountdownProvider>
+                <GestureHandlerRootView>
+                  <RootLayoutNav />
+                </GestureHandlerRootView>
+              </ClipboardCountdownProvider>
+            </AppProvider>
+          </WebApiProvider>
+        </AuthProvider>
+      </DbProvider>
+    </NavigationProvider>
   );
 }

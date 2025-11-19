@@ -4,8 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View, Alert, TouchableOpacity } from 'react-native';
 
-import { PostUnlockNavigation } from '@/utils/PostUnlockNavigation';
-
 import { useColors } from '@/hooks/useColorScheme';
 import { useVaultSync } from '@/hooks/useVaultSync';
 
@@ -14,6 +12,7 @@ import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedView } from '@/components/themed/ThemedView';
 import { useApp } from '@/context/AppContext';
 import { useDb } from '@/context/DbContext';
+import { useNavigation } from '@/context/NavigationContext';
 import NativeVaultManager from '@/specs/NativeVaultManager';
 
 /**
@@ -23,6 +22,7 @@ import NativeVaultManager from '@/specs/NativeVaultManager';
 export default function ReinitializeScreen() : React.ReactNode {
   const app = useApp();
   const dbContext = useDb();
+  const navigation = useNavigation();
   const { syncVault } = useVaultSync();
   const [status, setStatus] = useState('');
   const [showSkipButton, setShowSkipButton] = useState(false);
@@ -123,14 +123,7 @@ export default function ReinitializeScreen() : React.ReactNode {
               }
 
               // Use centralized navigation logic
-              PostUnlockNavigation.navigate({
-                returnUrl: app.returnUrl,
-                router,
-                /**
-                 * Clear the return URL after navigation.
-                 */
-                clearReturnUrl: () => app.setReturnUrl(null),
-              });
+              navigation.navigateAfterUnlock();
             } catch (err) {
               console.error('Error during offline vault unlock:', err);
               router.replace('/unlock');
@@ -165,7 +158,7 @@ export default function ReinitializeScreen() : React.ReactNode {
         }
       ]
     );
-  }, [app, dbContext, t, updateStatus]);
+  }, [app, dbContext, navigation, t, updateStatus]);
 
   useEffect(() => {
     if (hasInitialized.current) {
@@ -303,14 +296,7 @@ export default function ReinitializeScreen() : React.ReactNode {
          * Handle successful vault sync.
          */
         onSuccess: async () => {
-          PostUnlockNavigation.navigate({
-            returnUrl: app.returnUrl,
-            router,
-            /**
-             * Clear the return URL after navigation.
-             */
-            clearReturnUrl: () => app.setReturnUrl(null),
-          });
+          navigation.navigateAfterUnlock();
         },
         /**
          * Handle error during vault sync.
@@ -319,14 +305,7 @@ export default function ReinitializeScreen() : React.ReactNode {
         onError: (error: string) => {
           console.error('Vault sync error during reinitialize:', error);
           // Even if sync fails, vault is already unlocked, use centralized navigation
-          PostUnlockNavigation.navigate({
-            returnUrl: app.returnUrl,
-            router,
-            /**
-             * Clear the return URL after navigation.
-             */
-            clearReturnUrl: () => app.setReturnUrl(null),
-          });
+          navigation.navigateAfterUnlock();
         },
         /**
          * Handle offline state and prompt user for action.
@@ -344,7 +323,7 @@ export default function ReinitializeScreen() : React.ReactNode {
     };
 
     initialize();
-  }, [syncVault, app, dbContext, t, handleOfflineFlow, updateStatus]);
+  }, [syncVault, app, dbContext, navigation, t, handleOfflineFlow, updateStatus]);
 
   /**
    * Handle skip button press by calling the offline handler.
