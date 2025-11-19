@@ -149,7 +149,7 @@ class MainActivity : ReactActivity() {
                 try {
                     vaultStore.storeEncryptionKey(encryptionKeyBase64)
                     vaultStore.unlockVault()
-                    promise.resolve(null)
+                    promise.resolve(true)
                 } catch (e: Exception) {
                     promise.reject("UNLOCK_ERROR", "Failed to unlock vault: ${e.message}", e)
                 }
