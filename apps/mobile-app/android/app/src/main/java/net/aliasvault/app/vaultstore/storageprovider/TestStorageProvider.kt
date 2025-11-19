@@ -15,6 +15,7 @@ class TestStorageProvider : StorageProvider {
     private var tempAutoLockTimeout = defaultAutoLockTimeout
     private var username: String? = null
     private var offlineMode: Boolean = false
+    private var serverVersion: String? = null
 
     override fun getEncryptedDatabaseFile(): File = tempFile
 
@@ -86,5 +87,17 @@ class TestStorageProvider : StorageProvider {
 
     override fun getOfflineMode(): Boolean {
         return offlineMode
+    }
+
+    override fun setServerVersion(version: String) {
+        serverVersion = version
+    }
+
+    override fun getServerVersion(): String? {
+        return serverVersion
+    }
+
+    override fun clearServerVersion() {
+        serverVersion = null
     }
 }

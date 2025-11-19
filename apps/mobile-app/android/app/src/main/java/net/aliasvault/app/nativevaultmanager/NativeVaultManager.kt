@@ -285,6 +285,26 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     }
 
     /**
+     * Encrypt the decryption key for mobile login.
+     * @param publicKeyJWK The public key in JWK format
+     * @param promise The promise to resolve
+     */
+    @ReactMethod
+    override fun encryptDecryptionKeyForMobileLogin(publicKeyJWK: String, promise: Promise) {
+        try {
+            val encryptedKey = vaultStore.encryptDecryptionKeyForMobileLogin(publicKeyJWK)
+            promise.resolve(encryptedKey)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error encrypting key for mobile login", e)
+            promise.reject(
+                "ERR_ENCRYPT_KEY_MOBILE_LOGIN",
+                "Failed to encrypt key for mobile login: ${e.message}",
+                e,
+            )
+        }
+    }
+
+    /**
      * Check if the encrypted database exists.
      * @param promise The promise to resolve
      */
@@ -1452,7 +1472,7 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
                 } else {
                     // Use biometric authentication
                     try {
-                        val authenticated = vaultStore.authenticateUser(title, subtitle)
+                        val authenticated = vaultStore.issueBiometricAuthentication(title)
                         promise.resolve(authenticated)
                     } catch (e: Exception) {
                         Log.e(TAG, "Biometric authentication failed", e)

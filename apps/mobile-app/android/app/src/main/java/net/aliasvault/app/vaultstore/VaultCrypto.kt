@@ -10,6 +10,7 @@ import net.aliasvault.app.vaultstore.keystoreprovider.KeystoreOperationCallback
 import net.aliasvault.app.vaultstore.keystoreprovider.KeystoreProvider
 import net.aliasvault.app.vaultstore.storageprovider.StorageProvider
 import org.json.JSONObject
+import java.math.BigInteger
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
@@ -247,6 +248,65 @@ class VaultCrypto(
             Log.e(TAG, "Error encrypting data", e)
             throw e
         }
+    }
+
+    // endregion
+
+    // region Mobile Login
+
+    /**
+     * Encrypts the vault's encryption key using an RSA public key for mobile login.
+     */
+    fun encryptDecryptionKeyForMobileLogin(publicKeyJWK: String, authMethods: String): String {
+        var result: String? = null
+        var error: Exception? = null
+        val latch = java.util.concurrent.CountDownLatch(1)
+
+        getEncryptionKey(
+            object : CryptoOperationCallback {
+                override fun onSuccess(key: String) {
+                    try {
+                        val keyBytes = Base64.decode(key, Base64.NO_WRAP)
+                        result = encryptWithPublicKey(keyBytes, publicKeyJWK)
+                    } catch (e: Exception) {
+                        error = e
+                        Log.e(TAG, "Error encrypting key for mobile login", e)
+                    } finally {
+                        latch.countDown()
+                    }
+                }
+
+                override fun onError(e: Exception) {
+                    error = e
+                    Log.e(TAG, "Error getting encryption key", e)
+                    latch.countDown()
+                }
+            },
+            authMethods,
+        )
+
+        latch.await()
+        error?.let { throw it }
+        return result ?: throw Exception("Failed to encrypt key for mobile login")
+    }
+
+    private fun encryptWithPublicKey(data: ByteArray, publicKeyJWK: String): String {
+        val jwk = JSONObject(publicKeyJWK)
+        val nStr = jwk.getString("n")
+        val eStr = jwk.getString("e")
+
+        val modulus = BigInteger(1, Base64.decode(nStr, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP))
+        val exponent = BigInteger(1, Base64.decode(eStr, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP))
+
+        val keySpec = java.security.spec.RSAPublicKeySpec(modulus, exponent)
+        val keyFactory = java.security.KeyFactory.getInstance("RSA")
+        val publicKey = keyFactory.generatePublic(keySpec)
+
+        val cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding")
+        cipher.init(Cipher.ENCRYPT_MODE, publicKey)
+
+        val encryptedBytes = cipher.doFinal(data)
+        return Base64.encodeToString(encryptedBytes, Base64.NO_WRAP)
     }
 
     // endregion

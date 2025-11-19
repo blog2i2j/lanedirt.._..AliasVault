@@ -2,12 +2,16 @@ package net.aliasvault.app.vaultstore
 
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import io.requery.android.database.sqlite.SQLiteDatabase
+import kotlinx.coroutines.suspendCancellableCoroutine
 import net.aliasvault.app.vaultstore.interfaces.CredentialOperationCallback
 import net.aliasvault.app.vaultstore.interfaces.CryptoOperationCallback
+import net.aliasvault.app.vaultstore.keystoreprovider.BiometricAuthCallback
 import net.aliasvault.app.vaultstore.keystoreprovider.KeystoreProvider
 import net.aliasvault.app.vaultstore.models.Credential
 import net.aliasvault.app.vaultstore.storageprovider.StorageProvider
+import kotlin.coroutines.resume
 
 /**
  * The vault store that manages the encrypted vault and all input/output operations on it.
@@ -65,7 +69,7 @@ class VaultStore(
     private val crypto = VaultCrypto(keystoreProvider, storageProvider)
     private val databaseComponent = VaultDatabase(storageProvider, crypto)
     private val query = VaultQuery(databaseComponent)
-    private val metadata = VaultMetadataManager(storageProvider)
+    internal val metadata = VaultMetadataManager(storageProvider)
     private val auth = VaultAuth(storageProvider) { cache.clearCache() }
     private val sync = VaultSync(databaseComponent, metadata, crypto)
     private val mutate = VaultMutate(databaseComponent, query, metadata)
@@ -194,6 +198,13 @@ class VaultStore(
         encryptionSettings: String,
     ): ByteArray {
         return crypto.deriveKeyFromPassword(password, salt, encryptionType, encryptionSettings)
+    }
+
+    /**
+     * Encrypts the vault's encryption key using an RSA public key for mobile login.
+     */
+    fun encryptDecryptionKeyForMobileLogin(publicKeyJWK: String): String {
+        return crypto.encryptDecryptionKeyForMobileLogin(publicKeyJWK, auth.getAuthMethods())
     }
 
     // endregion
@@ -649,11 +660,20 @@ class VaultStore(
             return false
         }
 
-        return try {
-            keystoreProvider.authenticateWithBiometric(authReason)
-        } catch (e: Exception) {
-            Log.e("VaultStore", "Biometric authentication failed", e)
-            false
+        // Trigger biometric authentication with a custom prompt
+        return suspendCancellableCoroutine { continuation ->
+            keystoreProvider.authenticateWithBiometric(
+                authReason,
+                object : BiometricAuthCallback {
+                    override fun onSuccess() {
+                        continuation.resume(true)
+                    }
+
+                    override fun onFailure() {
+                        continuation.resume(false)
+                    }
+                },
+            )
         }
     }
 
