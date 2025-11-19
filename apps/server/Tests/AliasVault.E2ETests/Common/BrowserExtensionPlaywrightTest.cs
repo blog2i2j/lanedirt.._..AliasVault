@@ -103,7 +103,7 @@ public class BrowserExtensionPlaywrightTest : ClientPlaywrightTest
         // Test vault loading with username and password
         await extensionPopup.FillAsync("input[type='text']", TestUserUsername);
         await extensionPopup.FillAsync("input[type='password']", TestUserPassword);
-        await extensionPopup.ClickAsync("button:has-text('Login')");
+        await extensionPopup.ClickAsync("button:has-text('Log in')");
 
         // Wait for login to complete by waiting for expected text.
         if (waitForLogin)
