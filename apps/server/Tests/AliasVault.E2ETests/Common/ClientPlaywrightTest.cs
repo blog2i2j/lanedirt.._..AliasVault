@@ -173,7 +173,7 @@ public class ClientPlaywrightTest : PlaywrightTest
             { "password", TestUserPassword },
         });
 
-        var submitButton = Page.GetByRole(AriaRole.Button, new() { Name = "Unlock" });
+        var submitButton = Page.Locator("#unlock-button");
         await submitButton.ClickAsync();
 
         // Wait for the sync page to show
