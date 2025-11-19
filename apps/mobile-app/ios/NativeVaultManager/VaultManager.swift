@@ -975,7 +975,7 @@ public class VaultManager: NSObject {
             }
         } else {
             // Use biometric authentication
-            let authenticated = vaultStore.authenticateUser(title: title, subtitle: subtitle)
+            let authenticated = vaultStore.issueBiometricAuthentication(title: title)
             resolve(authenticated)
         }
     }

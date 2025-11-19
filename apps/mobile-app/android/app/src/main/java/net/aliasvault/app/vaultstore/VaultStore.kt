@@ -624,23 +624,15 @@ class VaultStore(
 
     /**
      * Authenticate the user using biometric authentication only.
-     * Note: This method only handles biometric authentication. If PIN is enabled,
-     * this will return false and the caller should use showPinUnlock instead.
+     * Note: This method only handles biometric authentication.
      * Returns true if authentication succeeded, false otherwise.
      *
      * @param title The title for authentication. Optional, defaults to "Unlock Vault".
-     * @param subtitle The subtitle for authentication. Optional, defaults to title or "Unlock Vault".
-     * @return True if biometric authentication succeeded, false if PIN is enabled or authentication failed.
+     * @return True if biometric authentication succeeded, false if authentication failed.
      */
-    suspend fun authenticateUser(title: String?, subtitle: String?): Boolean {
+    suspend fun issueBiometricAuthentication(title: String?): Boolean {
         // Use title if provided, otherwise default
         val authReason = title?.takeIf { it.isNotEmpty() } ?: "Unlock Vault"
-
-        // Check if PIN is enabled - if so, return false (caller should use PIN UI)
-        if (isPinEnabled()) {
-            Log.d("VaultStore", "PIN authentication is enabled, returning false")
-            return false
-        }
 
         // Check if biometric authentication is enabled
         val authMethods = auth.getAuthMethods()

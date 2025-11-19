@@ -62,7 +62,7 @@ public class TwoFactorAuthLockoutTests : AdminPlaywrightTest
             { "password", TestUserPassword },
         });
 
-        submitButton = Page.Locator("#login-button");
+        submitButton = Page.GetByRole(AriaRole.Button, new() { Name = "Login" });
         await submitButton.ClickAsync();
 
         // Wait for 2FA page.
