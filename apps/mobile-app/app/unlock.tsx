@@ -58,90 +58,30 @@ export default function UnlockScreen() : React.ReactNode {
     return params;
   }, [logout, getEncryptionKeyDerivationParams]);
 
-  /**
-   * Handle PIN unlock using native UI.
-   * Falls back to showing password input on cancel.
-   */
-  const handlePinUnlock = useCallback(async () : Promise<void> => {
-    try {
-      /*
-       * Show native PIN unlock UI
-       * This will handle the unlock internally and store the encryption key
-       */
-      await NativeVaultManager.showPinUnlock();
-
-      /*
-       * Check if the vault is ready
-       */
-      if (dbContext.dbAvailable) {
-        // Check if the vault is up to date, if not, redirect to the upgrade page.
-        if (await dbContext.hasPendingMigrations()) {
-          router.replace('/upgrade');
-          return;
-        }
-
-        /*
-         * Navigate using centralized navigation logic
-         * This ensures we handle pending deep links and return URLs correctly
-         */
-        navigation.navigateAfterUnlock();
-      } else {
-        // If db is not available for whatever reason, fallback to password unlock.
-        setIsLoading(false);
-        Alert.alert(
-          t('common.error'),
-          t('auth.errors.incorrectPassword'),
-          [{ text: t('common.ok'), style: 'default' }]
-        );
-      }
-    } catch (err: unknown) {
-      // User cancelled or error occurred
-      setIsLoading(false);
-
-      if (err && typeof err === 'object' && 'code' in err) {
-        // Show password input as fallback on error
-        console.error('PIN unlock failed:', err);
-
-        // Check if PIN is still enabled and update state accordingly
-        const pinStillEnabled = await NativeVaultManager.isPinEnabled();
-        setPinAvailable(pinStillEnabled);
-        return;
-      }
-    }
-  }, [dbContext, t, setPinAvailable, navigation]);
-
   useEffect(() => {
     getKeyDerivationParams();
 
     /**
-     * Fetch the biometric config and PIN availability, then attempt unlock.
+     * Fetch the biometric config and PIN availability.
      */
-    const fetchConfigAndUnlock = async () : Promise<void> => {
+    const fetchConfig = async () : Promise<void> => {
+      // Check if biometrics is available
       const enabled = await isBiometricsEnabled();
       setIsBiometricsAvailable(enabled);
 
       const displayName = await getBiometricDisplayName();
       setBiometricDisplayName(displayName);
 
-      // Check PIN availability
+      // Check if PIN is enabled
       const pinEnabled = await NativeVaultManager.isPinEnabled();
       setPinAvailable(pinEnabled);
 
-      /*
-       * If PIN is enabled, automatically try PIN unlock first
-       * Show loading state, then launch native PIN UI
-       * If user cancels or PIN is not available, loading stops and password input shows
-       */
-      if (pinEnabled) {
-        await handlePinUnlock();
-      } else {
-        // No PIN available, stop loading to show password input
-        setIsLoading(false);
-      }
+      // Stop loading to show password input
+      setIsLoading(false);
     };
-    fetchConfigAndUnlock();
+    fetchConfig();
 
-  }, [isBiometricsEnabled, getKeyDerivationParams, getBiometricDisplayName, t, handlePinUnlock]);
+  }, [isBiometricsEnabled, getKeyDerivationParams, getBiometricDisplayName]);
 
   /**
    * Handle the unlock.
@@ -233,7 +173,7 @@ export default function UnlockScreen() : React.ReactNode {
   /**
    * Handle the biometrics retry.
    */
-  const handleBiometricsRetry = async () : Promise<void> => {
+  const handleUnlockRetry = async () : Promise<void> => {
     router.replace('/reinitialize');
   };
 
@@ -460,7 +400,7 @@ export default function UnlockScreen() : React.ReactNode {
                   {isBiometricsAvailable && (
                     <RobustPressable
                       style={styles.faceIdButton}
-                      onPress={handleBiometricsRetry}
+                      onPress={handleUnlockRetry}
                     >
                       <ThemedText style={styles.faceIdButtonText}>{t('auth.tryBiometricAgain', { biometric: biometricDisplayName })}</ThemedText>
                     </RobustPressable>
@@ -468,15 +408,12 @@ export default function UnlockScreen() : React.ReactNode {
 
                   {/* Use PIN Button */}
                   {pinAvailable && (
-                    <Pressable
-                      style={styles.linkButton}
-                      onPress={() => {
-                        setIsLoading(true);
-                        handlePinUnlock();
-                      }}
+                    <RobustPressable
+                      style={styles.faceIdButton}
+                      onPress={handleUnlockRetry}
                     >
-                      <ThemedText style={styles.linkButtonText}>{t('auth.unlockWithPin')}</ThemedText>
-                    </Pressable>
+                      <ThemedText style={styles.faceIdButtonText}>{t('auth.tryPinAgain')}</ThemedText>
+                    </RobustPressable>
                   )}
                 </View>
 

@@ -49,6 +49,7 @@
     "enableBiometric": "Enable {{biometric}}?",
     "biometricPrompt": "Would you like to use {{biometric}} to unlock your vault?",
     "tryBiometricAgain": "Try {{biometric}} Again",
+    "tryPinAgain": "Try PIN Again",
     "authCodeNote": "Note: if you don't have access to your authenticator device, you can reset your 2FA with a recovery code by logging in via the website.",
     "errors": {
       "credentialsRequired": "Username and password are required",

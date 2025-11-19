@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { View, Alert, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { VaultUnlockHelper } from '@/utils/VaultUnlockHelper';
+
 import { useColors } from '@/hooks/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
 
@@ -174,33 +176,8 @@ export default function MobileUnlockConfirmScreen() : React.ReactNode {
     setIsProcessing(true);
 
     try {
-      // Check if biometric or PIN is enabled
-      const authMethods = await NativeVaultManager.getAuthMethods();
-      const isPinEnabled = await NativeVaultManager.isPinEnabled();
-      const isBiometricEnabled = authMethods.includes('faceid');
-
-      if (!isBiometricEnabled && !isPinEnabled) {
-        Alert.alert(
-          t('common.error'),
-          t('settings.qrScanner.mobileLogin.noAuthMethodEnabled'),
-          [
-            {
-              text: t('common.ok'),
-              /**
-               * Navigate to the settings tab.
-               */
-              onPress: (): void => {
-                router.replace('/(tabs)/settings');
-              },
-            },
-          ]
-        );
-        setIsProcessing(false);
-        return;
-      }
-
       // Authenticate user with either biometric or PIN (automatically detected)
-      const authenticated = await NativeVaultManager.authenticateUser(
+      const authenticated = await VaultUnlockHelper.authenticateForAction(
         t('settings.qrScanner.mobileLogin.confirmTitle'),
         t('settings.qrScanner.mobileLogin.confirmSubtitle')
       );

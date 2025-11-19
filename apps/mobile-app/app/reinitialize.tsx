@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View, Alert, TouchableOpacity } from 'react-native';
 
+import { VaultUnlockHelper } from '@/utils/VaultUnlockHelper';
+
 import { useColors } from '@/hooks/useColorScheme';
 import { useVaultSync } from '@/hooks/useVaultSync';
 
@@ -191,72 +193,30 @@ export default function ReinitializeScreen() : React.ReactNode {
           const hasEncryptedDatabase = await NativeVaultManager.hasEncryptedDatabase();
 
           if (hasEncryptedDatabase) {
-            const isFaceIDEnabled = enabledAuthMethods.includes('faceid');
-            const isPinEnabled = await NativeVaultManager.isPinEnabled();
+            // Attempt automatic unlock using centralized helper
+            updateStatus(t('app.status.unlockingVault'));
+            const unlockResult = await VaultUnlockHelper.attemptAutomaticUnlock({ enabledAuthMethods, unlockVault: dbContext.unlockVault });
 
-            // Attempt automatic unlock if FaceID or PIN is enabled
-            if (isFaceIDEnabled) {
-              // Unlock vault FIRST (before network sync) - this is not skippable
-              updateStatus(t('app.status.unlockingVault'));
-              const isUnlocked = await dbContext.unlockVault();
-
-              if (!isUnlocked) {
-                // Failed to unlock, redirect to unlock screen
-                router.replace('/unlock');
-                return;
-              }
-
-              // Add small delay for UX
-              await new Promise(resolve => setTimeout(resolve, 500));
-              updateStatus(t('app.status.decryptingVault'));
-              await new Promise(resolve => setTimeout(resolve, 750));
-
-              // Check if the vault needs migration before syncing
-              if (await dbContext.hasPendingMigrations()) {
-                router.replace('/upgrade');
-                return;
-              }
-
-              // Vault unlocked successfully - now allow skip button for network operations
-              canShowSkipButtonRef.current = true;
-            } else if (isPinEnabled) {
-              // Attempt PIN unlock
-              updateStatus(t('app.status.unlockingVault'));
-              try {
-                await NativeVaultManager.showPinUnlock();
-
-                // Check if vault is now unlocked
-                const isNowUnlocked = await NativeVaultManager.isVaultUnlocked();
-                if (!isNowUnlocked) {
-                  // Failed to unlock, redirect to unlock screen
-                  router.replace('/unlock');
-                  return;
-                }
-
-                // Add small delay for UX
-                await new Promise(resolve => setTimeout(resolve, 300));
-                updateStatus(t('app.status.decryptingVault'));
-                await new Promise(resolve => setTimeout(resolve, 500));
-
-                // Check if the vault needs migration before syncing
-                if (await dbContext.hasPendingMigrations()) {
-                  router.replace('/upgrade');
-                  return;
-                }
-
-                // Vault unlocked successfully - now allow skip button for network operations
-                canShowSkipButtonRef.current = true;
-              } catch (pinErr) {
-                // PIN unlock failed or cancelled, redirect to unlock screen
-                console.error('PIN unlock failed during reinitialize:', pinErr);
-                router.replace('/unlock');
-                return;
-              }
-            } else {
-              // No FaceID or PIN, redirect to unlock screen
+            if (!unlockResult.success) {
+              // Unlock failed, redirect to unlock screen
+              console.error('Automatic unlock failed:', unlockResult.error);
               router.replace('/unlock');
               return;
             }
+
+            // Add small delay for UX
+            await new Promise(resolve => setTimeout(resolve, 300));
+            updateStatus(t('app.status.decryptingVault'));
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Check if the vault needs migration before syncing
+            if (await dbContext.hasPendingMigrations()) {
+              router.replace('/upgrade');
+              return;
+            }
+
+            // Vault unlocked successfully - now allow skip button for network operations
+            canShowSkipButtonRef.current = true;
           } else {
             // No encrypted database, redirect to unlock screen
             router.replace('/unlock');

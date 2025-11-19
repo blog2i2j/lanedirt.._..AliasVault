@@ -44,7 +44,6 @@ export class PostUnlockNavigation {
 
     // Priority 1: Handle return URL (from reinitialize flow)
     if (returnUrl?.path) {
-      console.log('[_postunlocknavigation] navigate with returnUrl:', returnUrl);
       this.handleReturnUrl(returnUrl, router);
       if (clearReturnUrl) {
         clearReturnUrl();
@@ -53,7 +52,6 @@ export class PostUnlockNavigation {
     }
 
     // Priority 2: Default navigation to credentials
-    console.log('[_postunlocknavigation] navigate to default credentials tab');
     router.replace('/(tabs)/credentials');
   }
 

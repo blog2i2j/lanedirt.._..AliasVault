@@ -167,10 +167,10 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
          * where the AppState listener fires during app initialization, especially on iOS release builds.
          * Also skip during mobile-unlock flow as it has its own authentication.
          */
-        if (!pathname?.startsWith('unlock') &&
-            !pathname?.startsWith('login') &&
-            !pathname?.startsWith('initialize') &&
-            !pathname?.startsWith('reinitialize') &&
+        if (!pathname?.startsWith('/unlock') &&
+            !pathname?.startsWith('/login') &&
+            !pathname?.startsWith('/initialize') &&
+            !pathname?.startsWith('/reinitialize') &&
             !pathname?.includes('/mobile-unlock/')) {
           try {
             // Check if vault is unlocked.
@@ -186,10 +186,12 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               }
 
               // Database connection failed, navigate to reinitialize flow
+              console.log('database connection failed, navigating to reinitialize');
               router.replace('/reinitialize');
             }
           } catch {
             // Database query failed, navigate to reinitialize flow
+            console.log('database query failed, navigating to reinitialize');
             router.replace('/reinitialize');
           }
         }
