@@ -227,7 +227,7 @@ export default function ReinitializeScreen() : React.ReactNode {
 
                 // Check if vault is now unlocked
                 const isNowUnlocked = await NativeVaultManager.isVaultUnlocked();
-                if (!isNowUnlocked || !dbContext.dbAvailable) {
+                if (!isNowUnlocked) {
                   // Failed to unlock, redirect to unlock screen
                   router.replace('/unlock');
                   return;

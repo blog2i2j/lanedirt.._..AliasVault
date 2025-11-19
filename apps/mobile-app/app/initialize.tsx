@@ -209,8 +209,9 @@ export default function Initialize() : React.ReactNode {
 
             if (hasEncryptedDatabase) {
               const isFaceIDEnabled = enabledAuthMethods.includes('faceid');
+              const isPinEnabled = await NativeVaultManager.isPinEnabled();
 
-              // Only attempt to unlock if FaceID is enabled
+              // Attempt automatic unlock if FaceID or PIN is enabled
               if (isFaceIDEnabled) {
                 // Unlock vault FIRST (before network sync) - this is not skippable
                 updateStatus(t('app.status.unlockingVault'));
@@ -230,8 +231,36 @@ export default function Initialize() : React.ReactNode {
 
                 // Vault unlocked successfully - now allow skip button for network operations
                 canShowSkipButtonRef.current = true;
+              } else if (isPinEnabled) {
+                // Attempt PIN unlock
+                updateStatus(t('app.status.unlockingVault'));
+                try {
+                  await NativeVaultManager.showPinUnlock();
+
+                  // Check if vault is now unlocked
+                  const isNowUnlocked = await NativeVaultManager.isVaultUnlocked();
+                  if (!isNowUnlocked) {
+                    // Failed to unlock, redirect to unlock screen
+                    router.replace('/unlock');
+                    return;
+                  }
+
+                  // Check if the vault needs migration before syncing
+                  if (await dbContext.hasPendingMigrations()) {
+                    router.replace('/upgrade');
+                    return;
+                  }
+
+                  // Vault unlocked successfully - now allow skip button for network operations
+                  canShowSkipButtonRef.current = true;
+                } catch (pinErr) {
+                  // PIN unlock failed or cancelled, redirect to unlock screen
+                  console.error('PIN unlock failed during initialize:', pinErr);
+                  router.replace('/unlock');
+                  return;
+                }
               } else {
-                // No FaceID, redirect to unlock screen for manual unlock
+                // No FaceID or PIN, redirect to unlock screen for manual unlock
                 router.replace('/unlock');
                 return;
               }

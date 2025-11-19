@@ -165,8 +165,13 @@ export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ ch
          * App coming to foreground
          * Skip vault re-initialization checks during unlock, login, initialize, and reinitialize flows to prevent race conditions
          * where the AppState listener fires during app initialization, especially on iOS release builds.
+         * Also skip during mobile-unlock flow as it has its own authentication.
          */
-        if (!pathname?.startsWith('unlock') && !pathname?.startsWith('login') && !pathname?.startsWith('initialize') && !pathname?.startsWith('reinitialize')) {
+        if (!pathname?.startsWith('unlock') &&
+            !pathname?.startsWith('login') &&
+            !pathname?.startsWith('initialize') &&
+            !pathname?.startsWith('reinitialize') &&
+            !pathname?.includes('/mobile-unlock/')) {
           try {
             // Check if vault is unlocked.
             const isUnlocked = await isVaultUnlocked();
