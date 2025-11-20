@@ -104,14 +104,18 @@ type ValidateLoginRequest2Fa = {
     clientSessionProof: string;
 };
 /**
+ * Token model type.
+ */
+type TokenModel = {
+    token: string;
+    refreshToken: string;
+};
+/**
  * Validate login response type.
  */
 type ValidateLoginResponse = {
     requiresTwoFactor: boolean;
-    token?: {
-        token: string;
-        refreshToken: string;
-    };
+    token?: TokenModel;
     serverSessionProof: string;
 };
 
@@ -351,6 +355,10 @@ declare enum AuthEventType {
      */
     Logout = 3,
     /**
+     * Represents a mobile login attempt (login via QR code from mobile app).
+     */
+    MobileLogin = 4,
+    /**
      * Represents JWT access token refresh event issued by client to API.
      */
     TokenRefresh = 10,
@@ -380,4 +388,35 @@ declare enum AuthEventType {
     AccountDeletion = 99
 }
 
-export { type ApiErrorResponse, AuthEventType, type AuthLogModel, type BadRequestResponse, type DeleteAccountInitiateRequest, type DeleteAccountInitiateResponse, type DeleteAccountRequest, type Email, type EmailAttachment, type FaviconExtractModel, type LoginRequest, type LoginResponse, type MailboxBulkRequest, type MailboxBulkResponse, type MailboxEmail, type PasswordChangeInitiateResponse, type RefreshToken, type StatusResponse, type ValidateLoginRequest, type ValidateLoginRequest2Fa, type ValidateLoginResponse, type Vault, type VaultPasswordChangeRequest, type VaultPostResponse, type VaultResponse };
+/**
+ * Mobile login initiate request type.
+ */
+type MobileLoginInitiateRequest = {
+    clientPublicKey: string;
+};
+/**
+ * Mobile login initiate response type.
+ */
+type MobileLoginInitiateResponse = {
+    requestId: string;
+};
+/**
+ * Mobile login submit request type.
+ */
+type MobileLoginSubmitRequest = {
+    requestId: string;
+    encryptedDecryptionKey: string;
+};
+/**
+ * Mobile login poll response type.
+ */
+type MobileLoginPollResponse = {
+    fulfilled: boolean;
+    encryptedSymmetricKey: string | null;
+    encryptedToken: string | null;
+    encryptedRefreshToken: string | null;
+    encryptedDecryptionKey: string | null;
+    encryptedUsername: string | null;
+};
+
+export { type ApiErrorResponse, AuthEventType, type AuthLogModel, type BadRequestResponse, type DeleteAccountInitiateRequest, type DeleteAccountInitiateResponse, type DeleteAccountRequest, type Email, type EmailAttachment, type FaviconExtractModel, type LoginRequest, type LoginResponse, type MailboxBulkRequest, type MailboxBulkResponse, type MailboxEmail, type MobileLoginInitiateRequest, type MobileLoginInitiateResponse, type MobileLoginPollResponse, type MobileLoginSubmitRequest, type PasswordChangeInitiateResponse, type RefreshToken, type StatusResponse, type TokenModel, type ValidateLoginRequest, type ValidateLoginRequest2Fa, type ValidateLoginResponse, type Vault, type VaultPasswordChangeRequest, type VaultPostResponse, type VaultResponse };

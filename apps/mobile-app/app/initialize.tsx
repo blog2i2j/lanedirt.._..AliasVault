@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 
+import { VaultUnlockHelper } from '@/utils/VaultUnlockHelper';
+
 import { useColors } from '@/hooks/useColorScheme';
 import { useVaultSync } from '@/hooks/useVaultSync';
 
@@ -11,6 +13,7 @@ import LoadingIndicator from '@/components/LoadingIndicator';
 import { ThemedView } from '@/components/themed/ThemedView';
 import { useApp } from '@/context/AppContext';
 import { useDb } from '@/context/DbContext';
+import { useNavigation } from '@/context/NavigationContext';
 import NativeVaultManager from '@/specs/NativeVaultManager';
 
 /**
@@ -27,6 +30,7 @@ export default function Initialize() : React.ReactNode {
   const abortControllerRef = useRef<AbortController | null>(null);
   const { t } = useTranslation();
   const app = useApp();
+  const navigation = useNavigation();
   const { syncVault } = useVaultSync();
   const dbContext = useDb();
   const colors = useColors();
@@ -72,7 +76,7 @@ export default function Initialize() : React.ReactNode {
     // Don't show the alert if we're already in offline mode
     if (app.isOffline) {
       console.debug('Already in offline mode, skipping offline flow alert');
-      router.replace('/(tabs)/credentials');
+      navigation.navigateAfterUnlock();
       return;
     }
 
@@ -127,8 +131,8 @@ export default function Initialize() : React.ReactNode {
                 return;
               }
 
-              // Success - navigate to credentials
-              router.replace('/(tabs)/credentials');
+              // Success - use centralized navigation logic
+              navigation.navigateAfterUnlock();
             } catch (err) {
               console.error('Error during offline vault unlock:', err);
               router.replace('/unlock');
@@ -169,7 +173,7 @@ export default function Initialize() : React.ReactNode {
         }
       ]
     );
-  }, [dbContext, router, app, t, updateStatus]);
+  }, [dbContext, router, app, navigation, t, updateStatus]);
 
   useEffect(() => {
     // Ensure this only runs once.
@@ -206,33 +210,30 @@ export default function Initialize() : React.ReactNode {
             const hasEncryptedDatabase = await NativeVaultManager.hasEncryptedDatabase();
 
             if (hasEncryptedDatabase) {
-              const isFaceIDEnabled = enabledAuthMethods.includes('faceid');
+              // Attempt automatic unlock using centralized helper
+              updateStatus(t('app.status.unlockingVault'));
+              const unlockResult = await VaultUnlockHelper.attemptAutomaticUnlock({ enabledAuthMethods, unlockVault: dbContext.unlockVault });
 
-              // Only attempt to unlock if FaceID is enabled
-              if (isFaceIDEnabled) {
-                // Unlock vault FIRST (before network sync) - this is not skippable
-                updateStatus(t('app.status.unlockingVault'));
-                const isUnlocked = await dbContext.unlockVault();
-
-                if (!isUnlocked) {
-                  // Failed to unlock, redirect to unlock screen
-                  router.replace('/unlock');
-                  return;
+              if (!unlockResult.success) {
+                /*
+                 * Unlock failed or cancelled, redirect to unlock screen.
+                 * Only log non-cancellation errors to avoid noise.
+                 */
+                if (!unlockResult.error?.includes('cancelled')) {
+                  console.error('Automatic unlock failed:', unlockResult.error);
                 }
-
-                // Check if the vault needs migration before syncing
-                if (await dbContext.hasPendingMigrations()) {
-                  router.replace('/upgrade');
-                  return;
-                }
-
-                // Vault unlocked successfully - now allow skip button for network operations
-                canShowSkipButtonRef.current = true;
-              } else {
-                // No FaceID, redirect to unlock screen for manual unlock
                 router.replace('/unlock');
                 return;
               }
+
+              // Check if the vault needs migration before syncing
+              if (await dbContext.hasPendingMigrations()) {
+                router.replace('/upgrade');
+                return;
+              }
+
+              // Vault unlocked successfully - now allow skip button for network operations
+              canShowSkipButtonRef.current = true;
             }
           } catch (err) {
             console.error('Error during initial vault unlock:', err);
@@ -272,8 +273,8 @@ export default function Initialize() : React.ReactNode {
            * Handle successful vault sync.
            */
           onSuccess: async () => {
-            // Vault already unlocked, just navigate to credentials
-            router.replace('/(tabs)/credentials');
+            // Use centralized navigation logic
+            navigation.navigateAfterUnlock();
           },
           /**
            * Handle offline state and prompt user for action.
@@ -317,7 +318,7 @@ export default function Initialize() : React.ReactNode {
         clearTimeout(skipButtonTimeoutRef.current);
       }
     };
-  }, [dbContext, syncVault, app, router, t, handleOfflineFlow, updateStatus]);
+  }, [dbContext, syncVault, app, router, navigation, t, handleOfflineFlow, updateStatus]);
 
   /**
    * Handle skip button press by calling the offline handler.

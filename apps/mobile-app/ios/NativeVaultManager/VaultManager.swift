@@ -649,6 +649,16 @@ public class VaultManager: NSObject {
         resolve(nil)
     }
 
+    // MARK: - Server Version Management
+
+    @objc
+    func isServerVersionGreaterThanOrEqualTo(_ targetVersion: String,
+                                            resolver resolve: @escaping RCTPromiseResolveBlock,
+                                            rejecter reject: @escaping RCTPromiseRejectBlock) {
+        let isGreaterOrEqual = vaultStore.isServerVersionGreaterThanOrEqualTo(targetVersion)
+        resolve(isGreaterOrEqual)
+    }
+
     // MARK: - Offline Mode Management
 
     @objc
@@ -884,6 +894,89 @@ public class VaultManager: NSObject {
             // Present modally as full screen
             hostingController.modalPresentationStyle = .fullScreen
             rootVC.present(hostingController, animated: true)
+        }
+    }
+
+    @objc
+    func encryptDecryptionKeyForMobileLogin(_ publicKeyJWK: String,
+                                           resolver resolve: @escaping RCTPromiseResolveBlock,
+                                           rejecter reject: @escaping RCTPromiseRejectBlock) {
+        do {
+            // Get the encryption key and encrypt it with the provided public key
+            let encryptedData = try vaultStore.encryptDecryptionKeyForMobileLogin(publicKeyJWK: publicKeyJWK)
+
+            // Return the encrypted data as base64 string
+            let base64Encrypted = encryptedData.base64EncodedString()
+            resolve(base64Encrypted)
+        } catch {
+            reject("ENCRYPTION_ERROR", "Failed to encrypt decryption key: \(error.localizedDescription)", error)
+        }
+    }
+
+    @objc
+    func authenticateUser(_ title: String?,
+                         subtitle: String?,
+                         resolver resolve: @escaping RCTPromiseResolveBlock,
+                         rejecter reject: @escaping RCTPromiseRejectBlock) {
+        // Check if PIN is enabled first
+        let pinEnabled = vaultStore.isPinEnabled()
+
+        if pinEnabled {
+            // PIN is enabled, show PIN unlock UI
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else {
+                    reject("INTERNAL_ERROR", "VaultManager instance deallocated", nil)
+                    return
+                }
+
+                // Get the root view controller from React Native
+                guard let rootVC = RCTPresentedViewController() else {
+                    reject("NO_VIEW_CONTROLLER", "No view controller available", nil)
+                    return
+                }
+
+                // Create PIN unlock view with ViewModel
+                // Use custom title/subtitle if provided, otherwise use defaults
+                let customTitle = (title?.isEmpty == false) ? title : nil
+                let customSubtitle = (subtitle?.isEmpty == false) ? subtitle : nil
+                let viewModel = PinUnlockViewModel(
+                    pinLength: self.vaultStore.getPinLength(),
+                    customTitle: customTitle,
+                    customSubtitle: customSubtitle,
+                    unlockHandler: { [weak self] pin in
+                        guard let self = self else {
+                            throw NSError(domain: "VaultManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "VaultManager instance deallocated"])
+                        }
+
+                        // Unlock vault with PIN (just validates, doesn't store in memory)
+                        _ = try self.vaultStore.unlockWithPin(pin)
+
+                        // Success - dismiss and resolve
+                        await MainActor.run {
+                            rootVC.dismiss(animated: true) {
+                                resolve(true)
+                            }
+                        }
+                    },
+                    cancelHandler: {
+                        // User cancelled - dismiss and resolve with false
+                        rootVC.dismiss(animated: true) {
+                            resolve(false)
+                        }
+                    }
+                )
+
+                let pinView = PinUnlockView(viewModel: viewModel)
+                let hostingController = UIHostingController(rootView: pinView)
+
+                // Present modally as full screen
+                hostingController.modalPresentationStyle = .fullScreen
+                rootVC.present(hostingController, animated: true)
+            }
+        } else {
+            // Use biometric authentication
+            let authenticated = vaultStore.issueBiometricAuthentication(title: title)
+            resolve(authenticated)
         }
     }
 

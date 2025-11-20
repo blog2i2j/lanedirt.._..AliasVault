@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Href, router } from 'expo-router';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View, Alert, TouchableOpacity } from 'react-native';
+
+import { VaultUnlockHelper } from '@/utils/VaultUnlockHelper';
 
 import { useColors } from '@/hooks/useColorScheme';
 import { useVaultSync } from '@/hooks/useVaultSync';
@@ -12,6 +14,7 @@ import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedView } from '@/components/themed/ThemedView';
 import { useApp } from '@/context/AppContext';
 import { useDb } from '@/context/DbContext';
+import { useNavigation } from '@/context/NavigationContext';
 import NativeVaultManager from '@/specs/NativeVaultManager';
 
 /**
@@ -21,6 +24,7 @@ import NativeVaultManager from '@/specs/NativeVaultManager';
 export default function ReinitializeScreen() : React.ReactNode {
   const app = useApp();
   const dbContext = useDb();
+  const navigation = useNavigation();
   const { syncVault } = useVaultSync();
   const [status, setStatus] = useState('');
   const [showSkipButton, setShowSkipButton] = useState(false);
@@ -120,38 +124,8 @@ export default function ReinitializeScreen() : React.ReactNode {
                 return;
               }
 
-              // Handle navigation based on return URL
-              if (!app.returnUrl?.path) {
-                router.replace('/(tabs)/credentials');
-                return;
-              }
-
-              // Navigate to return URL
-              const path = app.returnUrl.path as string;
-              const isDetailRoute = path.includes('credentials/');
-
-              if (!isDetailRoute) {
-                router.replace({
-                  pathname: path as '/',
-                  params: app.returnUrl.params as Record<string, string>
-                });
-                app.setReturnUrl(null);
-                return;
-              }
-
-              // Handle detail routes
-              const params = app.returnUrl.params as Record<string, string>;
-              router.replace('/(tabs)/credentials');
-              setTimeout(() => {
-                if (params.serviceUrl) {
-                  router.push(`${path}?serviceUrl=${params.serviceUrl}` as Href);
-                } else if (params.id) {
-                  router.push(`${path}?id=${params.id}` as Href);
-                } else {
-                  router.push(path as Href);
-                }
-              }, 0);
-              app.setReturnUrl(null);
+              // Use centralized navigation logic
+              navigation.navigateAfterUnlock();
             } catch (err) {
               console.error('Error during offline vault unlock:', err);
               router.replace('/unlock');
@@ -186,7 +160,7 @@ export default function ReinitializeScreen() : React.ReactNode {
         }
       ]
     );
-  }, [app, dbContext, t, updateStatus]);
+  }, [app, dbContext, navigation, t, updateStatus]);
 
   useEffect(() => {
     if (hasInitialized.current) {
@@ -194,49 +168,6 @@ export default function ReinitializeScreen() : React.ReactNode {
     }
 
     hasInitialized.current = true;
-
-    /**
-     * Redirect to the return URL.
-     */
-    function redirectToReturnUrl() : void {
-      /**
-       * Simulate stack navigation.
-       */
-      function simulateStackNavigation(from: string, to: string) : void {
-        router.replace(from as Href);
-        setTimeout(() => {
-          router.push(to as Href);
-        }, 0);
-      }
-
-      if (app.returnUrl?.path) {
-        // Type assertion needed due to router type limitations
-        const path = app.returnUrl.path as '/';
-        const isDetailRoute = path.includes('credentials/');
-        if (isDetailRoute) {
-          // If there is a "serviceUrl" or "id" param from the return URL, use it.
-          const params = app.returnUrl.params as Record<string, string>;
-
-          if (params.serviceUrl) {
-            simulateStackNavigation('/(tabs)/credentials', `${path}?serviceUrl=${params.serviceUrl}`);
-          } else if (params.id) {
-            simulateStackNavigation('/(tabs)/credentials', `${path}?id=${params.id}`);
-          } else {
-            simulateStackNavigation('/(tabs)/credentials', path as string);
-          }
-        } else {
-          router.replace({
-            pathname: path,
-            params: app.returnUrl.params as Record<string, string>
-          });
-        }
-        // Clear the return URL after using it
-        app.setReturnUrl(null);
-      } else {
-        // If there is no return URL, navigate to the credentials tab as default entry page.
-        router.replace('/(tabs)/credentials');
-      }
-    }
 
     /**
      * Initialize the app.
@@ -257,43 +188,35 @@ export default function ReinitializeScreen() : React.ReactNode {
       const isAlreadyUnlocked = await NativeVaultManager.isVaultUnlocked();
 
       if (!isAlreadyUnlocked) {
-        // Check if we have an encrypted database and if FaceID is enabled
+        // Check if we have an encrypted database
         try {
           const hasEncryptedDatabase = await NativeVaultManager.hasEncryptedDatabase();
 
           if (hasEncryptedDatabase) {
-            const isFaceIDEnabled = enabledAuthMethods.includes('faceid');
+            // Attempt automatic unlock using centralized helper
+            updateStatus(t('app.status.unlockingVault'));
+            const unlockResult = await VaultUnlockHelper.attemptAutomaticUnlock({ enabledAuthMethods, unlockVault: dbContext.unlockVault });
 
-            // Only attempt to unlock if FaceID is enabled
-            if (isFaceIDEnabled) {
-              // Unlock vault FIRST (before network sync) - this is not skippable
-              updateStatus(t('app.status.unlockingVault'));
-              const isUnlocked = await dbContext.unlockVault();
-
-              if (!isUnlocked) {
-                // Failed to unlock, redirect to unlock screen
-                router.replace('/unlock');
-                return;
-              }
-
-              // Add small delay for UX
-              await new Promise(resolve => setTimeout(resolve, 500));
-              updateStatus(t('app.status.decryptingVault'));
-              await new Promise(resolve => setTimeout(resolve, 750));
-
-              // Check if the vault needs migration before syncing
-              if (await dbContext.hasPendingMigrations()) {
-                router.replace('/upgrade');
-                return;
-              }
-
-              // Vault unlocked successfully - now allow skip button for network operations
-              canShowSkipButtonRef.current = true;
-            } else {
-              // No FaceID, redirect to unlock screen
+            if (!unlockResult.success) {
+              // Unlock failed, redirect to unlock screen
+              console.error('Automatic unlock failed:', unlockResult.error);
               router.replace('/unlock');
               return;
             }
+
+            // Add small delay for UX
+            await new Promise(resolve => setTimeout(resolve, 300));
+            updateStatus(t('app.status.decryptingVault'));
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Check if the vault needs migration before syncing
+            if (await dbContext.hasPendingMigrations()) {
+              router.replace('/upgrade');
+              return;
+            }
+
+            // Vault unlocked successfully - now allow skip button for network operations
+            canShowSkipButtonRef.current = true;
           } else {
             // No encrypted database, redirect to unlock screen
             router.replace('/unlock');
@@ -333,8 +256,7 @@ export default function ReinitializeScreen() : React.ReactNode {
          * Handle successful vault sync.
          */
         onSuccess: async () => {
-          // Vault already unlocked, just navigate to return URL
-          redirectToReturnUrl();
+          navigation.navigateAfterUnlock();
         },
         /**
          * Handle error during vault sync.
@@ -342,8 +264,8 @@ export default function ReinitializeScreen() : React.ReactNode {
          */
         onError: (error: string) => {
           console.error('Vault sync error during reinitialize:', error);
-          // Even if sync fails, vault is already unlocked, so navigate to return URL
-          redirectToReturnUrl();
+          // Even if sync fails, vault is already unlocked, use centralized navigation
+          navigation.navigateAfterUnlock();
         },
         /**
          * Handle offline state and prompt user for action.
@@ -361,7 +283,7 @@ export default function ReinitializeScreen() : React.ReactNode {
     };
 
     initialize();
-  }, [syncVault, app, dbContext, t, handleOfflineFlow, updateStatus]);
+  }, [syncVault, app, dbContext, navigation, t, handleOfflineFlow, updateStatus]);
 
   /**
    * Handle skip button press by calling the offline handler.

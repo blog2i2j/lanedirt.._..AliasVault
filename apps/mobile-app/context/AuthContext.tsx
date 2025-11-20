@@ -3,10 +3,8 @@ import { Buffer } from 'buffer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainerRef, ParamListBase } from '@react-navigation/native';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { router, useGlobalSearchParams, usePathname } from 'expo-router';
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Alert, AppState, Platform } from 'react-native';
-
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import { Alert, Platform } from 'react-native';
 import EncryptionUtility from '@/utils/EncryptionUtility';
 
 import { useDb } from '@/context/DbContext';
@@ -43,9 +41,6 @@ type AuthContextType = {
   // Autofill methods
   shouldShowAutofillReminder: boolean;
   markAutofillConfigured: () => Promise<void>;
-  // Return URL methods
-  returnUrl: { path: string; params?: object } | null;
-  setReturnUrl: (url: { path: string; params?: object } | null) => void;
 }
 
 const AUTOFILL_CONFIGURED_KEY = 'autofill_configured';
@@ -59,22 +54,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 /**
  * AuthProvider to provide the authentication state to the app that components can use.
  */
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{
+  children: React.ReactNode;
+}> = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
   const [shouldShowAutofillReminder, setShouldShowAutofillReminder] = useState(false);
-  const [returnUrl, setReturnUrl] = useState<{ path: string; params?: object } | null>(null);
   const [isOffline, setIsOffline] = useState(false);
-  const appState = useRef(AppState.currentState);
   const dbContext = useDb();
-  const pathname = usePathname();
-  const params = useGlobalSearchParams();
-  const lastRouteRef = useRef<{ path: string, params?: object }>({ path: pathname, params });
-
-  useEffect(() => {
-    lastRouteRef.current = { path: pathname, params };
-  }, [pathname, params]);
 
   /**
    * Get enabled auth methods from the native module
@@ -196,7 +184,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * This is called by AppContext after revoking tokens on the server.
    */
   const clearAuth = useCallback(async (errorMessage?: string): Promise<void> => {
-    console.log('Clearing auth --- attempt');
     // Clear credential identity store (password and passkey autofill metadata)
     try {
       await NativeVaultManager.removeCredentialIdentities();
@@ -365,18 +352,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   /**
-   * Check if the vault is unlocked.
-   */
-  const isVaultUnlocked = useCallback(async (): Promise<boolean> => {
-    try {
-      return await NativeVaultManager.isVaultUnlocked();
-    } catch (error) {
-      console.error('Failed to check vault status:', error);
-      return false;
-    }
-  }, []);
-
-  /**
    * Get the encryption key derivation parameters from native storage.
    * Returns parsed parameters or null if not available.
    */
@@ -426,46 +401,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return currentPasswordHashBase64;
   }, [dbContext, getEncryptionKeyDerivationParams]);
 
-  // Handle app state changes
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', async (nextAppState) => {
-      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-        /**
-         * App coming to foreground
-         * Skip vault re-initialization checks during unlock, login, initialize, and reinitialize flows to prevent race conditions
-         * where the AppState listener fires during app initialization, especially on iOS release builds.
-         */
-        if (!pathname?.includes('unlock') && !pathname?.includes('login') && !pathname?.includes('initialize') && !pathname?.includes('reinitialize')) {
-          try {
-            // Check if vault is unlocked.
-            const isUnlocked = await isVaultUnlocked();
-            if (!isUnlocked) {
-              // Get current full URL including query params
-              const currentRoute = lastRouteRef.current;
-              if (currentRoute?.path) {
-                setReturnUrl({
-                  path: currentRoute.path,
-                  params: currentRoute.params
-                });
-              }
-
-              // Database connection failed, navigate to reinitialize flow
-              router.replace('/reinitialize');
-            }
-          } catch {
-            // Database query failed, navigate to reinitialize flow
-            router.replace('/reinitialize');
-          }
-        }
-      }
-      appState.current = nextAppState;
-    });
-
-    return (): void => {
-      subscription.remove();
-    };
-  }, [isVaultUnlocked, pathname]);
-
   /**
    * Load autofill state from storage
    */
@@ -500,7 +435,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isInitialized,
     username,
     shouldShowAutofillReminder,
-    returnUrl,
     isOffline,
     getEnabledAuthMethods,
     isBiometricsEnabled,
@@ -517,7 +451,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setClipboardClearTimeout,
     getBiometricDisplayName,
     markAutofillConfigured,
-    setReturnUrl,
     verifyPassword,
     getEncryptionKeyDerivationParams,
     setOfflineMode,
@@ -526,7 +459,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isInitialized,
     username,
     shouldShowAutofillReminder,
-    returnUrl,
     isOffline,
     getEnabledAuthMethods,
     isBiometricsEnabled,
@@ -543,7 +475,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setClipboardClearTimeout,
     getBiometricDisplayName,
     markAutofillConfigured,
-    setReturnUrl,
     verifyPassword,
     getEncryptionKeyDerivationParams,
     setOfflineMode,

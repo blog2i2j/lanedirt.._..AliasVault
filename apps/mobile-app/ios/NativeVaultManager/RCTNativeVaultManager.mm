@@ -231,6 +231,12 @@
     [vaultManager clearUsername:resolve rejecter:reject];
 }
 
+// MARK: - Server Version Management
+
+- (void)isServerVersionGreaterThanOrEqualTo:(NSString *)targetVersion resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager isServerVersionGreaterThanOrEqualTo:targetVersion resolver:resolve rejecter:reject];
+}
+
 // MARK: - Offline Mode Management
 
 - (void)setOfflineMode:(BOOL)isOffline resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
@@ -271,6 +277,18 @@
 
 - (void)showPinSetup:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     [vaultManager showPinSetup:resolve rejecter:reject];
+}
+
+// MARK: - Mobile Login
+
+- (void)encryptDecryptionKeyForMobileLogin:(NSString *)publicKeyJWK resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager encryptDecryptionKeyForMobileLogin:publicKeyJWK resolver:resolve rejecter:reject];
+}
+
+// MARK: - Re-authentication
+
+- (void)authenticateUser:(NSString *)title subtitle:(NSString *)subtitle resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager authenticateUser:title subtitle:subtitle resolver:resolve rejecter:reject];
 }
 
 @end

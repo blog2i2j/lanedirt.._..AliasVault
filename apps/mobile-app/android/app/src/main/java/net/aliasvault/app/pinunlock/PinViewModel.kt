@@ -17,23 +17,30 @@ class PinViewModel(
 ) {
     /**
      * Initialize PIN configuration based on mode.
+     * @param mode The PIN mode (unlock or setup)
+     * @param customTitle Optional custom title to override default
+     * @param customSubtitle Optional custom subtitle to override default
      */
-    fun initializeConfiguration(mode: PinMode): PinConfiguration {
+    fun initializeConfiguration(
+        mode: PinMode,
+        customTitle: String? = null,
+        customSubtitle: String? = null,
+    ): PinConfiguration {
         return when (mode) {
             PinMode.UNLOCK -> {
                 val pinLength = vaultStore.getPinLength()
                 PinConfiguration(
                     mode = PinMode.UNLOCK,
-                    title = context.getString(R.string.pin_unlock_vault),
-                    subtitle = context.getString(R.string.pin_enter_to_unlock),
+                    title = customTitle ?: context.getString(R.string.pin_unlock_vault),
+                    subtitle = customSubtitle ?: context.getString(R.string.pin_enter_to_unlock),
                     pinLength = pinLength,
                 )
             }
             PinMode.SETUP -> {
                 PinConfiguration(
                     mode = PinMode.SETUP,
-                    title = context.getString(R.string.pin_setup_title),
-                    subtitle = context.getString(R.string.pin_setup_description),
+                    title = customTitle ?: context.getString(R.string.pin_setup_title),
+                    subtitle = customSubtitle ?: context.getString(R.string.pin_setup_description),
                     pinLength = null, // Allow any length from 4-8
                     setupStep = PinSetupStep.ENTER_NEW,
                 )

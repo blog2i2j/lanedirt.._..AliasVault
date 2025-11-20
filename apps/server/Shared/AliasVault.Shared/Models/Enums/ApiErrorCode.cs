@@ -133,4 +133,14 @@ public enum ApiErrorCode
     /// Vault is not up-to-date and requires synchronization.
     /// </summary>
     VAULT_NOT_UP_TO_DATE,
+
+    /// <summary>
+    /// Mobile login request not found or expired.
+    /// </summary>
+    MOBILE_LOGIN_REQUEST_NOT_FOUND,
+
+    /// <summary>
+    /// Mobile login request already fulfilled.
+    /// </summary>
+    MOBILE_LOGIN_REQUEST_ALREADY_FULFILLED,
 }

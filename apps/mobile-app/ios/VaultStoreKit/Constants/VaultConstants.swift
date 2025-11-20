@@ -16,6 +16,7 @@ public struct VaultConstants {
     static let usernameKey = "aliasvault_username"
     static let offlineModeKey = "aliasvault_offline_mode"
     static let pinEnabledKey = "aliasvault_pin_enabled"
+    static let serverVersionKey = "aliasvault_server_version"
 
     static let defaultAutoLockTimeout: Int = 3600 // 1 hour in seconds
 }

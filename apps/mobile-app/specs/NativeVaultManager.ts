@@ -85,6 +85,9 @@ export interface Spec extends TurboModule {
   setOfflineMode(isOffline: boolean): Promise<void>;
   getOfflineMode(): Promise<boolean>;
 
+  // Server version management
+  isServerVersionGreaterThanOrEqualTo(targetVersion: string): Promise<boolean>;
+
   // Vault sync and mutate
   isNewVaultVersionAvailable(): Promise<{ isNewVersionAvailable: boolean; newRevision: number | null }>;
   downloadVault(newRevision: number): Promise<boolean>;
@@ -95,6 +98,13 @@ export interface Spec extends TurboModule {
   removeAndDisablePin(): Promise<void>;
   showPinUnlock(): Promise<void>;
   showPinSetup(): Promise<void>;
+
+  // Mobile login methods
+  encryptDecryptionKeyForMobileLogin(publicKeyJWK: string): Promise<string>;
+
+  // Re-authentication methods
+  // Authenticate user with biometric or PIN. If title/subtitle are null/empty, defaults to "Unlock Vault" context.
+  authenticateUser(title: string | null, subtitle: string | null): Promise<boolean>;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>('NativeVaultManager');

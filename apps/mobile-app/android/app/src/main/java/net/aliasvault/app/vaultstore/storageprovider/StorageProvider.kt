@@ -106,4 +106,21 @@ interface StorageProvider {
      * @return True if app is in offline mode, false otherwise
      */
     fun getOfflineMode(): Boolean
+
+    /**
+     * Set the server API version.
+     * @param version The server version to store
+     */
+    fun setServerVersion(version: String)
+
+    /**
+     * Get the server API version.
+     * @return The server version or null if not set
+     */
+    fun getServerVersion(): String?
+
+    /**
+     * Clear the server version.
+     */
+    fun clearServerVersion()
 }

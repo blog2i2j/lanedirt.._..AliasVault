@@ -20,13 +20,18 @@ export type ValidateLoginRequest2Fa = {
 }
 
 /**
+ * Token model type.
+ */
+export type TokenModel = {
+    token: string;
+    refreshToken: string;
+}
+
+/**
  * Validate login response type.
  */
 export type ValidateLoginResponse = {
     requiresTwoFactor: boolean;
-    token?: {
-      token: string;
-      refreshToken: string;
-    };
+    token?: TokenModel;
     serverSessionProof: string;
   }

@@ -2,12 +2,16 @@ package net.aliasvault.app.vaultstore
 
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import io.requery.android.database.sqlite.SQLiteDatabase
+import kotlinx.coroutines.suspendCancellableCoroutine
 import net.aliasvault.app.vaultstore.interfaces.CredentialOperationCallback
 import net.aliasvault.app.vaultstore.interfaces.CryptoOperationCallback
+import net.aliasvault.app.vaultstore.keystoreprovider.BiometricAuthCallback
 import net.aliasvault.app.vaultstore.keystoreprovider.KeystoreProvider
 import net.aliasvault.app.vaultstore.models.Credential
 import net.aliasvault.app.vaultstore.storageprovider.StorageProvider
+import kotlin.coroutines.resume
 
 /**
  * The vault store that manages the encrypted vault and all input/output operations on it.
@@ -65,7 +69,7 @@ class VaultStore(
     private val crypto = VaultCrypto(keystoreProvider, storageProvider)
     private val databaseComponent = VaultDatabase(storageProvider, crypto)
     private val query = VaultQuery(databaseComponent)
-    private val metadata = VaultMetadataManager(storageProvider)
+    internal val metadata = VaultMetadataManager(storageProvider)
     private val auth = VaultAuth(storageProvider) { cache.clearCache() }
     private val sync = VaultSync(databaseComponent, metadata, crypto)
     private val mutate = VaultMutate(databaseComponent, query, metadata)
@@ -194,6 +198,13 @@ class VaultStore(
         encryptionSettings: String,
     ): ByteArray {
         return crypto.deriveKeyFromPassword(password, salt, encryptionType, encryptionSettings)
+    }
+
+    /**
+     * Encrypts the vault's encryption key using an RSA public key for mobile login.
+     */
+    fun encryptDecryptionKeyForMobileLogin(publicKeyJWK: String): String {
+        return crypto.encryptDecryptionKeyForMobileLogin(publicKeyJWK, auth.getAuthMethods())
     }
 
     // endregion
@@ -616,6 +627,54 @@ class VaultStore(
      */
     fun removeAndDisablePin() {
         pin.removeAndDisablePin()
+    }
+
+    // endregion
+
+    // region Re-authentication
+
+    /**
+     * Authenticate the user using biometric authentication only.
+     * Note: This method only handles biometric authentication.
+     * Returns true if authentication succeeded, false otherwise.
+     *
+     * @param title The title for authentication. Optional, defaults to "Unlock Vault".
+     * @return True if biometric authentication succeeded, false if authentication failed.
+     */
+    suspend fun issueBiometricAuthentication(title: String?): Boolean {
+        // Use title if provided, otherwise default
+        val authReason = title?.takeIf { it.isNotEmpty() } ?: "Unlock Vault"
+
+        // Check if biometric authentication is enabled
+        val authMethods = auth.getAuthMethods()
+        val isBiometricEnabled = authMethods.contains("faceid")
+
+        if (!isBiometricEnabled) {
+            Log.e("VaultStore", "No authentication method enabled")
+            return false
+        }
+
+        // Check if biometric is available
+        if (!keystoreProvider.isBiometricAvailable()) {
+            Log.e("VaultStore", "Biometric authentication not available")
+            return false
+        }
+
+        // Trigger biometric authentication with a custom prompt
+        return suspendCancellableCoroutine { continuation ->
+            keystoreProvider.authenticateWithBiometric(
+                authReason,
+                object : BiometricAuthCallback {
+                    override fun onSuccess() {
+                        continuation.resume(true)
+                    }
+
+                    override fun onFailure() {
+                        continuation.resume(false)
+                    }
+                },
+            )
+        }
     }
 
     // endregion

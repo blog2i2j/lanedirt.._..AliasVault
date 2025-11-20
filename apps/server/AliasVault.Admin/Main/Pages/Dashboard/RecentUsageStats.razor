@@ -27,6 +27,9 @@
 
         <!-- Top IP Addresses by Registrations ---->
         <RecentUsageRegistrationsTable Data="@_recentUsageStats?.TopIpsByRegistrations72h" />
+
+        <!-- Top IP Addresses by Mobile Login Requests ---->
+        <RecentUsageMobileLoginsTable Data="@_recentUsageStats?.TopIpsByMobileLogins72h" />
     </div>
 
     @if (_loadingError)

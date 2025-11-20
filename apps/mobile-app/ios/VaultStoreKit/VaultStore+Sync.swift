@@ -130,6 +130,9 @@ extension VaultStore {
             throw VaultSyncError.serverVersionNotSupported
         }
 
+        // Store server version in metadata
+        setServerVersion(status.serverVersion)
+
         try validateSrpSalt(status.srpSalt)
         return status
     }

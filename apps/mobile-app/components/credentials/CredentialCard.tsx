@@ -83,8 +83,6 @@ export function CredentialCard({ credential, onCredentialDelete }: CredentialCar
   const handleContextMenuAction = async (event: OnPressMenuItemEvent): Promise<void> => {
     const { name } = event.nativeEvent;
 
-    console.log('handleContextMenuAction', name);
-
     switch (name) {
       case t('credentials.contextMenu.edit'):
         Keyboard.dismiss();

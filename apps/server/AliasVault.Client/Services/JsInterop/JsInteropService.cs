@@ -235,7 +235,7 @@ public sealed class JsInteropService(IJSRuntime jsRuntime)
         try
         {
             // Invoke the JavaScript function and get the result as a byte array
-            await jsRuntime.InvokeVoidAsync("generateQrCode", "authenticator-uri");
+            await jsRuntime.InvokeVoidAsync("generateQrCode", elementId);
         }
         catch (JSException ex)
         {

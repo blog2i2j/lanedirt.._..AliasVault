@@ -488,6 +488,54 @@ namespace AliasServerDb.Migrations
                     b.ToTable("Logs", (string)null);
                 });
 
+            modelBuilder.Entity("AliasServerDb.MobileLoginRequest", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ClearedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ClientIpAddress")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ClientPublicKey")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EncryptedDecryptionKey")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("FulfilledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("MobileIpAddress")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("RetrievedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserId")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex(new[] { "ClientIpAddress" }, "IX_ClientIpAddress");
+
+                    b.HasIndex(new[] { "CreatedAt" }, "IX_CreatedAt");
+
+                    b.HasIndex(new[] { "MobileIpAddress" }, "IX_MobileIpAddress");
+
+                    b.HasIndex(new[] { "RetrievedAt", "ClearedAt", "FulfilledAt" }, "IX_RetrievedAt_ClearedAt_FulfilledAt");
+
+                    b.HasIndex(new[] { "UserId" }, "IX_UserId");
+
+                    b.ToTable("MobileLoginRequests");
+                });
+
             modelBuilder.Entity("AliasServerDb.ServerSetting", b =>
                 {
                     b.Property<string>("Key")
@@ -863,6 +911,15 @@ namespace AliasServerDb.Migrations
                         .IsRequired();
 
                     b.Navigation("Email");
+                });
+
+            modelBuilder.Entity("AliasServerDb.MobileLoginRequest", b =>
+                {
+                    b.HasOne("AliasServerDb.AliasVaultUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("AliasServerDb.UserEmailClaim", b =>

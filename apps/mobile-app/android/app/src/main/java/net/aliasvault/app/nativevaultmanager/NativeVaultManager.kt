@@ -285,6 +285,26 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     }
 
     /**
+     * Encrypt the decryption key for mobile login.
+     * @param publicKeyJWK The public key in JWK format
+     * @param promise The promise to resolve
+     */
+    @ReactMethod
+    override fun encryptDecryptionKeyForMobileLogin(publicKeyJWK: String, promise: Promise) {
+        try {
+            val encryptedKey = vaultStore.encryptDecryptionKeyForMobileLogin(publicKeyJWK)
+            promise.resolve(encryptedKey)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error encrypting key for mobile login", e)
+            promise.reject(
+                "ERR_ENCRYPT_KEY_MOBILE_LOGIN",
+                "Failed to encrypt key for mobile login: ${e.message}",
+                e,
+            )
+        }
+    }
+
+    /**
      * Check if the encrypted database exists.
      * @param promise The promise to resolve
      */
@@ -1163,6 +1183,24 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
         }
     }
 
+    // MARK: - Server Version Management
+
+    /**
+     * Check if the stored server version is greater than or equal to the specified version.
+     * @param targetVersion The version to compare against (e.g., "0.25.0")
+     * @param promise The promise to resolve.
+     */
+    @ReactMethod
+    override fun isServerVersionGreaterThanOrEqualTo(targetVersion: String, promise: Promise) {
+        try {
+            val isGreaterOrEqual = vaultStore.metadata.isServerVersionGreaterThanOrEqualTo(targetVersion)
+            promise.resolve(isGreaterOrEqual)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error comparing server version", e)
+            promise.reject("ERR_COMPARE_SERVER_VERSION", "Failed to compare server version: ${e.message}", e)
+        }
+    }
+
     // MARK: - Offline Mode Management
 
     /**
@@ -1387,5 +1425,64 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
         // Launch PIN unlock activity
         val intent = Intent(activity, net.aliasvault.app.pinunlock.PinUnlockActivity::class.java)
         activity.startActivityForResult(intent, PIN_UNLOCK_REQUEST_CODE)
+    }
+
+    /**
+     * Authenticate the user using biometric or PIN unlock.
+     * This method automatically detects which authentication method is enabled and uses it.
+     * Returns true if authentication succeeded, false otherwise.
+     *
+     * @param title The title for authentication. If null or empty, uses default.
+     * @param subtitle The subtitle for authentication. If null or empty, uses default.
+     * @param promise The promise to resolve with authentication result.
+     */
+    @ReactMethod
+    override fun authenticateUser(title: String?, subtitle: String?, promise: Promise) {
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                // Check if PIN is enabled first
+                val pinEnabled = vaultStore.isPinEnabled()
+
+                if (pinEnabled) {
+                    // PIN is enabled, show PIN unlock UI
+                    try {
+                        // Store promise for later resolution by MainActivity
+                        pendingActivityResultPromise = promise
+
+                        // Launch PIN unlock activity
+                        val activity = currentActivity
+                        if (activity == null) {
+                            promise.reject("NO_ACTIVITY", "No activity available", null)
+                            return@launch
+                        }
+
+                        val intent = Intent(activity, net.aliasvault.app.pinunlock.PinUnlockActivity::class.java)
+                        // Add custom title/subtitle if provided
+                        if (!title.isNullOrEmpty()) {
+                            intent.putExtra(net.aliasvault.app.pinunlock.PinUnlockActivity.EXTRA_CUSTOM_TITLE, title)
+                        }
+                        if (!subtitle.isNullOrEmpty()) {
+                            intent.putExtra(net.aliasvault.app.pinunlock.PinUnlockActivity.EXTRA_CUSTOM_SUBTITLE, subtitle)
+                        }
+                        activity.startActivityForResult(intent, PIN_UNLOCK_REQUEST_CODE)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "PIN authentication failed", e)
+                        promise.reject("AUTH_ERROR", "PIN authentication failed: ${e.message}", e)
+                    }
+                } else {
+                    // Use biometric authentication
+                    try {
+                        val authenticated = vaultStore.issueBiometricAuthentication(title)
+                        promise.resolve(authenticated)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Biometric authentication failed", e)
+                        promise.resolve(false)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Authentication failed", e)
+                promise.reject("AUTH_ERROR", "Authentication failed: ${e.message}", e)
+            }
+        }
     }
 }
