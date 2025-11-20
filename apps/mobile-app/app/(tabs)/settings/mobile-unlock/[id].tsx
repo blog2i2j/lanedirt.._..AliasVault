@@ -89,7 +89,7 @@ export default function MobileUnlockConfirmScreen() : React.ReactNode {
         let errorMsg = t('common.errors.unknownErrorTryAgain');
 
         if (error instanceof Error && error.message.includes('404')) {
-          errorMsg = t('auth.errors.mobileLoginRequestExpired');
+          errorMsg = t('settings.qrScanner.mobileLogin.requestExpired');
         }
 
         Alert.alert(
