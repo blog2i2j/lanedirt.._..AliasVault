@@ -57,6 +57,7 @@
     "next": "Volgende",
     "use": "Gebruik",
     "delete": "Verwijderen",
+    "save": "Opslaan",
     "or": "Of",
     "close": "Sluiten",
     "copied": "Gekopieerd!",
@@ -239,6 +240,16 @@
     "enterCustomDomain": "Voer aangepast domein in",
     "enterFullEmail": "Voer volledig e-mailadres in",
     "enterEmailPrefix": "E-mailprefix invoeren"
+  },
+  "totp": {
+    "addCode": "2FA-code toevoegen",
+    "instructions": "Voer de secret key in die door de website wordt weergegeven waar je tweestapsverificatie wilt toevoegen.",
+    "nameOptional": "Naam (optioneel)",
+    "secretKey": "Secret key",
+    "saveToViewCode": "Opslaan om code te bekijken",
+    "errors": {
+      "invalidSecretKey": "Ongeldig formaat."
+    }
   },
   "emails": {
     "title": "E-mails",

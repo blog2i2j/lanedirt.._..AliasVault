@@ -20,6 +20,9 @@
     "notice": "Avviso",
     "enabled": "Abilitato",
     "disabled": "Disabilitato",
+    "twoFactorAuthentication": "Autenticazione a due fattori",
+    "deleteItemConfirmTitle": "Elimina elemento",
+    "deleteItemConfirmDescription": "Sei sicuro di voler rimuovere questo elemento?",
     "errors": {
       "unknownError": "Si è verificato un errore sconosciuto. Riprova.",
       "unknownErrorTryAgain": "Si è verificato un errore sconosciuto. Riprova.",
@@ -203,6 +206,16 @@
     "passkeyMarkedForDeletion": "Passkey contrassegnata per l'eliminazione",
     "passkeyWillBeDeleted": "Questa passkey verrà eliminata quando si salva questa credenziale."
   },
+  "totp": {
+    "addCode": "Aggiungi Codice 2FA",
+    "nameOptional": "Nome (facoltativo)",
+    "secretKey": "Chiave segreta",
+    "instructions": "Inserisci la chiave segreta mostrata dal sito in cui vuoi aggiungere un'autenticazione a due fattori.",
+    "saveToViewCode": "Salva per visualizzare il codice",
+    "errors": {
+      "invalidSecretKey": "Formato chiave segreta non valido."
+    }
+  },
   "settings": {
     "title": "Impostazioni",
     "autofill": "Riempimento Automatico & Passkeys",
@@ -315,10 +328,8 @@
       "languageDescription": "Imposta la lingua usata per generare nuove identità.",
       "genderSection": "Genere",
       "genderDescription": "Imposta la preferenza di genere per generare nuove identità.",
-      "languageOptions": {
-        "english": "Inglese",
-        "dutch": "Olandese"
-      },
+      "ageRangeSection": "Fascia d'età",
+      "ageRangeDescription": "Imposta la fascia di età per generare nuove identità.",
       "genderOptions": {
         "random": "Casuale",
         "male": "Maschio",
