@@ -106,13 +106,23 @@ if [[ $CHOICE == "1" || $CHOICE == "2" ]]; then
 
   # Export .pkg
   rm -rf "$EXPORT_DIR"
-  xcodebuild -exportArchive \
+  if ! xcodebuild -exportArchive \
     -archivePath "$ARCHIVE_PATH" \
     -exportOptionsPlist "$EXPORT_PLIST" \
     -exportPath "$EXPORT_DIR" \
-    -allowProvisioningUpdates
+    -allowProvisioningUpdates; then
+    echo "❌ Failed to export archive to PKG"
+    exit 1
+  fi
 
-  PKG_PATH=$(ls "$EXPORT_DIR"/*.pkg)
+  PKG_PATH=$(ls "$EXPORT_DIR"/*.pkg 2>/dev/null)
+
+  if [ -z "$PKG_PATH" ]; then
+    echo "❌ No PKG file found in $EXPORT_DIR after export"
+    echo "Contents of export directory:"
+    ls -la "$EXPORT_DIR"
+    exit 1
+  fi
 
   # Extract version info from newly built PKG
   extract_version_info "$PKG_PATH"
@@ -157,10 +167,18 @@ fi
 echo ""
 echo "================================================"
 echo "Submitting to App Store:"
+echo "  PKG Path: $PKG_PATH"
 echo "  Version: $VERSION"
 echo "  Build:   $BUILD"
 echo "================================================"
 echo ""
+
+# Validate PKG_PATH is set and file exists
+if [ -z "$PKG_PATH" ] || [ ! -f "$PKG_PATH" ]; then
+    echo "❌ Error: PKG file not found at: $PKG_PATH"
+    exit 1
+fi
+
 read -p "Are you sure you want to push this to App Store? (y/n): " -r
 echo ""
 
@@ -171,9 +189,4 @@ fi
 
 echo "✅ Proceeding with upload..."
 
-fastlane deliver \
-  --pkg "$PKG_PATH" \
-  --skip_screenshots \
-  --skip_metadata \
-  --api_key_path "$API_KEY_PATH" \
-  --run_precheck_before_submit=false
+fastlane deliver --pkg "$PKG_PATH" --skip_screenshots --skip_metadata --api_key_path "$API_KEY_PATH" --run_precheck_before_submit false
