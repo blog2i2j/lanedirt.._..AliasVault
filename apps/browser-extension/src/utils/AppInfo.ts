@@ -6,7 +6,7 @@ export class AppInfo {
   /**
    * The current extension version. This should be updated with each release of the extension.
    */
-  public static readonly VERSION = '0.25.0';
+  public static readonly VERSION = '0.26.0-alpha';
 
   /**
    * The API version to send to the server (base semver without stage suffixes).
