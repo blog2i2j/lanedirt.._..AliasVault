@@ -130,4 +130,186 @@ type Passkey = {
     IsDeleted: number;
 };
 
-export type { Alias, Attachment, Credential, EncryptionKey, Passkey, PasswordSettings, TotpCode };
+/**
+ * System field keys for the field-based data model.
+ * These keys map to FieldDefinition.FieldKey values.
+ *
+ * System fields use predefined string keys for consistent reference
+ * across all platforms. Custom (user-defined) fields have FieldKey = NULL
+ * and are identified by their GUID and user-provided Label.
+ *
+ * Usage:
+ * ```typescript
+ * // Query by field key
+ * WHERE FieldKey = FieldKey.LoginUsername
+ *
+ * // Insert system field
+ * FieldKey = FieldKey.LoginPassword
+ *
+ * // Custom field
+ * FieldKey = null  // User-defined field
+ * ```
+ */
+declare const FieldKey: {
+    /**
+     * Login username field
+     * Type: Text
+     */
+    readonly LoginUsername: "login.username";
+    /**
+     * Login password field
+     * Type: Password
+     */
+    readonly LoginPassword: "login.password";
+    /**
+     * Login notes field
+     * Type: Text
+     */
+    readonly LoginNotes: "login.notes";
+    /**
+     * Login URL field (multi-value)
+     * Type: URL
+     */
+    readonly LoginUrl: "login.url";
+    /**
+     * Login recovery codes field (multi-value)
+     * Type: Text
+     */
+    readonly LoginRecoveryCodes: "login.recovery_codes";
+    /**
+     * Credit card number field
+     * Type: Text
+     */
+    readonly CardNumber: "card.number";
+    /**
+     * Credit card cardholder name field
+     * Type: Text
+     */
+    readonly CardCardholderName: "card.cardholder_name";
+    /**
+     * Credit card expiry month field
+     * Type: Text
+     */
+    readonly CardExpiryMonth: "card.expiry_month";
+    /**
+     * Credit card expiry year field
+     * Type: Text
+     */
+    readonly CardExpiryYear: "card.expiry_year";
+    /**
+     * Credit card CVV field
+     * Type: Password
+     */
+    readonly CardCvv: "card.cvv";
+    /**
+     * Credit card PIN field
+     * Type: Password
+     */
+    readonly CardPin: "card.pin";
+    /**
+     * Identity title field (e.g., Mr., Mrs., Dr.)
+     * Type: Text
+     */
+    readonly IdentityTitle: "identity.title";
+    /**
+     * Identity first name field
+     * Type: Text
+     */
+    readonly IdentityFirstName: "identity.first_name";
+    /**
+     * Identity middle name field
+     * Type: Text
+     */
+    readonly IdentityMiddleName: "identity.middle_name";
+    /**
+     * Identity last name field
+     * Type: Text
+     */
+    readonly IdentityLastName: "identity.last_name";
+    /**
+     * Identity email field
+     * Type: Email
+     */
+    readonly IdentityEmail: "identity.email";
+    /**
+     * Identity phone number field (multi-value)
+     * Type: Text
+     */
+    readonly IdentityPhoneNumbers: "identity.phone_numbers";
+    /**
+     * Identity address line 1 field
+     * Type: Text
+     */
+    readonly IdentityAddressLine1: "identity.address_line1";
+    /**
+     * Identity address line 2 field
+     * Type: Text
+     */
+    readonly IdentityAddressLine2: "identity.address_line2";
+    /**
+     * Identity city field
+     * Type: Text
+     */
+    readonly IdentityCity: "identity.city";
+    /**
+     * Identity state/province field
+     * Type: Text
+     */
+    readonly IdentityState: "identity.state";
+    /**
+     * Identity postal code field
+     * Type: Text
+     */
+    readonly IdentityPostalCode: "identity.postal_code";
+    /**
+     * Identity country field
+     * Type: Text
+     */
+    readonly IdentityCountry: "identity.country";
+    /**
+     * API key value field
+     * Type: Password
+     */
+    readonly ApiKeyKey: "apikey.key";
+    /**
+     * API key type/provider field (e.g., "OpenAI", "Stripe")
+     * Type: Text
+     */
+    readonly ApiKeyType: "apikey.type";
+    /**
+     * Alias email field
+     * Type: Email
+     */
+    readonly AliasEmail: "alias.email";
+    /**
+     * Alias first name field
+     * Type: Text
+     */
+    readonly AliasFirstName: "alias.first_name";
+    /**
+     * Alias last name field
+     * Type: Text
+     */
+    readonly AliasLastName: "alias.last_name";
+    /**
+     * Alias nickname field
+     * Type: Text
+     */
+    readonly AliasNickname: "alias.nickname";
+    /**
+     * Alias gender field
+     * Type: Text
+     */
+    readonly AliasGender: "alias.gender";
+    /**
+     * Alias birth date field
+     * Type: Date
+     */
+    readonly AliasBirthdate: "alias.birthdate";
+};
+/**
+ * Type representing all valid field key values
+ */
+type FieldKeyValue = typeof FieldKey[keyof typeof FieldKey];
+
+export { type Alias, type Attachment, type Credential, type EncryptionKey, FieldKey, type FieldKeyValue, type Passkey, type PasswordSettings, type TotpCode };

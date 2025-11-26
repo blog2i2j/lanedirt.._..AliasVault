@@ -86,6 +86,20 @@ export const VAULT_VERSIONS: VaultVersion[] = [
     version: '1.6.0',
     description: 'Add Passkey support',
     releaseVersion: '0.24.0',
-    compatibleUpToVersion: '0.24.0',
+    compatibleUpToVersion: '0.25.0',
+  },
+  {
+    revision: 12,
+    version: '1.7.0',
+    description: 'Update to Field-Based Data Model',
+    releaseVersion: '0.26.0',
+    compatibleUpToVersion: '0.26.0',
+  },
+  {
+    revision: 13,
+    version: '1.7.1',
+    description: 'Rename Columns',
+    releaseVersion: '0.26.0',
+    compatibleUpToVersion: '0.26.0',
   },
 ];

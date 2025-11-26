@@ -3,6 +3,7 @@ using System;
 using AliasClientDb;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AliasClientDb.Migrations
 {
     [DbContext(typeof(AliasClientDbContext))]
-    partial class AliasClientDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251126211441_1.7.0-FieldBasedDataModelUpdate")]
+    partial class _170FieldBasedDataModelUpdate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -100,8 +103,19 @@ namespace AliasClientDb.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("DefaultVisibility")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("EnableHistory")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("EntityType")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("FieldKey")
                         .HasMaxLength(100)
@@ -115,9 +129,6 @@ namespace AliasClientDb.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
-                    b.Property<bool>("IsHidden")
-                        .HasColumnType("INTEGER");
-
                     b.Property<bool>("IsMultiValue")
                         .HasColumnType("INTEGER");
 
@@ -128,9 +139,6 @@ namespace AliasClientDb.Migrations
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("TEXT");
-
-                    b.Property<int>("Weight")
-                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -200,7 +208,7 @@ namespace AliasClientDb.Migrations
                     b.Property<string>("Value")
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("Weight")
+                    b.Property<int>("ValueIndex")
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
@@ -209,7 +217,7 @@ namespace AliasClientDb.Migrations
 
                     b.HasIndex("ItemId");
 
-                    b.HasIndex("ItemId", "FieldDefinitionId", "Weight");
+                    b.HasIndex("ItemId", "FieldDefinitionId", "ValueIndex");
 
                     b.ToTable("FieldValues");
                 });
@@ -222,6 +230,9 @@ namespace AliasClientDb.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
@@ -236,9 +247,6 @@ namespace AliasClientDb.Migrations
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("TEXT");
-
-                    b.Property<int>("Weight")
-                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 

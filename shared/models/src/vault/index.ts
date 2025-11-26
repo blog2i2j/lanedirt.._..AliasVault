@@ -7,3 +7,4 @@ export * from './TotpCode';
 export * from './Credential';
 export * from './Attachment';
 export * from './Passkey';
+export * from './FieldKey';
