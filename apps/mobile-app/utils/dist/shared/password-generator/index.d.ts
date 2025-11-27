@@ -36,6 +36,20 @@ declare class PasswordGenerator {
     private readonly uppercaseChars;
     private readonly numberChars;
     private readonly specialChars;
+    /**
+     * Ambiguous characters that look similar and are easy to confuse when typing:
+     * - I, l, 1, | (pipe) - all look like vertical lines
+     * - O, 0, o - all look like circles
+     * - Z, 2 - similar appearance
+     * - S, 5 - similar appearance
+     * - B, 8 - similar appearance
+     * - G, 6 - similar appearance
+     * - Brackets, braces, parentheses: [], {}, ()
+     * - Quotes: ', ", `
+     * - Punctuation pairs: ;:, .,
+     * - Dashes: -, _
+     * - Angle brackets: <>
+     */
     private readonly ambiguousChars;
     private length;
     private useLowercase;
