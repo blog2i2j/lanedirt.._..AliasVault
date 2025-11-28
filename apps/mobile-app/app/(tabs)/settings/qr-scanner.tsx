@@ -1,8 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Href, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useCallback, useRef } from 'react';
-import { View, Alert, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform, Alert } from 'react-native';
 
 import { useColors } from '@/hooks/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -10,6 +8,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import LoadingIndicator from '@/components/LoadingIndicator';
 import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedText } from '@/components/themed/ThemedText';
+import NativeVaultManager from '@/specs/NativeVaultManager';
 
 // QR Code type prefixes
 const QR_CODE_PREFIXES = {
@@ -54,70 +53,72 @@ function parseQRCode(data: string): ScannedQRCode {
 export default function QRScannerScreen() : React.ReactNode {
   const colors = useColors();
   const { t } = useTranslation();
-  const [permission, requestPermission] = useCameraPermissions();
   const { url } = useLocalSearchParams<{ url?: string }>();
   const hasProcessedUrl = useRef(false);
   const processedUrls = useRef(new Set<string>());
-
-  // Request camera permission on mount
-  useEffect(() => {
-    /**
-     * Request camera permission.
-     */
-    const requestCameraPermission = async () : Promise<void> => {
-      if (!permission) {
-        return; // Still loading permission status
-      }
-
-      if (!permission.granted && permission.canAskAgain) {
-        // Request permission
-        await requestPermission();
-      } else if (!permission.granted && !permission.canAskAgain) {
-        // Permission was permanently denied
-        Alert.alert(
-          t('settings.qrScanner.cameraPermissionTitle'),
-          t('settings.qrScanner.cameraPermissionMessage'),
-          [{ text: t('common.ok'), /**
-           * Go back to the settings tab.
-           */
-            onPress: (): void => router.back() }]
-        );
-      }
-    };
-
-    requestCameraPermission();
-  }, [permission, requestPermission, t]);
+  const hasLaunchedScanner = useRef(false);
 
   /*
    * Handle barcode scanned - parse and navigate to appropriate page.
-   * Only processes AliasVault QR codes, silently ignores others.
+   * Native scanner already filters by prefix, so we only get AliasVault QR codes here.
    * Validation is handled by the destination page.
    */
-  const handleBarcodeScanned = useCallback(({ data }: { data: string }) : void => {
+  const handleQRCodeScanned = useCallback((data: string) : void => {
     // Prevent processing the same URL multiple times
     if (processedUrls.current.has(data)) {
-      return;
-    }
-
-    // Parse the QR code to determine its type
-    const parsedData = parseQRCode(data);
-
-    // Silently ignore non-AliasVault QR codes
-    if (!parsedData.type) {
       return;
     }
 
     // Mark this URL as processed
     processedUrls.current.add(data);
 
+    // Parse the QR code to determine its type
+    const parsedData = parseQRCode(data);
+
     /*
      * Navigate to the appropriate page based on QR code type
-     * Validation will be handled by the destination page
+     * Use push instead of replace to navigate while scanner is still dismissing
+     * This creates a smoother transition without returning to settings first
      */
     if (parsedData.type === 'MOBILE_UNLOCK') {
-      router.replace(`/(tabs)/settings/mobile-unlock/${parsedData.payload}` as Href);
+      router.push(`/(tabs)/settings/mobile-unlock/${parsedData.payload}` as Href);
     }
   }, []);
+
+  /**
+   * Launch the native QR scanner.
+   */
+  const launchScanner = useCallback(async () => {
+    if (hasLaunchedScanner.current) {
+      return;
+    }
+
+    hasLaunchedScanner.current = true;
+
+    try {
+      // Pass prefixes to native scanner for filtering and translated status text
+      const prefixes = Object.values(QR_CODE_PREFIXES);
+      const statusText = t('settings.qrScanner.scanningMessage');
+      const scannedData = await NativeVaultManager.scanQRCode(prefixes, statusText);
+
+      if (scannedData) {
+        handleQRCodeScanned(scannedData);
+      } else {
+        // User cancelled or scan failed, go back
+        router.back();
+      }
+    } catch (error) {
+      console.error('QR scan error:', error);
+      Alert.alert(
+        t('common.error'),
+        'Failed to scan QR code',
+        [{ text: t('common.ok'), /**
+         * Navigate back.
+         */
+          onPress: (): void => router.back() }]
+      );
+    }
+  }, [handleQRCodeScanned, t]);
 
   /**
    * Reset hasProcessedUrl when URL changes to allow processing new URLs.
@@ -132,44 +133,23 @@ export default function QRScannerScreen() : React.ReactNode {
   useEffect(() => {
     if (url && typeof url === 'string' && !hasProcessedUrl.current) {
       hasProcessedUrl.current = true;
-      handleBarcodeScanned({ data: url });
+      handleQRCodeScanned(url);
     }
-  }, [url, handleBarcodeScanned]);
+  }, [url, handleQRCodeScanned]);
+
+  /**
+   * Launch scanner when component mounts (Android/iOS only).
+   */
+  useEffect(() => {
+    if (Platform.OS === 'android' || Platform.OS === 'ios') {
+      launchScanner();
+    }
+  }, [launchScanner]);
 
   const styles = StyleSheet.create({
     container: {
       flex: 1,
       paddingHorizontal: 0,
-    },
-    camera: {
-      flex: 1,
-    },
-    cameraContainer: {
-      backgroundColor: colors.black,
-      flex: 1,
-    },
-    cameraOverlay: {
-      alignItems: 'center',
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      bottom: 0,
-      justifyContent: 'center',
-      left: 0,
-      position: 'absolute',
-      right: 0,
-      top: 0,
-    },
-    cameraOverlayText: {
-      color: colors.white,
-      fontSize: 16,
-      marginTop: 20,
-      paddingHorizontal: 40,
-      textAlign: 'center',
-    },
-    closeButton: {
-      position: 'absolute',
-      right: 16,
-      top: 16,
-      zIndex: 10,
     },
     loadingContainer: {
       alignItems: 'center',
@@ -179,35 +159,14 @@ export default function QRScannerScreen() : React.ReactNode {
     },
   });
 
-  // Show permission request screen
-  if (!permission || !permission.granted) {
-    return (
-      <ThemedContainer>
-        <View style={styles.loadingContainer}>
-          <LoadingIndicator />
-        </View>
-      </ThemedContainer>
-    );
-  }
-
+  // Show loading while scanner is launching
   return (
     <ThemedContainer style={styles.container}>
-      <View style={styles.cameraContainer}>
-        <CameraView
-          style={styles.camera}
-          facing="back"
-          barcodeScannerSettings={{
-            barcodeTypes: ['qr'],
-          }}
-          onBarcodeScanned={handleBarcodeScanned}
-        >
-          <View style={styles.cameraOverlay}>
-            <Ionicons name="qr-code-outline" size={100} color={colors.white} />
-            <ThemedText style={styles.cameraOverlayText}>
-              {t('settings.qrScanner.scanningMessage')}
-            </ThemedText>
-          </View>
-        </CameraView>
+      <View style={styles.loadingContainer}>
+        <LoadingIndicator />
+        <ThemedText style={{ marginTop: 20, color: colors.textMuted }}>
+          {t('settings.qrScanner.scanningMessage')}
+        </ThemedText>
       </View>
     </ThemedContainer>
   );

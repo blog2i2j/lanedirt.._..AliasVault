@@ -5,6 +5,7 @@ import VaultStoreKit
 import VaultModels
 import SwiftUI
 import VaultUI
+import AVFoundation
 
 /**
  * This class is used as a bridge to allow React Native to interact with the VaultStoreKit class.
@@ -910,6 +911,42 @@ public class VaultManager: NSObject {
             resolve(base64Encrypted)
         } catch {
             reject("ENCRYPTION_ERROR", "Failed to encrypt decryption key: \(error.localizedDescription)", error)
+        }
+    }
+
+    @objc
+    func scanQRCode(_ prefixes: [String]?,
+                    statusText: String?,
+                    resolver resolve: @escaping RCTPromiseResolveBlock,
+                    rejecter reject: @escaping RCTPromiseRejectBlock) {
+        DispatchQueue.main.async {
+            // Get the root view controller from React Native
+            guard let rootVC = RCTPresentedViewController() else {
+                reject("NO_VIEW_CONTROLLER", "No view controller available", nil)
+                return
+            }
+
+            // Create QR scanner view with optional prefix filtering and custom status text
+            let scannerView = QRScannerView(
+                prefixes: prefixes,
+                statusText: statusText,
+                onCodeScanned: { code in
+                    // Resolve immediately and dismiss without waiting (matches Android behavior)
+                    resolve(code)
+                    rootVC.dismiss(animated: true)
+                },
+                onCancel: {
+                    // Cancel resolves nil and dismisses
+                    resolve(nil)
+                    rootVC.dismiss(animated: true)
+                }
+            )
+
+            let hostingController = UIHostingController(rootView: scannerView)
+
+            // Present modally as full screen
+            hostingController.modalPresentationStyle = .fullScreen
+            rootVC.present(hostingController, animated: true)
         }
     }
 

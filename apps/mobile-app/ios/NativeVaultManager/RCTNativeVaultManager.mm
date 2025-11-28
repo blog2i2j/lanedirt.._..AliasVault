@@ -291,4 +291,10 @@
     [vaultManager authenticateUser:title subtitle:subtitle resolver:resolve rejecter:reject];
 }
 
+// MARK: - QR Code Scanner
+
+- (void)scanQRCode:(NSArray<NSString *> *)prefixes statusText:(NSString *)statusText resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager scanQRCode:prefixes statusText:statusText resolver:resolve rejecter:reject];
+}
+
 @end
