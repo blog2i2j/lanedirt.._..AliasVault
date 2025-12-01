@@ -624,6 +624,7 @@ public class StatisticsService
             .Where(al => al.Timestamp >= cutoffDate &&
                         al.IpAddress != null &&
                         al.IpAddress != "xxx.xxx.xxx.xxx" &&
+                        al.IsSuccess &&
                         al.EventType == AuthEventType.AccountDeletion)
             .GroupBy(al => al.IpAddress)
             .Select(g => new
@@ -656,6 +657,7 @@ public class StatisticsService
         var topUsernames = await context.AuthLogs
             .Where(al => al.Timestamp >= cutoffDate &&
                         al.Username != null &&
+                        al.IsSuccess &&
                         al.EventType == AuthEventType.AccountDeletion)
             .GroupBy(al => al.Username)
             .Select(g => new
