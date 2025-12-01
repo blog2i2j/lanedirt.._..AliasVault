@@ -116,8 +116,8 @@ public class StatisticsService
             GetTopUsersByEmails72hAsync().ContinueWith(t => stats.TopUsersByEmails72h = t.Result),
             GetTopIpsByRegistrations72hAsync().ContinueWith(t => stats.TopIpsByRegistrations72h = t.Result),
             GetTopIpsByMobileLogins72hAsync().ContinueWith(t => stats.TopIpsByMobileLogins72h = t.Result),
-            GetTopIpsByDeletions72hAsync().ContinueWith(t => stats.TopIpsByDeletions72h = t.Result),
-            GetTopUsernamesByDeletions72hAsync().ContinueWith(t => stats.TopUsernamesByDeletions72h = t.Result),
+            GetTopIpsByDeletions30dAsync().ContinueWith(t => stats.TopIpsByDeletions30d = t.Result),
+            GetTopUsernamesByDeletions30dAsync().ContinueWith(t => stats.TopUsernamesByDeletions30d = t.Result),
         };
 
         await Task.WhenAll(tasks);
@@ -611,13 +611,13 @@ public class StatisticsService
     }
 
     /// <summary>
-    /// Gets the top 100 IP addresses by number of account deletions in the last 72 hours.
+    /// Gets the top 100 IP addresses by number of account deletions in the last 30 days.
     /// </summary>
     /// <returns>List of top IP addresses by recent account deletions.</returns>
-    private async Task<List<RecentUsageDeletionsByIp>> GetTopIpsByDeletions72hAsync()
+    private async Task<List<RecentUsageDeletionsByIp>> GetTopIpsByDeletions30dAsync()
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        var cutoffDate = DateTime.UtcNow.AddHours(-72);
+        var cutoffDate = DateTime.UtcNow.AddDays(-30);
 
         // Get account deletions by IP from auth logs (using AccountDeletion event type)
         var topIps = await context.AuthLogs
@@ -629,9 +629,9 @@ public class StatisticsService
             .Select(g => new
             {
                 IpAddress = g.Key,
-                DeletionCount72h = g.Count(),
+                DeletionCount30d = g.Count(),
             })
-            .OrderByDescending(ip => ip.DeletionCount72h)
+            .OrderByDescending(ip => ip.DeletionCount30d)
             .Take(100)
             .ToListAsync();
 
@@ -639,18 +639,18 @@ public class StatisticsService
         {
             OriginalIpAddress = ip.IpAddress!,
             IpAddress = AnonymizeIpAddress(ip.IpAddress!),
-            DeletionCount72h = ip.DeletionCount72h,
+            DeletionCount30d = ip.DeletionCount30d,
         }).ToList();
     }
 
     /// <summary>
-    /// Gets the top 100 usernames by number of account deletions in the last 72 hours.
+    /// Gets the top 100 usernames by number of account deletions in the last 30 days.
     /// </summary>
     /// <returns>List of top usernames by recent account deletions.</returns>
-    private async Task<List<RecentUsageAccountDeletions>> GetTopUsernamesByDeletions72hAsync()
+    private async Task<List<RecentUsageAccountDeletions>> GetTopUsernamesByDeletions30dAsync()
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
-        var cutoffDate = DateTime.UtcNow.AddHours(-72);
+        var cutoffDate = DateTime.UtcNow.AddDays(-30);
 
         // Get account deletions by username from auth logs (using AccountDeletion event type)
         var topUsernames = await context.AuthLogs
@@ -661,17 +661,17 @@ public class StatisticsService
             .Select(g => new
             {
                 Username = g.Key,
-                DeletionCount72h = g.Count(),
+                DeletionCount30d = g.Count(),
                 LastDeletionDate = g.Max(al => al.Timestamp),
             })
-            .OrderByDescending(u => u.DeletionCount72h)
+            .OrderByDescending(u => u.DeletionCount30d)
             .Take(100)
             .ToListAsync();
 
         return topUsernames.Select(u => new RecentUsageAccountDeletions
         {
             Username = u.Username!,
-            DeletionCount72h = u.DeletionCount72h,
+            DeletionCount30d = u.DeletionCount30d,
             LastDeletionDate = u.LastDeletionDate,
         }).ToList();
     }

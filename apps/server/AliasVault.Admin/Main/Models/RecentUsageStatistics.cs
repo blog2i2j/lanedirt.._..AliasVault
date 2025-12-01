@@ -33,12 +33,12 @@ public class RecentUsageStatistics
     public List<RecentUsageMobileLogins> TopIpsByMobileLogins72h { get; set; } = new();
 
     /// <summary>
-    /// Gets or sets the list of IP addresses with most account deletions in the last 72 hours.
+    /// Gets or sets the list of IP addresses with most account deletions in the last 30 days.
     /// </summary>
-    public List<RecentUsageDeletionsByIp> TopIpsByDeletions72h { get; set; } = new();
+    public List<RecentUsageDeletionsByIp> TopIpsByDeletions30d { get; set; } = new();
 
     /// <summary>
-    /// Gets or sets the list of usernames with most account deletions in the last 72 hours.
+    /// Gets or sets the list of usernames with most account deletions in the last 30 days.
     /// </summary>
-    public List<RecentUsageAccountDeletions> TopUsernamesByDeletions72h { get; set; } = new();
+    public List<RecentUsageAccountDeletions> TopUsernamesByDeletions30d { get; set; } = new();
 }

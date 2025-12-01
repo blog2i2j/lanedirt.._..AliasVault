@@ -8,7 +8,7 @@
 namespace AliasVault.Admin.Main.Models;
 
 /// <summary>
-/// Model representing IP addresses with most account deletions in the last 72 hours.
+/// Model representing IP addresses with most account deletions in the last 30 days.
 /// </summary>
 public class RecentUsageDeletionsByIp
 {
@@ -23,7 +23,7 @@ public class RecentUsageDeletionsByIp
     public string IpAddress { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the number of account deletions from this IP in the last 72 hours.
+    /// Gets or sets the number of account deletions from this IP in the last 30 days.
     /// </summary>
-    public int DeletionCount72h { get; set; }
+    public int DeletionCount30d { get; set; }
 }

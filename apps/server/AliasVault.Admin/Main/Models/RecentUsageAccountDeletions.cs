@@ -8,7 +8,7 @@
 namespace AliasVault.Admin.Main.Models;
 
 /// <summary>
-/// Model representing usernames with most account deletions in the last 72 hours.
+/// Model representing usernames with most account deletions in the last 30 days.
 /// </summary>
 public class RecentUsageAccountDeletions
 {
@@ -18,9 +18,9 @@ public class RecentUsageAccountDeletions
     public string Username { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the number of account deletions for this username in the last 72 hours.
+    /// Gets or sets the number of account deletions for this username in the last 30 days.
     /// </summary>
-    public int DeletionCount72h { get; set; }
+    public int DeletionCount30d { get; set; }
 
     /// <summary>
     /// Gets or sets the date when the most recent account with this username was registered.

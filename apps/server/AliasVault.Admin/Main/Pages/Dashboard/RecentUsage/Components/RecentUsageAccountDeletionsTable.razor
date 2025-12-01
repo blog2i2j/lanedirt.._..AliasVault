@@ -4,8 +4,8 @@
 <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 sm:p-6 dark:bg-gray-800">
     <div class="flex items-center justify-between mb-4">
         <div>
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Top Usernames by Account Deletions (Last 72h)</h3>
-            <p class="text-sm text-gray-500 dark:text-gray-400">Usernames with the most account deletion events in the last 72 hours</p>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Top Usernames by Account Deletions (Last 30d)</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Usernames with the most account deletion events in the last 30 days</p>
         </div>
     </div>
 
@@ -24,7 +24,7 @@
                                 @deletion.Username
                             </a>
                         </SortableTableColumn>
-                        <SortableTableColumn>@deletion.DeletionCount72h.ToString("N0")</SortableTableColumn>
+                        <SortableTableColumn>@deletion.DeletionCount30d.ToString("N0")</SortableTableColumn>
                         <SortableTableColumn>
                             @if (deletion.LastDeletionDate.HasValue)
                             {
@@ -47,7 +47,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
             <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No Recent Account Deletions</h3>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">No account deletions occurred in the last 72 hours.</p>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">No account deletions occurred in the last 30 days.</p>
         </div>
     }
     else
@@ -71,7 +71,7 @@
     private readonly List<TableColumn> _tableColumns = new()
     {
         new() { Title = "Username", PropertyName = "Username", Sortable = false },
-        new() { Title = "Deletions (72h)", PropertyName = "DeletionCount72h", Sortable = false },
+        new() { Title = "Deletions (30d)", PropertyName = "DeletionCount30d", Sortable = false },
         new() { Title = "Last Deletion", PropertyName = "LastDeletionDate", Sortable = false }
     };
 
