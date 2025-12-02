@@ -75,7 +75,7 @@ show_usage() {
     printf "  --verbose                Show detailed output\n"
     printf "  -y, --yes                Automatic yes to prompts\n"
     printf "  --dev                    Target development database for db import/export operations\n"
-    printf "  --parallel=N             Use pigz with N threads for faster compression (default: off, max: 32)\n"
+    printf "  --parallel=N             Use pigz with N threads for faster compression (db-export only, max: 32)\n"
     printf "\n"
 }
 
@@ -2830,24 +2830,16 @@ handle_db_export() {
         printf "\n" >&2
         printf "Options:\n" >&2
         printf "  --dev                Export from development database\n" >&2
-        printf "  --parallel=N         Use pigz with N threads for parallel compression (max: 32)\n" >&2
+        printf "  --parallel=N         Use pigz with N threads for faster compression (max: 32)\n" >&2
         printf "\n" >&2
-        printf "Compression:\n" >&2
-        printf "  Default (no --parallel)  Uses standard gzip (slowest, lowest CPU usage)\n" >&2
-        printf "  --parallel=X             Uses pigz with X threads (~2x faster, good for production)\n" >&2
+        printf "Examples:\n" >&2
+        printf "  ./install.sh db-export > backup.sql.gz              # Standard compression\n" >&2
+        printf "  ./install.sh db-export --parallel=4 > backup.sql.gz # Parallel compression\n" >&2
         printf "\n" >&2
-        printf "Note: Parallel compression runs at lowest priority (nice/ionice) to minimize\n" >&2
-        printf "      impact on production.\n" >&2
+        printf "Note: Parallel compression runs at lowest priority to minimize system impact.\n" >&2
         printf "\n" >&2
         exit 1
     fi
-
-    # Create temporary file for export
-    temp_export_file=$(mktemp)
-    trap 'rm -f "$temp_export_file"' EXIT INT TERM
-
-    # Start timing
-    export_start_time=$(date +%s)
 
     # Determine docker compose command based on dev/prod
     if [ "$DEV_DB" = true ]; then
@@ -2881,63 +2873,25 @@ handle_db_export() {
         DB_TYPE="production"
     fi
 
-    # Execute export based on parallel setting
+    # Stream export directly to stdout (no temp files)
+
     if [ "$PARALLEL_JOBS" -gt 0 ]; then
-        printf "${CYAN}> Exporting ${DB_TYPE} database (with ${PARALLEL_JOBS}-thread parallel compression)...${NC}\n" >&2
         # Use pigz for parallel compression
+        # Use nice (lowest CPU priority) and ionice (lowest I/O priority) to minimize impact
+        printf "${CYAN}> Exporting ${DB_TYPE} database with parallel=${PARALLEL_JOBS} compression...${NC}\n" >&2
         $DOCKER_CMD bash -c "
-            # Install pigz if not available (for parallel gzip)
-            if ! command -v pigz >/dev/null 2>&1; then
-                if command -v apk >/dev/null 2>&1; then
-                    apk add --no-cache pigz >/dev/null 2>&1 || true
-                elif command -v apt-get >/dev/null 2>&1; then
-                    apt-get update >/dev/null 2>&1 && apt-get install -y pigz >/dev/null 2>&1 || true
-                fi
-            fi
-
-            # Dump with pigz parallel compression (or fallback to gzip -1 if pigz install failed)
-            # Use nice (lowest CPU priority) and ionice (lowest I/O priority) to minimize impact
-            if command -v pigz >/dev/null 2>&1; then
-                ionice -c 3 nice -n 19 pg_dump -U aliasvault aliasvault | ionice -c 3 nice -n 19 pigz -1 -p ${PARALLEL_JOBS} 2>/dev/null || \
-                nice -n 19 pg_dump -U aliasvault aliasvault | nice -n 19 pigz -1 -p ${PARALLEL_JOBS}
-            else
-                ionice -c 3 nice -n 19 pg_dump -U aliasvault aliasvault | ionice -c 3 nice -n 19 gzip -1 2>/dev/null || \
-                nice -n 19 pg_dump -U aliasvault aliasvault | nice -n 19 gzip -1
-            fi
-        " > "$temp_export_file" 2>/dev/null
-        export_status=$?
+            ionice -c 3 nice -n 19 pg_dump -U aliasvault aliasvault | ionice -c 3 nice -n 19 pigz -1 -p ${PARALLEL_JOBS} 2>/dev/null || \
+            nice -n 19 pg_dump -U aliasvault aliasvault | nice -n 19 pigz -1 -p ${PARALLEL_JOBS}
+        " 2>/dev/null
     else
-        # Default: standard gzip (backwards compatible)
-        printf "${CYAN}> Exporting ${DB_TYPE} database (standard compression)...${NC}\n" >&2
-        $DOCKER_CMD nice -n 19 pg_dump -U aliasvault aliasvault | gzip -1 > "$temp_export_file"
-        export_status=$?
+        # Standard gzip
+        printf "${CYAN}> Exporting ${DB_TYPE} database...${NC}\n" >&2
+        $DOCKER_CMD nice -n 19 pg_dump -U aliasvault aliasvault | gzip -1
     fi
-
-    # End timing
-    export_end_time=$(date +%s)
-    export_duration=$((export_end_time - export_start_time))
-
-    # Get filesize
-    if [ -f "$temp_export_file" ]; then
-        export_filesize=$(wc -c < "$temp_export_file")
-        export_filesize_mb=$(awk "BEGIN {printf \"%.2f\", $export_filesize/1024/1024}")
-    fi
+    export_status=$?
 
     if [ $export_status -eq 0 ]; then
-        # Output the file to stdout
-        cat "$temp_export_file"
-
         printf "${GREEN}> Database exported successfully.${NC}\n" >&2
-        printf "${CYAN}> Export format: SQL (.sql.gz)${NC}\n" >&2
-        if [ "$PARALLEL_JOBS" -gt 0 ]; then
-            printf "${CYAN}> Compression: pigz with ${PARALLEL_JOBS} threads${NC}\n" >&2
-        else
-            printf "${CYAN}> Compression: gzip (standard)${NC}\n" >&2
-        fi
-        printf "${CYAN}> Export duration: ${export_duration}s${NC}\n" >&2
-        if [ -n "$export_filesize_mb" ]; then
-            printf "${CYAN}> Export filesize: ${export_filesize_mb} MB (compressed)${NC}\n" >&2
-        fi
     else
         printf "${RED}> Failed to export database.${NC}\n" >&2
         exit 1
@@ -2946,6 +2900,10 @@ handle_db_export() {
 
 # Function to handle database import
 handle_db_import() {
+    # Save stdin to file descriptor 3 AS THE VERY FIRST THING
+    # This MUST be first to prevent bash/docker/any command from consuming stdin bytes
+    exec 3<&0
+
     printf "${YELLOW}+++ Importing Database +++${NC}\n"
 
     # Check if containers are running
@@ -2961,22 +2919,22 @@ handle_db_import() {
         fi
     fi
 
-    # Check if we're getting input from a pipe
-    if [ -t 0 ]; then
-        printf "Usage: ./install.sh db-import [--dev] < backup_file\n"
+    # Check if we're getting input from a pipe (check fd 3 instead of stdin now)
+    if [ -t 3 ]; then
+        printf "Usage: ./install.sh db-import [OPTIONS] < backup_file\n"
         printf "\n"
         printf "Options:\n"
-        printf "  --dev    Import to development database\n"
+        printf "  --dev      Import to development database\n"
         printf "\n"
         printf "Examples:\n"
-        printf "  ./install.sh db-import < backup.sql.gz         # Import gzipped SQL (standard)\n"
-        printf "  ./install.sh db-import < backup.sql            # Import plain SQL\n"
-        printf "  ./install.sh db-import --dev < backup.sql.gz   # Import to dev database\n"
+        printf "  ./install.sh db-import < backup.sql.gz              # Import gzipped SQL\n"
+        printf "  ./install.sh db-import < backup.sql                 # Import plain SQL\n"
+        printf "  ./install.sh db-import --dev < backup.sql.gz        # Import to dev database\n"
+        printf "\n"
+        printf "Note: Import uses a temp file for format detection. For large imports,\n"
+        printf "      ensure you have enough disk space (backup size + decompressed size).\n"
         exit 1
     fi
-
-    # Save stdin to file descriptor 3
-    exec 3<&0
 
     printf "${RED}Warning: This will DELETE ALL EXISTING DATA in the "
     if [ "$DEV_DB" = true ]; then
@@ -3020,6 +2978,13 @@ handle_db_import() {
     fi
     printf "database...${NC}\n"
 
+    # Determine docker compose command based on dev/prod
+    if [ "$DEV_DB" = true ]; then
+        DOCKER_CMD="docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev"
+    else
+        DOCKER_CMD="docker compose exec -T postgres"
+    fi
+
     # Create a temporary file to store the input
     temp_file=$(mktemp)
     # Set up trap to ensure temp file cleanup on exit
@@ -3054,45 +3019,23 @@ handle_db_import() {
     # Start timing
     import_start_time=$(date +%s)
 
-    if [ "$DEV_DB" = true ]; then
-        if [ "$VERBOSE" = true ]; then
-            docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev psql -U aliasvault postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'aliasvault' AND pid <> pg_backend_pid();" && \
-            docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev psql -U aliasvault postgres -c "DROP DATABASE IF EXISTS aliasvault;" && \
-            docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev psql -U aliasvault postgres -c "CREATE DATABASE aliasvault OWNER aliasvault;" && \
-            if [ "$is_gzipped" = true ]; then
-                gunzip -c "$temp_file" | docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev psql -U aliasvault aliasvault
-            else
-                cat "$temp_file" | docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev psql -U aliasvault aliasvault
-            fi
+    if [ "$VERBOSE" = true ]; then
+        $DOCKER_CMD psql -U aliasvault postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'aliasvault' AND pid <> pg_backend_pid();" && \
+        $DOCKER_CMD psql -U aliasvault postgres -c "DROP DATABASE IF EXISTS aliasvault;" && \
+        $DOCKER_CMD psql -U aliasvault postgres -c "CREATE DATABASE aliasvault OWNER aliasvault;" && \
+        if [ "$is_gzipped" = true ]; then
+            gunzip -c "$temp_file" | $DOCKER_CMD psql -U aliasvault aliasvault
         else
-            docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev psql -U aliasvault postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'aliasvault' AND pid <> pg_backend_pid();" > /dev/null 2>&1 && \
-            docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev psql -U aliasvault postgres -c "DROP DATABASE IF EXISTS aliasvault;" > /dev/null 2>&1 && \
-            docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev psql -U aliasvault postgres -c "CREATE DATABASE aliasvault OWNER aliasvault;" > /dev/null 2>&1 && \
-            if [ "$is_gzipped" = true ]; then
-                gunzip -c "$temp_file" | docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev psql -U aliasvault aliasvault > /dev/null 2>&1
-            else
-                cat "$temp_file" | docker compose -f dockerfiles/docker-compose.dev.yml -p aliasvault-dev exec -T postgres-dev psql -U aliasvault aliasvault > /dev/null 2>&1
-            fi
+            cat "$temp_file" | $DOCKER_CMD psql -U aliasvault aliasvault
         fi
     else
-        if [ "$VERBOSE" = true ]; then
-            docker compose exec -T postgres psql -U aliasvault postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'aliasvault' AND pid <> pg_backend_pid();" && \
-            docker compose exec -T postgres psql -U aliasvault postgres -c "DROP DATABASE IF EXISTS aliasvault;" && \
-            docker compose exec -T postgres psql -U aliasvault postgres -c "CREATE DATABASE aliasvault OWNER aliasvault;" && \
-            if [ "$is_gzipped" = true ]; then
-                gunzip -c "$temp_file" | docker compose exec -T postgres psql -U aliasvault aliasvault
-            else
-                cat "$temp_file" | docker compose exec -T postgres psql -U aliasvault aliasvault
-            fi
+        $DOCKER_CMD psql -U aliasvault postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'aliasvault' AND pid <> pg_backend_pid();" > /dev/null 2>&1 && \
+        $DOCKER_CMD psql -U aliasvault postgres -c "DROP DATABASE IF EXISTS aliasvault;" > /dev/null 2>&1 && \
+        $DOCKER_CMD psql -U aliasvault postgres -c "CREATE DATABASE aliasvault OWNER aliasvault;" > /dev/null 2>&1 && \
+        if [ "$is_gzipped" = true ]; then
+            gunzip -c "$temp_file" | $DOCKER_CMD psql -U aliasvault aliasvault > /dev/null 2>&1
         else
-            docker compose exec -T postgres psql -U aliasvault postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'aliasvault' AND pid <> pg_backend_pid();" > /dev/null 2>&1 && \
-            docker compose exec -T postgres psql -U aliasvault postgres -c "DROP DATABASE IF EXISTS aliasvault;" > /dev/null 2>&1 && \
-            docker compose exec -T postgres psql -U aliasvault postgres -c "CREATE DATABASE aliasvault OWNER aliasvault;" > /dev/null 2>&1 && \
-            if [ "$is_gzipped" = true ]; then
-                gunzip -c "$temp_file" | docker compose exec -T postgres psql -U aliasvault aliasvault > /dev/null 2>&1
-            else
-                cat "$temp_file" | docker compose exec -T postgres psql -U aliasvault aliasvault > /dev/null 2>&1
-            fi
+            cat "$temp_file" | $DOCKER_CMD psql -U aliasvault aliasvault > /dev/null 2>&1
         fi
     fi
 
