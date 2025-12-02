@@ -77,4 +77,9 @@ public class Item : SyncableEntity
     /// Gets or sets the passkey objects.
     /// </summary>
     public virtual ICollection<Passkey> Passkeys { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets the item-tag relationships.
+    /// </summary>
+    public virtual ICollection<ItemTag> ItemTags { get; set; } = [];
 }

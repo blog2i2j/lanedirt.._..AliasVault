@@ -100,6 +100,16 @@ public class AliasClientDbContext : DbContext
     public DbSet<FieldHistory> FieldHistories { get; set; }
 
     /// <summary>
+    /// Gets or sets the Tags DbSet.
+    /// </summary>
+    public DbSet<Tag> Tags { get; set; }
+
+    /// <summary>
+    /// Gets or sets the ItemTags DbSet.
+    /// </summary>
+    public DbSet<ItemTag> ItemTags { get; set; }
+
+    /// <summary>
     /// The OnModelCreating method.
     /// </summary>
     /// <param name="modelBuilder">ModelBuilder instance.</param>
@@ -219,6 +229,36 @@ public class AliasClientDbContext : DbContext
         // Configure indexes for Folder
         modelBuilder.Entity<Folder>()
             .HasIndex(f => f.ParentFolderId);
+
+        // Configure ItemTag - Item relationship
+        modelBuilder.Entity<ItemTag>()
+            .HasOne(it => it.Item)
+            .WithMany(i => i.ItemTags)
+            .HasForeignKey(it => it.ItemId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Configure ItemTag - Tag relationship
+        modelBuilder.Entity<ItemTag>()
+            .HasOne(it => it.Tag)
+            .WithMany(t => t.ItemTags)
+            .HasForeignKey(it => it.TagId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Configure indexes for Tag
+        modelBuilder.Entity<Tag>()
+            .HasIndex(t => t.Name);
+
+        // Configure indexes for ItemTag
+        modelBuilder.Entity<ItemTag>()
+            .HasIndex(it => it.ItemId);
+
+        modelBuilder.Entity<ItemTag>()
+            .HasIndex(it => it.TagId);
+
+        // Configure unique index for ItemTag to prevent duplicate tag assignments
+        modelBuilder.Entity<ItemTag>()
+            .HasIndex(it => new { it.ItemId, it.TagId })
+            .IsUnique();
     }
 
     /// <summary>

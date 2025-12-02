@@ -302,4 +302,23 @@ declare const FieldKey: {
  */
 type FieldKeyValue = typeof FieldKey[keyof typeof FieldKey];
 
-export { type Alias, type Attachment, type Credential, type EncryptionKey, FieldKey, type FieldKeyValue, type Passkey, type PasswordSettings, type TotpCode };
+type Tag = {
+    Id: string;
+    Name: string;
+    Color?: string;
+    DisplayOrder: number;
+    CreatedAt: string;
+    UpdatedAt: string;
+    IsDeleted: number;
+};
+
+type ItemTag = {
+    Id: string;
+    ItemId: string;
+    TagId: string;
+    CreatedAt: string;
+    UpdatedAt: string;
+    IsDeleted: number;
+};
+
+export { type Alias, type Attachment, type Credential, type EncryptionKey, FieldKey, type FieldKeyValue, type ItemTag, type Passkey, type PasswordSettings, type Tag, type TotpCode };

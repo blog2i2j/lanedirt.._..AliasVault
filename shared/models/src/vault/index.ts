@@ -8,3 +8,5 @@ export * from './Credential';
 export * from './Attachment';
 export * from './Passkey';
 export * from './FieldKey';
+export * from './Tag';
+export * from './ItemTag';

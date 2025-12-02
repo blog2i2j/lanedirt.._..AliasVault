@@ -3,6 +3,7 @@ using System;
 using AliasClientDb;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AliasClientDb.Migrations
 {
     [DbContext(typeof(AliasClientDbContext))]
-    partial class AliasClientDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251202211204_1.7.2-AddTagTables")]
+    partial class _172AddTagTables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

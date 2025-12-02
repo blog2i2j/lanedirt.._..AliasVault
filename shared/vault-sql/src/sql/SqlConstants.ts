@@ -810,7 +810,7 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
                   (lower(hex(randomblob(16))), 'alias.nickname', 'Item', 'Text', 'Nickname', 0, 'Visible', 0, 0, '["Login"]', datetime('now'), datetime('now'), 0),
                   (lower(hex(randomblob(16))), 'alias.gender', 'Item', 'Text', 'Gender', 0, 'Visible', 0, 0, '["Login"]', datetime('now'), datetime('now'), 0),
                   (lower(hex(randomblob(16))), 'alias.birthdate', 'Item', 'Date', 'Birth Date', 0, 'Visible', 0, 0, '["Login"]', datetime('now'), datetime('now'), 0);
-
+            
 
 
                 INSERT INTO Items (Id, Name, ItemType, LogoId, FolderId, CreatedAt, UpdatedAt, IsDeleted)
@@ -825,7 +825,7 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
                   c.IsDeleted
                 FROM Credentials c
                 LEFT JOIN Services s ON s.Id = c.ServiceId;
-
+            
 
 
                 INSERT INTO Logos (Id, Source, FileData, MimeType, FetchedAt, CreatedAt, UpdatedAt, IsDeleted)
@@ -841,7 +841,7 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
                 FROM Services s
                 WHERE s.Logo IS NOT NULL AND s.Url IS NOT NULL AND s.Url != ''
                 GROUP BY s.Url;
-
+            
 
 
                 UPDATE Items
@@ -857,7 +857,7 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
                   INNER JOIN Services s ON s.Id = c.ServiceId
                   WHERE c.Id = Items.Id AND s.Logo IS NOT NULL
                 );
-
+            
 
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
@@ -873,7 +873,7 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
                 FROM Credentials c
                 INNER JOIN Services s ON s.Id = c.ServiceId
                 WHERE s.Url IS NOT NULL AND s.Url != '';
-
+            
 
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
@@ -888,7 +888,7 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
                   0 AS IsDeleted
                 FROM Credentials c
                 WHERE c.Username IS NOT NULL AND c.Username != '';
-
+            
 
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
@@ -903,7 +903,7 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
                   0 AS IsDeleted
                 FROM Credentials c
                 WHERE c.Notes IS NOT NULL AND c.Notes != '';
-
+            
 
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
@@ -922,7 +922,7 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
                   FROM Passwords
                   GROUP BY CredentialId
                 ) pm ON p.CredentialId = pm.CredentialId AND p.UpdatedAt = pm.MaxUpdated;
-
+            
 
 
                 INSERT INTO FieldHistories (Id, ItemId, FieldDefinitionId, ValueSnapshot, ChangedAt, CreatedAt, UpdatedAt, IsDeleted)
@@ -944,7 +944,7 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
                     GROUP BY CredentialId
                   ) pm ON p2.CredentialId = pm.CredentialId AND p2.UpdatedAt = pm.MaxUpdated
                 );
-
+            
 
 
                 -- Migrate Alias.Email
@@ -1036,7 +1036,7 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
                 FROM Credentials c
                 INNER JOIN Aliases a ON a.Id = c.AliasId
                 WHERE a.BirthDate IS NOT NULL AND a.BirthDate != '' AND a.BirthDate != '0001-01-01 00:00:00.000';
-
+            
 
 DROP TABLE "Passwords";
 
@@ -1183,6 +1183,41 @@ COMMIT;
 
 INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
 VALUES ('20251126221717_1.7.1-RenameColumns', '9.0.4');
+
+BEGIN TRANSACTION;
+CREATE TABLE "Tags" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_Tags" PRIMARY KEY,
+    "Name" TEXT NOT NULL,
+    "Color" TEXT NULL,
+    "DisplayOrder" INTEGER NOT NULL,
+    "CreatedAt" TEXT NOT NULL,
+    "UpdatedAt" TEXT NOT NULL,
+    "IsDeleted" INTEGER NOT NULL
+);
+
+CREATE TABLE "ItemTags" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_ItemTags" PRIMARY KEY,
+    "ItemId" TEXT NOT NULL,
+    "TagId" TEXT NOT NULL,
+    "CreatedAt" TEXT NOT NULL,
+    "UpdatedAt" TEXT NOT NULL,
+    "IsDeleted" INTEGER NOT NULL,
+    CONSTRAINT "FK_ItemTags_Items_ItemId" FOREIGN KEY ("ItemId") REFERENCES "Items" ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_ItemTags_Tags_TagId" FOREIGN KEY ("TagId") REFERENCES "Tags" ("Id") ON DELETE CASCADE
+);
+
+CREATE INDEX "IX_ItemTags_ItemId" ON "ItemTags" ("ItemId");
+
+CREATE UNIQUE INDEX "IX_ItemTags_ItemId_TagId" ON "ItemTags" ("ItemId", "TagId");
+
+CREATE INDEX "IX_ItemTags_TagId" ON "ItemTags" ("TagId");
+
+CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
+
+INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+VALUES ('20251202211204_1.7.2-AddTagTables', '9.0.4');
+
+COMMIT;
 `;
 /**
  * Individual migration SQL scripts
@@ -1929,7 +1964,7 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
                   (lower(hex(randomblob(16))), 'alias.nickname', 'Item', 'Text', 'Nickname', 0, 'Visible', 0, 0, '["Login"]', datetime('now'), datetime('now'), 0),
                   (lower(hex(randomblob(16))), 'alias.gender', 'Item', 'Text', 'Gender', 0, 'Visible', 0, 0, '["Login"]', datetime('now'), datetime('now'), 0),
                   (lower(hex(randomblob(16))), 'alias.birthdate', 'Item', 'Date', 'Birth Date', 0, 'Visible', 0, 0, '["Login"]', datetime('now'), datetime('now'), 0);
-
+            
 
 
                 INSERT INTO Items (Id, Name, ItemType, LogoId, FolderId, CreatedAt, UpdatedAt, IsDeleted)
@@ -1944,7 +1979,7 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
                   c.IsDeleted
                 FROM Credentials c
                 LEFT JOIN Services s ON s.Id = c.ServiceId;
-
+            
 
 
                 INSERT INTO Logos (Id, Source, FileData, MimeType, FetchedAt, CreatedAt, UpdatedAt, IsDeleted)
@@ -1960,7 +1995,7 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
                 FROM Services s
                 WHERE s.Logo IS NOT NULL AND s.Url IS NOT NULL AND s.Url != ''
                 GROUP BY s.Url;
-
+            
 
 
                 UPDATE Items
@@ -1976,7 +2011,7 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
                   INNER JOIN Services s ON s.Id = c.ServiceId
                   WHERE c.Id = Items.Id AND s.Logo IS NOT NULL
                 );
-
+            
 
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
@@ -1992,7 +2027,7 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
                 FROM Credentials c
                 INNER JOIN Services s ON s.Id = c.ServiceId
                 WHERE s.Url IS NOT NULL AND s.Url != '';
-
+            
 
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
@@ -2007,7 +2042,7 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
                   0 AS IsDeleted
                 FROM Credentials c
                 WHERE c.Username IS NOT NULL AND c.Username != '';
-
+            
 
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
@@ -2022,7 +2057,7 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
                   0 AS IsDeleted
                 FROM Credentials c
                 WHERE c.Notes IS NOT NULL AND c.Notes != '';
-
+            
 
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
@@ -2041,7 +2076,7 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
                   FROM Passwords
                   GROUP BY CredentialId
                 ) pm ON p.CredentialId = pm.CredentialId AND p.UpdatedAt = pm.MaxUpdated;
-
+            
 
 
                 INSERT INTO FieldHistories (Id, ItemId, FieldDefinitionId, ValueSnapshot, ChangedAt, CreatedAt, UpdatedAt, IsDeleted)
@@ -2063,7 +2098,7 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
                     GROUP BY CredentialId
                   ) pm ON p2.CredentialId = pm.CredentialId AND p2.UpdatedAt = pm.MaxUpdated
                 );
-
+            
 
 
                 -- Migrate Alias.Email
@@ -2155,7 +2190,7 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
                 FROM Credentials c
                 INNER JOIN Aliases a ON a.Id = c.AliasId
                 WHERE a.BirthDate IS NOT NULL AND a.BirthDate != '' AND a.BirthDate != '0001-01-01 00:00:00.000';
-
+            
 
 DROP TABLE "Passwords";
 
@@ -2301,4 +2336,38 @@ COMMIT;
 
 INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
 VALUES ('20251126221717_1.7.1-RenameColumns', '9.0.4');`,
+  13: `﻿BEGIN TRANSACTION;
+CREATE TABLE "Tags" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_Tags" PRIMARY KEY,
+    "Name" TEXT NOT NULL,
+    "Color" TEXT NULL,
+    "DisplayOrder" INTEGER NOT NULL,
+    "CreatedAt" TEXT NOT NULL,
+    "UpdatedAt" TEXT NOT NULL,
+    "IsDeleted" INTEGER NOT NULL
+);
+
+CREATE TABLE "ItemTags" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_ItemTags" PRIMARY KEY,
+    "ItemId" TEXT NOT NULL,
+    "TagId" TEXT NOT NULL,
+    "CreatedAt" TEXT NOT NULL,
+    "UpdatedAt" TEXT NOT NULL,
+    "IsDeleted" INTEGER NOT NULL,
+    CONSTRAINT "FK_ItemTags_Items_ItemId" FOREIGN KEY ("ItemId") REFERENCES "Items" ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_ItemTags_Tags_TagId" FOREIGN KEY ("TagId") REFERENCES "Tags" ("Id") ON DELETE CASCADE
+);
+
+CREATE INDEX "IX_ItemTags_ItemId" ON "ItemTags" ("ItemId");
+
+CREATE UNIQUE INDEX "IX_ItemTags_ItemId_TagId" ON "ItemTags" ("ItemId", "TagId");
+
+CREATE INDEX "IX_ItemTags_TagId" ON "ItemTags" ("TagId");
+
+CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
+
+INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+VALUES ('20251202211204_1.7.2-AddTagTables', '9.0.4');
+
+COMMIT;`,
 };
