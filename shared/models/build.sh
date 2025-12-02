@@ -16,6 +16,10 @@ package_path="."
 echo "📦 Building $package_name..."
 npm install && npm run lint && npm run build
 
+echo ""
+echo "🔄 Generating platform-specific models (C#, Swift, Kotlin)..."
+node scripts/generate-field-keys.cjs
+
 dist_path="dist"
 files_to_copy=("webapi" "vault" "metadata")
 
