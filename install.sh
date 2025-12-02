@@ -2875,6 +2875,9 @@ handle_db_export() {
 
     # Stream export directly to stdout (no temp files)
 
+    # Start timing
+    export_start_time=$(date +%s)
+
     if [ "$PARALLEL_JOBS" -gt 0 ]; then
         # Use pigz for parallel compression
         # Use nice (lowest CPU priority) and ionice (lowest I/O priority) to minimize impact
@@ -2890,8 +2893,13 @@ handle_db_export() {
     fi
     export_status=$?
 
+    # End timing
+    export_end_time=$(date +%s)
+    export_duration=$((export_end_time - export_start_time))
+
     if [ $export_status -eq 0 ]; then
         printf "${GREEN}> Database exported successfully.${NC}\n" >&2
+        printf "${CYAN}> Export duration: ${export_duration}s${NC}\n" >&2
     else
         printf "${RED}> Failed to export database.${NC}\n" >&2
         exit 1
