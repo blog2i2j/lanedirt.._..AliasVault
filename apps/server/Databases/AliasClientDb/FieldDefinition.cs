@@ -28,7 +28,6 @@ public class FieldDefinition : SyncableEntity
     /// - login.username, login.password, login.notes, login.url
     /// - card.number, card.cardholder_name, card.cvv
     /// - identity.first_name, identity.email, identity.phone_numbers
-    /// - apikey.key, apikey.type
     /// - alias.email, alias.first_name (legacy)
     /// Custom fields have FieldKey = NULL and are identified by their GUID and Label.
     /// </summary>
@@ -70,7 +69,7 @@ public class FieldDefinition : SyncableEntity
     public int Weight { get; set; } = 0;
 
     /// <summary>
-    /// Gets or sets the applicable item types as JSON array (e.g., '["Login","ApiKey"]').
+    /// Gets or sets the applicable item types as JSON array (e.g., '["Login","Identity"]').
     /// Null means applicable to all types.
     /// </summary>
     public string? ApplicableToTypes { get; set; }

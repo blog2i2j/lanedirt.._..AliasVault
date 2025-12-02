@@ -4,9 +4,6 @@
 
 // src/vault/FieldKey.ts
 var FieldKey = {
-  // ============================================================
-  // Login Fields
-  // ============================================================
   /**
    * Login username field
    * Type: Text
@@ -32,9 +29,6 @@ var FieldKey = {
    * Type: Text
    */
   LoginRecoveryCodes: "login.recovery_codes",
-  // ============================================================
-  // Credit Card Fields
-  // ============================================================
   /**
    * Credit card number field
    * Type: Text
@@ -65,9 +59,6 @@ var FieldKey = {
    * Type: Password
    */
   CardPin: "card.pin",
-  // ============================================================
-  // Identity Fields
-  // ============================================================
   /**
    * Identity title field (e.g., Mr., Mrs., Dr.)
    * Type: Text
@@ -128,22 +119,6 @@ var FieldKey = {
    * Type: Text
    */
   IdentityCountry: "identity.country",
-  // ============================================================
-  // API Key Fields
-  // ============================================================
-  /**
-   * API key value field
-   * Type: Password
-   */
-  ApiKeyKey: "apikey.key",
-  /**
-   * API key type/provider field (e.g., "OpenAI", "Stripe")
-   * Type: Text
-   */
-  ApiKeyType: "apikey.type",
-  // ============================================================
-  // Alias Fields (Legacy - from old Alias table)
-  // ============================================================
   /**
    * Alias email field
    * Type: Email

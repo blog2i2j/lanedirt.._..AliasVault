@@ -267,16 +267,6 @@ declare const FieldKey: {
      */
     readonly IdentityCountry: "identity.country";
     /**
-     * API key value field
-     * Type: Password
-     */
-    readonly ApiKeyKey: "apikey.key";
-    /**
-     * API key type/provider field (e.g., "OpenAI", "Stripe")
-     * Type: Text
-     */
-    readonly ApiKeyType: "apikey.type";
-    /**
      * Alias email field
      * Type: Email
      */

@@ -293,7 +293,7 @@ namespace AliasClientDb.Migrations
                   (lower(hex(randomblob(16))), 'login.username', 'Item', 'Text', 'Username', 0, 'Visible', 1, 0, '[""Login""]', datetime('now'), datetime('now'), 0),
                   (lower(hex(randomblob(16))), 'login.password', 'Item', 'Password', 'Password', 0, 'Hidden', 1, 0, '[""Login""]', datetime('now'), datetime('now'), 0),
                   (lower(hex(randomblob(16))), 'login.notes', 'Item', 'Text', 'Notes', 0, 'Collapsed', 0, 0, NULL, datetime('now'), datetime('now'), 0),
-                  (lower(hex(randomblob(16))), 'login.url', 'Item', 'URL', 'Website URLs', 1, 'Visible', 0, 0, '[""Login"",""ApiKey""]', datetime('now'), datetime('now'), 0);
+                  (lower(hex(randomblob(16))), 'login.url', 'Item', 'URL', 'Website URLs', 1, 'Visible', 0, 0, '[""Login""]', datetime('now'), datetime('now'), 0);
 
                 -- Alias fields
                 INSERT INTO FieldDefinitions (Id, FieldKey, EntityType, FieldType, Label, IsMultiValue, DefaultVisibility, EnableHistory, DisplayOrder, ApplicableToTypes, CreatedAt, UpdatedAt, IsDeleted)
