@@ -72,7 +72,7 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
     FieldType: 'TextArea',
     IsHidden: false,
     IsMultiValue: false,
-    ApplicableToTypes: ['Login', 'CreditCard', 'Identity', 'SecureNote', 'ApiKey'],
+    ApplicableToTypes: ['Login', 'CreditCard', 'Identity', 'Note'],
     EnableHistory: false,
     Category: 'Login',
     DefaultDisplayOrder: 100

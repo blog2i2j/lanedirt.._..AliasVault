@@ -397,4 +397,59 @@ declare function groupFieldsByCategory(item: Item): Record<string, ItemField[]>;
  */
 declare function itemToCredential(item: Item): Credential;
 
-export { type Alias, type Attachment, type Credential, type EncryptionKey, FieldKey, type FieldKeyValue, type FieldType, type Item, type ItemField, type ItemTag, type ItemTagRef, type ItemType, type Passkey, type PasswordSettings, type Tag, type TotpCode, getFieldValue, getFieldValues, groupFields, groupFieldsByCategory, hasField, itemToCredential };
+/**
+ * System field definition with metadata.
+ * System fields are predefined fields with immutable keys like 'login.username'.
+ * Their metadata (label, type, etc.) is defined here in code, not in the database.
+ */
+type SystemFieldDefinition = {
+    /** Unique system field key (e.g., 'login.username') */
+    FieldKey: string;
+    /** Display label for the field */
+    Label: string;
+    /** Field type for rendering/validation */
+    FieldType: FieldType;
+    /** Whether field is hidden/masked by default */
+    IsHidden: boolean;
+    /** Whether field supports multiple values */
+    IsMultiValue: boolean;
+    /** Item types this field applies to */
+    ApplicableToTypes: ItemType[];
+    /** Whether to track field value history */
+    EnableHistory: boolean;
+    /** Category for grouping in UI */
+    Category: 'Login' | 'Alias' | 'Card' | 'Identity' | 'API' | 'Note';
+    /** Default display order within category (lower = first) */
+    DefaultDisplayOrder: number;
+};
+/**
+ * Registry of all system-defined fields.
+ * These fields are immutable and their metadata is defined in code.
+ * DO NOT modify these definitions without careful consideration of backwards compatibility.
+ */
+declare const SystemFieldRegistry: Record<string, SystemFieldDefinition>;
+/**
+ * Get system field definition by key.
+ * Returns undefined if the field key is not a system field.
+ */
+declare function getSystemField(fieldKey: string): SystemFieldDefinition | undefined;
+/**
+ * Check if a field key represents a system field.
+ */
+declare function isSystemField(fieldKey: string): boolean;
+/**
+ * Get all system fields applicable to a specific item type.
+ * Results are sorted by DefaultDisplayOrder.
+ */
+declare function getSystemFieldsForItemType(itemType: ItemType): SystemFieldDefinition[];
+/**
+ * Get all system field keys.
+ */
+declare function getAllSystemFieldKeys(): string[];
+/**
+ * Check if a field key matches a known system field prefix.
+ * This is useful for validation even before a specific field is registered.
+ */
+declare function isSystemFieldPrefix(fieldKey: string): boolean;
+
+export { type Alias, type Attachment, type Credential, type EncryptionKey, FieldKey, type FieldKeyValue, type FieldType, type Item, type ItemField, type ItemTag, type ItemTagRef, type ItemType, type Passkey, type PasswordSettings, type SystemFieldDefinition, SystemFieldRegistry, type Tag, type TotpCode, getAllSystemFieldKeys, getFieldValue, getFieldValues, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isSystemField, isSystemFieldPrefix, itemToCredential };

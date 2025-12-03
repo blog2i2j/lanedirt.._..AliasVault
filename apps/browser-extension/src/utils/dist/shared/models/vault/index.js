@@ -226,6 +226,144 @@ function itemToCredential(item) {
   };
 }
 
-export { FieldKey, getFieldValue, getFieldValues, groupFields, groupFieldsByCategory, hasField, itemToCredential };
+// src/vault/SystemFieldRegistry.ts
+var SystemFieldRegistry = {
+  // Login Fields
+  "login.username": {
+    FieldKey: "login.username",
+    Label: "Username",
+    FieldType: "Text",
+    IsHidden: false,
+    IsMultiValue: false,
+    ApplicableToTypes: ["Login"],
+    EnableHistory: true,
+    Category: "Login",
+    DefaultDisplayOrder: 10
+  },
+  "login.password": {
+    FieldKey: "login.password",
+    Label: "Password",
+    FieldType: "Password",
+    IsHidden: true,
+    IsMultiValue: false,
+    ApplicableToTypes: ["Login"],
+    EnableHistory: true,
+    Category: "Login",
+    DefaultDisplayOrder: 20
+  },
+  "login.url": {
+    FieldKey: "login.url",
+    Label: "Website",
+    FieldType: "URL",
+    IsHidden: false,
+    IsMultiValue: true,
+    ApplicableToTypes: ["Login"],
+    EnableHistory: false,
+    Category: "Login",
+    DefaultDisplayOrder: 30
+  },
+  "login.notes": {
+    FieldKey: "login.notes",
+    Label: "Notes",
+    FieldType: "TextArea",
+    IsHidden: false,
+    IsMultiValue: false,
+    ApplicableToTypes: ["Login", "CreditCard", "Identity", "Note"],
+    EnableHistory: false,
+    Category: "Login",
+    DefaultDisplayOrder: 100
+  },
+  // Alias Fields
+  "alias.email": {
+    FieldKey: "alias.email",
+    Label: "Email",
+    FieldType: "Email",
+    IsHidden: false,
+    IsMultiValue: false,
+    ApplicableToTypes: ["Login"],
+    EnableHistory: true,
+    Category: "Alias",
+    DefaultDisplayOrder: 10
+  },
+  "alias.first_name": {
+    FieldKey: "alias.first_name",
+    Label: "First Name",
+    FieldType: "Text",
+    IsHidden: false,
+    IsMultiValue: false,
+    ApplicableToTypes: ["Login", "Identity"],
+    EnableHistory: false,
+    Category: "Alias",
+    DefaultDisplayOrder: 20
+  },
+  "alias.last_name": {
+    FieldKey: "alias.last_name",
+    Label: "Last Name",
+    FieldType: "Text",
+    IsHidden: false,
+    IsMultiValue: false,
+    ApplicableToTypes: ["Login", "Identity"],
+    EnableHistory: false,
+    Category: "Alias",
+    DefaultDisplayOrder: 30
+  },
+  "alias.nickname": {
+    FieldKey: "alias.nickname",
+    Label: "Nickname",
+    FieldType: "Text",
+    IsHidden: false,
+    IsMultiValue: false,
+    ApplicableToTypes: ["Login"],
+    EnableHistory: false,
+    Category: "Alias",
+    DefaultDisplayOrder: 40
+  },
+  "alias.gender": {
+    FieldKey: "alias.gender",
+    Label: "Gender",
+    FieldType: "Text",
+    IsHidden: false,
+    IsMultiValue: false,
+    ApplicableToTypes: ["Login", "Identity"],
+    EnableHistory: false,
+    Category: "Alias",
+    DefaultDisplayOrder: 50
+  },
+  "alias.birthdate": {
+    FieldKey: "alias.birthdate",
+    Label: "Birth Date",
+    FieldType: "Date",
+    IsHidden: false,
+    IsMultiValue: false,
+    ApplicableToTypes: ["Login", "Identity"],
+    EnableHistory: false,
+    Category: "Alias",
+    DefaultDisplayOrder: 60
+  }
+  /*
+   * Note: Card, Identity, and API fields can be added here when those item types are implemented
+   * Example:
+   * 'card.number': { ... },
+   * 'card.cardholder_name': { ... },
+   * 'identity.phone_number': { ... },
+   */
+};
+function getSystemField(fieldKey) {
+  return SystemFieldRegistry[fieldKey];
+}
+function isSystemField(fieldKey) {
+  return fieldKey in SystemFieldRegistry;
+}
+function getSystemFieldsForItemType(itemType) {
+  return Object.values(SystemFieldRegistry).filter((field) => field.ApplicableToTypes.includes(itemType)).sort((a, b) => a.DefaultDisplayOrder - b.DefaultDisplayOrder);
+}
+function getAllSystemFieldKeys() {
+  return Object.keys(SystemFieldRegistry);
+}
+function isSystemFieldPrefix(fieldKey) {
+  return fieldKey.startsWith("login.") || fieldKey.startsWith("alias.") || fieldKey.startsWith("card.") || fieldKey.startsWith("identity.") || fieldKey.startsWith("api.") || fieldKey.startsWith("note.");
+}
+
+export { FieldKey, SystemFieldRegistry, getAllSystemFieldKeys, getFieldValue, getFieldValues, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isSystemField, isSystemFieldPrefix, itemToCredential };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map

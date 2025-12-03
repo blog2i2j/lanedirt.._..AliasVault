@@ -470,10 +470,12 @@ namespace AliasClientDb.Migrations
                   0 AS IsDeleted
                 FROM Passwords p
                 INNER JOIN (
-                  SELECT CredentialId, MAX(UpdatedAt) AS MaxUpdated
+                  SELECT CredentialId, MAX(UpdatedAt) AS MaxUpdated, MAX(Id) AS MaxId
                   FROM Passwords
+                  WHERE IsDeleted = 0
                   GROUP BY CredentialId
-                ) pm ON p.CredentialId = pm.CredentialId AND p.UpdatedAt = pm.MaxUpdated;
+                ) pm ON p.CredentialId = pm.CredentialId AND p.UpdatedAt = pm.MaxUpdated AND p.Id = pm.MaxId
+                WHERE p.IsDeleted = 0;
             ");
 
             // Migrate alias.email field (system field using FieldKey)
