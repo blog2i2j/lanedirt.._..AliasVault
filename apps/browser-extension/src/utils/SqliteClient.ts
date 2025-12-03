@@ -467,19 +467,48 @@ export class SqliteClient {
       Color: string | null;
     }>(tagsQuery, itemIds);
 
-    // Group by ItemId
+    // Group by ItemId and FieldKey (to handle multi-value fields)
     const fieldsByItem: {[itemId: string]: ItemField[]} = {};
+    const fieldValuesByKey: {[itemId_fieldKey: string]: string[]} = {};
+
     fields.forEach(f => {
+      const key = `${f.ItemId}_${f.FieldKey}`;
+
+      // Accumulate values for the same field
+      if (!fieldValuesByKey[key]) {
+        fieldValuesByKey[key] = [];
+      }
+      fieldValuesByKey[key].push(f.Value);
+
+      // Create ItemField entry only once per unique FieldKey
       if (!fieldsByItem[f.ItemId]) {
         fieldsByItem[f.ItemId] = [];
       }
-      fieldsByItem[f.ItemId].push({
-        FieldKey: f.FieldKey,
-        Label: f.Label,
-        FieldType: f.FieldType as FieldType,
-        Value: f.Value,
-        IsHidden: f.IsHidden === 1,
-        DisplayOrder: f.DisplayOrder
+
+      const existingField = fieldsByItem[f.ItemId].find(field => field.FieldKey === f.FieldKey);
+      if (!existingField) {
+        fieldsByItem[f.ItemId].push({
+          FieldKey: f.FieldKey,
+          Label: f.Label,
+          FieldType: f.FieldType as FieldType,
+          Value: '', // Will be set below
+          IsHidden: f.IsHidden === 1,
+          DisplayOrder: f.DisplayOrder
+        });
+      }
+    });
+
+    // Set Values (single value or array for multi-value fields)
+    Object.keys(fieldsByItem).forEach(itemId => {
+      fieldsByItem[itemId].forEach(field => {
+        const key = `${itemId}_${field.FieldKey}`;
+        const values = fieldValuesByKey[key];
+
+        if (values.length === 1) {
+          field.Value = values[0];
+        } else {
+          field.Value = values;
+        }
       });
     });
 
@@ -565,31 +594,57 @@ export class SqliteClient {
       DisplayOrder: number;
     }>(fieldsQuery, [itemId]);
 
-    // Process fields - handle system fields vs custom fields
-    const fields = fieldRows.map(row => {
-      // System field: has FieldKey, get metadata from SystemFieldRegistry
-      if (row.FieldKey) {
-        const systemField = getSystemField(row.FieldKey);
-        return {
-          FieldKey: row.FieldKey,
-          Label: systemField?.Label || row.FieldKey,
-          FieldType: systemField?.FieldType || 'Text',
-          IsHidden: systemField?.IsHidden ? 1 : 0,
-          Value: row.Value,
-          DisplayOrder: row.DisplayOrder
-        };
-      } else {
-        // Custom field: has FieldDefinitionId, get metadata from FieldDefinitions
-        return {
-          FieldKey: row.FieldDefinitionId || '', // Use FieldDefinitionId as the key for custom fields
-          Label: row.CustomLabel || '',
-          FieldType: row.CustomFieldType || 'Text',
-          IsHidden: row.CustomIsHidden || 0,
-          Value: row.Value,
-          DisplayOrder: row.DisplayOrder
-        };
+    // Process fields - handle system fields vs custom fields AND group multi-value fields
+    const fieldValuesByKey: {[fieldKey: string]: string[]} = {};
+    const uniqueFields: {[fieldKey: string]: {
+      FieldKey: string;
+      Label: string;
+      FieldType: string;
+      IsHidden: number;
+      DisplayOrder: number;
+    }} = {};
+
+    fieldRows.forEach(row => {
+      const fieldKey = row.FieldKey || row.FieldDefinitionId || '';
+
+      // Accumulate values
+      if (!fieldValuesByKey[fieldKey]) {
+        fieldValuesByKey[fieldKey] = [];
+      }
+      fieldValuesByKey[fieldKey].push(row.Value);
+
+      // Store field metadata (only once per FieldKey)
+      if (!uniqueFields[fieldKey]) {
+        if (row.FieldKey) {
+          // System field
+          const systemField = getSystemField(row.FieldKey);
+          uniqueFields[fieldKey] = {
+            FieldKey: row.FieldKey,
+            Label: systemField?.Label || row.FieldKey,
+            FieldType: systemField?.FieldType || 'Text',
+            IsHidden: systemField?.IsHidden ? 1 : 0,
+            DisplayOrder: row.DisplayOrder
+          };
+        } else {
+          // Custom field
+          uniqueFields[fieldKey] = {
+            FieldKey: fieldKey,
+            Label: row.CustomLabel || '',
+            FieldType: row.CustomFieldType || 'Text',
+            IsHidden: row.CustomIsHidden || 0,
+            DisplayOrder: row.DisplayOrder
+          };
+        }
       }
     });
+
+    // Build fields array with proper single/multi values
+    const fields = Object.keys(uniqueFields).map(fieldKey => ({
+      ...uniqueFields[fieldKey],
+      Value: fieldValuesByKey[fieldKey].length === 1
+        ? fieldValuesByKey[fieldKey][0]
+        : fieldValuesByKey[fieldKey]
+    }));
 
     // Get tags
     const tagsQuery = `
@@ -1989,24 +2044,34 @@ export class SqliteClient {
             fieldDefinitionId = field.FieldKey; // FieldDefinitionId = custom field ID
           }
 
-          const fieldValueId = crypto.randomUUID().toUpperCase();
-          const fieldQuery = `
-            INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+          // Handle multi-value fields by creating separate FieldValue records
+          const values = Array.isArray(field.Value) ? field.Value : [field.Value];
 
-          const valueString = Array.isArray(field.Value) ? JSON.stringify(field.Value) : field.Value;
+          for (let i = 0; i < values.length; i++) {
+            const value = values[i];
 
-          this.executeUpdate(fieldQuery, [
-            fieldValueId,
-            itemId,
-            fieldDefinitionId, // NULL for system fields, custom field ID for custom fields
-            isCustomField ? null : field.FieldKey, // FieldKey set for system fields only
-            valueString,
-            field.DisplayOrder ?? 0,
-            currentDateTime,
-            currentDateTime,
-            0
-          ]);
+            // Skip empty values
+            if (!value || (typeof value === 'string' && value.trim() === '')) {
+              continue;
+            }
+
+            const fieldValueId = crypto.randomUUID().toUpperCase();
+            const fieldQuery = `
+              INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+            this.executeUpdate(fieldQuery, [
+              fieldValueId,
+              itemId,
+              fieldDefinitionId, // NULL for system fields, custom field ID for custom fields
+              isCustomField ? null : field.FieldKey, // FieldKey set for system fields only
+              value, // Store each value separately, not as JSON
+              field.DisplayOrder ?? 0,
+              currentDateTime,
+              currentDateTime,
+              0
+            ]);
+          }
         }
       }
 
@@ -2123,24 +2188,34 @@ export class SqliteClient {
             fieldDefinitionId = field.FieldKey;
           }
 
-          const fieldValueId = crypto.randomUUID().toUpperCase();
-          const fieldQuery = `
-            INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+          // Handle multi-value fields by creating separate FieldValue records
+          const values = Array.isArray(field.Value) ? field.Value : [field.Value];
 
-          const valueString = Array.isArray(field.Value) ? JSON.stringify(field.Value) : field.Value;
+          for (let i = 0; i < values.length; i++) {
+            const value = values[i];
 
-          this.executeUpdate(fieldQuery, [
-            fieldValueId,
-            item.Id,
-            fieldDefinitionId, // NULL for system fields, custom field ID for custom fields
-            isCustomField ? null : field.FieldKey, // FieldKey set for system fields only
-            valueString,
-            field.DisplayOrder ?? 0,
-            currentDateTime,
-            currentDateTime,
-            0
-          ]);
+            // Skip empty values
+            if (!value || (typeof value === 'string' && value.trim() === '')) {
+              continue;
+            }
+
+            const fieldValueId = crypto.randomUUID().toUpperCase();
+            const fieldQuery = `
+              INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+            this.executeUpdate(fieldQuery, [
+              fieldValueId,
+              item.Id,
+              fieldDefinitionId, // NULL for system fields, custom field ID for custom fields
+              isCustomField ? null : field.FieldKey, // FieldKey set for system fields only
+              value, // Store each value separately, not as JSON
+              field.DisplayOrder ?? 0,
+              currentDateTime,
+              currentDateTime,
+              0
+            ]);
+          }
         }
       }
 

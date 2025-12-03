@@ -136,7 +136,7 @@ const ItemDetails: React.FC = (): React.ReactElement => {
             {urlFields.length > 0 && (
               <div className="mt-1 space-y-1">
                 {urlFields.flatMap((urlField) => {
-                  // Handle both single values and arrays of URLs
+                  // Handle both single string and array of strings
                   const urlValues = Array.isArray(urlField.Value) ? urlField.Value : [urlField.Value];
 
                   return urlValues.map((urlValue, idx) => {
