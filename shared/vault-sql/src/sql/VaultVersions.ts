@@ -95,18 +95,4 @@ export const VAULT_VERSIONS: VaultVersion[] = [
     releaseVersion: '0.26.0',
     compatibleUpToVersion: '0.26.0',
   },
-  {
-    revision: 13,
-    version: '1.7.1',
-    description: 'Rename Columns',
-    releaseVersion: '0.26.0',
-    compatibleUpToVersion: '0.26.0',
-  },
-  {
-    revision: 14,
-    version: '1.8.0',
-    description: 'Add Tags Tables',
-    releaseVersion: '0.27.0',
-    compatibleUpToVersion: '0.27.0',
-  },
 ];

@@ -11,8 +11,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AliasClientDb.Migrations
 {
     [DbContext(typeof(AliasClientDbContext))]
-    [Migration("20251203161105_1.8.0-SystemFieldRefactor")]
-    partial class _180SystemFieldRefactor
+    [Migration("20251203162345_1.7.0-FieldBasedDataModelUpdate")]
+    partial class _170FieldBasedDataModelUpdate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

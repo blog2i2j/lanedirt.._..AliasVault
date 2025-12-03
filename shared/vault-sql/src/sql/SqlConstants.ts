@@ -697,14 +697,12 @@ CREATE INDEX IF NOT EXISTS "IX_Attachments_ItemId" ON "Attachments" ("ItemId");
 
 CREATE TABLE "FieldDefinitions" (
     "Id" TEXT NOT NULL CONSTRAINT "PK_FieldDefinitions" PRIMARY KEY,
-    "FieldKey" TEXT NULL,
-    "EntityType" TEXT NULL,
     "FieldType" TEXT NOT NULL,
     "Label" TEXT NOT NULL,
     "IsMultiValue" INTEGER NOT NULL,
-    "DefaultVisibility" TEXT NULL,
+    "IsHidden" INTEGER NOT NULL,
     "EnableHistory" INTEGER NOT NULL,
-    "DisplayOrder" INTEGER NOT NULL,
+    "Weight" INTEGER NOT NULL,
     "ApplicableToTypes" TEXT NULL,
     "CreatedAt" TEXT NOT NULL,
     "UpdatedAt" TEXT NOT NULL,
@@ -715,7 +713,7 @@ CREATE TABLE "Folders" (
     "Id" TEXT NOT NULL CONSTRAINT "PK_Folders" PRIMARY KEY,
     "Name" TEXT NOT NULL,
     "ParentFolderId" TEXT NULL,
-    "DisplayOrder" INTEGER NOT NULL,
+    "Weight" INTEGER NOT NULL,
     "CreatedAt" TEXT NOT NULL,
     "UpdatedAt" TEXT NOT NULL,
     "IsDeleted" INTEGER NOT NULL,
@@ -728,6 +726,16 @@ CREATE TABLE "Logos" (
     "FileData" BLOB NULL,
     "MimeType" TEXT NULL,
     "FetchedAt" TEXT NULL,
+    "CreatedAt" TEXT NOT NULL,
+    "UpdatedAt" TEXT NOT NULL,
+    "IsDeleted" INTEGER NOT NULL
+);
+
+CREATE TABLE "Tags" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_Tags" PRIMARY KEY,
+    "Name" TEXT NOT NULL,
+    "Color" TEXT NULL,
+    "DisplayOrder" INTEGER NOT NULL,
     "CreatedAt" TEXT NOT NULL,
     "UpdatedAt" TEXT NOT NULL,
     "IsDeleted" INTEGER NOT NULL
@@ -762,9 +770,10 @@ CREATE TABLE "FieldHistories" (
 CREATE TABLE "FieldValues" (
     "Id" TEXT NOT NULL CONSTRAINT "PK_FieldValues" PRIMARY KEY,
     "ItemId" TEXT NOT NULL,
-    "FieldDefinitionId" TEXT NOT NULL,
+    "FieldDefinitionId" TEXT NULL,
+    "FieldKey" TEXT NULL,
     "Value" TEXT NULL,
-    "ValueIndex" INTEGER NOT NULL,
+    "Weight" INTEGER NOT NULL,
     "CreatedAt" TEXT NOT NULL,
     "UpdatedAt" TEXT NOT NULL,
     "IsDeleted" INTEGER NOT NULL,
@@ -772,7 +781,16 @@ CREATE TABLE "FieldValues" (
     CONSTRAINT "FK_FieldValues_Items_ItemId" FOREIGN KEY ("ItemId") REFERENCES "Items" ("Id") ON DELETE CASCADE
 );
 
-CREATE INDEX "IX_FieldDefinitions_FieldKey" ON "FieldDefinitions" ("FieldKey");
+CREATE TABLE "ItemTags" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_ItemTags" PRIMARY KEY,
+    "ItemId" TEXT NOT NULL,
+    "TagId" TEXT NOT NULL,
+    "CreatedAt" TEXT NOT NULL,
+    "UpdatedAt" TEXT NOT NULL,
+    "IsDeleted" INTEGER NOT NULL,
+    CONSTRAINT "FK_ItemTags_Items_ItemId" FOREIGN KEY ("ItemId") REFERENCES "Items" ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_ItemTags_Tags_TagId" FOREIGN KEY ("TagId") REFERENCES "Tags" ("Id") ON DELETE CASCADE
+);
 
 CREATE INDEX "IX_FieldHistories_FieldDefinitionId" ON "FieldHistories" ("FieldDefinitionId");
 
@@ -780,9 +798,13 @@ CREATE INDEX "IX_FieldHistories_ItemId" ON "FieldHistories" ("ItemId");
 
 CREATE INDEX "IX_FieldValues_FieldDefinitionId" ON "FieldValues" ("FieldDefinitionId");
 
+CREATE INDEX "IX_FieldValues_FieldKey" ON "FieldValues" ("FieldKey");
+
 CREATE INDEX "IX_FieldValues_ItemId" ON "FieldValues" ("ItemId");
 
-CREATE INDEX "IX_FieldValues_ItemId_FieldDefinitionId_ValueIndex" ON "FieldValues" ("ItemId", "FieldDefinitionId", "ValueIndex");
+CREATE INDEX "IX_FieldValues_ItemId_FieldDefinitionId_Weight" ON "FieldValues" ("ItemId", "FieldDefinitionId", "Weight");
+
+CREATE INDEX "IX_FieldValues_ItemId_FieldKey" ON "FieldValues" ("ItemId", "FieldKey");
 
 CREATE INDEX "IX_Folders_ParentFolderId" ON "Folders" ("ParentFolderId");
 
@@ -790,27 +812,15 @@ CREATE INDEX "IX_Items_FolderId" ON "Items" ("FolderId");
 
 CREATE INDEX "IX_Items_LogoId" ON "Items" ("LogoId");
 
+CREATE INDEX "IX_ItemTags_ItemId" ON "ItemTags" ("ItemId");
+
+CREATE UNIQUE INDEX "IX_ItemTags_ItemId_TagId" ON "ItemTags" ("ItemId", "TagId");
+
+CREATE INDEX "IX_ItemTags_TagId" ON "ItemTags" ("TagId");
+
 CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
 
-
-                -- Login fields
-                INSERT INTO FieldDefinitions (Id, FieldKey, EntityType, FieldType, Label, IsMultiValue, DefaultVisibility, EnableHistory, DisplayOrder, ApplicableToTypes, CreatedAt, UpdatedAt, IsDeleted)
-                VALUES
-                  (lower(hex(randomblob(16))), 'login.username', 'Item', 'Text', 'Username', 0, 'Visible', 1, 0, '["Login"]', datetime('now'), datetime('now'), 0),
-                  (lower(hex(randomblob(16))), 'login.password', 'Item', 'Password', 'Password', 0, 'Hidden', 1, 0, '["Login"]', datetime('now'), datetime('now'), 0),
-                  (lower(hex(randomblob(16))), 'login.notes', 'Item', 'Text', 'Notes', 0, 'Collapsed', 0, 0, NULL, datetime('now'), datetime('now'), 0),
-                  (lower(hex(randomblob(16))), 'login.url', 'Item', 'URL', 'Website URLs', 1, 'Visible', 0, 0, '["Login"]', datetime('now'), datetime('now'), 0);
-
-                -- Alias fields
-                INSERT INTO FieldDefinitions (Id, FieldKey, EntityType, FieldType, Label, IsMultiValue, DefaultVisibility, EnableHistory, DisplayOrder, ApplicableToTypes, CreatedAt, UpdatedAt, IsDeleted)
-                VALUES
-                  (lower(hex(randomblob(16))), 'alias.email', 'Item', 'Email', 'Alias Email', 0, 'Visible', 1, 0, '["Login"]', datetime('now'), datetime('now'), 0),
-                  (lower(hex(randomblob(16))), 'alias.first_name', 'Item', 'Text', 'First Name', 0, 'Visible', 0, 0, '["Login"]', datetime('now'), datetime('now'), 0),
-                  (lower(hex(randomblob(16))), 'alias.last_name', 'Item', 'Text', 'Last Name', 0, 'Visible', 0, 0, '["Login"]', datetime('now'), datetime('now'), 0),
-                  (lower(hex(randomblob(16))), 'alias.nickname', 'Item', 'Text', 'Nickname', 0, 'Visible', 0, 0, '["Login"]', datetime('now'), datetime('now'), 0),
-                  (lower(hex(randomblob(16))), 'alias.gender', 'Item', 'Text', 'Gender', 0, 'Visible', 0, 0, '["Login"]', datetime('now'), datetime('now'), 0),
-                  (lower(hex(randomblob(16))), 'alias.birthdate', 'Item', 'Date', 'Birth Date', 0, 'Visible', 0, 0, '["Login"]', datetime('now'), datetime('now'), 0);
-            
+CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
 
 
                 INSERT INTO Items (Id, Name, ItemType, LogoId, FolderId, CreatedAt, UpdatedAt, IsDeleted)
@@ -860,13 +870,14 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
             
 
 
-                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
+                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
                   c.Id AS ItemId,
-                  (SELECT Id FROM FieldDefinitions WHERE FieldKey = 'login.url' LIMIT 1) AS FieldDefinitionId,
+                  NULL AS FieldDefinitionId,
+                  'login.url' AS FieldKey,
                   s.Url AS Value,
-                  0 AS ValueIndex,
+                  0 AS Weight,
                   s.UpdatedAt AS CreatedAt,
                   s.UpdatedAt AS UpdatedAt,
                   0 AS IsDeleted
@@ -876,13 +887,14 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
             
 
 
-                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
+                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
                   c.Id AS ItemId,
-                  (SELECT Id FROM FieldDefinitions WHERE FieldKey = 'login.username' LIMIT 1) AS FieldDefinitionId,
+                  NULL AS FieldDefinitionId,
+                  'login.username' AS FieldKey,
                   c.Username AS Value,
-                  0 AS ValueIndex,
+                  0 AS Weight,
                   c.UpdatedAt AS CreatedAt,
                   c.UpdatedAt AS UpdatedAt,
                   0 AS IsDeleted
@@ -891,13 +903,14 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
             
 
 
-                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
+                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
                   c.Id AS ItemId,
-                  (SELECT Id FROM FieldDefinitions WHERE FieldKey = 'login.notes' LIMIT 1) AS FieldDefinitionId,
+                  NULL AS FieldDefinitionId,
+                  'login.notes' AS FieldKey,
                   c.Notes AS Value,
-                  0 AS ValueIndex,
+                  0 AS Weight,
                   c.UpdatedAt AS CreatedAt,
                   c.UpdatedAt AS UpdatedAt,
                   0 AS IsDeleted
@@ -906,13 +919,14 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
             
 
 
-                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
+                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
                   p.CredentialId AS ItemId,
-                  (SELECT Id FROM FieldDefinitions WHERE FieldKey = 'login.password' LIMIT 1) AS FieldDefinitionId,
+                  NULL AS FieldDefinitionId,
+                  'login.password' AS FieldKey,
                   p.Value AS Value,
-                  0 AS ValueIndex,
+                  0 AS Weight,
                   p.UpdatedAt AS CreatedAt,
                   p.UpdatedAt AS UpdatedAt,
                   0 AS IsDeleted
@@ -925,111 +939,99 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
             
 
 
-                INSERT INTO FieldHistories (Id, ItemId, FieldDefinitionId, ValueSnapshot, ChangedAt, CreatedAt, UpdatedAt, IsDeleted)
-                SELECT
-                  lower(hex(randomblob(16))) AS Id,
-                  p.CredentialId AS ItemId,
-                  (SELECT Id FROM FieldDefinitions WHERE FieldKey = 'login.password' LIMIT 1) AS FieldDefinitionId,
-                  '{"values":["' || p.Value || '"]}' AS ValueSnapshot,
-                  p.UpdatedAt AS ChangedAt,
-                  p.CreatedAt AS CreatedAt,
-                  p.UpdatedAt AS UpdatedAt,
-                  0 AS IsDeleted
-                FROM Passwords p
-                WHERE p.Id NOT IN (
-                  SELECT p2.Id FROM Passwords p2
-                  INNER JOIN (
-                    SELECT CredentialId, MAX(UpdatedAt) AS MaxUpdated
-                    FROM Passwords
-                    GROUP BY CredentialId
-                  ) pm ON p2.CredentialId = pm.CredentialId AND p2.UpdatedAt = pm.MaxUpdated
-                );
-            
-
-
-                -- Migrate Alias.Email
-                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
+                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
                   c.Id AS ItemId,
-                  (SELECT Id FROM FieldDefinitions WHERE FieldKey = 'alias.email' LIMIT 1) AS FieldDefinitionId,
+                  NULL AS FieldDefinitionId,
+                  'alias.email' AS FieldKey,
                   a.Email AS Value,
-                  0 AS ValueIndex,
+                  0 AS Weight,
                   a.UpdatedAt AS CreatedAt,
                   a.UpdatedAt AS UpdatedAt,
                   0 AS IsDeleted
                 FROM Credentials c
                 INNER JOIN Aliases a ON a.Id = c.AliasId
                 WHERE a.Email IS NOT NULL AND a.Email != '';
+            
 
-                -- Migrate Alias.FirstName
-                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
+
+                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
                   c.Id AS ItemId,
-                  (SELECT Id FROM FieldDefinitions WHERE FieldKey = 'alias.first_name' LIMIT 1) AS FieldDefinitionId,
+                  NULL AS FieldDefinitionId,
+                  'alias.first_name' AS FieldKey,
                   a.FirstName AS Value,
-                  0 AS ValueIndex,
+                  0 AS Weight,
                   a.UpdatedAt AS CreatedAt,
                   a.UpdatedAt AS UpdatedAt,
                   0 AS IsDeleted
                 FROM Credentials c
                 INNER JOIN Aliases a ON a.Id = c.AliasId
                 WHERE a.FirstName IS NOT NULL AND a.FirstName != '';
+            
 
-                -- Migrate Alias.LastName
-                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
+
+                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
                   c.Id AS ItemId,
-                  (SELECT Id FROM FieldDefinitions WHERE FieldKey = 'alias.last_name' LIMIT 1) AS FieldDefinitionId,
+                  NULL AS FieldDefinitionId,
+                  'alias.last_name' AS FieldKey,
                   a.LastName AS Value,
-                  0 AS ValueIndex,
+                  0 AS Weight,
                   a.UpdatedAt AS CreatedAt,
                   a.UpdatedAt AS UpdatedAt,
                   0 AS IsDeleted
                 FROM Credentials c
                 INNER JOIN Aliases a ON a.Id = c.AliasId
                 WHERE a.LastName IS NOT NULL AND a.LastName != '';
+            
 
-                -- Migrate Alias.NickName
-                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
+
+                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
                   c.Id AS ItemId,
-                  (SELECT Id FROM FieldDefinitions WHERE FieldKey = 'alias.nickname' LIMIT 1) AS FieldDefinitionId,
+                  NULL AS FieldDefinitionId,
+                  'alias.nickname' AS FieldKey,
                   a.NickName AS Value,
-                  0 AS ValueIndex,
+                  0 AS Weight,
                   a.UpdatedAt AS CreatedAt,
                   a.UpdatedAt AS UpdatedAt,
                   0 AS IsDeleted
                 FROM Credentials c
                 INNER JOIN Aliases a ON a.Id = c.AliasId
                 WHERE a.NickName IS NOT NULL AND a.NickName != '';
+            
 
-                -- Migrate Alias.Gender
-                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
+
+                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
                   c.Id AS ItemId,
-                  (SELECT Id FROM FieldDefinitions WHERE FieldKey = 'alias.gender' LIMIT 1) AS FieldDefinitionId,
+                  NULL AS FieldDefinitionId,
+                  'alias.gender' AS FieldKey,
                   a.Gender AS Value,
-                  0 AS ValueIndex,
+                  0 AS Weight,
                   a.UpdatedAt AS CreatedAt,
                   a.UpdatedAt AS UpdatedAt,
                   0 AS IsDeleted
                 FROM Credentials c
                 INNER JOIN Aliases a ON a.Id = c.AliasId
                 WHERE a.Gender IS NOT NULL AND a.Gender != '';
+            
 
-                -- Migrate Alias.BirthDate
-                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
+
+                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
                   c.Id AS ItemId,
-                  (SELECT Id FROM FieldDefinitions WHERE FieldKey = 'alias.birthdate' LIMIT 1) AS FieldDefinitionId,
+                  NULL AS FieldDefinitionId,
+                  'alias.birthdate' AS FieldKey,
                   a.BirthDate AS Value,
-                  0 AS ValueIndex,
+                  0 AS Weight,
                   a.UpdatedAt AS CreatedAt,
                   a.UpdatedAt AS UpdatedAt,
                   0 AS IsDeleted
@@ -1129,170 +1131,7 @@ CREATE INDEX "IX_TotpCodes_ItemId" ON "TotpCodes" ("ItemId");
 COMMIT;
 
 INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20251126211441_1.7.0-FieldBasedDataModelUpdate', '9.0.4');
-
-BEGIN TRANSACTION;
-ALTER TABLE "Folders" RENAME COLUMN "DisplayOrder" TO "Weight";
-
-ALTER TABLE "FieldValues" RENAME COLUMN "ValueIndex" TO "Weight";
-
-DROP INDEX "IX_FieldValues_ItemId_FieldDefinitionId_ValueIndex";
-
-CREATE INDEX "IX_FieldValues_ItemId_FieldDefinitionId_Weight" ON "FieldValues" ("ItemId", "FieldDefinitionId", "Weight");
-
-ALTER TABLE "FieldDefinitions" RENAME COLUMN "DisplayOrder" TO "Weight";
-
-ALTER TABLE "FieldDefinitions" ADD "IsHidden" INTEGER NOT NULL DEFAULT 0;
-
-CREATE TABLE "ef_temp_FieldDefinitions" (
-    "Id" TEXT NOT NULL CONSTRAINT "PK_FieldDefinitions" PRIMARY KEY,
-    "ApplicableToTypes" TEXT NULL,
-    "CreatedAt" TEXT NOT NULL,
-    "EnableHistory" INTEGER NOT NULL,
-    "FieldKey" TEXT NULL,
-    "FieldType" TEXT NOT NULL,
-    "IsDeleted" INTEGER NOT NULL,
-    "IsHidden" INTEGER NOT NULL,
-    "IsMultiValue" INTEGER NOT NULL,
-    "Label" TEXT NOT NULL,
-    "UpdatedAt" TEXT NOT NULL,
-    "Weight" INTEGER NOT NULL
-);
-
-INSERT INTO "ef_temp_FieldDefinitions" ("Id", "ApplicableToTypes", "CreatedAt", "EnableHistory", "FieldKey", "FieldType", "IsDeleted", "IsHidden", "IsMultiValue", "Label", "UpdatedAt", "Weight")
-SELECT "Id", "ApplicableToTypes", "CreatedAt", "EnableHistory", "FieldKey", "FieldType", "IsDeleted", "IsHidden", "IsMultiValue", "Label", "UpdatedAt", "Weight"
-FROM "FieldDefinitions";
-
-COMMIT;
-
-PRAGMA foreign_keys = 0;
-
-BEGIN TRANSACTION;
-DROP TABLE "FieldDefinitions";
-
-ALTER TABLE "ef_temp_FieldDefinitions" RENAME TO "FieldDefinitions";
-
-COMMIT;
-
-PRAGMA foreign_keys = 1;
-
-BEGIN TRANSACTION;
-CREATE INDEX "IX_FieldDefinitions_FieldKey" ON "FieldDefinitions" ("FieldKey");
-
-COMMIT;
-
-INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20251126221717_1.7.1-RenameColumns', '9.0.4');
-
-BEGIN TRANSACTION;
-CREATE TABLE "Tags" (
-    "Id" TEXT NOT NULL CONSTRAINT "PK_Tags" PRIMARY KEY,
-    "Name" TEXT NOT NULL,
-    "Color" TEXT NULL,
-    "DisplayOrder" INTEGER NOT NULL,
-    "CreatedAt" TEXT NOT NULL,
-    "UpdatedAt" TEXT NOT NULL,
-    "IsDeleted" INTEGER NOT NULL
-);
-
-CREATE TABLE "ItemTags" (
-    "Id" TEXT NOT NULL CONSTRAINT "PK_ItemTags" PRIMARY KEY,
-    "ItemId" TEXT NOT NULL,
-    "TagId" TEXT NOT NULL,
-    "CreatedAt" TEXT NOT NULL,
-    "UpdatedAt" TEXT NOT NULL,
-    "IsDeleted" INTEGER NOT NULL,
-    CONSTRAINT "FK_ItemTags_Items_ItemId" FOREIGN KEY ("ItemId") REFERENCES "Items" ("Id") ON DELETE CASCADE,
-    CONSTRAINT "FK_ItemTags_Tags_TagId" FOREIGN KEY ("TagId") REFERENCES "Tags" ("Id") ON DELETE CASCADE
-);
-
-CREATE INDEX "IX_ItemTags_ItemId" ON "ItemTags" ("ItemId");
-
-CREATE UNIQUE INDEX "IX_ItemTags_ItemId_TagId" ON "ItemTags" ("ItemId", "TagId");
-
-CREATE INDEX "IX_ItemTags_TagId" ON "ItemTags" ("TagId");
-
-CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
-
-INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20251202211204_1.7.2-AddTagTables', '9.0.4');
-
-DROP INDEX "IX_FieldDefinitions_FieldKey";
-
-ALTER TABLE "FieldValues" ADD "FieldKey" TEXT NULL;
-
-CREATE INDEX "IX_FieldValues_FieldKey" ON "FieldValues" ("FieldKey");
-
-CREATE INDEX "IX_FieldValues_ItemId_FieldKey" ON "FieldValues" ("ItemId", "FieldKey");
-
-CREATE TABLE "ef_temp_FieldDefinitions" (
-    "Id" TEXT NOT NULL CONSTRAINT "PK_FieldDefinitions" PRIMARY KEY,
-    "ApplicableToTypes" TEXT NULL,
-    "CreatedAt" TEXT NOT NULL,
-    "EnableHistory" INTEGER NOT NULL,
-    "FieldType" TEXT NOT NULL,
-    "IsDeleted" INTEGER NOT NULL,
-    "IsHidden" INTEGER NOT NULL,
-    "IsMultiValue" INTEGER NOT NULL,
-    "Label" TEXT NOT NULL,
-    "UpdatedAt" TEXT NOT NULL,
-    "Weight" INTEGER NOT NULL
-);
-
-INSERT INTO "ef_temp_FieldDefinitions" ("Id", "ApplicableToTypes", "CreatedAt", "EnableHistory", "FieldType", "IsDeleted", "IsHidden", "IsMultiValue", "Label", "UpdatedAt", "Weight")
-SELECT "Id", "ApplicableToTypes", "CreatedAt", "EnableHistory", "FieldType", "IsDeleted", "IsHidden", "IsMultiValue", "Label", "UpdatedAt", "Weight"
-FROM "FieldDefinitions";
-
-CREATE TABLE "ef_temp_FieldValues" (
-    "Id" TEXT NOT NULL CONSTRAINT "PK_FieldValues" PRIMARY KEY,
-    "CreatedAt" TEXT NOT NULL,
-    "FieldDefinitionId" TEXT NULL,
-    "FieldKey" TEXT NULL,
-    "IsDeleted" INTEGER NOT NULL,
-    "ItemId" TEXT NOT NULL,
-    "UpdatedAt" TEXT NOT NULL,
-    "Value" TEXT NULL,
-    "Weight" INTEGER NOT NULL,
-    CONSTRAINT "FK_FieldValues_FieldDefinitions_FieldDefinitionId" FOREIGN KEY ("FieldDefinitionId") REFERENCES "FieldDefinitions" ("Id") ON DELETE CASCADE,
-    CONSTRAINT "FK_FieldValues_Items_ItemId" FOREIGN KEY ("ItemId") REFERENCES "Items" ("Id") ON DELETE CASCADE
-);
-
-INSERT INTO "ef_temp_FieldValues" ("Id", "CreatedAt", "FieldDefinitionId", "FieldKey", "IsDeleted", "ItemId", "UpdatedAt", "Value", "Weight")
-SELECT "Id", "CreatedAt", "FieldDefinitionId", "FieldKey", "IsDeleted", "ItemId", "UpdatedAt", "Value", "Weight"
-FROM "FieldValues";
-
-COMMIT;
-
-PRAGMA foreign_keys = 0;
-
-BEGIN TRANSACTION;
-DROP TABLE "FieldDefinitions";
-
-ALTER TABLE "ef_temp_FieldDefinitions" RENAME TO "FieldDefinitions";
-
-DROP TABLE "FieldValues";
-
-ALTER TABLE "ef_temp_FieldValues" RENAME TO "FieldValues";
-
-COMMIT;
-
-PRAGMA foreign_keys = 1;
-
-BEGIN TRANSACTION;
-CREATE INDEX "IX_FieldValues_FieldDefinitionId" ON "FieldValues" ("FieldDefinitionId");
-
-CREATE INDEX "IX_FieldValues_FieldKey" ON "FieldValues" ("FieldKey");
-
-CREATE INDEX "IX_FieldValues_ItemId" ON "FieldValues" ("ItemId");
-
-CREATE INDEX "IX_FieldValues_ItemId_FieldDefinitionId_Weight" ON "FieldValues" ("ItemId", "FieldDefinitionId", "Weight");
-
-CREATE INDEX "IX_FieldValues_ItemId_FieldKey" ON "FieldValues" ("ItemId", "FieldKey");
-
-COMMIT;
-
-INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20251203161105_1.8.0-SystemFieldRefactor', '9.0.4');
+VALUES ('20251203162345_1.7.0-FieldBasedDataModelUpdate', '9.0.4');
 `;
 /**
  * Individual migration SQL scripts
@@ -1926,14 +1765,12 @@ CREATE INDEX IF NOT EXISTS "IX_Attachments_ItemId" ON "Attachments" ("ItemId");
 
 CREATE TABLE "FieldDefinitions" (
     "Id" TEXT NOT NULL CONSTRAINT "PK_FieldDefinitions" PRIMARY KEY,
-    "FieldKey" TEXT NULL,
-    "EntityType" TEXT NULL,
     "FieldType" TEXT NOT NULL,
     "Label" TEXT NOT NULL,
     "IsMultiValue" INTEGER NOT NULL,
-    "DefaultVisibility" TEXT NULL,
+    "IsHidden" INTEGER NOT NULL,
     "EnableHistory" INTEGER NOT NULL,
-    "DisplayOrder" INTEGER NOT NULL,
+    "Weight" INTEGER NOT NULL,
     "ApplicableToTypes" TEXT NULL,
     "CreatedAt" TEXT NOT NULL,
     "UpdatedAt" TEXT NOT NULL,
@@ -1944,7 +1781,7 @@ CREATE TABLE "Folders" (
     "Id" TEXT NOT NULL CONSTRAINT "PK_Folders" PRIMARY KEY,
     "Name" TEXT NOT NULL,
     "ParentFolderId" TEXT NULL,
-    "DisplayOrder" INTEGER NOT NULL,
+    "Weight" INTEGER NOT NULL,
     "CreatedAt" TEXT NOT NULL,
     "UpdatedAt" TEXT NOT NULL,
     "IsDeleted" INTEGER NOT NULL,
@@ -1957,6 +1794,16 @@ CREATE TABLE "Logos" (
     "FileData" BLOB NULL,
     "MimeType" TEXT NULL,
     "FetchedAt" TEXT NULL,
+    "CreatedAt" TEXT NOT NULL,
+    "UpdatedAt" TEXT NOT NULL,
+    "IsDeleted" INTEGER NOT NULL
+);
+
+CREATE TABLE "Tags" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_Tags" PRIMARY KEY,
+    "Name" TEXT NOT NULL,
+    "Color" TEXT NULL,
+    "DisplayOrder" INTEGER NOT NULL,
     "CreatedAt" TEXT NOT NULL,
     "UpdatedAt" TEXT NOT NULL,
     "IsDeleted" INTEGER NOT NULL
@@ -1991,9 +1838,10 @@ CREATE TABLE "FieldHistories" (
 CREATE TABLE "FieldValues" (
     "Id" TEXT NOT NULL CONSTRAINT "PK_FieldValues" PRIMARY KEY,
     "ItemId" TEXT NOT NULL,
-    "FieldDefinitionId" TEXT NOT NULL,
+    "FieldDefinitionId" TEXT NULL,
+    "FieldKey" TEXT NULL,
     "Value" TEXT NULL,
-    "ValueIndex" INTEGER NOT NULL,
+    "Weight" INTEGER NOT NULL,
     "CreatedAt" TEXT NOT NULL,
     "UpdatedAt" TEXT NOT NULL,
     "IsDeleted" INTEGER NOT NULL,
@@ -2001,7 +1849,16 @@ CREATE TABLE "FieldValues" (
     CONSTRAINT "FK_FieldValues_Items_ItemId" FOREIGN KEY ("ItemId") REFERENCES "Items" ("Id") ON DELETE CASCADE
 );
 
-CREATE INDEX "IX_FieldDefinitions_FieldKey" ON "FieldDefinitions" ("FieldKey");
+CREATE TABLE "ItemTags" (
+    "Id" TEXT NOT NULL CONSTRAINT "PK_ItemTags" PRIMARY KEY,
+    "ItemId" TEXT NOT NULL,
+    "TagId" TEXT NOT NULL,
+    "CreatedAt" TEXT NOT NULL,
+    "UpdatedAt" TEXT NOT NULL,
+    "IsDeleted" INTEGER NOT NULL,
+    CONSTRAINT "FK_ItemTags_Items_ItemId" FOREIGN KEY ("ItemId") REFERENCES "Items" ("Id") ON DELETE CASCADE,
+    CONSTRAINT "FK_ItemTags_Tags_TagId" FOREIGN KEY ("TagId") REFERENCES "Tags" ("Id") ON DELETE CASCADE
+);
 
 CREATE INDEX "IX_FieldHistories_FieldDefinitionId" ON "FieldHistories" ("FieldDefinitionId");
 
@@ -2009,9 +1866,13 @@ CREATE INDEX "IX_FieldHistories_ItemId" ON "FieldHistories" ("ItemId");
 
 CREATE INDEX "IX_FieldValues_FieldDefinitionId" ON "FieldValues" ("FieldDefinitionId");
 
+CREATE INDEX "IX_FieldValues_FieldKey" ON "FieldValues" ("FieldKey");
+
 CREATE INDEX "IX_FieldValues_ItemId" ON "FieldValues" ("ItemId");
 
-CREATE INDEX "IX_FieldValues_ItemId_FieldDefinitionId_ValueIndex" ON "FieldValues" ("ItemId", "FieldDefinitionId", "ValueIndex");
+CREATE INDEX "IX_FieldValues_ItemId_FieldDefinitionId_Weight" ON "FieldValues" ("ItemId", "FieldDefinitionId", "Weight");
+
+CREATE INDEX "IX_FieldValues_ItemId_FieldKey" ON "FieldValues" ("ItemId", "FieldKey");
 
 CREATE INDEX "IX_Folders_ParentFolderId" ON "Folders" ("ParentFolderId");
 
@@ -2019,27 +1880,15 @@ CREATE INDEX "IX_Items_FolderId" ON "Items" ("FolderId");
 
 CREATE INDEX "IX_Items_LogoId" ON "Items" ("LogoId");
 
+CREATE INDEX "IX_ItemTags_ItemId" ON "ItemTags" ("ItemId");
+
+CREATE UNIQUE INDEX "IX_ItemTags_ItemId_TagId" ON "ItemTags" ("ItemId", "TagId");
+
+CREATE INDEX "IX_ItemTags_TagId" ON "ItemTags" ("TagId");
+
 CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
 
-
-                -- Login fields
-                INSERT INTO FieldDefinitions (Id, FieldKey, EntityType, FieldType, Label, IsMultiValue, DefaultVisibility, EnableHistory, DisplayOrder, ApplicableToTypes, CreatedAt, UpdatedAt, IsDeleted)
-                VALUES
-                  (lower(hex(randomblob(16))), 'login.username', 'Item', 'Text', 'Username', 0, 'Visible', 1, 0, '["Login"]', datetime('now'), datetime('now'), 0),
-                  (lower(hex(randomblob(16))), 'login.password', 'Item', 'Password', 'Password', 0, 'Hidden', 1, 0, '["Login"]', datetime('now'), datetime('now'), 0),
-                  (lower(hex(randomblob(16))), 'login.notes', 'Item', 'Text', 'Notes', 0, 'Collapsed', 0, 0, NULL, datetime('now'), datetime('now'), 0),
-                  (lower(hex(randomblob(16))), 'login.url', 'Item', 'URL', 'Website URLs', 1, 'Visible', 0, 0, '["Login"]', datetime('now'), datetime('now'), 0);
-
-                -- Alias fields
-                INSERT INTO FieldDefinitions (Id, FieldKey, EntityType, FieldType, Label, IsMultiValue, DefaultVisibility, EnableHistory, DisplayOrder, ApplicableToTypes, CreatedAt, UpdatedAt, IsDeleted)
-                VALUES
-                  (lower(hex(randomblob(16))), 'alias.email', 'Item', 'Email', 'Alias Email', 0, 'Visible', 1, 0, '["Login"]', datetime('now'), datetime('now'), 0),
-                  (lower(hex(randomblob(16))), 'alias.first_name', 'Item', 'Text', 'First Name', 0, 'Visible', 0, 0, '["Login"]', datetime('now'), datetime('now'), 0),
-                  (lower(hex(randomblob(16))), 'alias.last_name', 'Item', 'Text', 'Last Name', 0, 'Visible', 0, 0, '["Login"]', datetime('now'), datetime('now'), 0),
-                  (lower(hex(randomblob(16))), 'alias.nickname', 'Item', 'Text', 'Nickname', 0, 'Visible', 0, 0, '["Login"]', datetime('now'), datetime('now'), 0),
-                  (lower(hex(randomblob(16))), 'alias.gender', 'Item', 'Text', 'Gender', 0, 'Visible', 0, 0, '["Login"]', datetime('now'), datetime('now'), 0),
-                  (lower(hex(randomblob(16))), 'alias.birthdate', 'Item', 'Date', 'Birth Date', 0, 'Visible', 0, 0, '["Login"]', datetime('now'), datetime('now'), 0);
-            
+CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
 
 
                 INSERT INTO Items (Id, Name, ItemType, LogoId, FolderId, CreatedAt, UpdatedAt, IsDeleted)
@@ -2089,13 +1938,14 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
             
 
 
-                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
+                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
                   c.Id AS ItemId,
-                  (SELECT Id FROM FieldDefinitions WHERE FieldKey = 'login.url' LIMIT 1) AS FieldDefinitionId,
+                  NULL AS FieldDefinitionId,
+                  'login.url' AS FieldKey,
                   s.Url AS Value,
-                  0 AS ValueIndex,
+                  0 AS Weight,
                   s.UpdatedAt AS CreatedAt,
                   s.UpdatedAt AS UpdatedAt,
                   0 AS IsDeleted
@@ -2105,13 +1955,14 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
             
 
 
-                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
+                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
                   c.Id AS ItemId,
-                  (SELECT Id FROM FieldDefinitions WHERE FieldKey = 'login.username' LIMIT 1) AS FieldDefinitionId,
+                  NULL AS FieldDefinitionId,
+                  'login.username' AS FieldKey,
                   c.Username AS Value,
-                  0 AS ValueIndex,
+                  0 AS Weight,
                   c.UpdatedAt AS CreatedAt,
                   c.UpdatedAt AS UpdatedAt,
                   0 AS IsDeleted
@@ -2120,13 +1971,14 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
             
 
 
-                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
+                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
                   c.Id AS ItemId,
-                  (SELECT Id FROM FieldDefinitions WHERE FieldKey = 'login.notes' LIMIT 1) AS FieldDefinitionId,
+                  NULL AS FieldDefinitionId,
+                  'login.notes' AS FieldKey,
                   c.Notes AS Value,
-                  0 AS ValueIndex,
+                  0 AS Weight,
                   c.UpdatedAt AS CreatedAt,
                   c.UpdatedAt AS UpdatedAt,
                   0 AS IsDeleted
@@ -2135,13 +1987,14 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
             
 
 
-                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
+                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
                   p.CredentialId AS ItemId,
-                  (SELECT Id FROM FieldDefinitions WHERE FieldKey = 'login.password' LIMIT 1) AS FieldDefinitionId,
+                  NULL AS FieldDefinitionId,
+                  'login.password' AS FieldKey,
                   p.Value AS Value,
-                  0 AS ValueIndex,
+                  0 AS Weight,
                   p.UpdatedAt AS CreatedAt,
                   p.UpdatedAt AS UpdatedAt,
                   0 AS IsDeleted
@@ -2154,111 +2007,99 @@ CREATE UNIQUE INDEX "IX_Logos_Source" ON "Logos" ("Source");
             
 
 
-                INSERT INTO FieldHistories (Id, ItemId, FieldDefinitionId, ValueSnapshot, ChangedAt, CreatedAt, UpdatedAt, IsDeleted)
-                SELECT
-                  lower(hex(randomblob(16))) AS Id,
-                  p.CredentialId AS ItemId,
-                  (SELECT Id FROM FieldDefinitions WHERE FieldKey = 'login.password' LIMIT 1) AS FieldDefinitionId,
-                  '{"values":["' || p.Value || '"]}' AS ValueSnapshot,
-                  p.UpdatedAt AS ChangedAt,
-                  p.CreatedAt AS CreatedAt,
-                  p.UpdatedAt AS UpdatedAt,
-                  0 AS IsDeleted
-                FROM Passwords p
-                WHERE p.Id NOT IN (
-                  SELECT p2.Id FROM Passwords p2
-                  INNER JOIN (
-                    SELECT CredentialId, MAX(UpdatedAt) AS MaxUpdated
-                    FROM Passwords
-                    GROUP BY CredentialId
-                  ) pm ON p2.CredentialId = pm.CredentialId AND p2.UpdatedAt = pm.MaxUpdated
-                );
-            
-
-
-                -- Migrate Alias.Email
-                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
+                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
                   c.Id AS ItemId,
-                  (SELECT Id FROM FieldDefinitions WHERE FieldKey = 'alias.email' LIMIT 1) AS FieldDefinitionId,
+                  NULL AS FieldDefinitionId,
+                  'alias.email' AS FieldKey,
                   a.Email AS Value,
-                  0 AS ValueIndex,
+                  0 AS Weight,
                   a.UpdatedAt AS CreatedAt,
                   a.UpdatedAt AS UpdatedAt,
                   0 AS IsDeleted
                 FROM Credentials c
                 INNER JOIN Aliases a ON a.Id = c.AliasId
                 WHERE a.Email IS NOT NULL AND a.Email != '';
+            
 
-                -- Migrate Alias.FirstName
-                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
+
+                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
                   c.Id AS ItemId,
-                  (SELECT Id FROM FieldDefinitions WHERE FieldKey = 'alias.first_name' LIMIT 1) AS FieldDefinitionId,
+                  NULL AS FieldDefinitionId,
+                  'alias.first_name' AS FieldKey,
                   a.FirstName AS Value,
-                  0 AS ValueIndex,
+                  0 AS Weight,
                   a.UpdatedAt AS CreatedAt,
                   a.UpdatedAt AS UpdatedAt,
                   0 AS IsDeleted
                 FROM Credentials c
                 INNER JOIN Aliases a ON a.Id = c.AliasId
                 WHERE a.FirstName IS NOT NULL AND a.FirstName != '';
+            
 
-                -- Migrate Alias.LastName
-                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
+
+                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
                   c.Id AS ItemId,
-                  (SELECT Id FROM FieldDefinitions WHERE FieldKey = 'alias.last_name' LIMIT 1) AS FieldDefinitionId,
+                  NULL AS FieldDefinitionId,
+                  'alias.last_name' AS FieldKey,
                   a.LastName AS Value,
-                  0 AS ValueIndex,
+                  0 AS Weight,
                   a.UpdatedAt AS CreatedAt,
                   a.UpdatedAt AS UpdatedAt,
                   0 AS IsDeleted
                 FROM Credentials c
                 INNER JOIN Aliases a ON a.Id = c.AliasId
                 WHERE a.LastName IS NOT NULL AND a.LastName != '';
+            
 
-                -- Migrate Alias.NickName
-                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
+
+                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
                   c.Id AS ItemId,
-                  (SELECT Id FROM FieldDefinitions WHERE FieldKey = 'alias.nickname' LIMIT 1) AS FieldDefinitionId,
+                  NULL AS FieldDefinitionId,
+                  'alias.nickname' AS FieldKey,
                   a.NickName AS Value,
-                  0 AS ValueIndex,
+                  0 AS Weight,
                   a.UpdatedAt AS CreatedAt,
                   a.UpdatedAt AS UpdatedAt,
                   0 AS IsDeleted
                 FROM Credentials c
                 INNER JOIN Aliases a ON a.Id = c.AliasId
                 WHERE a.NickName IS NOT NULL AND a.NickName != '';
+            
 
-                -- Migrate Alias.Gender
-                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
+
+                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
                   c.Id AS ItemId,
-                  (SELECT Id FROM FieldDefinitions WHERE FieldKey = 'alias.gender' LIMIT 1) AS FieldDefinitionId,
+                  NULL AS FieldDefinitionId,
+                  'alias.gender' AS FieldKey,
                   a.Gender AS Value,
-                  0 AS ValueIndex,
+                  0 AS Weight,
                   a.UpdatedAt AS CreatedAt,
                   a.UpdatedAt AS UpdatedAt,
                   0 AS IsDeleted
                 FROM Credentials c
                 INNER JOIN Aliases a ON a.Id = c.AliasId
                 WHERE a.Gender IS NOT NULL AND a.Gender != '';
+            
 
-                -- Migrate Alias.BirthDate
-                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, Value, ValueIndex, CreatedAt, UpdatedAt, IsDeleted)
+
+                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
                   c.Id AS ItemId,
-                  (SELECT Id FROM FieldDefinitions WHERE FieldKey = 'alias.birthdate' LIMIT 1) AS FieldDefinitionId,
+                  NULL AS FieldDefinitionId,
+                  'alias.birthdate' AS FieldKey,
                   a.BirthDate AS Value,
-                  0 AS ValueIndex,
+                  0 AS Weight,
                   a.UpdatedAt AS CreatedAt,
                   a.UpdatedAt AS UpdatedAt,
                   0 AS IsDeleted
@@ -2358,168 +2199,5 @@ CREATE INDEX "IX_TotpCodes_ItemId" ON "TotpCodes" ("ItemId");
 COMMIT;
 
 INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20251126211441_1.7.0-FieldBasedDataModelUpdate', '9.0.4');`,
-  12: `﻿BEGIN TRANSACTION;
-ALTER TABLE "Folders" RENAME COLUMN "DisplayOrder" TO "Weight";
-
-ALTER TABLE "FieldValues" RENAME COLUMN "ValueIndex" TO "Weight";
-
-DROP INDEX "IX_FieldValues_ItemId_FieldDefinitionId_ValueIndex";
-
-CREATE INDEX "IX_FieldValues_ItemId_FieldDefinitionId_Weight" ON "FieldValues" ("ItemId", "FieldDefinitionId", "Weight");
-
-ALTER TABLE "FieldDefinitions" RENAME COLUMN "DisplayOrder" TO "Weight";
-
-ALTER TABLE "FieldDefinitions" ADD "IsHidden" INTEGER NOT NULL DEFAULT 0;
-
-CREATE TABLE "ef_temp_FieldDefinitions" (
-    "Id" TEXT NOT NULL CONSTRAINT "PK_FieldDefinitions" PRIMARY KEY,
-    "ApplicableToTypes" TEXT NULL,
-    "CreatedAt" TEXT NOT NULL,
-    "EnableHistory" INTEGER NOT NULL,
-    "FieldKey" TEXT NULL,
-    "FieldType" TEXT NOT NULL,
-    "IsDeleted" INTEGER NOT NULL,
-    "IsHidden" INTEGER NOT NULL,
-    "IsMultiValue" INTEGER NOT NULL,
-    "Label" TEXT NOT NULL,
-    "UpdatedAt" TEXT NOT NULL,
-    "Weight" INTEGER NOT NULL
-);
-
-INSERT INTO "ef_temp_FieldDefinitions" ("Id", "ApplicableToTypes", "CreatedAt", "EnableHistory", "FieldKey", "FieldType", "IsDeleted", "IsHidden", "IsMultiValue", "Label", "UpdatedAt", "Weight")
-SELECT "Id", "ApplicableToTypes", "CreatedAt", "EnableHistory", "FieldKey", "FieldType", "IsDeleted", "IsHidden", "IsMultiValue", "Label", "UpdatedAt", "Weight"
-FROM "FieldDefinitions";
-
-COMMIT;
-
-PRAGMA foreign_keys = 0;
-
-BEGIN TRANSACTION;
-DROP TABLE "FieldDefinitions";
-
-ALTER TABLE "ef_temp_FieldDefinitions" RENAME TO "FieldDefinitions";
-
-COMMIT;
-
-PRAGMA foreign_keys = 1;
-
-BEGIN TRANSACTION;
-CREATE INDEX "IX_FieldDefinitions_FieldKey" ON "FieldDefinitions" ("FieldKey");
-
-COMMIT;
-
-INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20251126221717_1.7.1-RenameColumns', '9.0.4');`,
-  13: `﻿BEGIN TRANSACTION;
-CREATE TABLE "Tags" (
-    "Id" TEXT NOT NULL CONSTRAINT "PK_Tags" PRIMARY KEY,
-    "Name" TEXT NOT NULL,
-    "Color" TEXT NULL,
-    "DisplayOrder" INTEGER NOT NULL,
-    "CreatedAt" TEXT NOT NULL,
-    "UpdatedAt" TEXT NOT NULL,
-    "IsDeleted" INTEGER NOT NULL
-);
-
-CREATE TABLE "ItemTags" (
-    "Id" TEXT NOT NULL CONSTRAINT "PK_ItemTags" PRIMARY KEY,
-    "ItemId" TEXT NOT NULL,
-    "TagId" TEXT NOT NULL,
-    "CreatedAt" TEXT NOT NULL,
-    "UpdatedAt" TEXT NOT NULL,
-    "IsDeleted" INTEGER NOT NULL,
-    CONSTRAINT "FK_ItemTags_Items_ItemId" FOREIGN KEY ("ItemId") REFERENCES "Items" ("Id") ON DELETE CASCADE,
-    CONSTRAINT "FK_ItemTags_Tags_TagId" FOREIGN KEY ("TagId") REFERENCES "Tags" ("Id") ON DELETE CASCADE
-);
-
-CREATE INDEX "IX_ItemTags_ItemId" ON "ItemTags" ("ItemId");
-
-CREATE UNIQUE INDEX "IX_ItemTags_ItemId_TagId" ON "ItemTags" ("ItemId", "TagId");
-
-CREATE INDEX "IX_ItemTags_TagId" ON "ItemTags" ("TagId");
-
-CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
-
-INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20251202211204_1.7.2-AddTagTables', '9.0.4');
-
-COMMIT;`,
-  14: `﻿BEGIN TRANSACTION;
-DROP INDEX "IX_FieldDefinitions_FieldKey";
-
-ALTER TABLE "FieldValues" ADD "FieldKey" TEXT NULL;
-
-CREATE INDEX "IX_FieldValues_FieldKey" ON "FieldValues" ("FieldKey");
-
-CREATE INDEX "IX_FieldValues_ItemId_FieldKey" ON "FieldValues" ("ItemId", "FieldKey");
-
-CREATE TABLE "ef_temp_FieldDefinitions" (
-    "Id" TEXT NOT NULL CONSTRAINT "PK_FieldDefinitions" PRIMARY KEY,
-    "ApplicableToTypes" TEXT NULL,
-    "CreatedAt" TEXT NOT NULL,
-    "EnableHistory" INTEGER NOT NULL,
-    "FieldType" TEXT NOT NULL,
-    "IsDeleted" INTEGER NOT NULL,
-    "IsHidden" INTEGER NOT NULL,
-    "IsMultiValue" INTEGER NOT NULL,
-    "Label" TEXT NOT NULL,
-    "UpdatedAt" TEXT NOT NULL,
-    "Weight" INTEGER NOT NULL
-);
-
-INSERT INTO "ef_temp_FieldDefinitions" ("Id", "ApplicableToTypes", "CreatedAt", "EnableHistory", "FieldType", "IsDeleted", "IsHidden", "IsMultiValue", "Label", "UpdatedAt", "Weight")
-SELECT "Id", "ApplicableToTypes", "CreatedAt", "EnableHistory", "FieldType", "IsDeleted", "IsHidden", "IsMultiValue", "Label", "UpdatedAt", "Weight"
-FROM "FieldDefinitions";
-
-CREATE TABLE "ef_temp_FieldValues" (
-    "Id" TEXT NOT NULL CONSTRAINT "PK_FieldValues" PRIMARY KEY,
-    "CreatedAt" TEXT NOT NULL,
-    "FieldDefinitionId" TEXT NULL,
-    "FieldKey" TEXT NULL,
-    "IsDeleted" INTEGER NOT NULL,
-    "ItemId" TEXT NOT NULL,
-    "UpdatedAt" TEXT NOT NULL,
-    "Value" TEXT NULL,
-    "Weight" INTEGER NOT NULL,
-    CONSTRAINT "FK_FieldValues_FieldDefinitions_FieldDefinitionId" FOREIGN KEY ("FieldDefinitionId") REFERENCES "FieldDefinitions" ("Id") ON DELETE CASCADE,
-    CONSTRAINT "FK_FieldValues_Items_ItemId" FOREIGN KEY ("ItemId") REFERENCES "Items" ("Id") ON DELETE CASCADE
-);
-
-INSERT INTO "ef_temp_FieldValues" ("Id", "CreatedAt", "FieldDefinitionId", "FieldKey", "IsDeleted", "ItemId", "UpdatedAt", "Value", "Weight")
-SELECT "Id", "CreatedAt", "FieldDefinitionId", "FieldKey", "IsDeleted", "ItemId", "UpdatedAt", "Value", "Weight"
-FROM "FieldValues";
-
-COMMIT;
-
-PRAGMA foreign_keys = 0;
-
-BEGIN TRANSACTION;
-DROP TABLE "FieldDefinitions";
-
-ALTER TABLE "ef_temp_FieldDefinitions" RENAME TO "FieldDefinitions";
-
-DROP TABLE "FieldValues";
-
-ALTER TABLE "ef_temp_FieldValues" RENAME TO "FieldValues";
-
-COMMIT;
-
-PRAGMA foreign_keys = 1;
-
-BEGIN TRANSACTION;
-CREATE INDEX "IX_FieldValues_FieldDefinitionId" ON "FieldValues" ("FieldDefinitionId");
-
-CREATE INDEX "IX_FieldValues_FieldKey" ON "FieldValues" ("FieldKey");
-
-CREATE INDEX "IX_FieldValues_ItemId" ON "FieldValues" ("ItemId");
-
-CREATE INDEX "IX_FieldValues_ItemId_FieldDefinitionId_Weight" ON "FieldValues" ("ItemId", "FieldDefinitionId", "Weight");
-
-CREATE INDEX "IX_FieldValues_ItemId_FieldKey" ON "FieldValues" ("ItemId", "FieldKey");
-
-COMMIT;
-
-INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20251203161105_1.8.0-SystemFieldRefactor', '9.0.4');`,
+VALUES ('20251203162345_1.7.0-FieldBasedDataModelUpdate', '9.0.4');`,
 };

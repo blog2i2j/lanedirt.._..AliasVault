@@ -6,7 +6,6 @@
 # Configurable settings
 SQL_DIR="MigrationSql"
 OUTPUT_FILE="MigrationTs/SqlConstants.ts"
-VERSIONS_FILE="MigrationTs/VaultVersions.ts"
 TEMP_DIR="/tmp/sql_to_ts"
 
 # Path to the shared vault-sql package
