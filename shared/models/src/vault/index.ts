@@ -10,3 +10,6 @@ export * from './Passkey';
 export * from './FieldKey';
 export * from './Tag';
 export * from './ItemTag';
+export * from './Item';
+export * from './CredentialCompat';
+export * from './ItemMethods';

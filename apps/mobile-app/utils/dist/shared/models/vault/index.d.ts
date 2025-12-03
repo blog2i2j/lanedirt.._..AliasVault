@@ -321,4 +321,80 @@ type ItemTag = {
     IsDeleted: number;
 };
 
-export { type Alias, type Attachment, type Credential, type EncryptionKey, FieldKey, type FieldKeyValue, type ItemTag, type Passkey, type PasswordSettings, type Tag, type TotpCode };
+/**
+ * Item types supported by the vault
+ */
+type ItemType = 'Login' | 'CreditCard' | 'Identity' | 'Note';
+/**
+ * Item type representing vault entries in the new field-based data model.
+ * Replaces the old Credential type.
+ */
+type Item = {
+    Id: string;
+    Name: string | null;
+    ItemType: ItemType;
+    Logo?: Uint8Array | number[];
+    FolderId?: string | null;
+    FolderPath?: string | null;
+    Tags?: ItemTagRef[];
+    Fields: ItemField[];
+    HasPasskey?: boolean;
+    HasAttachment?: boolean;
+    HasTotp?: boolean;
+    CreatedAt: string;
+    UpdatedAt: string;
+};
+/**
+ * Field value within an item
+ */
+type ItemField = {
+    FieldKey: string;
+    Label: string;
+    FieldType: FieldType;
+    Value: string | string[];
+    IsHidden: boolean;
+    DisplayOrder: number;
+};
+/**
+ * Field types for rendering and validation
+ */
+type FieldType = 'Text' | 'Password' | 'Email' | 'URL' | 'Date' | 'Number' | 'Phone' | 'TextArea';
+/**
+ * Tag reference for display within an item
+ */
+type ItemTagRef = {
+    Id: string;
+    Name: string;
+    Color?: string;
+};
+
+/**
+ * Helper functions for working with Item model
+ */
+/**
+ * Get a single field value by FieldKey
+ */
+declare function getFieldValue(item: Item, fieldKey: string): string | undefined;
+/**
+ * Get all values for a multi-value field
+ */
+declare function getFieldValues(item: Item, fieldKey: string): string[];
+/**
+ * Check if a field exists and has a value
+ */
+declare function hasField(item: Item, fieldKey: string): boolean;
+/**
+ * Group fields by a categorization function
+ */
+declare function groupFields(item: Item, grouper: (field: ItemField) => string): Record<string, ItemField[]>;
+/**
+ * Group fields by standard categories (Login, Alias, Custom)
+ */
+declare function groupFieldsByCategory(item: Item): Record<string, ItemField[]>;
+/**
+ * Convert new Item model to legacy Credential model for backward compatibility.
+ * @deprecated Use Item model directly. This is a temporary compatibility layer.
+ */
+declare function itemToCredential(item: Item): Credential;
+
+export { type Alias, type Attachment, type Credential, type EncryptionKey, FieldKey, type FieldKeyValue, type FieldType, type Item, type ItemField, type ItemTag, type ItemTagRef, type ItemType, type Passkey, type PasswordSettings, type Tag, type TotpCode, getFieldValue, getFieldValues, groupFields, groupFieldsByCategory, hasField, itemToCredential };

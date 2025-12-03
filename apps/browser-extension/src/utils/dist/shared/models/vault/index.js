@@ -151,6 +151,78 @@ var FieldKey = {
   AliasBirthdate: "alias.birthdate"
 };
 
-export { FieldKey };
+// src/vault/ItemMethods.ts
+function getFieldValue(item, fieldKey) {
+  const field = item.Fields.find((f) => f.FieldKey === fieldKey);
+  if (!field) {
+    return void 0;
+  }
+  return Array.isArray(field.Value) ? field.Value[0] : field.Value;
+}
+function getFieldValues(item, fieldKey) {
+  const field = item.Fields.find((f) => f.FieldKey === fieldKey);
+  if (!field) {
+    return [];
+  }
+  return Array.isArray(field.Value) ? field.Value : [field.Value];
+}
+function hasField(item, fieldKey) {
+  const value = getFieldValue(item, fieldKey);
+  return value !== void 0 && value !== "";
+}
+function groupFields(item, grouper) {
+  const groups = {};
+  item.Fields.forEach((field) => {
+    const group = grouper(field);
+    if (!groups[group]) {
+      groups[group] = [];
+    }
+    groups[group].push(field);
+  });
+  return groups;
+}
+function groupFieldsByCategory(item) {
+  return groupFields(item, (field) => {
+    if (field.FieldKey.startsWith("login.")) {
+      return "Login";
+    }
+    if (field.FieldKey.startsWith("alias.")) {
+      return "Alias";
+    }
+    if (field.FieldKey.startsWith("card.")) {
+      return "Card";
+    }
+    if (field.FieldKey.startsWith("identity.")) {
+      return "Identity";
+    }
+    if (field.FieldKey.startsWith("api.")) {
+      return "API";
+    }
+    return "Custom";
+  });
+}
+function itemToCredential(item) {
+  return {
+    Id: item.Id,
+    Username: getFieldValue(item, FieldKey.LoginUsername),
+    Password: getFieldValue(item, FieldKey.LoginPassword) || "",
+    ServiceName: item.Name || "",
+    ServiceUrl: getFieldValue(item, FieldKey.LoginUrl),
+    Logo: item.Logo,
+    Notes: getFieldValue(item, FieldKey.LoginNotes),
+    Alias: {
+      FirstName: getFieldValue(item, FieldKey.AliasFirstName),
+      LastName: getFieldValue(item, FieldKey.AliasLastName),
+      NickName: getFieldValue(item, FieldKey.AliasNickname),
+      BirthDate: getFieldValue(item, FieldKey.AliasBirthdate) || "",
+      Gender: getFieldValue(item, FieldKey.AliasGender),
+      Email: getFieldValue(item, FieldKey.AliasEmail)
+    },
+    HasPasskey: item.HasPasskey,
+    HasAttachment: item.HasAttachment
+  };
+}
+
+export { FieldKey, getFieldValue, getFieldValues, groupFields, groupFieldsByCategory, hasField, itemToCredential };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map
