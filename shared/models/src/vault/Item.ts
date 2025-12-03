@@ -45,6 +45,7 @@ export type ItemField = {
 export type FieldType =
     | 'Text'
     | 'Password'
+    | 'Hidden'
     | 'Email'
     | 'URL'
     | 'Date'

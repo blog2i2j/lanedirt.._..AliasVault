@@ -54,6 +54,7 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field }) => {
   // Render based on field type
   switch (field.FieldType) {
     case 'Password':
+    case 'Hidden':
       return (
         <FormInputCopyToClipboard
           id={field.FieldKey}

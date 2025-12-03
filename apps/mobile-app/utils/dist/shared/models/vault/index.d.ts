@@ -358,7 +358,7 @@ type ItemField = {
 /**
  * Field types for rendering and validation
  */
-type FieldType = 'Text' | 'Password' | 'Email' | 'URL' | 'Date' | 'Number' | 'Phone' | 'TextArea';
+type FieldType = 'Text' | 'Password' | 'Hidden' | 'Email' | 'URL' | 'Date' | 'Number' | 'Phone' | 'TextArea';
 /**
  * Tag reference for display within an item
  */

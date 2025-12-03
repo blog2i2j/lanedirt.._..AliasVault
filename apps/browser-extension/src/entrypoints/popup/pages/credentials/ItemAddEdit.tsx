@@ -7,6 +7,7 @@ import { sendMessage } from 'webext-bridge/popup';
 import Modal from '@/entrypoints/popup/components/Dialogs/Modal';
 import EditableFieldLabel from '@/entrypoints/popup/components/Forms/EditableFieldLabel';
 import { FormInput } from '@/entrypoints/popup/components/Forms/FormInput';
+import HiddenField from '@/entrypoints/popup/components/Forms/HiddenField';
 import PasswordField from '@/entrypoints/popup/components/Forms/PasswordField';
 import HeaderButton from '@/entrypoints/popup/components/HeaderButton';
 import { HeaderIconType } from '@/entrypoints/popup/components/Icons/HeaderIcons';
@@ -384,6 +385,16 @@ const ItemAddEdit: React.FC = () => {
           />
         );
 
+      case 'Hidden':
+        return (
+          <HiddenField
+            id={fieldKey}
+            label={label}
+            value={stringValue}
+            onChange={(val) => handleFieldChange(fieldKey, val)}
+          />
+        );
+
       case 'TextArea':
         return (
           <div>
@@ -556,7 +567,7 @@ const ItemAddEdit: React.FC = () => {
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
                 >
                   <option value="Text">Text</option>
-                  <option value="Password">Hidden (masked text)</option>
+                  <option value="Hidden">Hidden (masked text)</option>
                   <option value="Email">Email</option>
                   <option value="URL">URL</option>
                   <option value="Phone">Phone</option>
