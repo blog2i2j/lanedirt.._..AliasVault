@@ -1,8 +1,9 @@
 import initSqlJs, { Database } from 'sql.js';
 
 import * as dateFormatter from '@/utils/dateFormatter';
-import type { Credential, EncryptionKey, PasswordSettings, TotpCode, Passkey } from '@/utils/dist/shared/models/vault';
+import type { Credential, EncryptionKey, PasswordSettings, TotpCode, Passkey, Item, ItemField, ItemTagRef, FieldType } from '@/utils/dist/shared/models/vault';
 import type { Attachment } from '@/utils/dist/shared/models/vault';
+import { FieldKey, SystemFieldRegistry, getSystemField } from '@/utils/dist/shared/models/vault';
 import type { VaultVersion } from '@/utils/dist/shared/vault-sql';
 import { VaultSqlGenerator, checkVersionCompatibility, extractVersionFromMigrationId } from '@/utils/dist/shared/vault-sql';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
@@ -207,37 +208,25 @@ export class SqliteClient {
    * @returns Credential object with service details or null if not found.
    */
   public getCredentialById(credentialId: string): Credential | null {
+    // WIP: Quick V5 schema refactor - field-based queries
     const query = `
         SELECT DISTINCT
-            c.Id,
-            c.Username,
-            c.Notes,
-            c.ServiceId,
-            s.Name as ServiceName,
-            s.Url as ServiceUrl,
-            s.Logo as Logo,
-            a.FirstName,
-            a.LastName,
-            a.NickName,
-            a.BirthDate,
-            a.Gender,
-            a.Email,
-            p.Value as Password,
+            i.Id,
+            i.Name as ServiceName,
+            l.FileData as Logo,
             CASE
                 WHEN EXISTS (
                     SELECT 1 FROM Passkeys pk
-                    WHERE pk.CredentialId = c.Id AND pk.IsDeleted = 0
+                    WHERE pk.ItemId = i.Id AND pk.IsDeleted = 0
                 ) THEN 1
                 ELSE 0
             END as HasPasskey,
-            (SELECT pk.RpId FROM Passkeys pk WHERE pk.CredentialId = c.Id AND pk.IsDeleted = 0 LIMIT 1) as PasskeyRpId,
-            (SELECT pk.DisplayName FROM Passkeys pk WHERE pk.CredentialId = c.Id AND pk.IsDeleted = 0 LIMIT 1) as PasskeyDisplayName
-        FROM Credentials c
-        LEFT JOIN Services s ON c.ServiceId = s.Id
-        LEFT JOIN Aliases a ON c.AliasId = a.Id
-        LEFT JOIN Passwords p ON p.CredentialId = c.Id
-        WHERE c.IsDeleted = 0
-        AND c.Id = ?`;
+            (SELECT pk.RpId FROM Passkeys pk WHERE pk.ItemId = i.Id AND pk.IsDeleted = 0 LIMIT 1) as PasskeyRpId,
+            (SELECT pk.DisplayName FROM Passkeys pk WHERE pk.ItemId = i.Id AND pk.IsDeleted = 0 LIMIT 1) as PasskeyDisplayName
+        FROM Items i
+        LEFT JOIN Logos l ON i.LogoId = l.Id
+        WHERE i.IsDeleted = 0
+        AND i.Id = ?`;
 
     const results = this.executeQuery(query, [credentialId]);
 
@@ -245,27 +234,44 @@ export class SqliteClient {
       return null;
     }
 
-    // Convert the first row to a Credential object
+    // Get field values for this item (only system fields, which have FieldKey)
+    const fieldQuery = `
+        SELECT
+          fv.FieldKey,
+          fv.Value
+        FROM FieldValues fv
+        WHERE fv.ItemId = ? AND fv.IsDeleted = 0 AND fv.FieldKey IS NOT NULL`;
+
+    const fieldResults = this.executeQuery<{FieldKey: string, Value: string}>(fieldQuery, [credentialId]);
+
+    // Map field values by FieldKey
+    const fields: {[key: string]: string} = {};
+    fieldResults.forEach(f => {
+      if (f.FieldKey) {
+        fields[f.FieldKey] = f.Value;
+      }
+    });
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const row = results[0] as any;
     return {
       Id: row.Id,
-      Username: row.Username,
-      Password: row.Password,
+      Username: fields[FieldKey.LoginUsername] || undefined,
+      Password: fields[FieldKey.LoginPassword] || '',
       ServiceName: row.ServiceName,
-      ServiceUrl: row.ServiceUrl,
+      ServiceUrl: fields[FieldKey.LoginUrl] || undefined,
       Logo: row.Logo,
-      Notes: row.Notes,
+      Notes: fields[FieldKey.LoginNotes] || undefined,
       HasPasskey: row.HasPasskey === 1,
       PasskeyRpId: row.PasskeyRpId,
       PasskeyDisplayName: row.PasskeyDisplayName,
       Alias: {
-        FirstName: row.FirstName,
-        LastName: row.LastName,
-        NickName: row.NickName,
-        BirthDate: row.BirthDate,
-        Gender: row.Gender,
-        Email: row.Email
+        FirstName: fields[FieldKey.AliasFirstName] || undefined,
+        LastName: fields[FieldKey.AliasLastName] || undefined,
+        NickName: fields[FieldKey.AliasNickname] || undefined,
+        BirthDate: fields[FieldKey.AliasBirthdate] || '',
+        Gender: fields[FieldKey.AliasGender] || undefined,
+        Email: fields[FieldKey.AliasEmail] || undefined
       },
     };
   }
@@ -275,65 +281,361 @@ export class SqliteClient {
    * @returns Array of Credential objects with service details.
    */
   public getAllCredentials(): Credential[] {
+    // WIP: Quick V5 schema refactor - field-based queries
     const query = `
             SELECT DISTINCT
-                c.Id,
-                c.Username,
-                c.Notes,
-                c.ServiceId,
-                s.Name as ServiceName,
-                s.Url as ServiceUrl,
-                s.Logo as Logo,
-                a.FirstName,
-                a.LastName,
-                a.NickName,
-                a.BirthDate,
-                a.Gender,
-                a.Email,
-                p.Value as Password,
+                i.Id,
+                i.Name as ServiceName,
+                l.FileData as Logo,
                 CASE
                     WHEN EXISTS (
                         SELECT 1 FROM Passkeys pk
-                        WHERE pk.CredentialId = c.Id AND pk.IsDeleted = 0
+                        WHERE pk.ItemId = i.Id AND pk.IsDeleted = 0
                     ) THEN 1
                     ELSE 0
                 END as HasPasskey,
                 CASE
                     WHEN EXISTS (
                         SELECT 1 FROM Attachments att
-                        WHERE att.CredentialId = c.Id AND att.IsDeleted = 0
+                        WHERE att.ItemId = i.Id AND att.IsDeleted = 0
                     ) THEN 1
                     ELSE 0
                 END as HasAttachment
-            FROM Credentials c
-            LEFT JOIN Services s ON c.ServiceId = s.Id
-            LEFT JOIN Aliases a ON c.AliasId = a.Id
-            LEFT JOIN Passwords p ON p.CredentialId = c.Id
-            WHERE c.IsDeleted = 0
-            ORDER BY c.CreatedAt DESC`;
+            FROM Items i
+            LEFT JOIN Logos l ON i.LogoId = l.Id
+            WHERE i.IsDeleted = 0
+            ORDER BY i.CreatedAt DESC`;
 
     const results = this.executeQuery(query);
 
+    // Get all field values in one query for performance
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return results.map((row: any) => ({
+    const itemIds = results.map((r: any) => r.Id);
+    if (itemIds.length === 0) {
+      return [];
+    }
+
+    const fieldQuery = `
+        SELECT fv.ItemId, fv.FieldKey, fv.Value
+        FROM FieldValues fv
+        WHERE fv.ItemId IN (${itemIds.map(() => '?').join(',')})
+          AND fv.IsDeleted = 0
+          AND fv.FieldKey IS NOT NULL`;
+
+    const fieldResults = this.executeQuery<{ItemId: string, FieldKey: string, Value: string}>(fieldQuery, itemIds);
+
+    // Group fields by item ID
+    const fieldsByItem: {[itemId: string]: {[fieldKey: string]: string}} = {};
+    fieldResults.forEach(f => {
+      if (!fieldsByItem[f.ItemId]) {
+        fieldsByItem[f.ItemId] = {};
+      }
+      if (f.FieldKey) {
+        fieldsByItem[f.ItemId][f.FieldKey] = f.Value;
+      }
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return results.map((row: any) => {
+      const fields = fieldsByItem[row.Id] || {};
+      return {
+        Id: row.Id,
+        Username: fields[FieldKey.LoginUsername] || undefined,
+        Password: fields[FieldKey.LoginPassword] || '',
+        ServiceName: row.ServiceName,
+        ServiceUrl: fields[FieldKey.LoginUrl] || undefined,
+        Logo: row.Logo,
+        Notes: fields[FieldKey.LoginNotes] || undefined,
+        HasPasskey: row.HasPasskey === 1,
+        HasAttachment: row.HasAttachment === 1,
+        Alias: {
+          FirstName: fields[FieldKey.AliasFirstName] || undefined,
+          LastName: fields[FieldKey.AliasLastName] || undefined,
+          NickName: fields[FieldKey.AliasNickname] || undefined,
+          BirthDate: fields[FieldKey.AliasBirthdate] || '',
+          Gender: fields[FieldKey.AliasGender] || undefined,
+          Email: fields[FieldKey.AliasEmail] || undefined
+        }
+      };
+    });
+  }
+
+  /**
+   * Fetch all items with their dynamic fields and tags.
+   * @returns Array of Item objects with field-based data.
+   */
+  public getAllItems(): Item[] {
+    const query = `
+      SELECT DISTINCT
+        i.Id,
+        i.Name,
+        i.ItemType,
+        i.FolderId,
+        l.FileData as Logo,
+        CASE WHEN EXISTS (SELECT 1 FROM Passkeys pk WHERE pk.ItemId = i.Id AND pk.IsDeleted = 0) THEN 1 ELSE 0 END as HasPasskey,
+        CASE WHEN EXISTS (SELECT 1 FROM Attachments att WHERE att.ItemId = i.Id AND att.IsDeleted = 0) THEN 1 ELSE 0 END as HasAttachment,
+        CASE WHEN EXISTS (SELECT 1 FROM TotpCodes tc WHERE tc.ItemId = i.Id AND tc.IsDeleted = 0) THEN 1 ELSE 0 END as HasTotp,
+        i.CreatedAt,
+        i.UpdatedAt
+      FROM Items i
+      LEFT JOIN Logos l ON i.LogoId = l.Id
+      WHERE i.IsDeleted = 0
+      ORDER BY i.CreatedAt DESC`;
+
+    const items = this.executeQuery(query);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const itemIds = items.map((i: any) => i.Id);
+    if (itemIds.length === 0) {
+      return [];
+    }
+
+    // Get all field values (both system fields and custom fields)
+    const fieldsQuery = `
+      SELECT
+        fv.ItemId,
+        fv.FieldKey,
+        fv.FieldDefinitionId,
+        fd.Label as CustomLabel,
+        fd.FieldType as CustomFieldType,
+        fd.IsHidden as CustomIsHidden,
+        fv.Value,
+        fv.Weight as DisplayOrder
+      FROM FieldValues fv
+      LEFT JOIN FieldDefinitions fd ON fv.FieldDefinitionId = fd.Id
+      WHERE fv.ItemId IN (${itemIds.map(() => '?').join(',')})
+        AND fv.IsDeleted = 0
+      ORDER BY fv.ItemId, fv.Weight`;
+
+    const fieldRows = this.executeQuery<{
+      ItemId: string;
+      FieldKey: string | null;
+      FieldDefinitionId: string | null;
+      CustomLabel: string | null;
+      CustomFieldType: string | null;
+      CustomIsHidden: number | null;
+      Value: string;
+      DisplayOrder: number;
+    }>(fieldsQuery, itemIds);
+
+    // Process fields - handle system fields vs custom fields
+    const fields = fieldRows.map(row => {
+      // System field: has FieldKey, get metadata from SystemFieldRegistry
+      if (row.FieldKey) {
+        const systemField = getSystemField(row.FieldKey);
+        return {
+          ItemId: row.ItemId,
+          FieldKey: row.FieldKey,
+          Label: systemField?.Label || row.FieldKey,
+          FieldType: systemField?.FieldType || 'Text',
+          IsHidden: systemField?.IsHidden ? 1 : 0,
+          Value: row.Value,
+          DisplayOrder: row.DisplayOrder
+        };
+      } else {
+        // Custom field: has FieldDefinitionId, get metadata from FieldDefinitions
+        return {
+          ItemId: row.ItemId,
+          FieldKey: `custom_${row.FieldDefinitionId}`, // Generate a key for custom fields
+          Label: row.CustomLabel || '',
+          FieldType: row.CustomFieldType || 'Text',
+          IsHidden: row.CustomIsHidden || 0,
+          Value: row.Value,
+          DisplayOrder: row.DisplayOrder
+        };
+      }
+    });
+
+    // Get all tags
+    const tagsQuery = `
+      SELECT
+        it.ItemId,
+        t.Id,
+        t.Name,
+        t.Color
+      FROM ItemTags it
+      INNER JOIN Tags t ON it.TagId = t.Id
+      WHERE it.ItemId IN (${itemIds.map(() => '?').join(',')})
+        AND it.IsDeleted = 0
+        AND t.IsDeleted = 0
+      ORDER BY t.DisplayOrder, t.Name`;
+
+    const tags = this.executeQuery<{
+      ItemId: string;
+      Id: string;
+      Name: string;
+      Color: string | null;
+    }>(tagsQuery, itemIds);
+
+    // Group by ItemId
+    const fieldsByItem: {[itemId: string]: ItemField[]} = {};
+    fields.forEach(f => {
+      if (!fieldsByItem[f.ItemId]) {
+        fieldsByItem[f.ItemId] = [];
+      }
+      fieldsByItem[f.ItemId].push({
+        FieldKey: f.FieldKey,
+        Label: f.Label,
+        FieldType: f.FieldType as FieldType,
+        Value: f.Value,
+        IsHidden: f.IsHidden === 1,
+        DisplayOrder: f.DisplayOrder
+      });
+    });
+
+    const tagsByItem: {[itemId: string]: ItemTagRef[]} = {};
+    tags.forEach(t => {
+      if (!tagsByItem[t.ItemId]) {
+        tagsByItem[t.ItemId] = [];
+      }
+      tagsByItem[t.ItemId].push({
+        Id: t.Id,
+        Name: t.Name,
+        Color: t.Color || undefined
+      });
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return items.map((row: any) => ({
       Id: row.Id,
-      Username: row.Username,
-      Password: row.Password,
-      ServiceName: row.ServiceName,
-      ServiceUrl: row.ServiceUrl,
+      Name: row.Name,
+      ItemType: row.ItemType,
       Logo: row.Logo,
-      Notes: row.Notes,
+      FolderId: row.FolderId,
+      FolderPath: null,
+      Tags: tagsByItem[row.Id] || [],
+      Fields: fieldsByItem[row.Id] || [],
       HasPasskey: row.HasPasskey === 1,
       HasAttachment: row.HasAttachment === 1,
-      Alias: {
-        FirstName: row.FirstName,
-        LastName: row.LastName,
-        NickName: row.NickName,
-        BirthDate: row.BirthDate,
-        Gender: row.Gender,
-        Email: row.Email
-      }
+      HasTotp: row.HasTotp === 1,
+      CreatedAt: row.CreatedAt,
+      UpdatedAt: row.UpdatedAt
     }));
+  }
+
+  /**
+   * Fetch a single item by ID with its dynamic fields and tags.
+   * @param itemId - The ID of the item to fetch.
+   * @returns Item object or null if not found.
+   */
+  public getItemById(itemId: string): Item | null {
+    const query = `
+      SELECT
+        i.Id,
+        i.Name,
+        i.ItemType,
+        i.FolderId,
+        l.FileData as Logo,
+        CASE WHEN EXISTS (SELECT 1 FROM Passkeys pk WHERE pk.ItemId = i.Id AND pk.IsDeleted = 0) THEN 1 ELSE 0 END as HasPasskey,
+        CASE WHEN EXISTS (SELECT 1 FROM Attachments att WHERE att.ItemId = i.Id AND att.IsDeleted = 0) THEN 1 ELSE 0 END as HasAttachment,
+        CASE WHEN EXISTS (SELECT 1 FROM TotpCodes tc WHERE tc.ItemId = i.Id AND tc.IsDeleted = 0) THEN 1 ELSE 0 END as HasTotp,
+        i.CreatedAt,
+        i.UpdatedAt
+      FROM Items i
+      LEFT JOIN Logos l ON i.LogoId = l.Id
+      WHERE i.Id = ? AND i.IsDeleted = 0`;
+
+    const results = this.executeQuery(query, [itemId]);
+    if (results.length === 0) {
+      return null;
+    }
+
+    // Get field values (both system fields and custom fields)
+    const fieldsQuery = `
+      SELECT
+        fv.FieldKey,
+        fv.FieldDefinitionId,
+        fd.Label as CustomLabel,
+        fd.FieldType as CustomFieldType,
+        fd.IsHidden as CustomIsHidden,
+        fv.Value,
+        fv.Weight as DisplayOrder
+      FROM FieldValues fv
+      LEFT JOIN FieldDefinitions fd ON fv.FieldDefinitionId = fd.Id
+      WHERE fv.ItemId = ? AND fv.IsDeleted = 0
+      ORDER BY fv.Weight`;
+
+    const fieldRows = this.executeQuery<{
+      FieldKey: string | null;
+      FieldDefinitionId: string | null;
+      CustomLabel: string | null;
+      CustomFieldType: string | null;
+      CustomIsHidden: number | null;
+      Value: string;
+      DisplayOrder: number;
+    }>(fieldsQuery, [itemId]);
+
+    // Process fields - handle system fields vs custom fields
+    const fields = fieldRows.map(row => {
+      // System field: has FieldKey, get metadata from SystemFieldRegistry
+      if (row.FieldKey) {
+        const systemField = getSystemField(row.FieldKey);
+        return {
+          FieldKey: row.FieldKey,
+          Label: systemField?.Label || row.FieldKey,
+          FieldType: systemField?.FieldType || 'Text',
+          IsHidden: systemField?.IsHidden ? 1 : 0,
+          Value: row.Value,
+          DisplayOrder: row.DisplayOrder
+        };
+      } else {
+        // Custom field: has FieldDefinitionId, get metadata from FieldDefinitions
+        return {
+          FieldKey: `custom_${row.FieldDefinitionId}`, // Generate a key for custom fields
+          Label: row.CustomLabel || '',
+          FieldType: row.CustomFieldType || 'Text',
+          IsHidden: row.CustomIsHidden || 0,
+          Value: row.Value,
+          DisplayOrder: row.DisplayOrder
+        };
+      }
+    });
+
+    // Get tags
+    const tagsQuery = `
+      SELECT
+        t.Id,
+        t.Name,
+        t.Color
+      FROM ItemTags it
+      INNER JOIN Tags t ON it.TagId = t.Id
+      WHERE it.ItemId = ? AND it.IsDeleted = 0 AND t.IsDeleted = 0
+      ORDER BY t.DisplayOrder, t.Name`;
+
+    const tags = this.executeQuery<{
+      Id: string;
+      Name: string;
+      Color: string | null;
+    }>(tagsQuery, [itemId]);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const row = results[0] as any;
+    return {
+      Id: row.Id,
+      Name: row.Name,
+      ItemType: row.ItemType,
+      Logo: row.Logo,
+      FolderId: row.FolderId,
+      FolderPath: null,
+      Tags: tags.map(t => ({
+        Id: t.Id,
+        Name: t.Name,
+        Color: t.Color || undefined
+      })),
+      Fields: fields.map(f => ({
+        FieldKey: f.FieldKey,
+        Label: f.Label,
+        FieldType: f.FieldType as FieldType,
+        Value: f.Value,
+        IsHidden: f.IsHidden === 1,
+        DisplayOrder: f.DisplayOrder
+      })),
+      HasPasskey: row.HasPasskey === 1,
+      HasAttachment: row.HasAttachment === 1,
+      HasTotp: row.HasTotp === 1,
+      CreatedAt: row.CreatedAt,
+      UpdatedAt: row.UpdatedAt
+    };
   }
 
   /**
@@ -342,14 +644,17 @@ export class SqliteClient {
    */
   public getAllEmailAddresses(): string[] {
     const query = `
-      SELECT DISTINCT
-        a.Email
-      FROM Credentials c
-      LEFT JOIN Aliases a ON c.AliasId = a.Id
-      WHERE a.Email IS NOT NULL AND a.Email != '' AND c.IsDeleted = 0
+      SELECT DISTINCT fv.Value as Email
+      FROM FieldValues fv
+      INNER JOIN Items i ON fv.ItemId = i.Id
+      WHERE fv.FieldKey = ?
+        AND fv.Value IS NOT NULL
+        AND fv.Value != ''
+        AND fv.IsDeleted = 0
+        AND i.IsDeleted = 0
     `;
 
-    const results = this.executeQuery(query);
+    const results = this.executeQuery(query, [FieldKey.AliasEmail]);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return results.map((row: any) => row.Email);
@@ -1604,6 +1909,228 @@ export class SqliteClient {
     } catch (error) {
       this.rollbackTransaction();
       console.error('Error updating passkey display name:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a new item with field-based structure
+   * @param item The item object to insert
+   * @returns The ID of the created item
+   */
+  public async createItem(item: Item): Promise<string> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      this.beginTransaction();
+
+      const currentDateTime = dateFormatter.now();
+      const itemId = item.Id || crypto.randomUUID().toUpperCase();
+
+      // 1. Insert Item
+      const itemQuery = `
+        INSERT INTO Items (Id, Name, ItemType, LogoId, FolderId, CreatedAt, UpdatedAt, IsDeleted)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+
+      this.executeUpdate(itemQuery, [
+        itemId,
+        item.Name ?? null,
+        item.ItemType,
+        null, // LogoId - handle logo separately if needed
+        item.FolderId ?? null,
+        currentDateTime,
+        currentDateTime,
+        0
+      ]);
+
+      // 2. Insert FieldValues for all fields
+      if (item.Fields && item.Fields.length > 0) {
+        for (const field of item.Fields) {
+          // Skip empty fields
+          if (!field.Value || (typeof field.Value === 'string' && field.Value.trim() === '')) {
+            continue;
+          }
+
+          const fieldValueId = crypto.randomUUID().toUpperCase();
+          const fieldQuery = `
+            INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+          /*
+           * For system fields: FieldKey is set, FieldDefinitionId is NULL
+           * For custom fields: FieldDefinitionId is set, FieldKey is NULL (future implementation)
+           */
+          const valueString = Array.isArray(field.Value) ? JSON.stringify(field.Value) : field.Value;
+
+          this.executeUpdate(fieldQuery, [
+            fieldValueId,
+            itemId,
+            null, // FieldDefinitionId (NULL for system fields)
+            field.FieldKey, // FieldKey (set for system fields)
+            valueString,
+            field.DisplayOrder ?? 0,
+            currentDateTime,
+            currentDateTime,
+            0
+          ]);
+        }
+      }
+
+      await this.commitTransaction();
+      return itemId;
+    } catch (error) {
+      this.rollbackTransaction();
+      console.error('Error creating item:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update an existing item with field-based structure
+   * @param item The item object to update
+   * @returns The number of rows modified
+   */
+  public async updateItem(item: Item): Promise<number> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      this.beginTransaction();
+
+      const currentDateTime = dateFormatter.now();
+
+      // 1. Update Item
+      const itemQuery = `
+        UPDATE Items
+        SET Name = ?,
+            ItemType = ?,
+            FolderId = ?,
+            UpdatedAt = ?
+        WHERE Id = ?`;
+
+      this.executeUpdate(itemQuery, [
+        item.Name ?? null,
+        item.ItemType,
+        item.FolderId ?? null,
+        currentDateTime,
+        item.Id
+      ]);
+
+      // 2. Delete all existing FieldValues for this item
+      const deleteFieldsQuery = `
+        UPDATE FieldValues
+        SET IsDeleted = 1,
+            UpdatedAt = ?
+        WHERE ItemId = ?`;
+
+      this.executeUpdate(deleteFieldsQuery, [currentDateTime, item.Id]);
+
+      // 3. Insert new FieldValues
+      if (item.Fields && item.Fields.length > 0) {
+        for (const field of item.Fields) {
+          // Skip empty fields
+          if (!field.Value || (typeof field.Value === 'string' && field.Value.trim() === '')) {
+            continue;
+          }
+
+          const fieldValueId = crypto.randomUUID().toUpperCase();
+          const fieldQuery = `
+            INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+          const valueString = Array.isArray(field.Value) ? JSON.stringify(field.Value) : field.Value;
+
+          this.executeUpdate(fieldQuery, [
+            fieldValueId,
+            item.Id,
+            null, // FieldDefinitionId (NULL for system fields)
+            field.FieldKey, // FieldKey (set for system fields)
+            valueString,
+            field.DisplayOrder ?? 0,
+            currentDateTime,
+            currentDateTime,
+            0
+          ]);
+        }
+      }
+
+      await this.commitTransaction();
+      return 1;
+    } catch (error) {
+      this.rollbackTransaction();
+      console.error('Error updating item:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete an item by ID (soft delete)
+   * @param itemId - The ID of the item to delete
+   * @returns The number of rows updated
+   */
+  public async deleteItemById(itemId: string): Promise<number> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      this.beginTransaction();
+
+      const currentDateTime = dateFormatter.now();
+
+      // 1. Soft delete the item
+      const itemQuery = `
+        UPDATE Items
+        SET IsDeleted = 1,
+            UpdatedAt = ?
+        WHERE Id = ?`;
+
+      const result = this.executeUpdate(itemQuery, [currentDateTime, itemId]);
+
+      // 2. Soft delete all associated FieldValues
+      const fieldsQuery = `
+        UPDATE FieldValues
+        SET IsDeleted = 1,
+            UpdatedAt = ?
+        WHERE ItemId = ?`;
+
+      this.executeUpdate(fieldsQuery, [currentDateTime, itemId]);
+
+      // 3. Soft delete associated Passkeys
+      const passkeysQuery = `
+        UPDATE Passkeys
+        SET IsDeleted = 1,
+            UpdatedAt = ?
+        WHERE ItemId = ?`;
+
+      this.executeUpdate(passkeysQuery, [currentDateTime, itemId]);
+
+      // 4. Soft delete associated TotpCodes
+      const totpQuery = `
+        UPDATE TotpCodes
+        SET IsDeleted = 1,
+            UpdatedAt = ?
+        WHERE ItemId = ?`;
+
+      this.executeUpdate(totpQuery, [currentDateTime, itemId]);
+
+      // 5. Soft delete associated Attachments
+      const attachmentsQuery = `
+        UPDATE Attachments
+        SET IsDeleted = 1,
+            UpdatedAt = ?
+        WHERE ItemId = ?`;
+
+      this.executeUpdate(attachmentsQuery, [currentDateTime, itemId]);
+
+      await this.commitTransaction();
+      return result;
+    } catch (error) {
+      this.rollbackTransaction();
+      console.error('Error deleting item:', error);
       throw error;
     }
   }

@@ -1,6 +1,7 @@
 import AliasBlock from './AliasBlock';
 import AttachmentBlock from './AttachmentBlock';
 import EmailBlock from './EmailBlock';
+import FieldBlock from './FieldBlock';
 import HeaderBlock from './HeaderBlock';
 import LoginCredentialsBlock from './LoginCredentialsBlock';
 import NotesBlock from './NotesBlock';
@@ -13,5 +14,6 @@ export {
   LoginCredentialsBlock,
   AliasBlock,
   NotesBlock,
-  AttachmentBlock
+  AttachmentBlock,
+  FieldBlock
 };

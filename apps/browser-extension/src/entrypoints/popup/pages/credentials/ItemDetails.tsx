@@ -1,0 +1,235 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate, useParams } from 'react-router-dom';
+
+import {
+  HeaderBlock,
+  TotpBlock,
+  AttachmentBlock,
+  FieldBlock
+} from '@/entrypoints/popup/components/Credentials/Details';
+import HeaderButton from '@/entrypoints/popup/components/HeaderButton';
+import { HeaderIconType } from '@/entrypoints/popup/components/Icons/HeaderIcons';
+import { useDb } from '@/entrypoints/popup/context/DbContext';
+import { useHeaderButtons } from '@/entrypoints/popup/context/HeaderButtonsContext';
+import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
+import { PopoutUtility } from '@/entrypoints/popup/utils/PopoutUtility';
+
+import type { Item } from '@/utils/dist/shared/models/vault';
+import { groupFieldsByCategory } from '@/utils/dist/shared/models/vault';
+
+/**
+ * Item details page with dynamic field rendering.
+ */
+const ItemDetails: React.FC = (): React.ReactElement => {
+  const { t } = useTranslation();
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const dbContext = useDb();
+  const [item, setItem] = useState<Item | null>(null);
+  const { setIsInitialLoading } = useLoading();
+  const { setHeaderButtons } = useHeaderButtons();
+
+  /**
+   * Open the item details in a new expanded popup.
+   */
+  const openInNewPopup = useCallback((): void => {
+    PopoutUtility.openInNewPopup(`/items/${id}`);
+  }, [id]);
+
+  /**
+   * Navigate to the edit page for this item.
+   */
+  const handleEdit = useCallback((): void => {
+    navigate(`/items/${id}/edit`);
+  }, [id, navigate]);
+
+  useEffect(() => {
+    if (PopoutUtility.isPopup()) {
+      window.history.replaceState({}, '', `popup.html#/credentials`);
+      window.history.pushState({}, '', `popup.html#/items/${id}`);
+    }
+
+    if (!dbContext?.sqliteClient || !id) {
+      return;
+    }
+
+    try {
+      const result = dbContext.sqliteClient.getItemById(id);
+      if (result) {
+        console.log('Item loaded:', result);
+        console.log('Fields:', result.Fields);
+        console.log('Tags:', result.Tags);
+        setItem(result);
+        setIsInitialLoading(false);
+      } else {
+        console.error('Item not found');
+        navigate('/credentials');
+      }
+    } catch (err) {
+      console.error('Error loading item:', err);
+    }
+  }, [dbContext.sqliteClient, id, navigate, setIsInitialLoading]);
+
+  // Set header buttons on mount and clear on unmount
+  useEffect((): (() => void) => {
+    const headerButtonsJSX = (
+      <div className="flex items-center gap-2">
+        {!PopoutUtility.isPopup() && (
+          <HeaderButton
+            onClick={openInNewPopup}
+            title={t('common.openInNewWindow')}
+            iconType={HeaderIconType.EXPAND}
+          />
+        )}
+        <HeaderButton
+          onClick={handleEdit}
+          title={t('credentials.editCredential')}
+          iconType={HeaderIconType.EDIT}
+        />
+      </div>
+    );
+    setHeaderButtons(headerButtonsJSX);
+    return () => {};
+  }, [setHeaderButtons, handleEdit, openInNewPopup, t]);
+
+  // Clear header buttons on unmount
+  useEffect((): (() => void) => {
+    return () => setHeaderButtons(null);
+  }, [setHeaderButtons]);
+
+  if (!item) {
+    return <div>{t('common.loading')}</div>;
+  }
+
+  // Group fields by category for organized display
+  const groupedFields = groupFieldsByCategory(item);
+
+  console.log('Grouped fields:', groupedFields);
+  console.log('Item:', item);
+
+  return (
+    <div className="space-y-4">
+      {/* Header with name and logo */}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          {item.Logo && (
+            <img
+              src={`data:image/png;base64,${btoa(String.fromCharCode(...Array.from(item.Logo as Uint8Array)))}`}
+              alt={item.Name || 'Item'}
+              className="w-10 h-10 rounded"
+            />
+          )}
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+            {item.Name || 'Untitled Item'}
+          </h1>
+        </div>
+      </div>
+
+      {/* Debug info */}
+      <div className="bg-yellow-100 dark:bg-yellow-900 p-2 rounded text-xs">
+        <strong>Debug:</strong> Fields count: {item.Fields.length},
+        Tags count: {item.Tags?.length || 0},
+        Grouped keys: {Object.keys(groupedFields).join(', ')}
+      </div>
+
+      {/* Render fields dynamically by category */}
+      {Object.keys(groupedFields).length > 0 && (
+        <>
+          {groupedFields.Login && groupedFields.Login.length > 0 && (
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                {t('credentials.loginCredentials')}
+              </h2>
+              {groupedFields.Login.map((field) => (
+                <FieldBlock key={field.FieldKey} field={field} />
+              ))}
+            </div>
+          )}
+
+          {groupedFields.Alias && groupedFields.Alias.length > 0 && (
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                {t('credentials.aliasInformation')}
+              </h2>
+              {groupedFields.Alias.map((field) => (
+                <FieldBlock key={field.FieldKey} field={field} />
+              ))}
+            </div>
+          )}
+
+          {groupedFields.Card && groupedFields.Card.length > 0 && (
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                {t('credentials.cardInformation')}
+              </h2>
+              {groupedFields.Card.map((field) => (
+                <FieldBlock key={field.FieldKey} field={field} />
+              ))}
+            </div>
+          )}
+
+          {groupedFields.Identity && groupedFields.Identity.length > 0 && (
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                {t('credentials.identityInformation')}
+              </h2>
+              {groupedFields.Identity.map((field) => (
+                <FieldBlock key={field.FieldKey} field={field} />
+              ))}
+            </div>
+          )}
+
+          {groupedFields.API && groupedFields.API.length > 0 && (
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                {t('credentials.apiInformation')}
+              </h2>
+              {groupedFields.API.map((field) => (
+                <FieldBlock key={field.FieldKey} field={field} />
+              ))}
+            </div>
+          )}
+
+          {groupedFields.Custom && groupedFields.Custom.length > 0 && (
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                {t('credentials.customFields')}
+              </h2>
+              {groupedFields.Custom.map((field) => (
+                <FieldBlock key={field.FieldKey} field={field} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* TOTP codes */}
+      {item.HasTotp && <TotpBlock credentialId={item.Id} />}
+
+      {/* Attachments */}
+      {item.HasAttachment && <AttachmentBlock credentialId={item.Id} />}
+
+      {/* Tags */}
+      {item.Tags && item.Tags.length > 0 && (
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            {t('credentials.tags')}
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {item.Tags.map((tag) => (
+              <span
+                key={tag.Id}
+                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+              >
+                {tag.Name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ItemDetails;
