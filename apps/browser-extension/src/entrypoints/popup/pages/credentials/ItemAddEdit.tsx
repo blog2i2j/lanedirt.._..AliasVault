@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { sendMessage } from 'webext-bridge/popup';
 
 import Modal from '@/entrypoints/popup/components/Dialogs/Modal';
+import EditableFieldLabel from '@/entrypoints/popup/components/Forms/EditableFieldLabel';
 import { FormInput } from '@/entrypoints/popup/components/Forms/FormInput';
 import PasswordField from '@/entrypoints/popup/components/Forms/PasswordField';
 import HeaderButton from '@/entrypoints/popup/components/HeaderButton';
@@ -29,6 +30,17 @@ type ItemFormData = {
 };
 
 /**
+ * Temporary custom field definition (before persisting to database)
+ */
+type CustomFieldDefinition = {
+  tempId: string; // Temporary ID until we create the FieldDefinition
+  label: string;
+  fieldType: FieldType;
+  isHidden: boolean;
+  displayOrder: number;
+};
+
+/**
  * Add or edit item page with dynamic field support.
  * Shows all applicable system fields for the item type, not just fields with values.
  */
@@ -44,10 +56,18 @@ const ItemAddEdit: React.FC = () => {
   const { setIsInitialLoading } = useLoading();
   const [localLoading, setLocalLoading] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showAddCustomFieldModal, setShowAddCustomFieldModal] = useState(false);
   const [item, setItem] = useState<Item | null>(null);
 
   // Form state for dynamic fields
   const [fieldValues, setFieldValues] = useState<Record<string, string | string[]>>({});
+
+  // Custom field definitions (temporary until saved)
+  const [customFields, setCustomFields] = useState<CustomFieldDefinition[]>([]);
+
+  // New custom field form state
+  const [newCustomFieldLabel, setNewCustomFieldLabel] = useState('');
+  const [newCustomFieldType, setNewCustomFieldType] = useState<FieldType>('Text');
 
   /**
    * Get all applicable system fields for the current item type.
@@ -101,10 +121,25 @@ const ItemAddEdit: React.FC = () => {
 
         // Initialize field values from existing fields
         const initialValues: Record<string, string | string[]> = {};
+        const existingCustomFields: CustomFieldDefinition[] = [];
+
         result.Fields.forEach(field => {
           initialValues[field.FieldKey] = field.Value;
+
+          // If field key starts with "custom_", it's a custom field
+          if (field.FieldKey.startsWith('custom_')) {
+            existingCustomFields.push({
+              tempId: field.FieldKey,
+              label: field.Label,
+              fieldType: field.FieldType,
+              isHidden: field.IsHidden,
+              displayOrder: field.DisplayOrder
+            });
+          }
         });
+
         setFieldValues(initialValues);
+        setCustomFields(existingCustomFields);
 
         setLocalLoading(false);
         setIsInitialLoading(false);
@@ -139,6 +174,7 @@ const ItemAddEdit: React.FC = () => {
       // Build the fields array from fieldValues
       const fields: ItemField[] = [];
 
+      // Add system fields
       applicableSystemFields.forEach(systemField => {
         const value = fieldValues[systemField.FieldKey];
 
@@ -151,6 +187,23 @@ const ItemAddEdit: React.FC = () => {
             Value: value,
             IsHidden: systemField.IsHidden,
             DisplayOrder: systemField.DefaultDisplayOrder
+          });
+        }
+      });
+
+      // Add custom fields
+      customFields.forEach(customField => {
+        const value = fieldValues[customField.tempId];
+
+        // Only include fields with non-empty values
+        if (value && (Array.isArray(value) ? value.length > 0 : value.trim() !== '')) {
+          fields.push({
+            FieldKey: customField.tempId,
+            Label: customField.label,
+            FieldType: customField.fieldType,
+            Value: value,
+            IsHidden: customField.isHidden,
+            DisplayOrder: customField.displayOrder
           });
         }
       });
@@ -215,6 +268,48 @@ const ItemAddEdit: React.FC = () => {
       navigate('/credentials');
     }
   }, [isEditMode, id, navigate]);
+
+  /**
+   * Add custom field handler.
+   */
+  const handleAddCustomField = useCallback(() => {
+    if (!newCustomFieldLabel.trim()) return;
+
+    const tempId = `custom_${crypto.randomUUID()}`;
+    const newField: CustomFieldDefinition = {
+      tempId,
+      label: newCustomFieldLabel,
+      fieldType: newCustomFieldType,
+      isHidden: false,
+      displayOrder: applicableSystemFields.length + customFields.length + 1
+    };
+
+    setCustomFields(prev => [...prev, newField]);
+    setNewCustomFieldLabel('');
+    setNewCustomFieldType('Text');
+    setShowAddCustomFieldModal(false);
+  }, [newCustomFieldLabel, newCustomFieldType, applicableSystemFields.length, customFields.length]);
+
+  /**
+   * Delete custom field handler.
+   */
+  const handleDeleteCustomField = useCallback((tempId: string) => {
+    setCustomFields(prev => prev.filter(f => f.tempId !== tempId));
+    setFieldValues(prev => {
+      const newValues = { ...prev };
+      delete newValues[tempId];
+      return newValues;
+    });
+  }, []);
+
+  /**
+   * Update custom field label handler.
+   */
+  const handleUpdateCustomFieldLabel = useCallback((tempId: string, newLabel: string) => {
+    setCustomFields(prev => prev.map(f =>
+      f.tempId === tempId ? { ...f, label: newLabel } : f
+    ));
+  }, []);
 
   // Set header buttons
   useEffect(() => {
@@ -370,6 +465,44 @@ const ItemAddEdit: React.FC = () => {
         </div>
       ))}
 
+      {/* Custom Fields Section */}
+      {customFields.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+            {t('credentials.customFields')}
+          </h2>
+
+          {customFields.map(field => (
+            <div key={field.tempId}>
+              <EditableFieldLabel
+                htmlFor={field.tempId}
+                label={field.label}
+                onLabelChange={(newLabel) => handleUpdateCustomFieldLabel(field.tempId, newLabel)}
+                onDelete={() => handleDeleteCustomField(field.tempId)}
+              />
+
+              {/* Field input */}
+              {renderFieldInput(
+                field.tempId,
+                '',
+                field.fieldType,
+                field.isHidden,
+                false
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add Custom Field Button */}
+      <button
+        type="button"
+        onClick={() => setShowAddCustomFieldModal(true)}
+        className="w-full px-4 py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-md hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
+      >
+        + Add Custom Field
+      </button>
+
       {/* Action Buttons */}
       <div className="flex gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
         <button
@@ -389,6 +522,75 @@ const ItemAddEdit: React.FC = () => {
           {t('common.cancel')}
         </button>
       </div>
+
+      {/* Add Custom Field Dialog */}
+      {showAddCustomFieldModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-96 max-w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Add Custom Field
+            </h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Field Label
+                </label>
+                <input
+                  type="text"
+                  value={newCustomFieldLabel}
+                  onChange={(e) => setNewCustomFieldLabel(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="Enter field name"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Field Type
+                </label>
+                <select
+                  value={newCustomFieldType}
+                  onChange={(e) => setNewCustomFieldType(e.target.value as FieldType)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="Text">Text</option>
+                  <option value="Password">Hidden (masked text)</option>
+                  <option value="Email">Email</option>
+                  <option value="URL">URL</option>
+                  <option value="Phone">Phone</option>
+                  <option value="Number">Number</option>
+                  <option value="Date">Date</option>
+                  <option value="TextArea">Text Area</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                type="button"
+                onClick={handleAddCustomField}
+                disabled={!newCustomFieldLabel.trim()}
+                className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddCustomFieldModal(false);
+                  setNewCustomFieldLabel('');
+                  setNewCustomFieldType('Text');
+                }}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              >
+                {t('common.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {isEditMode && (

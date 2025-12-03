@@ -436,7 +436,7 @@ export class SqliteClient {
         // Custom field: has FieldDefinitionId, get metadata from FieldDefinitions
         return {
           ItemId: row.ItemId,
-          FieldKey: `custom_${row.FieldDefinitionId}`, // Generate a key for custom fields
+          FieldKey: row.FieldDefinitionId || '', // Use FieldDefinitionId as the key for custom fields
           Label: row.CustomLabel || '',
           FieldType: row.CustomFieldType || 'Text',
           IsHidden: row.CustomIsHidden || 0,
@@ -581,7 +581,7 @@ export class SqliteClient {
       } else {
         // Custom field: has FieldDefinitionId, get metadata from FieldDefinitions
         return {
-          FieldKey: `custom_${row.FieldDefinitionId}`, // Generate a key for custom fields
+          FieldKey: row.FieldDefinitionId || '', // Use FieldDefinitionId as the key for custom fields
           Label: row.CustomLabel || '',
           FieldType: row.CustomFieldType || 'Text',
           IsHidden: row.CustomIsHidden || 0,
@@ -1953,22 +1953,54 @@ export class SqliteClient {
             continue;
           }
 
+          const isCustomField = field.FieldKey.startsWith('custom_');
+          let fieldDefinitionId = null;
+
+          // For custom fields, create or get FieldDefinition
+          if (isCustomField) {
+            // Check if FieldDefinition already exists for this custom field
+            const existingDefQuery = `
+              SELECT Id FROM FieldDefinitions
+              WHERE Id = ?`;
+
+            const existingDef = this.executeQuery<{ Id: string }>(existingDefQuery, [field.FieldKey]);
+
+            if (existingDef.length === 0) {
+              // Create new FieldDefinition for custom field
+              const fieldDefQuery = `
+                INSERT INTO FieldDefinitions (Id, FieldType, Label, IsMultiValue, IsHidden, EnableHistory, Weight, ApplicableToTypes, CreatedAt, UpdatedAt, IsDeleted)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+              this.executeUpdate(fieldDefQuery, [
+                field.FieldKey, // Use the custom_ ID as the FieldDefinition ID
+                field.FieldType,
+                field.Label,
+                0, // IsMultiValue
+                field.IsHidden ? 1 : 0,
+                0, // EnableHistory
+                field.DisplayOrder ?? 0,
+                item.ItemType, // ApplicableToTypes (single type for now)
+                currentDateTime,
+                currentDateTime,
+                0
+              ]);
+            }
+
+            fieldDefinitionId = field.FieldKey; // FieldDefinitionId = custom field ID
+          }
+
           const fieldValueId = crypto.randomUUID().toUpperCase();
           const fieldQuery = `
             INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-          /*
-           * For system fields: FieldKey is set, FieldDefinitionId is NULL
-           * For custom fields: FieldDefinitionId is set, FieldKey is NULL (future implementation)
-           */
           const valueString = Array.isArray(field.Value) ? JSON.stringify(field.Value) : field.Value;
 
           this.executeUpdate(fieldQuery, [
             fieldValueId,
             itemId,
-            null, // FieldDefinitionId (NULL for system fields)
-            field.FieldKey, // FieldKey (set for system fields)
+            fieldDefinitionId, // NULL for system fields, custom field ID for custom fields
+            isCustomField ? null : field.FieldKey, // FieldKey set for system fields only
             valueString,
             field.DisplayOrder ?? 0,
             currentDateTime,
@@ -2036,6 +2068,61 @@ export class SqliteClient {
             continue;
           }
 
+          const isCustomField = field.FieldKey.startsWith('custom_');
+          let fieldDefinitionId = null;
+
+          // For custom fields, create or update FieldDefinition
+          if (isCustomField) {
+            // Check if FieldDefinition already exists
+            const existingDefQuery = `
+              SELECT Id FROM FieldDefinitions
+              WHERE Id = ? AND IsDeleted = 0`;
+
+            const existingDef = this.executeQuery<{ Id: string }>(existingDefQuery, [field.FieldKey]);
+
+            if (existingDef.length === 0) {
+              // Create new FieldDefinition
+              const fieldDefQuery = `
+                INSERT INTO FieldDefinitions (Id, FieldType, Label, IsMultiValue, IsHidden, EnableHistory, Weight, ApplicableToTypes, CreatedAt, UpdatedAt, IsDeleted)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+              this.executeUpdate(fieldDefQuery, [
+                field.FieldKey,
+                field.FieldType,
+                field.Label,
+                0, // IsMultiValue
+                field.IsHidden ? 1 : 0,
+                0, // EnableHistory
+                field.DisplayOrder ?? 0,
+                item.ItemType,
+                currentDateTime,
+                currentDateTime,
+                0
+              ]);
+            } else {
+              // Update existing FieldDefinition (label might have changed)
+              const updateDefQuery = `
+                UPDATE FieldDefinitions
+                SET Label = ?,
+                    FieldType = ?,
+                    IsHidden = ?,
+                    Weight = ?,
+                    UpdatedAt = ?
+                WHERE Id = ?`;
+
+              this.executeUpdate(updateDefQuery, [
+                field.Label,
+                field.FieldType,
+                field.IsHidden ? 1 : 0,
+                field.DisplayOrder ?? 0,
+                currentDateTime,
+                field.FieldKey
+              ]);
+            }
+
+            fieldDefinitionId = field.FieldKey;
+          }
+
           const fieldValueId = crypto.randomUUID().toUpperCase();
           const fieldQuery = `
             INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
@@ -2046,8 +2133,8 @@ export class SqliteClient {
           this.executeUpdate(fieldQuery, [
             fieldValueId,
             item.Id,
-            null, // FieldDefinitionId (NULL for system fields)
-            field.FieldKey, // FieldKey (set for system fields)
+            fieldDefinitionId, // NULL for system fields, custom field ID for custom fields
+            isCustomField ? null : field.FieldKey, // FieldKey set for system fields only
             valueString,
             field.DisplayOrder ?? 0,
             currentDateTime,

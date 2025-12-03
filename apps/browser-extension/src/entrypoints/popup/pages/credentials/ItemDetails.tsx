@@ -17,6 +17,7 @@ import { PopoutUtility } from '@/entrypoints/popup/utils/PopoutUtility';
 
 import type { Item } from '@/utils/dist/shared/models/vault';
 import { groupFieldsByCategory } from '@/utils/dist/shared/models/vault';
+import SqliteClient from '@/utils/SqliteClient';
 
 /**
  * Item details page with dynamic field rendering.
@@ -102,27 +103,68 @@ const ItemDetails: React.FC = (): React.ReactElement => {
     return <div>{t('common.loading')}</div>;
   }
 
-  // Group fields by category for organized display
-  const groupedFields = groupFieldsByCategory(item);
+  // Extract URL fields for prominent display
+  const urlFields = item.Fields.filter(field => field.FieldType === 'URL' && field.Value);
+
+  // Create a modified item without URL fields for grouping
+  const itemWithoutUrls = {
+    ...item,
+    Fields: item.Fields.filter(field => field.FieldType !== 'URL')
+  };
+
+  // Group fields by category for organized display (excluding URLs)
+  const groupedFields = groupFieldsByCategory(itemWithoutUrls);
 
   console.log('Grouped fields:', groupedFields);
   console.log('Item:', item);
 
   return (
     <div className="space-y-4">
-      {/* Header with name and logo */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          {item.Logo && (
-            <img
-              src={`data:image/png;base64,${btoa(String.fromCharCode(...Array.from(item.Logo as Uint8Array)))}`}
-              alt={item.Name || 'Item'}
-              className="w-10 h-10 rounded"
-            />
-          )}
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-            {item.Name || 'Untitled Item'}
-          </h1>
+      {/* Header with name, logo, and URLs */}
+      <div className="flex justify-between items-start">
+        <div className="flex items-start gap-3">
+          <img
+            src={SqliteClient.imgSrcFromBytes(item.Logo as Uint8Array | undefined)}
+            alt={item.Name || 'Item'}
+            className="w-12 h-12 rounded-lg"
+          />
+          <div>
+            <h1 className="text-lg font-bold text-gray-900 dark:text-white">
+              {item.Name || 'Untitled Item'}
+            </h1>
+            {/* Display URLs prominently below title */}
+            {urlFields.length > 0 && (
+              <div className="mt-1 space-y-1">
+                {urlFields.flatMap((urlField) => {
+                  // Handle both single values and arrays of URLs
+                  const urlValues = Array.isArray(urlField.Value) ? urlField.Value : [urlField.Value];
+
+                  return urlValues.map((urlValue, idx) => {
+                    const isValidUrl = /^https?:\/\//i.test(urlValue);
+
+                    return isValidUrl ? (
+                      <a
+                        key={`${urlField.FieldKey}-${idx}`}
+                        href={urlValue}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 break-all text-sm"
+                      >
+                        {urlValue}
+                      </a>
+                    ) : (
+                      <span
+                        key={`${urlField.FieldKey}-${idx}`}
+                        className="block text-gray-500 dark:text-gray-300 break-all text-sm"
+                      >
+                        {urlValue}
+                      </span>
+                    );
+                  });
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
