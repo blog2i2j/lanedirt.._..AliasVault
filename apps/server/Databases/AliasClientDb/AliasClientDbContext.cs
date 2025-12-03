@@ -191,12 +191,13 @@ public class AliasClientDbContext : DbContext
             .HasForeignKey(fv => fv.ItemId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Configure FieldValue - FieldDefinition relationship
+        // Configure FieldValue - FieldDefinition relationship (nullable for system fields)
         modelBuilder.Entity<FieldValue>()
             .HasOne(fv => fv.FieldDefinition)
             .WithMany(fd => fd.FieldValues)
             .HasForeignKey(fv => fv.FieldDefinitionId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.Cascade)
+            .IsRequired(false); // Nullable for system fields
 
         // Configure FieldHistory - FieldDefinition relationship
         modelBuilder.Entity<FieldHistory>()
@@ -213,7 +214,13 @@ public class AliasClientDbContext : DbContext
             .HasIndex(fv => fv.FieldDefinitionId);
 
         modelBuilder.Entity<FieldValue>()
+            .HasIndex(fv => fv.FieldKey); // Index for system field lookups
+
+        modelBuilder.Entity<FieldValue>()
             .HasIndex(fv => new { fv.ItemId, fv.FieldDefinitionId, fv.Weight });
+
+        modelBuilder.Entity<FieldValue>()
+            .HasIndex(fv => new { fv.ItemId, fv.FieldKey }); // Composite index for system field queries
 
         // Configure indexes for FieldHistory
         modelBuilder.Entity<FieldHistory>()
@@ -222,9 +229,7 @@ public class AliasClientDbContext : DbContext
         modelBuilder.Entity<FieldHistory>()
             .HasIndex(fh => fh.FieldDefinitionId);
 
-        // Configure indexes for FieldDefinition
-        modelBuilder.Entity<FieldDefinition>()
-            .HasIndex(fd => fd.FieldKey);
+        // FieldDefinition indexes (FieldKey removed - custom fields use GUID only)
 
         // Configure indexes for Folder
         modelBuilder.Entity<Folder>()

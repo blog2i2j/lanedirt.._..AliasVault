@@ -183,6 +183,9 @@ function groupFields(item, grouper) {
 }
 function groupFieldsByCategory(item) {
   return groupFields(item, (field) => {
+    if (field.FieldKey === FieldKey.AliasEmail) {
+      return "Login";
+    }
     if (field.FieldKey.startsWith("login.")) {
       return "Login";
     }

@@ -11,7 +11,11 @@ using System.ComponentModel.DataAnnotations;
 using AliasClientDb.Abstracts;
 
 /// <summary>
-/// FieldDefinition entity that defines the schema for fields.
+/// FieldDefinition entity that defines the schema for custom (user-defined) fields.
+/// NOTE: System fields (login.username, alias.email, etc.) do NOT have FieldDefinition rows.
+/// System field metadata is defined in code (SystemFieldRegistry) and is immutable.
+/// This table is ONLY for custom fields that users create themselves.
+/// Custom fields are always referenced by their GUID (Id), never by FieldKey.
 /// </summary>
 public class FieldDefinition : SyncableEntity
 {
@@ -20,19 +24,6 @@ public class FieldDefinition : SyncableEntity
     /// </summary>
     [Key]
     public Guid Id { get; set; }
-
-    /// <summary>
-    /// Gets or sets the field key for system fields (e.g., 'login.username', 'card.number').
-    /// NULL for custom (user-defined) fields.
-    /// System fields use predefined keys like:
-    /// - login.username, login.password, login.notes, login.url
-    /// - card.number, card.cardholder_name, card.cvv
-    /// - identity.first_name, identity.email, identity.phone_numbers
-    /// - alias.email, alias.first_name (legacy)
-    /// Custom fields have FieldKey = NULL and are identified by their GUID and Label.
-    /// </summary>
-    [StringLength(100)]
-    public string? FieldKey { get; set; }
 
     /// <summary>
     /// Gets or sets the field type (Text, Password, Email, URL, Date, etc.).

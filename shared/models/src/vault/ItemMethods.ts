@@ -61,6 +61,12 @@ export function groupFields(
  */
 export function groupFieldsByCategory(item: Item): Record<string, ItemField[]> {
   return groupFields(item, (field) => {
+
+    // Render alias.email as login
+    if (field.FieldKey === FieldKey.AliasEmail) {
+      return 'Login';
+    }
+
     if (field.FieldKey.startsWith('login.')) {
       return 'Login';
     }
