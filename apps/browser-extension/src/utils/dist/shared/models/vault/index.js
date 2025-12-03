@@ -198,9 +198,6 @@ function groupFieldsByCategory(item) {
     if (field.FieldKey.startsWith("identity.")) {
       return "Identity";
     }
-    if (field.FieldKey.startsWith("api.")) {
-      return "API";
-    }
     return "Custom";
   });
 }

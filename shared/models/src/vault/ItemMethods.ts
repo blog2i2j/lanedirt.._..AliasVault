@@ -79,9 +79,6 @@ export function groupFieldsByCategory(item: Item): Record<string, ItemField[]> {
     if (field.FieldKey.startsWith('identity.')) {
       return 'Identity';
     }
-    if (field.FieldKey.startsWith('api.')) {
-      return 'API';
-    }
     return 'Custom';
   });
 }

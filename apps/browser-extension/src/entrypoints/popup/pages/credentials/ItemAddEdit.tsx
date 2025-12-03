@@ -456,7 +456,7 @@ const ItemAddEdit: React.FC = () => {
         <div key={category} className="space-y-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
             {category === 'Login' && t('credentials.loginCredentials')}
-            {category === 'Alias' && t('credentials.aliasInformation')}
+            {category === 'Alias' && t('credentials.alias')}
             {category === 'Card' && t('credentials.cardInformation')}
             {category === 'Identity' && t('credentials.identityInformation')}
             {category !== 'Login' && category !== 'Alias' && category !== 'Card' && category !== 'Identity' && category}
@@ -480,7 +480,7 @@ const ItemAddEdit: React.FC = () => {
       {customFields.length > 0 && (
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
-            {t('credentials.customFields')}
+            {t('common.customFields')}
           </h2>
 
           {customFields.map(field => (

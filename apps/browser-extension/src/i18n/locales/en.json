@@ -76,6 +76,7 @@
     "settings": "Settings",
     "recentEmails": "Recent emails",
     "loginCredentials": "Login credentials",
+    "customFields": "Custom",
     "twoFactorAuthentication": "Two-factor authentication",
     "alias": "Alias",
     "notes": "Notes",

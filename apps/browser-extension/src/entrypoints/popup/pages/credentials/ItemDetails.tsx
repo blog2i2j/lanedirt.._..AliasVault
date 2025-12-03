@@ -192,7 +192,7 @@ const ItemDetails: React.FC = (): React.ReactElement => {
           {groupedFields.Alias && groupedFields.Alias.length > 0 && (
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                {t('credentials.aliasInformation')}
+                {t('credentials.alias')}
               </h2>
               {groupedFields.Alias.map((field) => (
                 <FieldBlock key={field.FieldKey} field={field} />
@@ -222,21 +222,10 @@ const ItemDetails: React.FC = (): React.ReactElement => {
             </div>
           )}
 
-          {groupedFields.API && groupedFields.API.length > 0 && (
-            <div className="space-y-2">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                {t('credentials.apiInformation')}
-              </h2>
-              {groupedFields.API.map((field) => (
-                <FieldBlock key={field.FieldKey} field={field} />
-              ))}
-            </div>
-          )}
-
           {groupedFields.Custom && groupedFields.Custom.length > 0 && (
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                {t('credentials.customFields')}
+                {t('common.customFields')}
               </h2>
               {groupedFields.Custom.map((field) => (
                 <FieldBlock key={field.FieldKey} field={field} />
