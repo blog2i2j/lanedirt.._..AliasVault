@@ -65,6 +65,8 @@
     "openInNewWindow": "Open in new window",
     "enabled": "Enabled",
     "disabled": "Disabled",
+    "show": "Show",
+    "hide": "Hide",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
     "showDetails": "Show details",
@@ -244,7 +246,11 @@
     "useDomainChooser": "Use domain chooser",
     "enterCustomDomain": "Enter custom domain",
     "enterFullEmail": "Enter full email address",
-    "enterEmailPrefix": "Enter email prefix"
+    "enterEmailPrefix": "Enter email prefix",
+    "viewHistory": "View history",
+    "history": "History",
+    "noHistoryAvailable": "No history available",
+    "tags": "Tags"
   },
   "itemTypes": {
     "selectType": "Add New Item",

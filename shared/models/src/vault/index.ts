@@ -14,3 +14,4 @@ export * from './Item';
 export * from './CredentialCompat';
 export * from './ItemMethods';
 export * from './SystemFieldRegistry';
+export * from './FieldHistory';

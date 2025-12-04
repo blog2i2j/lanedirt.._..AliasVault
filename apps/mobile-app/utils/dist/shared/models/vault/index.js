@@ -361,6 +361,9 @@ function isSystemFieldPrefix(fieldKey) {
   return fieldKey.startsWith("login.") || fieldKey.startsWith("alias.") || fieldKey.startsWith("card.") || fieldKey.startsWith("identity.") || fieldKey.startsWith("api.") || fieldKey.startsWith("note.");
 }
 
-export { FieldKey, SystemFieldRegistry, getAllSystemFieldKeys, getFieldValue, getFieldValues, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isSystemField, isSystemFieldPrefix, itemToCredential };
+// src/vault/FieldHistory.ts
+var MAX_FIELD_HISTORY_RECORDS = 10;
+
+export { FieldKey, MAX_FIELD_HISTORY_RECORDS, SystemFieldRegistry, getAllSystemFieldKeys, getFieldValue, getFieldValues, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isSystemField, isSystemFieldPrefix, itemToCredential };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map

@@ -95,4 +95,11 @@ export const VAULT_VERSIONS: VaultVersion[] = [
     releaseVersion: '0.26.0',
     compatibleUpToVersion: '0.26.0',
   },
+  {
+    revision: 13,
+    version: '1.7.1',
+    description: 'Make FieldHistory Flexible',
+    releaseVersion: '0.26.0',
+    compatibleUpToVersion: '0.26.0',
+  },
 ];

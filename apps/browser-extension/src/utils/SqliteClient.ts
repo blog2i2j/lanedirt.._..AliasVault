@@ -1,9 +1,9 @@
 import initSqlJs, { Database } from 'sql.js';
 
 import * as dateFormatter from '@/utils/dateFormatter';
-import type { Credential, EncryptionKey, PasswordSettings, TotpCode, Passkey, Item, ItemField, ItemTagRef, FieldType } from '@/utils/dist/shared/models/vault';
+import type { Credential, EncryptionKey, PasswordSettings, TotpCode, Passkey, Item, ItemField, ItemTagRef, FieldType, FieldHistory } from '@/utils/dist/shared/models/vault';
 import type { Attachment } from '@/utils/dist/shared/models/vault';
-import { FieldKey, SystemFieldRegistry, getSystemField } from '@/utils/dist/shared/models/vault';
+import { FieldKey, SystemFieldRegistry, getSystemField, MAX_FIELD_HISTORY_RECORDS } from '@/utils/dist/shared/models/vault';
 import type { VaultVersion } from '@/utils/dist/shared/vault-sql';
 import { VaultSqlGenerator, checkVersionCompatibility, extractVersionFromMigrationId } from '@/utils/dist/shared/vault-sql';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
@@ -2116,7 +2116,10 @@ export class SqliteClient {
         item.Id
       ]);
 
-      // 2. Delete all existing FieldValues for this item
+      // 2. Track history for fields that have EnableHistory=true before deleting
+      await this.trackFieldHistory(item.Id, item.Fields, currentDateTime);
+
+      // 3. Delete all existing FieldValues for this item
       const deleteFieldsQuery = `
         UPDATE FieldValues
         SET IsDeleted = 1,
@@ -2125,7 +2128,7 @@ export class SqliteClient {
 
       this.executeUpdate(deleteFieldsQuery, [currentDateTime, item.Id]);
 
-      // 3. Insert new FieldValues
+      // 4. Insert new FieldValues
       if (item.Fields && item.Fields.length > 0) {
         for (const field of item.Fields) {
           // Skip empty fields
@@ -2226,6 +2229,174 @@ export class SqliteClient {
       console.error('Error updating item:', error);
       throw error;
     }
+  }
+
+  /**
+   * Track field history for fields that have EnableHistory=true.
+   * This method should be called before updating/deleting field values.
+   * @param itemId - The ID of the item
+   * @param newFields - The new field values
+   * @param currentDateTime - The current timestamp
+   */
+  private async trackFieldHistory(itemId: string, newFields: ItemField[], currentDateTime: string): Promise<void> {
+    // Get existing field values from database
+    const existingFieldsQuery = `
+      SELECT FieldKey, Value
+      FROM FieldValues
+      WHERE ItemId = ? AND IsDeleted = 0 AND FieldKey IS NOT NULL`;
+
+    const existingFields = this.executeQuery<{FieldKey: string, Value: string}>(existingFieldsQuery, [itemId]);
+    console.log('[History] Existing fields from DB:', existingFields);
+
+    // Create a map of existing values by FieldKey
+    const existingValuesMap: {[key: string]: string[]} = {};
+    existingFields.forEach(field => {
+      if (!existingValuesMap[field.FieldKey]) {
+        existingValuesMap[field.FieldKey] = [];
+      }
+      existingValuesMap[field.FieldKey].push(field.Value);
+    });
+    console.log('[History] Existing values map:', existingValuesMap);
+
+    // Check each new field to see if it has EnableHistory and if the value changed
+    for (const newField of newFields) {
+      console.log('[History] Checking field:', newField.FieldKey, 'Value:', newField.Value);
+
+      // Skip custom fields (only track system fields for now)
+      if (newField.FieldKey.startsWith('custom_')) {
+        console.log('[History] Skipping custom field:', newField.FieldKey);
+        continue;
+      }
+
+      // Get system field definition
+      const systemField = getSystemField(newField.FieldKey);
+      console.log('[History] System field definition:', systemField);
+      if (!systemField || !systemField.EnableHistory) {
+        console.log('[History] Field does not have EnableHistory:', newField.FieldKey);
+        continue;
+      }
+
+      // Get old and new values
+      const oldValues = existingValuesMap[newField.FieldKey] || [];
+      const newValues = Array.isArray(newField.Value) ? newField.Value : [newField.Value];
+      console.log('[History] Old values:', oldValues, 'New values:', newValues);
+
+      // Check if values changed
+      const valuesChanged = oldValues.length !== newValues.length ||
+                            !oldValues.every((val, idx) => val === newValues[idx]);
+      console.log('[History] Values changed?', valuesChanged, 'Has old values?', oldValues.length > 0);
+
+      if (valuesChanged && oldValues.length > 0) {
+        console.log('[History] Creating history record for:', newField.FieldKey);
+        // Create history record for the old value
+        const historyId = crypto.randomUUID().toUpperCase();
+        // Store just the values as JSON array
+        const valueSnapshot = JSON.stringify(oldValues);
+
+        const historyQuery = `
+          INSERT INTO FieldHistories (Id, ItemId, FieldDefinitionId, FieldKey, ValueSnapshot, ChangedAt, CreatedAt, UpdatedAt, IsDeleted)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+        this.executeUpdate(historyQuery, [
+          historyId,
+          itemId,
+          null, // FieldDefinitionId is NULL for system fields
+          newField.FieldKey, // FieldKey for system fields
+          valueSnapshot,
+          currentDateTime,
+          currentDateTime,
+          currentDateTime,
+          0
+        ]);
+
+        // Prune old history records if we exceed the limit
+        await this.pruneFieldHistory(itemId, newField.FieldKey, currentDateTime);
+      }
+    }
+  }
+
+  /**
+   * Prune old field history records, keeping only the most recent MAX_FIELD_HISTORY_RECORDS.
+   * @param itemId - The ID of the item
+   * @param fieldKey - The field key to prune history for
+   * @param currentDateTime - The current timestamp
+   */
+  private async pruneFieldHistory(itemId: string, fieldKey: string, currentDateTime: string): Promise<void> {
+    // Get all history records for this field
+    const historyQuery = `
+      SELECT Id, ChangedAt
+      FROM FieldHistories
+      WHERE ItemId = ? AND FieldKey = ? AND IsDeleted = 0
+      ORDER BY ChangedAt DESC`;
+
+    const matchingHistory = this.executeQuery<{Id: string, ChangedAt: string}>(historyQuery, [itemId, fieldKey]);
+
+    if (matchingHistory.length > MAX_FIELD_HISTORY_RECORDS) {
+      // Soft delete the oldest records beyond the limit
+      const recordsToDelete = matchingHistory.slice(MAX_FIELD_HISTORY_RECORDS);
+      const idsToDelete = recordsToDelete.map(r => r.Id);
+
+      if (idsToDelete.length > 0) {
+        const placeholders = idsToDelete.map(() => '?').join(',');
+        const deleteQuery = `
+          UPDATE FieldHistories
+          SET IsDeleted = 1, UpdatedAt = ?
+          WHERE Id IN (${placeholders})`;
+
+        this.executeUpdate(deleteQuery, [currentDateTime, ...idsToDelete]);
+      }
+    }
+  }
+
+  /**
+   * Get field history for a specific field.
+   * Returns history records ordered by ChangedAt descending (most recent first).
+   * @param itemId - The ID of the item
+   * @param fieldKey - The field key to get history for
+   * @returns Array of field history records
+   */
+  public getFieldHistory(itemId: string, fieldKey: string): FieldHistory[] {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    console.log('[History] Getting history for itemId:', itemId, 'fieldKey:', fieldKey);
+
+    const query = `
+      SELECT
+        Id,
+        ItemId,
+        FieldKey,
+        ValueSnapshot,
+        ChangedAt,
+        CreatedAt,
+        UpdatedAt
+      FROM FieldHistories
+      WHERE ItemId = ? AND FieldKey = ? AND IsDeleted = 0
+      ORDER BY ChangedAt DESC
+      LIMIT ?`;
+
+    const results = this.executeQuery<{
+      Id: string;
+      ItemId: string;
+      FieldKey: string;
+      ValueSnapshot: string;
+      ChangedAt: string;
+      CreatedAt: string;
+      UpdatedAt: string;
+    }>(query, [itemId, fieldKey, MAX_FIELD_HISTORY_RECORDS]);
+
+    console.log('[History] History records found:', results);
+
+    return results.map(row => ({
+      Id: row.Id,
+      ItemId: row.ItemId,
+      FieldKey: row.FieldKey,
+      ValueSnapshot: row.ValueSnapshot,
+      ChangedAt: row.ChangedAt,
+      CreatedAt: row.CreatedAt,
+      UpdatedAt: row.UpdatedAt
+    }));
   }
 
   /**

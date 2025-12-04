@@ -452,4 +452,30 @@ declare function getAllSystemFieldKeys(): string[];
  */
 declare function isSystemFieldPrefix(fieldKey: string): boolean;
 
-export { type Alias, type Attachment, type Credential, type EncryptionKey, FieldKey, type FieldKeyValue, type FieldType, type Item, type ItemField, type ItemTag, type ItemTagRef, type ItemType, type Passkey, type PasswordSettings, type SystemFieldDefinition, SystemFieldRegistry, type Tag, type TotpCode, getAllSystemFieldKeys, getFieldValue, getFieldValues, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isSystemField, isSystemFieldPrefix, itemToCredential };
+/**
+ * Field history record tracking changes to field values over time.
+ * Used for fields that have EnableHistory=true (e.g., passwords).
+ */
+type FieldHistory = {
+    /** Unique identifier for this history record */
+    Id: string;
+    /** ID of the item this history belongs to */
+    ItemId: string;
+    /** Field key (e.g., 'login.password') */
+    FieldKey: string;
+    /** Snapshot of the field value(s) at this point in time */
+    ValueSnapshot: string;
+    /** When this change occurred */
+    ChangedAt: string;
+    /** When this history record was created */
+    CreatedAt: string;
+    /** When this history record was last updated */
+    UpdatedAt: string;
+};
+/**
+ * Maximum number of history records to keep per field.
+ * Older records beyond this limit should be automatically pruned.
+ */
+declare const MAX_FIELD_HISTORY_RECORDS = 10;
+
+export { type Alias, type Attachment, type Credential, type EncryptionKey, type FieldHistory, FieldKey, type FieldKeyValue, type FieldType, type Item, type ItemField, type ItemTag, type ItemTagRef, type ItemType, MAX_FIELD_HISTORY_RECORDS, type Passkey, type PasswordSettings, type SystemFieldDefinition, SystemFieldRegistry, type Tag, type TotpCode, getAllSystemFieldKeys, getFieldValue, getFieldValues, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isSystemField, isSystemFieldPrefix, itemToCredential };

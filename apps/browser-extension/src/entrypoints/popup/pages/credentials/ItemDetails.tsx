@@ -184,7 +184,7 @@ const ItemDetails: React.FC = (): React.ReactElement => {
                 {t('credentials.loginCredentials')}
               </h2>
               {groupedFields.Login.map((field) => (
-                <FieldBlock key={field.FieldKey} field={field} />
+                <FieldBlock key={field.FieldKey} field={field} itemId={item.Id} />
               ))}
             </div>
           )}
@@ -195,7 +195,7 @@ const ItemDetails: React.FC = (): React.ReactElement => {
                 {t('credentials.alias')}
               </h2>
               {groupedFields.Alias.map((field) => (
-                <FieldBlock key={field.FieldKey} field={field} />
+                <FieldBlock key={field.FieldKey} field={field} itemId={item.Id} />
               ))}
             </div>
           )}
@@ -206,7 +206,7 @@ const ItemDetails: React.FC = (): React.ReactElement => {
                 {t('credentials.cardInformation')}
               </h2>
               {groupedFields.Card.map((field) => (
-                <FieldBlock key={field.FieldKey} field={field} />
+                <FieldBlock key={field.FieldKey} field={field} itemId={item.Id} />
               ))}
             </div>
           )}
@@ -217,7 +217,7 @@ const ItemDetails: React.FC = (): React.ReactElement => {
                 {t('credentials.identityInformation')}
               </h2>
               {groupedFields.Identity.map((field) => (
-                <FieldBlock key={field.FieldKey} field={field} />
+                <FieldBlock key={field.FieldKey} field={field} itemId={item.Id} />
               ))}
             </div>
           )}
@@ -228,7 +228,7 @@ const ItemDetails: React.FC = (): React.ReactElement => {
                 {t('common.customFields')}
               </h2>
               {groupedFields.Custom.map((field) => (
-                <FieldBlock key={field.FieldKey} field={field} />
+                <FieldBlock key={field.FieldKey} field={field} itemId={item.Id} />
               ))}
             </div>
           )}
