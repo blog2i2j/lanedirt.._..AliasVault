@@ -3,32 +3,41 @@ import { useTranslation } from 'react-i18next';
 
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 
-import type { FieldHistory } from '@/utils/dist/shared/models/vault';
+import type { FieldHistory, FieldType } from '@/utils/dist/shared/models/vault';
 
-interface PasswordHistoryModalProps {
+interface FieldHistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   itemId: string;
   fieldKey: string;
   fieldLabel: string;
+  fieldType: FieldType;
+  isHidden: boolean;
 }
 
 /**
- * Modal component for displaying password history.
- * Shows historical values with dates, passwords hidden by default.
+ * Modal component for displaying field value history.
+ * Shows historical values with dates.
+ * For hidden/password fields, values are masked by default.
+ * For other fields, values are visible by default.
  */
-const PasswordHistoryModal: React.FC<PasswordHistoryModalProps> = ({
+const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
   isOpen,
   onClose,
   itemId,
   fieldKey,
-  fieldLabel
+  fieldLabel,
+  fieldType,
+  isHidden
 }) => {
   const { t } = useTranslation();
   const dbContext = useDb();
   const [history, setHistory] = useState<FieldHistory[]>([]);
-  const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
+  const [visibleValues, setVisibleValues] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+
+  // For non-hidden fields, show values by default
+  const shouldMaskByDefault = isHidden || fieldType === 'Password' || fieldType === 'Hidden';
 
   useEffect(() => {
     if (!isOpen || !dbContext?.sqliteClient) {
@@ -50,8 +59,8 @@ const PasswordHistoryModal: React.FC<PasswordHistoryModalProps> = ({
     return null;
   }
 
-  const togglePasswordVisibility = (historyId: string): void => {
-    setVisiblePasswords(prev => {
+  const toggleValueVisibility = (historyId: string): void => {
+    setVisibleValues(prev => {
       const newSet = new Set(prev);
       if (newSet.has(historyId)) {
         newSet.delete(historyId);
@@ -132,7 +141,9 @@ const PasswordHistoryModal: React.FC<PasswordHistoryModalProps> = ({
               <div className="space-y-3">
                 {history.map((record) => {
                   const values = parseValueSnapshot(record.ValueSnapshot);
-                  const isVisible = visiblePasswords.has(record.Id);
+                  // For hidden fields, check if this record is explicitly set to visible
+                  // For non-hidden fields, always show values (no toggle needed)
+                  const isVisible = shouldMaskByDefault ? visibleValues.has(record.Id) : true;
 
                   return (
                     <div
@@ -143,13 +154,15 @@ const PasswordHistoryModal: React.FC<PasswordHistoryModalProps> = ({
                         <div className="text-sm text-gray-600 dark:text-gray-400">
                           {formatDate(record.ChangedAt)}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => togglePasswordVisibility(record.Id)}
-                          className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 focus:outline-none"
-                        >
-                          {isVisible ? t('common.hide') : t('common.show')}
-                        </button>
+                        {shouldMaskByDefault && (
+                          <button
+                            type="button"
+                            onClick={() => toggleValueVisibility(record.Id)}
+                            className="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 focus:outline-none"
+                          >
+                            {isVisible ? t('common.hide') : t('common.show')}
+                          </button>
+                        )}
                       </div>
 
                       {values.map((value, idx) => (
@@ -157,8 +170,8 @@ const PasswordHistoryModal: React.FC<PasswordHistoryModalProps> = ({
                           key={idx}
                           className="flex items-center gap-2 mt-2"
                         >
-                          <div className="flex-1 font-mono text-sm bg-white dark:bg-gray-800 rounded px-3 py-2 border border-gray-200 dark:border-gray-600">
-                            {isVisible ? value : '\u2022'.repeat(12)}
+                          <div className="flex-1 font-mono text-sm bg-white dark:bg-gray-800 rounded px-3 py-2 border border-gray-200 dark:border-gray-600 break-all">
+                            {shouldMaskByDefault && !isVisible ? '\u2022'.repeat(12) : value}
                           </div>
                           <button
                             type="button"
@@ -195,4 +208,4 @@ const PasswordHistoryModal: React.FC<PasswordHistoryModalProps> = ({
   );
 };
 
-export default PasswordHistoryModal;
+export default FieldHistoryModal;

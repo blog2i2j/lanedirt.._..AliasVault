@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { FormInputCopyToClipboard } from '@/entrypoints/popup/components/Forms/FormInputCopyToClipboard';
-import PasswordHistoryModal from './PasswordHistoryModal';
+import FieldHistoryModal from './FieldHistoryModal';
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 
 import type { ItemField } from '@/utils/dist/shared/models/vault';
@@ -79,6 +79,33 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId }) => {
 
   const value = values[0];
 
+  // History button component that can be added to any field label
+  const HistoryButton = historyCount > 0 && itemId ? (
+    <button
+      type="button"
+      onClick={() => setShowHistoryModal(true)}
+      className="ml-2 inline-flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none"
+      title={t('credentials.viewHistory')}
+    >
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+      </svg>
+    </button>
+  ) : null;
+
+  // History modal component
+  const HistoryModal = showHistoryModal && itemId ? (
+    <FieldHistoryModal
+      isOpen={showHistoryModal}
+      onClose={() => setShowHistoryModal(false)}
+      itemId={itemId}
+      fieldKey={field.FieldKey}
+      fieldLabel={field.Label}
+      fieldType={field.FieldType}
+      isHidden={field.IsHidden}
+    />
+  ) : null;
+
   // Render based on field type
   switch (field.FieldType) {
     case 'Password':
@@ -88,18 +115,7 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId }) => {
           <div>
             <label htmlFor={field.FieldKey} className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
               {field.Label}
-              {historyCount > 0 && itemId && (
-                <button
-                  type="button"
-                  onClick={() => setShowHistoryModal(true)}
-                  className="ml-2 inline-flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none"
-                  title={t('credentials.viewHistory')}
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                  </svg>
-                </button>
-              )}
+              {HistoryButton}
             </label>
             <div className="relative">
               <input
@@ -130,15 +146,7 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId }) => {
               </div>
             </div>
           </div>
-          {showHistoryModal && itemId && (
-            <PasswordHistoryModal
-              isOpen={showHistoryModal}
-              onClose={() => setShowHistoryModal(false)}
-              itemId={itemId}
-              fieldKey={field.FieldKey}
-              fieldLabel={field.Label}
-            />
-          )}
+          {HistoryModal}
         </>
       );
 
@@ -167,12 +175,43 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId }) => {
     case 'Text':
     default:
       return (
-        <FormInputCopyToClipboard
-          id={field.FieldKey}
-          label={field.Label}
-          value={value}
-          type="text"
-        />
+        <>
+          <div>
+            <label htmlFor={field.FieldKey} className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+              {field.Label}
+              {HistoryButton}
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                id={field.FieldKey}
+                readOnly
+                value={value}
+                className="w-full px-3 py-2.5 bg-white border border-gray-300 text-gray-900 text-sm rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+              />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(value);
+                    } catch (err) {
+                      console.error('Failed to copy:', err);
+                    }
+                  }}
+                  className="p-1 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors duration-200"
+                  title={t('common.copyToClipboard')}
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          {HistoryModal}
+        </>
       );
   }
 };
