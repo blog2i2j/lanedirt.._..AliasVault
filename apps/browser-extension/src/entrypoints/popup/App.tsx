@@ -21,6 +21,7 @@ import CredentialDetails from '@/entrypoints/popup/pages/credentials/CredentialD
 import CredentialsList from '@/entrypoints/popup/pages/credentials/CredentialsList';
 import ItemAddEdit from '@/entrypoints/popup/pages/credentials/ItemAddEdit';
 import ItemDetails from '@/entrypoints/popup/pages/credentials/ItemDetails';
+import ItemTypeSelector from '@/entrypoints/popup/pages/credentials/ItemTypeSelector';
 import EmailDetails from '@/entrypoints/popup/pages/emails/EmailDetails';
 import EmailsList from '@/entrypoints/popup/pages/emails/EmailsList';
 import Index from '@/entrypoints/popup/pages/Index';
@@ -188,6 +189,7 @@ const App: React.FC = () => {
     { path: '/credentials/add', element: <CredentialAddEdit />, showBackButton: true, title: t('credentials.addCredential') },
     { path: '/credentials/:id', element: <CredentialDetails />, showBackButton: true, title: t('credentials.credentialDetails') },
     { path: '/credentials/:id/edit', element: <CredentialAddEdit />, showBackButton: true, title: t('credentials.editCredential') },
+    { path: '/items/select-type', element: <ItemTypeSelector />, showBackButton: true, title: t('itemTypes.selectType') },
     { path: '/items/:id', element: <ItemDetails />, showBackButton: true, title: 'Item Details' },
     { path: '/items/:id/edit', element: <ItemAddEdit />, showBackButton: true, title: 'Edit Item' },
     { path: '/items/add', element: <ItemAddEdit />, showBackButton: true, title: 'Add Item' },

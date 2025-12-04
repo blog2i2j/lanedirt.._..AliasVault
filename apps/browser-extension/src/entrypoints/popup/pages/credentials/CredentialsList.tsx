@@ -85,9 +85,10 @@ const CredentialsList: React.FC = () => {
 
   /**
    * Handle add new credential.
+   * Navigate to item type selector for new item-based flow.
    */
   const handleAddCredential = useCallback(() : void => {
-    navigate('/credentials/add');
+    navigate('/items/select-type');
   }, [navigate]);
 
   /**

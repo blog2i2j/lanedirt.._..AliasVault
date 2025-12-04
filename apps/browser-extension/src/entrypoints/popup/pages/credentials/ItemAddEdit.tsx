@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router-dom';
-import { sendMessage } from 'webext-bridge/popup';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import Modal from '@/entrypoints/popup/components/Dialogs/Modal';
 import EditableFieldLabel from '@/entrypoints/popup/components/Forms/EditableFieldLabel';
@@ -20,15 +18,8 @@ import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 import type { Item, ItemField, ItemType, FieldType } from '@/utils/dist/shared/models/vault';
 import { getSystemFieldsForItemType } from '@/utils/dist/shared/models/vault';
 
-/**
- * Form data structure matching the Item model
- */
-type ItemFormData = {
-  Id: string;
-  Name: string;
-  ItemType: ItemType;
-  Fields: Record<string, string | string[]>; // FieldKey -> Value mapping
-};
+// Valid item types from the shared model
+const VALID_ITEM_TYPES: ItemType[] = ['Login', 'CreditCard', 'Identity', 'Note'];
 
 /**
  * Temporary custom field definition (before persisting to database)
@@ -48,9 +39,14 @@ type CustomFieldDefinition = {
 const ItemAddEdit: React.FC = () => {
   const { t } = useTranslation();
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const dbContext = useDb();
   const isEditMode = id !== undefined && id.length > 0;
+
+  // Get item type and name from URL parameters (for create mode)
+  const itemTypeParam = searchParams.get('type') as ItemType | null;
+  const itemNameParam = searchParams.get('name');
 
   const { executeVaultMutation, isLoading, syncStatus } = useVaultMutate();
   const { setHeaderButtons } = useHeaderButtons();
@@ -75,9 +71,11 @@ const ItemAddEdit: React.FC = () => {
    * These are sorted by DefaultDisplayOrder.
    */
   const applicableSystemFields = useMemo(() => {
-    if (!item) return [];
+    if (!item) {
+      return [];
+    }
     return getSystemFieldsForItemType(item.ItemType);
-  }, [item?.ItemType]);
+  }, [item]);
 
   /**
    * Group system fields by category for organized rendering.
@@ -101,11 +99,20 @@ const ItemAddEdit: React.FC = () => {
    */
   useEffect(() => {
     if (!dbContext?.sqliteClient || !id || !isEditMode) {
-      // Create mode - initialize with defaults
+      /*
+       * Create mode - initialize with defaults
+       * Validate item type parameter
+       */
+      if (!itemTypeParam || !VALID_ITEM_TYPES.includes(itemTypeParam)) {
+        /* Redirect to type selector if no valid type specified */
+        navigate('/items/select-type');
+        return;
+      }
+
       setItem({
         Id: crypto.randomUUID().toUpperCase(),
-        Name: '',
-        ItemType: 'Login',
+        Name: itemNameParam || '',
+        ItemType: itemTypeParam,
         Fields: [],
         CreatedAt: new Date().toISOString(),
         UpdatedAt: new Date().toISOString()
@@ -153,7 +160,7 @@ const ItemAddEdit: React.FC = () => {
       setLocalLoading(false);
       setIsInitialLoading(false);
     }
-  }, [dbContext?.sqliteClient, id, isEditMode, navigate, setIsInitialLoading]);
+  }, [dbContext?.sqliteClient, id, isEditMode, itemTypeParam, itemNameParam, navigate, setIsInitialLoading]);
 
   /**
    * Handle field value change.
@@ -169,17 +176,19 @@ const ItemAddEdit: React.FC = () => {
    * Handle form submission.
    */
   const handleSave = useCallback(async () => {
-    if (!item) return;
+    if (!item) {
+      return;
+    }
 
     try {
       // Build the fields array from fieldValues
       const fields: ItemField[] = [];
 
-      // Add system fields
+      /* Add system fields */
       applicableSystemFields.forEach(systemField => {
         const value = fieldValues[systemField.FieldKey];
 
-        // Only include fields with non-empty values
+        /* Only include fields with non-empty values */
         if (value && (Array.isArray(value) ? value.length > 0 : value.trim() !== '')) {
           fields.push({
             FieldKey: systemField.FieldKey,
@@ -192,11 +201,11 @@ const ItemAddEdit: React.FC = () => {
         }
       });
 
-      // Add custom fields
+      /* Add custom fields */
       customFields.forEach(customField => {
         const value = fieldValues[customField.tempId];
 
-        // Only include fields with non-empty values
+        /* Only include fields with non-empty values */
         if (value && (Array.isArray(value) ? value.length > 0 : value.trim() !== '')) {
           fields.push({
             FieldKey: customField.tempId,
@@ -215,7 +224,7 @@ const ItemAddEdit: React.FC = () => {
         UpdatedAt: new Date().toISOString()
       };
 
-      // Save to database and sync vault
+      /* Save to database and sync vault */
       if (!dbContext?.sqliteClient) {
         throw new Error('Database not initialized');
       }
@@ -223,34 +232,33 @@ const ItemAddEdit: React.FC = () => {
       await executeVaultMutation(async () => {
         if (isEditMode) {
           await dbContext.sqliteClient!.updateItem(updatedItem);
-          console.log('Item updated:', updatedItem);
         } else {
           await dbContext.sqliteClient!.createItem(updatedItem);
-          console.log('Item created:', updatedItem);
         }
       });
 
-      // Navigate back to details page
+      /* Navigate back to details page */
       navigate(`/items/${updatedItem.Id}`);
     } catch (err) {
       console.error('Error saving item:', err);
     }
-  }, [item, fieldValues, applicableSystemFields, dbContext, isEditMode, executeVaultMutation, navigate]);
+  }, [item, fieldValues, applicableSystemFields, customFields, dbContext, isEditMode, executeVaultMutation, navigate]);
 
   /**
    * Handle delete action.
    */
   const handleDelete = useCallback(async () => {
-    if (!item || !isEditMode || !dbContext?.sqliteClient) return;
+    if (!item || !isEditMode || !dbContext?.sqliteClient) {
+      return;
+    }
 
     try {
-      // Delete from database and sync vault
+      /* Delete from database and sync vault */
       await executeVaultMutation(async () => {
         await dbContext.sqliteClient!.deleteItemById(item.Id);
-        console.log('Item deleted:', item.Id);
       });
 
-      // Navigate back to credentials list
+      /* Navigate back to credentials list */
       navigate('/credentials');
     } catch (err) {
       console.error('Error deleting item:', err);
@@ -274,7 +282,9 @@ const ItemAddEdit: React.FC = () => {
    * Add custom field handler.
    */
   const handleAddCustomField = useCallback(() => {
-    if (!newCustomFieldLabel.trim()) return;
+    if (!newCustomFieldLabel.trim()) {
+      return;
+    }
 
     const tempId = `custom_${crypto.randomUUID()}`;
     const newField: CustomFieldDefinition = {
@@ -324,13 +334,13 @@ const ItemAddEdit: React.FC = () => {
 
     setHeaderButtons(headerButtonsJSX);
 
-    return () => setHeaderButtons(null);
+    return (): void => setHeaderButtons(null);
   }, [setHeaderButtons, isEditMode, t]);
 
   /**
    * Render a field input based on field type.
    */
-  const renderFieldInput = useCallback((fieldKey: string, label: string, fieldType: FieldType, isHidden: boolean, isMultiValue: boolean) => {
+  const renderFieldInput = useCallback((fieldKey: string, label: string, fieldType: FieldType, isHidden: boolean, isMultiValue: boolean): React.ReactNode => {
     const value = fieldValues[fieldKey] || '';
 
     // Handle multi-value fields

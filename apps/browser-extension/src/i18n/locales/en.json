@@ -58,6 +58,7 @@
     "use": "Use",
     "delete": "Delete",
     "save": "Save",
+    "saving": "Saving...",
     "or": "Or",
     "close": "Close",
     "copied": "Copied!",
@@ -194,6 +195,7 @@
     "saveCredential": "Save credential",
     "deleteCredentialTitle": "Delete Credential",
     "deleteCredentialConfirm": "Are you sure you want to delete this credential? This action cannot be undone.",
+    "deleteCredentialConfirmation": "Are you sure you want to delete this item? This action cannot be undone.",
     "filters": {
       "all": "(All) Credentials",
       "passkeys": "Passkeys",
@@ -225,6 +227,8 @@
     "gender": "Gender",
     "birthDate": "Birth Date",
     "birthDatePlaceholder": "YYYY-MM-DD",
+    "cardInformation": "Card Information",
+    "identityInformation": "Identity Information",
     "metadata": "Metadata",
     "validation": {
       "required": "This field is required",
@@ -241,6 +245,27 @@
     "enterCustomDomain": "Enter custom domain",
     "enterFullEmail": "Enter full email address",
     "enterEmailPrefix": "Enter email prefix"
+  },
+  "itemTypes": {
+    "selectType": "Add New Item",
+    "selectTypeDescription": "Choose the type of item you want to create",
+    "typeLabel": "Item Type",
+    "login": {
+      "title": "Login",
+      "description": "Username, password, and website credentials"
+    },
+    "creditCard": {
+      "title": "Credit Card",
+      "description": "Credit card information and payment details"
+    },
+    "identity": {
+      "title": "Identity",
+      "description": "Personal information and contact details"
+    },
+    "note": {
+      "title": "Secure Note",
+      "description": "Encrypted notes and private information"
+    }
   },
   "totp": {
     "addCode": "Add 2FA Code",
