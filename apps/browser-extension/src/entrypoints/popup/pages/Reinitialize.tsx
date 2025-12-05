@@ -74,8 +74,8 @@ const Reinitialize: React.FC = () => {
       sendMessage('CLEAR_PERSISTED_FORM_VALUES', null, 'background'),
     ]);
 
-    // Navigate to the credentials page as default entry page
-    navigate('/credentials', { replace: true });
+    // Navigate to the items page as default entry page
+    navigate('/items', { replace: true });
   }, [navigate]);
 
   useEffect(() => {

@@ -371,6 +371,7 @@ export class SqliteClient {
         i.Name,
         i.ItemType,
         i.FolderId,
+        f.Name as FolderPath,
         l.FileData as Logo,
         CASE WHEN EXISTS (SELECT 1 FROM Passkeys pk WHERE pk.ItemId = i.Id AND pk.IsDeleted = 0) THEN 1 ELSE 0 END as HasPasskey,
         CASE WHEN EXISTS (SELECT 1 FROM Attachments att WHERE att.ItemId = i.Id AND att.IsDeleted = 0) THEN 1 ELSE 0 END as HasAttachment,
@@ -379,6 +380,7 @@ export class SqliteClient {
         i.UpdatedAt
       FROM Items i
       LEFT JOIN Logos l ON i.LogoId = l.Id
+      LEFT JOIN Folders f ON i.FolderId = f.Id
       WHERE i.IsDeleted = 0
       ORDER BY i.CreatedAt DESC`;
 
@@ -531,7 +533,7 @@ export class SqliteClient {
       ItemType: row.ItemType,
       Logo: row.Logo,
       FolderId: row.FolderId,
-      FolderPath: null,
+      FolderPath: row.FolderPath || null,
       Tags: tagsByItem[row.Id] || [],
       Fields: fieldsByItem[row.Id] || [],
       HasPasskey: row.HasPasskey === 1,
@@ -2466,6 +2468,186 @@ export class SqliteClient {
       console.error('Error deleting item:', error);
       throw error;
     }
+  }
+
+  /**
+   * ===== FOLDER OPERATIONS =====
+   */
+
+  /**
+   * Create a new folder
+   * @param name - The name of the folder
+   * @param parentFolderId - Optional parent folder ID for nested folders
+   * @returns The ID of the created folder
+   */
+  public async createFolder(name: string, parentFolderId?: string | null): Promise<string> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      this.beginTransaction();
+
+      const folderId = crypto.randomUUID();
+      const currentDateTime = dateFormatter.now();
+
+      const query = `
+        INSERT INTO Folders (Id, Name, ParentFolderId, Weight, IsDeleted, CreatedAt, UpdatedAt)
+        VALUES (?, ?, ?, 0, 0, ?, ?)`;
+
+      this.executeUpdate(query, [
+        folderId,
+        name,
+        parentFolderId || null,
+        currentDateTime,
+        currentDateTime
+      ]);
+
+      await this.commitTransaction();
+      return folderId;
+    } catch (error) {
+      this.rollbackTransaction();
+      console.error('Error creating folder:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all folders
+   * @returns Array of folder objects
+   */
+  public getAllFolders(): Array<{ Id: string; Name: string; ParentFolderId: string | null; Weight: number }> {
+    const query = `
+      SELECT Id, Name, ParentFolderId, Weight
+      FROM Folders
+      WHERE IsDeleted = 0
+      ORDER BY Weight, Name`;
+
+    return this.executeQuery(query);
+  }
+
+  /**
+   * Update a folder's name
+   * @param folderId - The ID of the folder to update
+   * @param name - The new name for the folder
+   * @returns The number of rows updated
+   */
+  public async updateFolder(folderId: string, name: string): Promise<number> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      this.beginTransaction();
+
+      const currentDateTime = dateFormatter.now();
+
+      const query = `
+        UPDATE Folders
+        SET Name = ?,
+            UpdatedAt = ?
+        WHERE Id = ?`;
+
+      const result = this.executeUpdate(query, [name, currentDateTime, folderId]);
+
+      await this.commitTransaction();
+      return result;
+    } catch (error) {
+      this.rollbackTransaction();
+      console.error('Error updating folder:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a folder (soft delete)
+   * Note: Items in the folder will have their FolderId set to NULL
+   * @param folderId - The ID of the folder to delete
+   * @returns The number of rows updated
+   */
+  public async deleteFolder(folderId: string): Promise<number> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      this.beginTransaction();
+
+      const currentDateTime = dateFormatter.now();
+
+      // 1. Remove folder reference from all items in this folder
+      const itemsQuery = `
+        UPDATE Items
+        SET FolderId = NULL,
+            UpdatedAt = ?
+        WHERE FolderId = ?`;
+
+      this.executeUpdate(itemsQuery, [currentDateTime, folderId]);
+
+      // 2. Soft delete the folder
+      const folderQuery = `
+        UPDATE Folders
+        SET IsDeleted = 1,
+            UpdatedAt = ?
+        WHERE Id = ?`;
+
+      const result = this.executeUpdate(folderQuery, [currentDateTime, folderId]);
+
+      await this.commitTransaction();
+      return result;
+    } catch (error) {
+      this.rollbackTransaction();
+      console.error('Error deleting folder:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Move an item to a folder
+   * @param itemId - The ID of the item to move
+   * @param folderId - The ID of the destination folder (null to remove from folder)
+   * @returns The number of rows updated
+   */
+  public async moveItemToFolder(itemId: string, folderId: string | null): Promise<number> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      this.beginTransaction();
+
+      const currentDateTime = dateFormatter.now();
+
+      const query = `
+        UPDATE Items
+        SET FolderId = ?,
+            UpdatedAt = ?
+        WHERE Id = ?`;
+
+      const result = this.executeUpdate(query, [folderId, currentDateTime, itemId]);
+
+      await this.commitTransaction();
+      return result;
+    } catch (error) {
+      this.rollbackTransaction();
+      console.error('Error moving item to folder:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get folder by ID
+   * @param folderId - The ID of the folder to fetch
+   * @returns Folder object or null if not found
+   */
+  public getFolderById(folderId: string): { Id: string; Name: string; ParentFolderId: string | null } | null {
+    const query = `
+      SELECT Id, Name, ParentFolderId
+      FROM Folders
+      WHERE Id = ? AND IsDeleted = 0`;
+
+    const results = this.executeQuery<{ Id: string; Name: string; ParentFolderId: string | null }>(query, [folderId]);
+    return results.length > 0 ? results[0] : null;
   }
 }
 

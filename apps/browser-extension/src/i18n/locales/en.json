@@ -43,7 +43,7 @@
     }
   },
   "menu": {
-    "credentials": "Credentials",
+    "vault": "Vault",
     "emails": "Emails",
     "settings": "Settings"
   },
@@ -59,6 +59,7 @@
     "delete": "Delete",
     "save": "Save",
     "saving": "Saving...",
+    "create": "Create",
     "or": "Or",
     "close": "Close",
     "copied": "Copied!",
@@ -251,6 +252,30 @@
     "history": "History",
     "noHistoryAvailable": "No history available",
     "tags": "Tags"
+  },
+  "items": {
+    "title": "Items",
+    "folders": "folders",
+    "items": "items",
+    "newFolder": "New Folder",
+    "createFolder": "Create Folder",
+    "editFolder": "Edit Folder",
+    "folderName": "Folder Name",
+    "folderNamePlaceholder": "Enter folder name",
+    "folderNameRequired": "Folder name is required",
+    "folderSaveError": "Failed to save folder. Please try again.",
+    "folder": "Folder",
+    "noFolder": "No Folder",
+    "welcomeTitle": "Welcome to AliasVault!",
+    "welcomeDescription": "To use the AliasVault browser extension: navigate to a website and use the AliasVault autofill popup to create a new credential.",
+    "noPasskeysFound": "No passkeys have been created yet. Passkeys are created by visiting a website that offers passkeys as an authentication method.",
+    "noAttachmentsFound": "No items with attachments found",
+    "noMatchingItems": "No matching items found",
+    "filters": {
+      "all": "(All) Items",
+      "passkeys": "Passkeys",
+      "attachments": "Attachments"
+    }
   },
   "itemTypes": {
     "selectType": "Add New Item",

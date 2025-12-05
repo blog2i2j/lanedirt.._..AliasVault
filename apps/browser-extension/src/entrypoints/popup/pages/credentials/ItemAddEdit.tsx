@@ -66,6 +66,9 @@ const ItemAddEdit: React.FC = () => {
   const [newCustomFieldLabel, setNewCustomFieldLabel] = useState('');
   const [newCustomFieldType, setNewCustomFieldType] = useState<FieldType>('Text');
 
+  // Folder selection state
+  const [folders, setFolders] = useState<Array<{ Id: string; Name: string }>>([]);
+
   /**
    * Get all applicable system fields for the current item type.
    * These are sorted by DefaultDisplayOrder.
@@ -113,10 +116,18 @@ const ItemAddEdit: React.FC = () => {
         Id: crypto.randomUUID().toUpperCase(),
         Name: itemNameParam || '',
         ItemType: itemTypeParam,
+        FolderId: null,
         Fields: [],
         CreatedAt: new Date().toISOString(),
         UpdatedAt: new Date().toISOString()
       });
+
+      // Load folders
+      if (dbContext?.sqliteClient) {
+        const allFolders = dbContext.sqliteClient.getAllFolders();
+        setFolders(allFolders);
+      }
+
       setLocalLoading(false);
       setIsInitialLoading(false);
       return;
@@ -126,6 +137,10 @@ const ItemAddEdit: React.FC = () => {
       const result = dbContext.sqliteClient.getItemById(id);
       if (result) {
         setItem(result);
+
+        // Load folders
+        const allFolders = dbContext.sqliteClient.getAllFolders();
+        setFolders(allFolders);
 
         // Initialize field values from existing fields
         const initialValues: Record<string, string | string[]> = {};
@@ -459,6 +474,29 @@ const ItemAddEdit: React.FC = () => {
           placeholder={t('credentials.serviceName')}
           required
         />
+      </div>
+
+      {/* Folder Selection */}
+      <div>
+        <label
+          htmlFor="folderSelect"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+        >
+          {t('items.folder')}
+        </label>
+        <select
+          id="folderSelect"
+          value={item.FolderId || ''}
+          onChange={(e) => setItem({ ...item, FolderId: e.target.value || null })}
+          className="w-full p-2 border dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+        >
+          <option value="">{t('items.noFolder')}</option>
+          {folders.map(folder => (
+            <option key={folder.Id} value={folder.Id}>
+              {folder.Name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Render fields grouped by category */}

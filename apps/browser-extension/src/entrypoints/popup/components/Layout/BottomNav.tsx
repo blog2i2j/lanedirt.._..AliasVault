@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-type TabName = 'credentials' | 'emails' | 'settings';
+type TabName = 'items' | 'emails' | 'settings';
 
 /**
  * Bottom nav component.
@@ -11,12 +11,12 @@ const BottomNav: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const [currentTab, setCurrentTab] = useState<TabName>('credentials');
+  const [currentTab, setCurrentTab] = useState<TabName>('items');
 
   // Add effect to update currentTab based on route
   useEffect(() => {
     const path = location.pathname.substring(1); // Remove leading slash
-    const tabNames: TabName[] = ['credentials', 'emails', 'settings'];
+    const tabNames: TabName[] = ['items', 'emails', 'settings'];
 
     // Find the first tab name that matches the start of the path
     const matchingTab = tabNames.find(tab => path === tab || path.startsWith(`${tab}/`));
@@ -54,15 +54,15 @@ const BottomNav: React.FC = () => {
     <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
       <div className="flex justify-around items-center h-14">
         <button
-          onClick={() => handleTabChange('credentials')}
+          onClick={() => handleTabChange('items')}
           className={`flex flex-col items-center justify-center w-1/3 h-full ${
-            currentTab === 'credentials' ? 'text-primary-600 dark:text-primary-500' : 'text-gray-500 dark:text-gray-400'
+            currentTab === 'items' ? 'text-primary-600 dark:text-primary-500' : 'text-gray-500 dark:text-gray-400'
           }`}
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
           </svg>
-          <span className="text-sm mt-1">{t('menu.credentials')}</span>
+          <span className="text-sm mt-1">{t('menu.vault')}</span>
         </button>
         <button
           onClick={() => handleTabChange('emails')}

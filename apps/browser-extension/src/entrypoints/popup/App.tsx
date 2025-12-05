@@ -22,6 +22,7 @@ import CredentialsList from '@/entrypoints/popup/pages/credentials/CredentialsLi
 import ItemAddEdit from '@/entrypoints/popup/pages/credentials/ItemAddEdit';
 import ItemDetails from '@/entrypoints/popup/pages/credentials/ItemDetails';
 import ItemTypeSelector from '@/entrypoints/popup/pages/credentials/ItemTypeSelector';
+import ItemsList from '@/entrypoints/popup/pages/items/ItemsList';
 import EmailDetails from '@/entrypoints/popup/pages/emails/EmailDetails';
 import EmailsList from '@/entrypoints/popup/pages/emails/EmailsList';
 import Index from '@/entrypoints/popup/pages/Index';
@@ -185,6 +186,7 @@ const App: React.FC = () => {
     { path: '/unlock-success', element: <UnlockSuccess />, showBackButton: false },
     { path: '/upgrade', element: <Upgrade />, showBackButton: false },
     { path: '/auth-settings', element: <AuthSettings />, showBackButton: true, title: t('settings.title') },
+    { path: '/items', element: <ItemsList />, showBackButton: false },
     { path: '/credentials', element: <CredentialsList />, showBackButton: false },
     { path: '/credentials/add', element: <CredentialAddEdit />, showBackButton: true, title: t('credentials.addCredential') },
     { path: '/credentials/:id', element: <CredentialDetails />, showBackButton: true, title: t('credentials.credentialDetails') },
