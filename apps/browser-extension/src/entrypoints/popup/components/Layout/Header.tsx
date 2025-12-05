@@ -53,9 +53,9 @@ const Header: React.FC<HeaderProps> = ({
       return;
     }
 
-    // If logged in, navigate to credentials.
+    // If logged in, navigate to items.
     if (app.isLoggedIn) {
-      navigate('/credentials');
+      navigate('/items');
     } else {
       // If not logged in, navigate to index.
       navigate('/');

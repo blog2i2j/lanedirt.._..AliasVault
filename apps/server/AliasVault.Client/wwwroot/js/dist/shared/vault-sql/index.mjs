@@ -1177,6 +1177,14 @@ COMMIT;
 
 INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
 VALUES ('20251204142538_1.7.1-MakeFieldHistoryFlexible', '9.0.4');
+
+BEGIN TRANSACTION;
+ALTER TABLE "Items" ADD "DeletedAt" TEXT NULL;
+
+INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+VALUES ('20251205212831_1.7.2-AddDeletedAtToItem', '9.0.4');
+
+COMMIT;
 `;
 var MIGRATION_SCRIPTS = {
   1: `\uFEFFBEGIN TRANSACTION;
@@ -2285,7 +2293,14 @@ CREATE INDEX "IX_FieldHistories_ItemId" ON "FieldHistories" ("ItemId");
 COMMIT;
 
 INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20251204142538_1.7.1-MakeFieldHistoryFlexible', '9.0.4');`
+VALUES ('20251204142538_1.7.1-MakeFieldHistoryFlexible', '9.0.4');`,
+  13: `\uFEFFBEGIN TRANSACTION;
+ALTER TABLE "Items" ADD "DeletedAt" TEXT NULL;
+
+INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+VALUES ('20251205212831_1.7.2-AddDeletedAtToItem', '9.0.4');
+
+COMMIT;`
 };
 
 // src/sql/VaultVersions.ts
@@ -2378,6 +2393,13 @@ var VAULT_VERSIONS = [
     revision: 13,
     version: "1.7.1",
     description: "Make FieldHistory Flexible",
+    releaseVersion: "0.26.0",
+    compatibleUpToVersion: "0.26.0"
+  },
+  {
+    revision: 14,
+    version: "1.7.2",
+    description: "Add DeletedAt to Item for Recently Deleted support",
     releaseVersion: "0.26.0",
     compatibleUpToVersion: "0.26.0"
   }

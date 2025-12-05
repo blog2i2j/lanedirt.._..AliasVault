@@ -1172,3 +1172,11 @@ COMMIT;
 INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
 VALUES ('20251204142538_1.7.1-MakeFieldHistoryFlexible', '9.0.4');
 
+BEGIN TRANSACTION;
+ALTER TABLE "Items" ADD "DeletedAt" TEXT NULL;
+
+INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+VALUES ('20251205212831_1.7.2-AddDeletedAtToItem', '9.0.4');
+
+COMMIT;
+

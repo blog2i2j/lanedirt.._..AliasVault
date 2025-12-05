@@ -48,6 +48,14 @@ public class Item : SyncableEntity
     public virtual Logo? Logo { get; set; }
 
     /// <summary>
+    /// Gets or sets the timestamp when this item was moved to the "Recently Deleted" folder.
+    /// When null, the item is active. When set, the item is in the trash and can be restored.
+    /// After a configurable retention period (default 30 days), items with DeletedAt set
+    /// are permanently deleted (converted to tombstones with IsDeleted = true).
+    /// </summary>
+    public DateTime? DeletedAt { get; set; }
+
+    /// <summary>
     /// Gets or sets the folder ID foreign key.
     /// </summary>
     public Guid? FolderId { get; set; }

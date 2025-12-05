@@ -102,4 +102,11 @@ export const VAULT_VERSIONS: VaultVersion[] = [
     releaseVersion: '0.26.0',
     compatibleUpToVersion: '0.26.0',
   },
+  {
+    revision: 14,
+    version: '1.7.2',
+    description: 'Add DeletedAt to Item for Recently Deleted support',
+    releaseVersion: '0.26.0',
+    compatibleUpToVersion: '0.26.0',
+  },
 ];
