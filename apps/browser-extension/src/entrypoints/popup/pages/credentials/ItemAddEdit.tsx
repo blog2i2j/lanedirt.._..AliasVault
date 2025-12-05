@@ -273,8 +273,8 @@ const ItemAddEdit: React.FC = () => {
         await dbContext.sqliteClient!.deleteItemById(item.Id);
       });
 
-      /* Navigate back to credentials list */
-      navigate('/credentials');
+      /* Navigate back to items list */
+      navigate('/items');
     } catch (err) {
       console.error('Error deleting item:', err);
     } finally {
@@ -289,7 +289,7 @@ const ItemAddEdit: React.FC = () => {
     if (isEditMode) {
       navigate(`/items/${id}`);
     } else {
-      navigate('/credentials');
+      navigate('/items');
     }
   }, [isEditMode, id, navigate]);
 

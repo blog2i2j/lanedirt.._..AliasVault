@@ -23,6 +23,7 @@ import ItemAddEdit from '@/entrypoints/popup/pages/credentials/ItemAddEdit';
 import ItemDetails from '@/entrypoints/popup/pages/credentials/ItemDetails';
 import ItemTypeSelector from '@/entrypoints/popup/pages/credentials/ItemTypeSelector';
 import ItemsList from '@/entrypoints/popup/pages/items/ItemsList';
+import RecentlyDeleted from '@/entrypoints/popup/pages/items/RecentlyDeleted';
 import EmailDetails from '@/entrypoints/popup/pages/emails/EmailDetails';
 import EmailsList from '@/entrypoints/popup/pages/emails/EmailsList';
 import Index from '@/entrypoints/popup/pages/Index';
@@ -195,6 +196,7 @@ const App: React.FC = () => {
     { path: '/items/:id', element: <ItemDetails />, showBackButton: true, title: 'Item Details' },
     { path: '/items/:id/edit', element: <ItemAddEdit />, showBackButton: true, title: 'Edit Item' },
     { path: '/items/add', element: <ItemAddEdit />, showBackButton: true, title: 'Add Item' },
+    { path: '/items/deleted', element: <RecentlyDeleted />, showBackButton: true, title: t('recentlyDeleted.title') },
     { path: '/passkeys/create', element: <PasskeyCreate />, layout: LayoutType.PASSKEY },
     { path: '/passkeys/authenticate', element: <PasskeyAuthenticate />, layout: LayoutType.PASSKEY },
     { path: '/emails', element: <EmailsList />, showBackButton: false },

@@ -225,7 +225,7 @@ export class SqliteClient {
             (SELECT pk.DisplayName FROM Passkeys pk WHERE pk.ItemId = i.Id AND pk.IsDeleted = 0 LIMIT 1) as PasskeyDisplayName
         FROM Items i
         LEFT JOIN Logos l ON i.LogoId = l.Id
-        WHERE i.IsDeleted = 0
+        WHERE i.IsDeleted = 0 AND i.DeletedAt IS NULL
         AND i.Id = ?`;
 
     const results = this.executeQuery(query, [credentialId]);
@@ -303,7 +303,7 @@ export class SqliteClient {
                 END as HasAttachment
             FROM Items i
             LEFT JOIN Logos l ON i.LogoId = l.Id
-            WHERE i.IsDeleted = 0
+            WHERE i.IsDeleted = 0 AND i.DeletedAt IS NULL
             ORDER BY i.CreatedAt DESC`;
 
     const results = this.executeQuery(query);
@@ -381,7 +381,7 @@ export class SqliteClient {
       FROM Items i
       LEFT JOIN Logos l ON i.LogoId = l.Id
       LEFT JOIN Folders f ON i.FolderId = f.Id
-      WHERE i.IsDeleted = 0
+      WHERE i.IsDeleted = 0 AND i.DeletedAt IS NULL
       ORDER BY i.CreatedAt DESC`;
 
     const items = this.executeQuery(query);
@@ -2402,11 +2402,12 @@ export class SqliteClient {
   }
 
   /**
-   * Delete an item by ID (soft delete)
-   * @param itemId - The ID of the item to delete
+   * Move an item to "Recently Deleted" (trash) by setting DeletedAt timestamp.
+   * Item can be restored within retention period (default 30 days).
+   * @param itemId - The ID of the item to trash
    * @returns The number of rows updated
    */
-  public async deleteItemById(itemId: string): Promise<number> {
+  public async trashItem(itemId: string): Promise<number> {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
@@ -2416,58 +2417,257 @@ export class SqliteClient {
 
       const currentDateTime = dateFormatter.now();
 
-      // 1. Soft delete the item
-      const itemQuery = `
+      const query = `
         UPDATE Items
-        SET IsDeleted = 1,
+        SET DeletedAt = ?,
             UpdatedAt = ?
-        WHERE Id = ?`;
+        WHERE Id = ? AND IsDeleted = 0`;
 
-      const result = this.executeUpdate(itemQuery, [currentDateTime, itemId]);
-
-      // 2. Soft delete all associated FieldValues
-      const fieldsQuery = `
-        UPDATE FieldValues
-        SET IsDeleted = 1,
-            UpdatedAt = ?
-        WHERE ItemId = ?`;
-
-      this.executeUpdate(fieldsQuery, [currentDateTime, itemId]);
-
-      // 3. Soft delete associated Passkeys
-      const passkeysQuery = `
-        UPDATE Passkeys
-        SET IsDeleted = 1,
-            UpdatedAt = ?
-        WHERE ItemId = ?`;
-
-      this.executeUpdate(passkeysQuery, [currentDateTime, itemId]);
-
-      // 4. Soft delete associated TotpCodes
-      const totpQuery = `
-        UPDATE TotpCodes
-        SET IsDeleted = 1,
-            UpdatedAt = ?
-        WHERE ItemId = ?`;
-
-      this.executeUpdate(totpQuery, [currentDateTime, itemId]);
-
-      // 5. Soft delete associated Attachments
-      const attachmentsQuery = `
-        UPDATE Attachments
-        SET IsDeleted = 1,
-            UpdatedAt = ?
-        WHERE ItemId = ?`;
-
-      this.executeUpdate(attachmentsQuery, [currentDateTime, itemId]);
+      const result = this.executeUpdate(query, [currentDateTime, currentDateTime, itemId]);
 
       await this.commitTransaction();
       return result;
     } catch (error) {
       this.rollbackTransaction();
-      console.error('Error deleting item:', error);
+      console.error('Error trashing item:', error);
       throw error;
     }
+  }
+
+  /**
+   * Restore an item from "Recently Deleted" by clearing DeletedAt timestamp.
+   * @param itemId - The ID of the item to restore
+   * @returns The number of rows updated
+   */
+  public async restoreItem(itemId: string): Promise<number> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      this.beginTransaction();
+
+      const currentDateTime = dateFormatter.now();
+
+      const query = `
+        UPDATE Items
+        SET DeletedAt = NULL,
+            UpdatedAt = ?
+        WHERE Id = ? AND IsDeleted = 0 AND DeletedAt IS NOT NULL`;
+
+      const result = this.executeUpdate(query, [currentDateTime, itemId]);
+
+      await this.commitTransaction();
+      return result;
+    } catch (error) {
+      this.rollbackTransaction();
+      console.error('Error restoring item:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Permanently delete an item - converts to tombstone for sync.
+   * Hard deletes all child entities and marks item as IsDeleted=1.
+   * @param itemId - The ID of the item to permanently delete
+   * @returns The number of rows updated
+   */
+  public async permanentlyDeleteItem(itemId: string): Promise<number> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      this.beginTransaction();
+
+      const currentDateTime = dateFormatter.now();
+
+      // 1. Hard delete all FieldValues for this item
+      this.executeUpdate(`DELETE FROM FieldValues WHERE ItemId = ?`, [itemId]);
+
+      // 2. Hard delete all FieldHistories for this item
+      this.executeUpdate(`DELETE FROM FieldHistories WHERE ItemId = ?`, [itemId]);
+
+      // 3. Hard delete all Passkeys for this item
+      this.executeUpdate(`DELETE FROM Passkeys WHERE ItemId = ?`, [itemId]);
+
+      // 4. Hard delete all TotpCodes for this item
+      this.executeUpdate(`DELETE FROM TotpCodes WHERE ItemId = ?`, [itemId]);
+
+      // 5. Hard delete all Attachments for this item
+      this.executeUpdate(`DELETE FROM Attachments WHERE ItemId = ?`, [itemId]);
+
+      // 6. Hard delete all ItemTags for this item
+      this.executeUpdate(`DELETE FROM ItemTags WHERE ItemId = ?`, [itemId]);
+
+      // 7. Convert item to tombstone (gut it, keep shell for sync)
+      const itemQuery = `
+        UPDATE Items
+        SET IsDeleted = 1,
+            Name = NULL,
+            LogoId = NULL,
+            FolderId = NULL,
+            UpdatedAt = ?
+        WHERE Id = ?`;
+
+      const result = this.executeUpdate(itemQuery, [currentDateTime, itemId]);
+
+      await this.commitTransaction();
+      return result;
+    } catch (error) {
+      this.rollbackTransaction();
+      console.error('Error permanently deleting item:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all items in "Recently Deleted" (where DeletedAt is set but not permanently deleted).
+   * @returns Array of trashed Item objects
+   */
+  public getRecentlyDeletedItems(): Item[] {
+    const query = `
+      SELECT DISTINCT
+        i.Id,
+        i.Name,
+        i.ItemType,
+        i.FolderId,
+        f.Name as FolderPath,
+        l.FileData as Logo,
+        i.DeletedAt,
+        CASE WHEN EXISTS (SELECT 1 FROM Passkeys pk WHERE pk.ItemId = i.Id AND pk.IsDeleted = 0) THEN 1 ELSE 0 END as HasPasskey,
+        CASE WHEN EXISTS (SELECT 1 FROM Attachments att WHERE att.ItemId = i.Id AND att.IsDeleted = 0) THEN 1 ELSE 0 END as HasAttachment,
+        CASE WHEN EXISTS (SELECT 1 FROM TotpCodes tc WHERE tc.ItemId = i.Id AND tc.IsDeleted = 0) THEN 1 ELSE 0 END as HasTotp,
+        i.CreatedAt,
+        i.UpdatedAt
+      FROM Items i
+      LEFT JOIN Logos l ON i.LogoId = l.Id
+      LEFT JOIN Folders f ON i.FolderId = f.Id
+      WHERE i.IsDeleted = 0 AND i.DeletedAt IS NOT NULL
+      ORDER BY i.DeletedAt DESC`;
+
+    const items = this.executeQuery(query);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const itemIds = items.map((i: any) => i.Id);
+    if (itemIds.length === 0) {
+      return [];
+    }
+
+    // Get all field values
+    const fieldsQuery = `
+      SELECT
+        fv.ItemId,
+        fv.FieldKey,
+        fv.FieldDefinitionId,
+        fd.Label as CustomLabel,
+        fd.FieldType as CustomFieldType,
+        fd.IsHidden as CustomIsHidden,
+        fv.Value,
+        fv.Weight as DisplayOrder
+      FROM FieldValues fv
+      LEFT JOIN FieldDefinitions fd ON fv.FieldDefinitionId = fd.Id
+      WHERE fv.ItemId IN (${itemIds.map(() => '?').join(',')})
+        AND fv.IsDeleted = 0
+      ORDER BY fv.ItemId, fv.Weight`;
+
+    const fieldRows = this.executeQuery<{
+      ItemId: string;
+      FieldKey: string | null;
+      FieldDefinitionId: string | null;
+      CustomLabel: string | null;
+      CustomFieldType: string | null;
+      CustomIsHidden: number | null;
+      Value: string;
+      DisplayOrder: number;
+    }>(fieldsQuery, itemIds);
+
+    // Process fields
+    const fields = fieldRows.map(row => {
+      if (row.FieldKey) {
+        const systemField = getSystemField(row.FieldKey);
+        return {
+          ItemId: row.ItemId,
+          FieldKey: row.FieldKey,
+          Label: systemField?.Label || row.FieldKey,
+          FieldType: systemField?.FieldType || 'Text',
+          IsHidden: systemField?.IsHidden ? 1 : 0,
+          Value: row.Value,
+          DisplayOrder: row.DisplayOrder
+        };
+      } else {
+        return {
+          ItemId: row.ItemId,
+          FieldKey: row.FieldDefinitionId || '',
+          Label: row.CustomLabel || '',
+          FieldType: row.CustomFieldType || 'Text',
+          IsHidden: row.CustomIsHidden || 0,
+          Value: row.Value,
+          DisplayOrder: row.DisplayOrder
+        };
+      }
+    });
+
+    // Group fields by item ID
+    const fieldsByItem = new Map<string, typeof fields>();
+    fields.forEach(field => {
+      const existing = fieldsByItem.get(field.ItemId) || [];
+      existing.push(field);
+      fieldsByItem.set(field.ItemId, existing);
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return items.map((row: any) => {
+      const itemFields = fieldsByItem.get(row.Id) || [];
+      return {
+        Id: row.Id,
+        Name: row.Name,
+        ItemType: row.ItemType,
+        FolderId: row.FolderId,
+        FolderPath: row.FolderPath,
+        Logo: row.Logo ? new Uint8Array(row.Logo) : undefined,
+        DeletedAt: row.DeletedAt,
+        HasPasskey: row.HasPasskey === 1,
+        HasAttachment: row.HasAttachment === 1,
+        HasTotp: row.HasTotp === 1,
+        Fields: itemFields.map(f => ({
+          FieldKey: f.FieldKey,
+          Label: f.Label,
+          FieldType: f.FieldType as FieldType,
+          Value: f.Value,
+          IsHidden: f.IsHidden === 1,
+          DisplayOrder: f.DisplayOrder
+        })),
+        CreatedAt: row.CreatedAt,
+        UpdatedAt: row.UpdatedAt
+      };
+    });
+  }
+
+  /**
+   * Get count of items in "Recently Deleted".
+   * @returns Number of trashed items
+   */
+  public getRecentlyDeletedCount(): number {
+    const query = `
+      SELECT COUNT(*) as count
+      FROM Items
+      WHERE IsDeleted = 0 AND DeletedAt IS NOT NULL`;
+
+    const result = this.executeQuery<{ count: number }>(query);
+    return result[0]?.count || 0;
+  }
+
+  /**
+   * Delete an item by ID (soft delete) - DEPRECATED, use trashItem instead.
+   * Kept for backwards compatibility.
+   * @param itemId - The ID of the item to delete
+   * @returns The number of rows updated
+   * @deprecated Use trashItem() for new code
+   */
+  public async deleteItemById(itemId: string): Promise<number> {
+    // Redirect to new trash functionality
+    return this.trashItem(itemId);
   }
 
   /**

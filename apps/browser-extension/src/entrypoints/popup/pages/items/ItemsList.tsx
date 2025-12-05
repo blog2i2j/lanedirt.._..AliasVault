@@ -92,6 +92,7 @@ const ItemsList: React.FC = () => {
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [folderPath, setFolderPath] = useState<string>('');
   const [showFolderModal, setShowFolderModal] = useState(false);
+  const [recentlyDeletedCount, setRecentlyDeletedCount] = useState(0);
   const { setIsInitialLoading } = useLoading();
 
   /**
@@ -231,6 +232,9 @@ const ItemsList: React.FC = () => {
         setIsLoading(true);
         const results = dbContext.sqliteClient?.getAllItems() ?? [];
         setItems(results);
+        // Also get recently deleted count
+        const deletedCount = dbContext.sqliteClient?.getRecentlyDeletedCount() ?? 0;
+        setRecentlyDeletedCount(deletedCount);
         setIsLoading(false);
         setIsInitialLoading(false);
       }
@@ -479,6 +483,16 @@ const ItemsList: React.FC = () => {
                   >
                     {t('items.filters.attachments')}
                   </button>
+                  <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+                  <button
+                    onClick={() => {
+                      setShowFilterMenu(false);
+                      navigate('/items/deleted');
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                  >
+                    {t('recentlyDeleted.title')}
+                  </button>
                 </div>
               </div>
             </>
@@ -503,14 +517,42 @@ const ItemsList: React.FC = () => {
       )}
 
       {items.length === 0 ? (
-        <div className="text-gray-500 dark:text-gray-400 space-y-2 mb-10">
-          <p>
-            {t('items.welcomeTitle')}
-          </p>
-          <p>
-            {t('items.welcomeDescription')}
-          </p>
-        </div>
+        <>
+          <div className="text-gray-500 dark:text-gray-400 space-y-2 mb-10">
+            <p>
+              {t('items.welcomeTitle')}
+            </p>
+            <p>
+              {t('items.welcomeDescription')}
+            </p>
+          </div>
+          {/* Show Recently Deleted even when vault is empty */}
+          {recentlyDeletedCount > 0 && (
+            <button
+              onClick={() => navigate('/items/deleted')}
+              className="w-full p-3 flex items-center justify-between text-left bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <svg
+                  className="w-5 h-5 text-gray-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+                <span className="text-gray-700 dark:text-gray-300">{t('recentlyDeleted.title')}</span>
+              </div>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {recentlyDeletedCount}
+              </span>
+            </button>
+          )}
+        </>
       ) : filteredItems.length === 0 && folders.length === 0 ? (
         <div className="text-gray-500 dark:text-gray-400 space-y-2 mb-10">
           <p>
@@ -570,6 +612,35 @@ const ItemsList: React.FC = () => {
                 ))}
               </ul>
             </div>
+          )}
+
+          {/* Recently Deleted link (only show at root level when not searching) */}
+          {!currentFolderId && !searchTerm && (
+            <button
+              onClick={() => navigate('/items/deleted')}
+              className="w-full mt-4 p-3 flex items-center justify-between text-left bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <svg
+                  className="w-5 h-5 text-gray-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+                <span className="text-gray-700 dark:text-gray-300">{t('recentlyDeleted.title')}</span>
+              </div>
+              {recentlyDeletedCount > 0 && (
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {recentlyDeletedCount}
+                </span>
+              )}
+            </button>
           )}
         </>
       )}
