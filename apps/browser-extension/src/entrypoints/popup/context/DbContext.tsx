@@ -14,7 +14,10 @@ type DbContextType = {
   sqliteClient: SqliteClient | null;
   dbInitialized: boolean;
   dbAvailable: boolean;
+  isOffline: boolean;
+  setIsOffline: (offline: boolean) => Promise<void>;
   initializeDatabase: (vaultResponse: VaultResponse, derivedKey: string) => Promise<SqliteClient>;
+  initializeDatabaseFromDecryptedVault: (decryptedVaultBase64: string) => Promise<SqliteClient>;
   storeEncryptionKey: (derivedKey: string) => Promise<void>;
   storeEncryptionKeyDerivationParams: (params: EncryptionKeyDerivationParams) => Promise<void>;
   clearDatabase: () => void;
@@ -43,6 +46,33 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
    * Database availability state. If true, the database is available. If false, the database is not available and needs to be unlocked or retrieved again from the API.
    */
   const [dbAvailable, setDbAvailable] = useState(false);
+
+  /**
+   * Offline mode state. If true, the extension is operating offline.
+   */
+  const [isOffline, setIsOfflineState] = useState(false);
+
+  /**
+   * Set the offline mode state and persist it.
+   */
+  const setIsOffline = useCallback(async (offline: boolean) => {
+    setIsOfflineState(offline);
+    await sendMessage('SET_OFFLINE_MODE', offline, 'background');
+  }, []);
+
+  /**
+   * Load initial offline state from storage.
+   */
+  useEffect(() => {
+    /**
+     * Load the offline mode state from background storage.
+     */
+    const loadOfflineState = async () : Promise<void> => {
+      const offlineMode = await sendMessage('GET_OFFLINE_MODE', {}, 'background') as boolean;
+      setIsOfflineState(offlineMode);
+    };
+    loadOfflineState();
+  }, []);
 
   const initializeDatabase = useCallback(async (vaultResponse: VaultResponse, derivedKey: string) => {
     // Attempt to decrypt the blob.
@@ -75,6 +105,22 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     return client;
   }, []);
 
+  /**
+   * Initialize the database from an already-decrypted vault (for offline mode).
+   * This is used when we have the decryption key but the server is unavailable.
+   */
+  const initializeDatabaseFromDecryptedVault = useCallback(async (decryptedVaultBase64: string) => {
+    // Initialize the SQLite client.
+    const client = new SqliteClient();
+    await client.initializeFromBase64(decryptedVaultBase64);
+
+    setSqliteClient(client);
+    setDbInitialized(true);
+    setDbAvailable(true);
+
+    return client;
+  }, []);
+
   const checkStoredVault = useCallback(async () => {
     try {
       const response = await sendMessage('GET_VAULT', {}, 'background') as messageVaultResponse;
@@ -98,14 +144,14 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   }, []);
 
   /**
-   * Get the vault metadata from session storage.
+   * Get the vault metadata from local storage (persistent).
    */
   const getVaultMetadata = useCallback(async () : Promise<VaultMetadata | null> => {
     try {
-      const publicEmailDomains = await storage.getItem('session:publicEmailDomains') as string[] | null;
-      const privateEmailDomains = await storage.getItem('session:privateEmailDomains') as string[] | null;
-      const hiddenPrivateEmailDomains = await storage.getItem('session:hiddenPrivateEmailDomains') as string[] | null;
-      const vaultRevisionNumber = await storage.getItem('session:vaultRevisionNumber') as number | null;
+      const publicEmailDomains = await storage.getItem('local:publicEmailDomains') as string[] | null;
+      const privateEmailDomains = await storage.getItem('local:privateEmailDomains') as string[] | null;
+      const hiddenPrivateEmailDomains = await storage.getItem('local:hiddenPrivateEmailDomains') as string[] | null;
+      const vaultRevisionNumber = await storage.getItem('local:vaultRevisionNumber') as number | null;
 
       if (!publicEmailDomains && !privateEmailDomains) {
         return null;
@@ -118,16 +164,16 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         vaultRevisionNumber: vaultRevisionNumber ?? 0,
       };
     } catch (error) {
-      console.error('Error getting vault metadata from session storage:', error);
+      console.error('Error getting vault metadata from local storage:', error);
       return null;
     }
   }, []);
 
   /**
-   * Set the current vault revision number in session storage.
+   * Set the current vault revision number in local storage (persistent).
    */
   const setCurrentVaultRevisionNumber = useCallback(async (revisionNumber: number) => {
-    await storage.setItem('session:vaultRevisionNumber', revisionNumber);
+    await storage.setItem('local:vaultRevisionNumber', revisionNumber);
   }, []);
 
   /**
@@ -177,14 +223,17 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     sqliteClient,
     dbInitialized,
     dbAvailable,
+    isOffline,
+    setIsOffline,
     initializeDatabase,
+    initializeDatabaseFromDecryptedVault,
     storeEncryptionKey,
     storeEncryptionKeyDerivationParams,
     clearDatabase,
     getVaultMetadata,
     setCurrentVaultRevisionNumber,
     hasPendingMigrations,
-  }), [sqliteClient, dbInitialized, dbAvailable, initializeDatabase, storeEncryptionKey, storeEncryptionKeyDerivationParams, clearDatabase, getVaultMetadata, setCurrentVaultRevisionNumber, hasPendingMigrations]);
+  }), [sqliteClient, dbInitialized, dbAvailable, isOffline, setIsOffline, initializeDatabase, initializeDatabaseFromDecryptedVault, storeEncryptionKey, storeEncryptionKeyDerivationParams, clearDatabase, getVaultMetadata, setCurrentVaultRevisionNumber, hasPendingMigrations]);
 
   return (
     <DbContext.Provider value={contextValue}>

@@ -39,12 +39,13 @@ type VaultSyncOptions = {
   onSuccess?: (hasNewVault: boolean) => void;
   onError?: (error: string) => void;
   onStatus?: (message: string) => void;
-  _onOffline?: () => void;
+  onOffline?: () => void;
   onUpgradeRequired?: () => void;
 }
 
 /**
  * Hook to sync the vault with the server.
+ * Supports offline mode: if server is unavailable, continues with local vault.
  */
 export const useVaultSync = () : {
   syncVault: (options?: VaultSyncOptions) => Promise<boolean>;
@@ -55,7 +56,7 @@ export const useVaultSync = () : {
   const webApi = useWebApi();
 
   const syncVault = useCallback(async (options: VaultSyncOptions = {}) => {
-    const { initialSync = false, onSuccess, onError, onStatus, _onOffline, onUpgradeRequired } = options;
+    const { initialSync = false, onSuccess, onError, onStatus, onOffline, onUpgradeRequired } = options;
 
     // For the initial sync, we add an artifical delay to various steps which makes it feel more fluid.
     const enableDelay = initialSync;
@@ -74,9 +75,19 @@ export const useVaultSync = () : {
 
       // Check if server is actually available, 0.0.0 indicates connection error which triggers offline mode.
       if (statusResponse.serverVersion === '0.0.0') {
-        // Offline mode is not implemented for browser extension yet, so logout the user.
-        onError?.(t('common.errors.serverNotAvailable'));
-        return false;
+        // Server is unavailable - enter offline mode if we have a local vault
+        if (dbContext.dbAvailable) {
+          // We have a local vault, continue in offline mode
+          await dbContext.setIsOffline(true);
+          onStatus?.(t('common.offlineMode'));
+          onOffline?.();
+          onSuccess?.(false);
+          return true;
+        } else {
+          // No local vault available, can't operate offline
+          onError?.(t('common.errors.serverNotAvailable'));
+          return false;
+        }
       }
 
       const statusError = webApi.validateStatusResponse(statusResponse);
@@ -98,11 +109,10 @@ export const useVaultSync = () : {
         return false;
       }
 
-      /*
-       *  If we get here, it means we have a valid connection to the server.
-       *  TODO: browser extension does not support offline mode yet.
-       * authContext.setOfflineMode(false);
-       */
+      // We have a valid connection to the server - exit offline mode if we were in it
+      if (dbContext.isOffline) {
+        await dbContext.setIsOffline(false);
+      }
 
       // Compare vault revisions
       const vaultMetadata = await dbContext.getVaultMetadata();
@@ -154,16 +164,17 @@ export const useVaultSync = () : {
         return false;
       }
 
-      /*
-       * Check if it's a network error
-       * TODO: browser extension does not support offline mode yet.
-       */
-      /*
-       * if (errorMessage.includes('network') || errorMessage.includes('timeout')) {
-       *authContext.setOfflineMode(true);
-       *return true;
-       *}
-       */
+      // Check if it's a network error - enter offline mode if we have a local vault
+      if (errorMessage.includes('network') || errorMessage.includes('timeout') || errorMessage.includes('fetch') || errorMessage.includes('Failed to fetch')) {
+        if (dbContext.dbAvailable) {
+          // We have a local vault, continue in offline mode
+          await dbContext.setIsOffline(true);
+          onStatus?.(t('common.offlineMode'));
+          onOffline?.();
+          onSuccess?.(false);
+          return true;
+        }
+      }
 
       onError?.(errorMessage);
       return false;

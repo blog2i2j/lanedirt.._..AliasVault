@@ -172,8 +172,8 @@ const ItemsList: React.FC = () => {
         /**
          * On offline.
          */
-        _onOffline: () => {
-          // Not implemented for browser extension yet.
+        onOffline: () => {
+          // Continue with local vault in offline mode.
         },
         /**
          * On error.

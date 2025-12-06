@@ -3,11 +3,15 @@ import { useTranslation } from 'react-i18next';
 import { sendMessage } from 'webext-bridge/popup';
 
 import { useDb } from '@/entrypoints/popup/context/DbContext';
-import { useVaultSync } from '@/entrypoints/popup/hooks/useVaultSync';
+import { useWebApi } from '@/entrypoints/popup/context/WebApiContext';
 
+import type { VaultResponse } from '@/utils/dist/shared/models/webapi';
 import { EncryptionUtility } from '@/utils/EncryptionUtility';
 import { UploadVaultRequest } from '@/utils/types/messaging/UploadVaultRequest';
 import { VaultUploadResponse as messageVaultUploadResponse } from '@/utils/types/messaging/VaultUploadResponse';
+import { vaultMergeService } from '@/utils/VaultMergeService';
+
+import { useVaultSync } from './useVaultSync';
 
 type VaultMutationOptions = {
   onSuccess?: () => void;
@@ -17,6 +21,7 @@ type VaultMutationOptions = {
 
 /**
  * Hook to execute a vault mutation.
+ * Supports offline mode with LWW merge when coming back online.
  */
 export function useVaultMutate() : {
   executeVaultMutation: (operation: () => Promise<void>, options?: VaultMutationOptions) => Promise<void>;
@@ -27,29 +32,50 @@ export function useVaultMutate() : {
   const [isLoading, setIsLoading] = useState(false);
   const [syncStatus, setSyncStatus] = useState(t('common.syncingVault'));
   const dbContext = useDb();
+  const webApi = useWebApi();
   const { syncVault } = useVaultSync();
 
   /**
-   * Execute the provided operation (e.g. create/update/delete credential)
+   * Execute the provided operation and save locally (for offline mode)
    */
-  const executeMutateOperation = useCallback(async (
+  const executeMutateOperationLocal = useCallback(async (
     operation: () => Promise<void>,
-    options: VaultMutationOptions
   ) : Promise<void> => {
     setSyncStatus(t('common.savingChangesToVault'));
 
     // Execute the provided operation (e.g. create/update/delete credential)
     await operation();
 
+    // Export and encrypt the updated vault
+    const base64Vault = dbContext.sqliteClient!.exportToBase64();
+    const encryptionKey = await sendMessage('GET_ENCRYPTION_KEY', {}, 'background') as string;
+    const encryptedVaultBlob = await EncryptionUtility.symmetricEncrypt(
+      base64Vault,
+      encryptionKey
+    );
+
+    // Store the updated vault locally (persistent storage)
+    await sendMessage('STORE_ENCRYPTED_VAULT', encryptedVaultBlob, 'background');
+  }, [dbContext, t]);
+
+  /**
+   * Upload the vault to the server, handling conflicts with LWW merge
+   */
+  const uploadVaultWithMerge = useCallback(async (
+    options: VaultMutationOptions,
+    retryCount: number = 0
+  ) : Promise<void> => {
+    const MAX_RETRIES = 3;
+
+    if (retryCount >= MAX_RETRIES) {
+      throw new Error(t('common.errors.syncConflictMaxRetries'));
+    }
+
     setSyncStatus(t('common.uploadingVaultToServer'));
 
-    // Upload the updated vault to the server.
+    // Get the current local vault
     const base64Vault = dbContext.sqliteClient!.exportToBase64();
-
-    // Get encryption key from background worker
     const encryptionKey = await sendMessage('GET_ENCRYPTION_KEY', {}, 'background') as string;
-
-    // Encrypt the vault.
     const encryptedVaultBlob = await EncryptionUtility.symmetricEncrypt(
       base64Vault,
       encryptionKey
@@ -59,37 +85,88 @@ export function useVaultMutate() : {
       vaultBlob: encryptedVaultBlob,
     };
 
-    const response = await sendMessage('UPLOAD_VAULT', request, 'background') as messageVaultUploadResponse;
+    try {
+      const response = await sendMessage('UPLOAD_VAULT', request, 'background') as messageVaultUploadResponse;
 
-    /*
-     * If we get here, it means we have a valid connection to the server.
-     * TODO: offline mode is not implemented for browser extension yet.
-     * authContext.setOfflineMode(false);
-     */
+      if (response.status === 0 && response.newRevisionNumber) {
+        // Success - update local revision number and exit offline mode
+        await dbContext.setCurrentVaultRevisionNumber(response.newRevisionNumber);
+        if (dbContext.isOffline) {
+          await dbContext.setIsOffline(false);
+        }
+        options.onSuccess?.();
+      } else if (response.status === 2) {
+        // Vault is outdated - need to merge with server vault
+        setSyncStatus(t('common.mergingVaultChanges'));
 
-    if (response.status === 0 && response.newRevisionNumber) {
-      await dbContext.setCurrentVaultRevisionNumber(response.newRevisionNumber);
+        // Fetch the latest vault from server
+        const serverVaultResponse = await webApi.get<VaultResponse>('Vault');
+        const serverEncryptedBlob = serverVaultResponse.vault.blob;
+
+        // Decrypt both vaults for merge
+        const localDecrypted = base64Vault; // Already decrypted
+        const serverDecrypted = await EncryptionUtility.symmetricDecrypt(
+          serverEncryptedBlob,
+          encryptionKey
+        );
+
+        // Perform LWW merge
+        const mergeResult = await vaultMergeService.merge(localDecrypted, serverDecrypted);
+
+        if (!mergeResult.success) {
+          throw new Error(t('common.errors.mergeFailed'));
+        }
+
+        console.info('Vault merge completed:', mergeResult.stats);
+
+        // Re-initialize the database with merged vault
+        await dbContext.sqliteClient!.initializeFromBase64(mergeResult.mergedVaultBase64);
+
+        // Update local revision to server's revision before retrying
+        await dbContext.setCurrentVaultRevisionNumber(serverVaultResponse.vault.currentRevisionNumber);
+
+        // Retry upload with merged vault
+        await uploadVaultWithMerge(options, retryCount + 1);
+      } else if (response.status === 1) {
+        // Legacy merge status - should not happen with API >= 0.20.0
+        throw new Error(t('common.errors.legacyMergeRequired'));
+      } else {
+        throw new Error(t('common.errors.unknownError'));
+      }
+    } catch (error) {
+      // Check if it's a network error - enter offline mode
+      const errorMessage = error instanceof Error ? error.message : '';
+      if (errorMessage.includes('network') || errorMessage.includes('timeout') || errorMessage.includes('fetch') || errorMessage.includes('Failed to fetch')) {
+        await dbContext.setIsOffline(true);
+        setSyncStatus(t('common.offlineModeSaved'));
+        // Changes are saved locally, success from user perspective
+        options.onSuccess?.();
+        return;
+      }
+      throw error;
+    }
+  }, [dbContext, webApi, t]);
+
+  /**
+   * Execute the provided operation (e.g. create/update/delete credential)
+   */
+  const executeMutateOperation = useCallback(async (
+    operation: () => Promise<void>,
+    options: VaultMutationOptions
+  ) : Promise<void> => {
+    // First, execute the operation and save locally
+    await executeMutateOperationLocal(operation);
+
+    // If we're offline, we're done - changes are saved locally
+    if (dbContext.isOffline) {
+      setSyncStatus(t('common.offlineModeSaved'));
       options.onSuccess?.();
-    } else if (response.status === 1) {
-      // Note: vault merge is no longer allowed by the API as of 0.20.0, updates with the same revision number are rejected. So this check can be removed later.
-      throw new Error('Vault merge required. Please login via the web app to merge the multiple pending updates to your vault.');
-    } else if (response.status === 2) {
-      throw new Error(t('common.errors.unknownError'));
-    } else {
-      throw new Error(t('common.errors.unknownError'));
+      return;
     }
 
-    // Check if it's a network error
-    /*
-     * if (error instanceof Error && (error.message.includes('network') || error.message.includes('timeout'))) {
-     *
-     * // Network error, mark as offline and track pending changes - TODO: offline mode is not implemented for browser extension yet.
-     * // authContext.setOfflineMode(true);
-     *options.onError?.(new Error('Network error'));
-     *return;
-     *}
-     */
-  }, [dbContext, t]);
+    // Try to upload to server (with merge if needed)
+    await uploadVaultWithMerge(options);
+  }, [dbContext, executeMutateOperationLocal, uploadVaultWithMerge, t]);
 
   /**
    * Hook to execute a vault mutation which uploads a new encrypted vault to the server
@@ -104,6 +181,13 @@ export function useVaultMutate() : {
 
       // Skip sync check if requested (e.g., during upgrade operations)
       if (options.skipSyncCheck) {
+        setSyncStatus(t('common.executingOperation'));
+        await executeMutateOperation(operation, options);
+        return;
+      }
+
+      // If offline, skip sync and just execute the operation locally
+      if (dbContext.isOffline) {
         setSyncStatus(t('common.executingOperation'));
         await executeMutateOperation(operation, options);
         return;
@@ -124,6 +208,13 @@ export function useVaultMutate() : {
           await executeMutateOperation(operation, options);
         },
         /**
+         * Handle offline mode - continue with local operation.
+         */
+        onOffline: async () => {
+          // We're now in offline mode, execute operation locally
+          await executeMutateOperation(operation, options);
+        },
+        /**
          * Handle error during vault sync.
          */
         onError: (error) => {
@@ -137,7 +228,7 @@ export function useVaultMutate() : {
       setIsLoading(false);
       setSyncStatus('');
     }
-  }, [syncVault, executeMutateOperation, t]);
+  }, [syncVault, executeMutateOperation, dbContext.isOffline, t]);
 
   return {
     executeVaultMutation,

@@ -3,6 +3,7 @@ import { Buffer } from 'buffer';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { sendMessage } from 'webext-bridge/popup';
 
 import AlertMessage from '@/entrypoints/popup/components/AlertMessage';
 import Button from '@/entrypoints/popup/components/Button';
@@ -20,6 +21,7 @@ import { PopoutUtility } from '@/entrypoints/popup/utils/PopoutUtility';
 import SrpUtility from '@/entrypoints/popup/utils/SrpUtility';
 
 import { VAULT_LOCKED_DISMISS_UNTIL_KEY } from '@/utils/Constants';
+import type { EncryptionKeyDerivationParams } from '@/utils/dist/shared/models/metadata';
 import type { VaultResponse } from '@/utils/dist/shared/models/webapi';
 import EncryptionUtility from '@/utils/EncryptionUtility';
 import {
@@ -76,26 +78,34 @@ const Unlock: React.FC = () => {
   // Mobile unlock state
   const [showMobileUnlockModal, setShowMobileUnlockModal] = useState(false);
 
+  // Server connectivity state (for hiding mobile unlock when offline)
+  const [isServerOnline, setIsServerOnline] = useState<boolean | null>(null);
+
   /**
    * Make status call to API which acts as health check.
    * This runs only once during component mount.
+   * Returns { online: boolean, error: string | null }
    */
-  const checkStatus = async () : Promise<boolean> => {
+  const checkStatus = async () : Promise<{ online: boolean; error: string | null }> => {
     const statusResponse = await webApi.getStatus();
-    const statusError = webApi.validateStatusResponse(statusResponse);
 
+    // Server is offline - this is OK for unlock, we can use local vault
     if (statusResponse.serverVersion === '0.0.0') {
-      setError(t('common.errors.serverNotAvailable'));
-      return false;
+      setIsInitialLoading(false);
+      setIsServerOnline(false);
+      return { online: false, error: null };
     }
 
+    const statusError = webApi.validateStatusResponse(statusResponse);
     if (statusError !== null) {
       await app.logout(t('common.errors.' + statusError));
-      return false;
+      setIsServerOnline(false);
+      return { online: false, error: statusError };
     }
 
     setIsInitialLoading(false);
-    return true;
+    setIsServerOnline(true);
+    return { online: true, error: null };
   };
 
   /**
@@ -195,48 +205,102 @@ const Unlock: React.FC = () => {
   }, [unlockMode]);
 
   /**
-   * Handle password unlock
+   * Handle password unlock (supports both online and offline mode)
    */
   const handlePasswordSubmit = async (e: React.FormEvent) : Promise<void> => {
     e.preventDefault();
     setError(null);
     showLoading();
 
-    const isStatusOk = await checkStatus();
-    if (!isStatusOk) {
+    const statusResult = await checkStatus();
+    if (statusResult.error) {
+      // Fatal error (e.g., version mismatch), already handled by checkStatus
       hideLoading();
       return;
     }
 
     try {
-      // 1. Initiate login to get salt and server ephemeral
-      const loginResponse = await srpUtil.initiateLogin(authContext.username!);
+      let passwordHashBase64: string;
+      let vaultResponseJson: VaultResponse | null = null;
 
-      // Derive key from password using user's encryption settings
-      const passwordHash = await EncryptionUtility.deriveKeyFromPassword(
-        password,
-        loginResponse.salt,
-        loginResponse.encryptionType,
-        loginResponse.encryptionSettings
-      );
+      if (statusResult.online) {
+        // Online mode: get encryption params from server and fetch latest vault
+        const loginResponse = await srpUtil.initiateLogin(authContext.username!);
 
-      // Make API call to get latest vault
-      const vaultResponseJson = await webApi.get<VaultResponse>('Vault');
+        // Derive key from password using user's encryption settings
+        const passwordHash = await EncryptionUtility.deriveKeyFromPassword(
+          password,
+          loginResponse.salt,
+          loginResponse.encryptionType,
+          loginResponse.encryptionSettings
+        );
 
-      // Get the derived key as base64 string required for decryption.
-      const passwordHashBase64 = Buffer.from(passwordHash).toString('base64');
+        // Make API call to get latest vault
+        vaultResponseJson = await webApi.get<VaultResponse>('Vault');
+
+        // Get the derived key as base64 string required for decryption.
+        passwordHashBase64 = Buffer.from(passwordHash).toString('base64');
+      } else {
+        // Offline mode: use stored encryption params to derive key, decrypt local vault
+        const storedParams = await sendMessage('GET_ENCRYPTION_KEY_DERIVATION_PARAMS', {}, 'background') as EncryptionKeyDerivationParams | null;
+
+        if (!storedParams) {
+          // No stored params - can't unlock offline without having logged in before
+          setError(t('common.errors.serverNotAvailable'));
+          hideLoading();
+          return;
+        }
+
+        // Derive key from password using stored encryption settings
+        const passwordHash = await EncryptionUtility.deriveKeyFromPassword(
+          password,
+          storedParams.salt,
+          storedParams.encryptionType,
+          storedParams.encryptionSettings
+        );
+
+        passwordHashBase64 = Buffer.from(passwordHash).toString('base64');
+
+        // Set offline mode
+        await dbContext.setIsOffline(true);
+      }
 
       // Store the encryption key in session storage.
       await dbContext.storeEncryptionKey(passwordHashBase64);
 
-      // Initialize the SQLite context with the new vault data.
-      const sqliteClient = await dbContext.initializeDatabase(vaultResponseJson, passwordHashBase64);
+      if (vaultResponseJson) {
+        // Online mode: Initialize the SQLite context with the new vault data from server.
+        const sqliteClient = await dbContext.initializeDatabase(vaultResponseJson, passwordHashBase64);
 
-      // Check if there are pending migrations
-      if (await sqliteClient.hasPendingMigrations()) {
-        navigate('/upgrade', { replace: true });
-        hideLoading();
-        return;
+        // Check if there are pending migrations
+        if (await sqliteClient.hasPendingMigrations()) {
+          navigate('/upgrade', { replace: true });
+          hideLoading();
+          return;
+        }
+      } else {
+        /*
+         * Offline mode: Get vault from local storage and decrypt it.
+         * The vault response from background already includes the decrypted vault.
+         */
+        const vaultResponse = await sendMessage('GET_VAULT', {}, 'background') as { success: boolean; vault?: string; error?: string };
+
+        if (!vaultResponse.success || !vaultResponse.vault) {
+          // Decryption failed - likely wrong password
+          setError(t('auth.errors.wrongPassword'));
+          hideLoading();
+          return;
+        }
+
+        // Initialize SQLite client with the decrypted vault and set it in dbContext
+        const sqliteClient = await dbContext.initializeDatabaseFromDecryptedVault(vaultResponse.vault);
+
+        // Check if there are pending migrations
+        if (await sqliteClient.hasPendingMigrations()) {
+          navigate('/upgrade', { replace: true });
+          hideLoading();
+          return;
+        }
       }
 
       // Clear dismiss until
@@ -293,7 +357,7 @@ const Unlock: React.FC = () => {
   };
 
   /**
-   * Handle PIN unlock
+   * Handle PIN unlock (supports both online and offline mode)
    */
   const handlePinUnlock = async (pinToUse: string = pin): Promise<void> => {
     if (pinToUse.length !== pinLength) {
@@ -304,23 +368,48 @@ const Unlock: React.FC = () => {
     showLoading();
 
     try {
-      // Unlock with PIN
+      // Unlock with PIN - this derives the encryption key from the PIN
       const passwordHashBase64 = await unlockWithPin(pinToUse);
 
-      // Get latest vault from API
-      const vaultResponseJson = await webApi.get<VaultResponse>('Vault');
+      // Check if we're online or offline
+      const statusResult = await checkStatus();
 
       // Store the encryption key in session storage
       await dbContext.storeEncryptionKey(passwordHashBase64);
 
-      // Initialize the SQLite context with the vault data
-      const sqliteClient = await dbContext.initializeDatabase(vaultResponseJson, passwordHashBase64);
+      if (statusResult.online) {
+        // Online mode: Get latest vault from API
+        const vaultResponseJson = await webApi.get<VaultResponse>('Vault');
 
-      // Check if there are pending migrations
-      if (await sqliteClient.hasPendingMigrations()) {
-        navigate('/upgrade', { replace: true });
-        hideLoading();
-        return;
+        // Initialize the SQLite context with the vault data
+        const sqliteClient = await dbContext.initializeDatabase(vaultResponseJson, passwordHashBase64);
+
+        // Check if there are pending migrations
+        if (await sqliteClient.hasPendingMigrations()) {
+          navigate('/upgrade', { replace: true });
+          hideLoading();
+          return;
+        }
+      } else {
+        // Offline mode: Get vault from local storage and decrypt it
+        await dbContext.setIsOffline(true);
+
+        const vaultResponse = await sendMessage('GET_VAULT', {}, 'background') as { success: boolean; vault?: string; error?: string };
+
+        if (!vaultResponse.success || !vaultResponse.vault) {
+          // Decryption failed - likely wrong PIN
+          throw new IncorrectPinError(3); // Fallback to show incorrect PIN error
+        }
+
+        // Initialize SQLite client with the decrypted vault and set it in dbContext
+        const sqliteClient = await dbContext.initializeDatabaseFromDecryptedVault(vaultResponse.vault);
+
+        // Check if there are pending migrations
+        if (await sqliteClient.hasPendingMigrations()) {
+          navigate('/upgrade', { replace: true });
+          hideLoading();
+          return;
+        }
       }
 
       // Clear dismiss until
@@ -582,17 +671,19 @@ const Unlock: React.FC = () => {
             {t('auth.unlockVault')}
           </Button>
 
-          {/* Mobile Unlock Button */}
-          <button
-            type="button"
-            onClick={() => setShowMobileUnlockModal(true)}
-            className="w-full max-w-md mt-4 px-4 py-2 text-sm font-medium text-center text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 dark:bg-gray-600 dark:text-white dark:border-gray-500 dark:hover:bg-gray-500 dark:focus:ring-gray-700 flex items-center justify-center gap-2"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-            </svg>
-            {t('auth.unlockWithMobile')}
-          </button>
+          {/* Mobile Unlock Button - only show when server is online */}
+          {isServerOnline && (
+            <button
+              type="button"
+              onClick={() => setShowMobileUnlockModal(true)}
+              className="w-full max-w-md mt-4 px-4 py-2 text-sm font-medium text-center text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 dark:bg-gray-600 dark:text-white dark:border-gray-500 dark:hover:bg-gray-500 dark:focus:ring-gray-700 flex items-center justify-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+              </svg>
+              {t('auth.unlockWithMobile')}
+            </button>
+          )}
 
           <div className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
             {t('auth.switchAccounts')} <button type="button" onClick={handleLogout} className="text-primary-600 hover:text-primary-700 dark:text-primary-500 dark:hover:text-primary-400 hover:underline font-medium">{t('auth.logout')}</button>

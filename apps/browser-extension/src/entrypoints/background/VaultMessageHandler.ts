@@ -24,7 +24,8 @@ import { t } from '@/i18n/StandaloneI18n';
 export async function handleCheckAuthStatus() : Promise<{ isLoggedIn: boolean, isVaultLocked: boolean, hasPendingMigrations: boolean, error?: string }> {
   const username = await storage.getItem('local:username');
   const accessToken = await storage.getItem('local:accessToken');
-  const vaultData = await storage.getItem('session:encryptedVault');
+  // Check local: storage for persistent vault (survives browser close)
+  const vaultData = await storage.getItem('local:encryptedVault');
   const encryptionKey = await handleGetEncryptionKey();
 
   const isLoggedIn = username !== null && accessToken !== null;
@@ -82,6 +83,8 @@ export async function handleCheckAuthStatus() : Promise<{ isLoggedIn: boolean, i
 
 /**
  * Store the vault in browser storage.
+ * The encrypted vault is stored in local: storage (persistent) while metadata is in local:.
+ * The encryption key remains in session: storage for security.
  */
 export async function handleStoreVault(
   message: any,
@@ -89,28 +92,32 @@ export async function handleStoreVault(
   try {
     const vaultRequest = message as StoreVaultRequest;
 
-    // Store new encrypted vault in session storage.
-    await storage.setItem('session:encryptedVault', vaultRequest.vaultBlob);
+    /*
+     * Store encrypted vault in local: storage (persistent across browser sessions).
+     * This allows offline access after browser restart (user must re-enter password to unlock).
+     */
+    await storage.setItem('local:encryptedVault', vaultRequest.vaultBlob);
 
     /*
-     * For all other values, check if they have a value and store them in session storage if they do.
+     * For all other values, check if they have a value and store them in local: storage if they do.
+     * These are also persisted to enable offline mode.
      * Some updates, e.g. when mutating local database, these values will not be set.
      */
 
     if (vaultRequest.publicEmailDomainList) {
-      await storage.setItem('session:publicEmailDomains', vaultRequest.publicEmailDomainList);
+      await storage.setItem('local:publicEmailDomains', vaultRequest.publicEmailDomainList);
     }
 
     if (vaultRequest.privateEmailDomainList) {
-      await storage.setItem('session:privateEmailDomains', vaultRequest.privateEmailDomainList);
+      await storage.setItem('local:privateEmailDomains', vaultRequest.privateEmailDomainList);
     }
 
     if (vaultRequest.hiddenPrivateEmailDomainList) {
-      await storage.setItem('session:hiddenPrivateEmailDomains', vaultRequest.hiddenPrivateEmailDomainList);
+      await storage.setItem('local:hiddenPrivateEmailDomains', vaultRequest.hiddenPrivateEmailDomainList);
     }
 
     if (vaultRequest.vaultRevisionNumber) {
-      await storage.setItem('session:vaultRevisionNumber', vaultRequest.vaultRevisionNumber);
+      await storage.setItem('local:vaultRevisionNumber', vaultRequest.vaultRevisionNumber);
     }
 
     return { success: true };
@@ -137,12 +144,13 @@ export async function handleStoreEncryptionKey(
 
 /**
  * Store the encryption key derivation parameters in browser storage.
+ * These are stored in local: storage to enable offline unlock after browser restart.
  */
 export async function handleStoreEncryptionKeyDerivationParams(
   params: EncryptionKeyDerivationParams,
 ) : Promise<messageBoolResponse> {
   try {
-    await storage.setItem('session:encryptionKeyDerivationParams', params);
+    await storage.setItem('local:encryptionKeyDerivationParams', params);
     return { success: true };
   } catch (error) {
     console.error('Failed to store encryption key derivation params:', error);
@@ -155,25 +163,26 @@ export async function handleStoreEncryptionKeyDerivationParams(
  */
 export async function handleSyncVault(
 ) : Promise<messageBoolResponse> {
-  const webApi = new WebApiService(() => {});
+  const webApi = new WebApiService();
   const statusResponse = await webApi.getStatus();
   const statusError = webApi.validateStatusResponse(statusResponse);
   if (statusError !== null) {
     return { success: false, error: await t('common.errors.' + statusError) };
   }
 
-  const vaultRevisionNumber = await storage.getItem('session:vaultRevisionNumber') as number;
+  const vaultRevisionNumber = await storage.getItem('local:vaultRevisionNumber') as number;
 
   if (statusResponse.vaultRevision > vaultRevisionNumber) {
     // Retrieve the latest vault from the server.
     const vaultResponse = await webApi.get<VaultResponse>('Vault');
 
+    // Store in local: storage for persistence
     await storage.setItems([
-      { key: 'session:encryptedVault', value: vaultResponse.vault.blob },
-      { key: 'session:publicEmailDomains', value: vaultResponse.vault.publicEmailDomainList },
-      { key: 'session:privateEmailDomains', value: vaultResponse.vault.privateEmailDomainList },
-      { key: 'session:hiddenPrivateEmailDomains', value: vaultResponse.vault.hiddenPrivateEmailDomainList },
-      { key: 'session:vaultRevisionNumber', value: vaultResponse.vault.currentRevisionNumber }
+      { key: 'local:encryptedVault', value: vaultResponse.vault.blob },
+      { key: 'local:publicEmailDomains', value: vaultResponse.vault.publicEmailDomainList },
+      { key: 'local:privateEmailDomains', value: vaultResponse.vault.privateEmailDomainList },
+      { key: 'local:hiddenPrivateEmailDomains', value: vaultResponse.vault.hiddenPrivateEmailDomainList },
+      { key: 'local:vaultRevisionNumber', value: vaultResponse.vault.currentRevisionNumber }
     ]);
   }
 
@@ -181,18 +190,19 @@ export async function handleSyncVault(
 }
 
 /**
- * Get the vault from browser storage.
+ * Get the vault from browser storage (local: for persistence).
  */
 export async function handleGetVault(
 ) : Promise<messageVaultResponse> {
   try {
     const encryptionKey = await handleGetEncryptionKey();
 
-    const encryptedVault = await storage.getItem('session:encryptedVault') as string;
-    const publicEmailDomains = await storage.getItem('session:publicEmailDomains') as string[];
-    const privateEmailDomains = await storage.getItem('session:privateEmailDomains') as string[];
-    const hiddenPrivateEmailDomains = await storage.getItem('session:hiddenPrivateEmailDomains') as string[] ?? [];
-    const vaultRevisionNumber = await storage.getItem('session:vaultRevisionNumber') as number;
+    // Read from local: storage for persistent vault access
+    const encryptedVault = await storage.getItem('local:encryptedVault') as string;
+    const publicEmailDomains = await storage.getItem('local:publicEmailDomains') as string[];
+    const privateEmailDomains = await storage.getItem('local:privateEmailDomains') as string[];
+    const hiddenPrivateEmailDomains = await storage.getItem('local:hiddenPrivateEmailDomains') as string[] ?? [];
+    const vaultRevisionNumber = await storage.getItem('local:vaultRevisionNumber') as number;
 
     if (!encryptedVault) {
       console.error('Vault not available');
@@ -224,20 +234,28 @@ export async function handleGetVault(
 }
 
 /**
- * Clear the vault from browser storage.
+ * Clear the vault from browser storage (both local: and session:).
  */
 export function handleClearVault(
 ) : messageBoolResponse {
+  // Clear persistent vault data from local: storage
   storage.removeItems([
-    'session:encryptedVault',
+    'local:encryptedVault',
+    'local:publicEmailDomains',
+    'local:privateEmailDomains',
+    'local:hiddenPrivateEmailDomains',
+    'local:vaultRevisionNumber',
+    'local:isOfflineMode',
+    'local:encryptionKeyDerivationParams'
+  ]);
+
+  // Clear session-only data
+  storage.removeItems([
     'session:encryptionKey',
     // TODO: the derivedKey clear can be removed some period of time after 0.22.0 is released.
     'session:derivedKey',
-    'session:encryptionKeyDerivationParams',
-    'session:publicEmailDomains',
-    'session:privateEmailDomains',
-    'session:hiddenPrivateEmailDomains',
-    'session:vaultRevisionNumber'
+    // TODO: the session encryptionKeyDerivationParams clear can be removed after users have migrated to local: storage.
+    'session:encryptionKeyDerivationParams'
   ]);
 
   return { success: true };
@@ -301,8 +319,8 @@ export async function getEmailAddressesForVault(
   // TODO: create separate query to only get email addresses to avoid loading all credentials.
   const credentials = sqliteClient.getAllCredentials();
 
-  // Get metadata from storage
-  const privateEmailDomains = await storage.getItem('session:privateEmailDomains') as string[];
+  // Get metadata from local: storage
+  const privateEmailDomains = await storage.getItem('local:privateEmailDomains') as string[];
 
   const emailAddresses = credentials
     .filter(cred => cred.Alias?.Email != null)
@@ -391,10 +409,18 @@ export async function handleGetEncryptionKey(
 
 /**
  * Get the encryption key derivation parameters for password change detection and offline mode.
+ * These are stored in local: storage to enable offline unlock after browser restart.
  */
 export async function handleGetEncryptionKeyDerivationParams(
 ) : Promise<EncryptionKeyDerivationParams | null> {
-  const params = await storage.getItem('session:encryptionKeyDerivationParams') as EncryptionKeyDerivationParams | null;
+  // Try local: storage first (current location since offline support)
+  let params = await storage.getItem('local:encryptionKeyDerivationParams') as EncryptionKeyDerivationParams | null;
+
+  // Fall back to session: storage for backwards compatibility
+  if (!params) {
+    params = await storage.getItem('session:encryptionKeyDerivationParams') as EncryptionKeyDerivationParams | null;
+  }
+
   return params;
 }
 
@@ -405,8 +431,8 @@ export async function handleUploadVault(
   message: any
 ) : Promise<messageVaultUploadResponse> {
   try {
-    // Store the new vault blob in session storage.
-    await storage.setItem('session:encryptedVault', message.vaultBlob);
+    // Store the new vault blob in local: storage (persistent).
+    await storage.setItem('local:encryptedVault', message.vaultBlob);
 
     // Create new sqlite client which will use the new vault blob.
     const sqliteClient = await createVaultSqliteClient();
@@ -486,12 +512,13 @@ async function uploadNewVaultToServer(sqliteClient: SqliteClient) : Promise<Vaul
     encryptionKey
   );
 
+  // Store in local: storage for persistence
   await storage.setItems([
-    { key: 'session:encryptedVault', value: encryptedVault }
+    { key: 'local:encryptedVault', value: encryptedVault }
   ]);
 
-  // Get metadata from storage
-  const vaultRevisionNumber = await storage.getItem('session:vaultRevisionNumber') as number;
+  // Get metadata from local: storage
+  const vaultRevisionNumber = await storage.getItem('local:vaultRevisionNumber') as number;
 
   // Upload new encrypted vault to server.
   const username = await storage.getItem('local:username') as string;
@@ -510,12 +537,12 @@ async function uploadNewVaultToServer(sqliteClient: SqliteClient) : Promise<Vaul
     encryptionPublicKey: '',
   };
 
-  const webApi = new WebApiService(() => {});
+  const webApi = new WebApiService();
   const response = await webApi.post<Vault, VaultPostResponse>('Vault', newVault);
 
   // Check if response is successful (.status === 0)
   if (response.status === 0) {
-    await storage.setItem('session:vaultRevisionNumber', response.newRevisionNumber);
+    await storage.setItem('local:vaultRevisionNumber', response.newRevisionNumber);
   } else {
     throw new Error(await t('common.errors.unknownError'));
   }
@@ -527,7 +554,8 @@ async function uploadNewVaultToServer(sqliteClient: SqliteClient) : Promise<Vaul
  * Create a new sqlite client for the stored vault.
  */
 async function createVaultSqliteClient() : Promise<SqliteClient> {
-  const encryptedVault = await storage.getItem('session:encryptedVault') as string;
+  // Read from local: storage for persistent vault access
+  const encryptedVault = await storage.getItem('local:encryptedVault') as string;
   const encryptionKey = await handleGetEncryptionKey();
   if (!encryptedVault || !encryptionKey) {
     throw new Error(await t('common.errors.unknownError'));
@@ -544,4 +572,33 @@ async function createVaultSqliteClient() : Promise<SqliteClient> {
   await sqliteClient.initializeFromBase64(decryptedVault);
 
   return sqliteClient;
+}
+
+/**
+ * Get offline mode status.
+ */
+export async function handleGetOfflineMode(): Promise<boolean> {
+  const isOffline = await storage.getItem('local:isOfflineMode') as boolean;
+  return isOffline ?? false;
+}
+
+/**
+ * Set offline mode status.
+ */
+export async function handleSetOfflineMode(isOffline: boolean): Promise<void> {
+  await storage.setItem('local:isOfflineMode', isOffline);
+}
+
+/**
+ * Get the encrypted vault blob directly (for merge operations).
+ */
+export async function handleGetEncryptedVault(): Promise<string | null> {
+  return await storage.getItem('local:encryptedVault') as string | null;
+}
+
+/**
+ * Store the encrypted vault blob directly (for merge operations).
+ */
+export async function handleStoreEncryptedVault(encryptedVault: string): Promise<void> {
+  await storage.setItem('local:encryptedVault', encryptedVault);
 }
