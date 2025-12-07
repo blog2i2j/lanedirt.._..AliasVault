@@ -147,7 +147,6 @@ const Upgrade: React.FC = () => {
         // Commit transaction
         sqliteClient.commitTransaction();
       }, {
-        skipSyncCheck: true, // Skip sync check during upgrade to prevent loop
         /**
          * Handle successful upgrade completion.
          */
