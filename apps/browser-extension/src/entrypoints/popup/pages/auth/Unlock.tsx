@@ -78,12 +78,9 @@ const Unlock: React.FC = () => {
   // Mobile unlock state
   const [showMobileUnlockModal, setShowMobileUnlockModal] = useState(false);
 
-  // Server connectivity state (for hiding mobile unlock when offline)
-  const [isServerOnline, setIsServerOnline] = useState<boolean | null>(null);
-
   /**
    * Make status call to API which acts as health check.
-   * This runs only once during component mount.
+   * Updates dbContext.isOffline state and returns the result.
    * Returns { online: boolean, error: string | null }
    */
   const checkStatus = async () : Promise<{ online: boolean; error: string | null }> => {
@@ -92,19 +89,18 @@ const Unlock: React.FC = () => {
     // Server is offline - this is OK for unlock, we can use local vault
     if (statusResponse.serverVersion === '0.0.0') {
       setIsInitialLoading(false);
-      setIsServerOnline(false);
+      await dbContext.setIsOffline(true);
       return { online: false, error: null };
     }
 
     const statusError = webApi.validateStatusResponse(statusResponse);
     if (statusError !== null) {
       await app.logout(t('common.errors.' + statusError));
-      setIsServerOnline(false);
       return { online: false, error: statusError };
     }
 
     setIsInitialLoading(false);
-    setIsServerOnline(true);
+    await dbContext.setIsOffline(false);
     return { online: true, error: null };
   };
 
@@ -240,6 +236,13 @@ const Unlock: React.FC = () => {
 
         // Get the derived key as base64 string required for decryption.
         passwordHashBase64 = Buffer.from(passwordHash).toString('base64');
+
+        // Store encryption params for future offline unlock
+        await dbContext.storeEncryptionKeyDerivationParams({
+          salt: loginResponse.salt,
+          encryptionType: loginResponse.encryptionType,
+          encryptionSettings: loginResponse.encryptionSettings,
+        });
       } else {
         // Offline mode: use stored encryption params to derive key, decrypt local vault
         const storedParams = await sendMessage('GET_ENCRYPTION_KEY_DERIVATION_PARAMS', {}, 'background') as EncryptionKeyDerivationParams | null;
@@ -672,7 +675,7 @@ const Unlock: React.FC = () => {
           </Button>
 
           {/* Mobile Unlock Button - only show when server is online */}
-          {isServerOnline && (
+          {!dbContext.isOffline && (
             <button
               type="button"
               onClick={() => setShowMobileUnlockModal(true)}
