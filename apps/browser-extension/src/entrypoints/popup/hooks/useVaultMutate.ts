@@ -54,8 +54,14 @@ export function useVaultMutate() : {
       encryptionKey
     );
 
-    // Store the updated vault locally (persistent storage)
-    await sendMessage('STORE_ENCRYPTED_VAULT', encryptedVaultBlob, 'background');
+    // Store the updated vault locally with pending sync flag (atomic operation)
+    await sendMessage('STORE_ENCRYPTED_VAULT', {
+      vaultBlob: encryptedVaultBlob,
+      hasPendingSync: true
+    }, 'background');
+
+    // Update local state to reflect pending sync
+    await dbContext.setHasPendingSync(true);
   }, [dbContext, t]);
 
   /**
@@ -89,8 +95,9 @@ export function useVaultMutate() : {
       const response = await sendMessage('UPLOAD_VAULT', request, 'background') as messageVaultUploadResponse;
 
       if (response.status === 0 && response.newRevisionNumber) {
-        // Success - update local revision number and exit offline mode
+        // Success - update local revision number, clear pending sync, and exit offline mode
         await dbContext.setCurrentVaultRevisionNumber(response.newRevisionNumber);
+        await dbContext.setHasPendingSync(false);
         if (dbContext.isOffline) {
           await dbContext.setIsOffline(false);
         }

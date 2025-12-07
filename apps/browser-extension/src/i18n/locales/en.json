@@ -102,7 +102,9 @@
     "offline": "Offline",
     "offlineMode": "Operating in offline mode",
     "offlineModeSaved": "Changes saved locally (offline)",
+    "pendingSync": "Syncing...",
     "mergingVaultChanges": "Merging vault changes...",
+    "uploadingVault": "Uploading vault...",
     "errors": {
       "serverNotAvailable": "The AliasVault server is not available. Please try again later or contact support if the problem persists.",
       "clientVersionNotSupported": "This version of the AliasVault browser extension is not supported by the server anymore. Please update your browser extension to the latest version.",

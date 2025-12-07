@@ -22,7 +22,6 @@ import SrpUtility from '@/entrypoints/popup/utils/SrpUtility';
 
 import { VAULT_LOCKED_DISMISS_UNTIL_KEY } from '@/utils/Constants';
 import type { EncryptionKeyDerivationParams } from '@/utils/dist/shared/models/metadata';
-import type { VaultResponse } from '@/utils/dist/shared/models/webapi';
 import EncryptionUtility from '@/utils/EncryptionUtility';
 import {
   getPinLength,
@@ -217,10 +216,9 @@ const Unlock: React.FC = () => {
 
     try {
       let passwordHashBase64: string;
-      let vaultResponseJson: VaultResponse | null = null;
 
       if (statusResult.online) {
-        // Online mode: get encryption params from server and fetch latest vault
+        // Online mode: get encryption params from server for key derivation
         const loginResponse = await srpUtil.initiateLogin(authContext.username!);
 
         // Derive key from password using user's encryption settings
@@ -230,9 +228,6 @@ const Unlock: React.FC = () => {
           loginResponse.encryptionType,
           loginResponse.encryptionSettings
         );
-
-        // Make API call to get latest vault
-        vaultResponseJson = await webApi.get<VaultResponse>('Vault');
 
         // Get the derived key as base64 string required for decryption.
         passwordHashBase64 = Buffer.from(passwordHash).toString('base64');
@@ -244,7 +239,7 @@ const Unlock: React.FC = () => {
           encryptionSettings: loginResponse.encryptionSettings,
         });
       } else {
-        // Offline mode: use stored encryption params to derive key, decrypt local vault
+        // Offline mode: use stored encryption params to derive key
         const storedParams = await sendMessage('GET_ENCRYPTION_KEY_DERIVATION_PARAMS', {}, 'background') as EncryptionKeyDerivationParams | null;
 
         if (!storedParams) {
@@ -271,39 +266,30 @@ const Unlock: React.FC = () => {
       // Store the encryption key in session storage.
       await dbContext.storeEncryptionKey(passwordHashBase64);
 
-      if (vaultResponseJson) {
-        // Online mode: Initialize the SQLite context with the new vault data from server.
-        const sqliteClient = await dbContext.initializeDatabase(vaultResponseJson, passwordHashBase64);
+      /*
+       * Always unlock from local vault first.
+       * The /reinitialize page will call syncVault which handles:
+       * - Checking if server has newer version
+       * - Merging local changes with server if hasPendingSync is true
+       * - Overwriting local with server if no local changes
+       */
+      const vaultResponse = await sendMessage('GET_VAULT', {}, 'background') as { success: boolean; vault?: string; error?: string };
 
-        // Check if there are pending migrations
-        if (await sqliteClient.hasPendingMigrations()) {
-          navigate('/upgrade', { replace: true });
-          hideLoading();
-          return;
-        }
-      } else {
-        /*
-         * Offline mode: Get vault from local storage and decrypt it.
-         * The vault response from background already includes the decrypted vault.
-         */
-        const vaultResponse = await sendMessage('GET_VAULT', {}, 'background') as { success: boolean; vault?: string; error?: string };
+      if (!vaultResponse.success || !vaultResponse.vault) {
+        // Decryption failed - likely wrong password
+        setError(t('auth.errors.wrongPassword'));
+        hideLoading();
+        return;
+      }
 
-        if (!vaultResponse.success || !vaultResponse.vault) {
-          // Decryption failed - likely wrong password
-          setError(t('auth.errors.wrongPassword'));
-          hideLoading();
-          return;
-        }
+      // Initialize SQLite client with the decrypted local vault
+      const sqliteClient = await dbContext.initializeDatabaseFromDecryptedVault(vaultResponse.vault);
 
-        // Initialize SQLite client with the decrypted vault and set it in dbContext
-        const sqliteClient = await dbContext.initializeDatabaseFromDecryptedVault(vaultResponse.vault);
-
-        // Check if there are pending migrations
-        if (await sqliteClient.hasPendingMigrations()) {
-          navigate('/upgrade', { replace: true });
-          hideLoading();
-          return;
-        }
+      // Check if there are pending migrations
+      if (await sqliteClient.hasPendingMigrations()) {
+        navigate('/upgrade', { replace: true });
+        hideLoading();
+        return;
       }
 
       // Clear dismiss until
@@ -312,6 +298,7 @@ const Unlock: React.FC = () => {
       // Reset PIN failed attempts on successful password unlock
       await resetFailedAttempts();
 
+      // Navigate to reinitialize which will call syncVault to sync with server
       navigate('/reinitialize', { replace: true });
     } catch (err) {
       // Check if it's a version incompatibility error
@@ -374,50 +361,43 @@ const Unlock: React.FC = () => {
       // Unlock with PIN - this derives the encryption key from the PIN
       const passwordHashBase64 = await unlockWithPin(pinToUse);
 
-      // Check if we're online or offline
+      // Check if we're online or offline (for offline mode flag)
       const statusResult = await checkStatus();
+      if (!statusResult.online) {
+        await dbContext.setIsOffline(true);
+      }
 
       // Store the encryption key in session storage
       await dbContext.storeEncryptionKey(passwordHashBase64);
 
-      if (statusResult.online) {
-        // Online mode: Get latest vault from API
-        const vaultResponseJson = await webApi.get<VaultResponse>('Vault');
+      /*
+       * Always unlock from local vault first.
+       * The /reinitialize page will call syncVault which handles:
+       * - Checking if server has newer version
+       * - Merging local changes with server if hasPendingSync is true
+       * - Overwriting local with server if no local changes
+       */
+      const vaultResponse = await sendMessage('GET_VAULT', {}, 'background') as { success: boolean; vault?: string; error?: string };
 
-        // Initialize the SQLite context with the vault data
-        const sqliteClient = await dbContext.initializeDatabase(vaultResponseJson, passwordHashBase64);
+      if (!vaultResponse.success || !vaultResponse.vault) {
+        // Decryption failed - likely wrong PIN
+        throw new IncorrectPinError(3);
+      }
 
-        // Check if there are pending migrations
-        if (await sqliteClient.hasPendingMigrations()) {
-          navigate('/upgrade', { replace: true });
-          hideLoading();
-          return;
-        }
-      } else {
-        // Offline mode: Get vault from local storage and decrypt it
-        await dbContext.setIsOffline(true);
+      // Initialize SQLite client with the decrypted local vault
+      const sqliteClient = await dbContext.initializeDatabaseFromDecryptedVault(vaultResponse.vault);
 
-        const vaultResponse = await sendMessage('GET_VAULT', {}, 'background') as { success: boolean; vault?: string; error?: string };
-
-        if (!vaultResponse.success || !vaultResponse.vault) {
-          // Decryption failed - likely wrong PIN
-          throw new IncorrectPinError(3); // Fallback to show incorrect PIN error
-        }
-
-        // Initialize SQLite client with the decrypted vault and set it in dbContext
-        const sqliteClient = await dbContext.initializeDatabaseFromDecryptedVault(vaultResponse.vault);
-
-        // Check if there are pending migrations
-        if (await sqliteClient.hasPendingMigrations()) {
-          navigate('/upgrade', { replace: true });
-          hideLoading();
-          return;
-        }
+      // Check if there are pending migrations
+      if (await sqliteClient.hasPendingMigrations()) {
+        navigate('/upgrade', { replace: true });
+        hideLoading();
+        return;
       }
 
       // Clear dismiss until
       await storage.setItem(VAULT_LOCKED_DISMISS_UNTIL_KEY, 0);
 
+      // Navigate to reinitialize which will call syncVault to sync with server
       navigate('/reinitialize', { replace: true });
       hideLoading();
     } catch (err: unknown) {
@@ -465,9 +445,6 @@ const Unlock: React.FC = () => {
       // Set new auth tokens
       await authContext.setAuthTokens(result.username, result.token, result.refreshToken);
 
-      // Fetch vault from server with the new auth token
-      const vaultResponse = await webApi.get<VaultResponse>('Vault');
-
       // Store the encryption key and derivation params
       await dbContext.storeEncryptionKey(result.decryptionKey);
       await dbContext.storeEncryptionKeyDerivationParams({
@@ -476,8 +453,24 @@ const Unlock: React.FC = () => {
         encryptionSettings: result.encryptionSettings,
       });
 
-      // Initialize the database with the vault data
-      const sqliteClient = await dbContext.initializeDatabase(vaultResponse, result.decryptionKey);
+      /*
+       * Always unlock from local vault first.
+       * The /reinitialize page will call syncVault which handles:
+       * - Checking if server has newer version
+       * - Merging local changes with server if hasPendingSync is true
+       * - Overwriting local with server if no local changes
+       */
+      const vaultResponse = await sendMessage('GET_VAULT', {}, 'background') as { success: boolean; vault?: string; error?: string };
+
+      if (!vaultResponse.success || !vaultResponse.vault) {
+        // Decryption failed
+        setError(t('common.errors.unknownErrorTryAgain'));
+        hideLoading();
+        return;
+      }
+
+      // Initialize SQLite client with the decrypted local vault
+      const sqliteClient = await dbContext.initializeDatabaseFromDecryptedVault(vaultResponse.vault);
 
       // Check if there are pending migrations
       if (await sqliteClient.hasPendingMigrations()) {
@@ -492,6 +485,7 @@ const Unlock: React.FC = () => {
       // Reset PIN failed attempts on successful unlock
       await resetFailedAttempts();
 
+      // Navigate to reinitialize which will call syncVault to sync with server
       navigate('/reinitialize', { replace: true });
     } catch (err) {
       // Check if it's a version incompatibility error

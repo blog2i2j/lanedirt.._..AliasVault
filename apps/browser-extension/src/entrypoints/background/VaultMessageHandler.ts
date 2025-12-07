@@ -82,9 +82,12 @@ export async function handleCheckAuthStatus() : Promise<{ isLoggedIn: boolean, i
 }
 
 /**
- * Store the vault in browser storage.
+ * Store the vault in browser storage atomically with all required metadata.
  * The encrypted vault is stored in local: storage (persistent) while metadata is in local:.
  * The encryption key remains in session: storage for security.
+ *
+ * This is an atomic operation that stores both the vault blob and its sync state together,
+ * ensuring callers cannot forget to update the pending sync flag.
  */
 export async function handleStoreVault(
   message: any,
@@ -97,6 +100,11 @@ export async function handleStoreVault(
      * This allows offline access after browser restart (user must re-enter password to unlock).
      */
     await storage.setItem('local:encryptedVault', vaultRequest.vaultBlob);
+
+    /*
+     * Always store the pending sync state - this is required for all vault storage operations.
+     */
+    await storage.setItem('local:hasPendingSync', vaultRequest.hasPendingSync);
 
     /*
      * For all other values, check if they have a value and store them in local: storage if they do.
@@ -176,13 +184,14 @@ export async function handleSyncVault(
     // Retrieve the latest vault from the server.
     const vaultResponse = await webApi.get<VaultResponse>('Vault');
 
-    // Store in local: storage for persistence
+    // Store in local: storage for persistence (fresh from server, no pending sync)
     await storage.setItems([
       { key: 'local:encryptedVault', value: vaultResponse.vault.blob },
       { key: 'local:publicEmailDomains', value: vaultResponse.vault.publicEmailDomainList },
       { key: 'local:privateEmailDomains', value: vaultResponse.vault.privateEmailDomainList },
       { key: 'local:hiddenPrivateEmailDomains', value: vaultResponse.vault.hiddenPrivateEmailDomainList },
-      { key: 'local:vaultRevisionNumber', value: vaultResponse.vault.currentRevisionNumber }
+      { key: 'local:vaultRevisionNumber', value: vaultResponse.vault.currentRevisionNumber },
+      { key: 'local:hasPendingSync', value: false }
     ]);
   }
 
@@ -246,6 +255,7 @@ export function handleClearVault(
     'local:hiddenPrivateEmailDomains',
     'local:vaultRevisionNumber',
     'local:isOfflineMode',
+    'local:hasPendingSync',
     'local:encryptionKeyDerivationParams'
   ]);
 
@@ -431,8 +441,14 @@ export async function handleUploadVault(
   message: any
 ) : Promise<messageVaultUploadResponse> {
   try {
-    // Store the new vault blob in local: storage (persistent).
-    await storage.setItem('local:encryptedVault', message.vaultBlob);
+    /*
+     * Store the new vault blob in local: storage with pending sync flag.
+     * The uploadNewVaultToServer will clear this on success.
+     */
+    await storage.setItems([
+      { key: 'local:encryptedVault', value: message.vaultBlob },
+      { key: 'local:hasPendingSync', value: true }
+    ]);
 
     // Create new sqlite client which will use the new vault blob.
     const sqliteClient = await createVaultSqliteClient();
@@ -442,6 +458,7 @@ export async function handleUploadVault(
     return { success: true, status: response.status, newRevisionNumber: response.newRevisionNumber };
   } catch (error) {
     console.error('Failed to upload vault:', error);
+    // hasPendingSync stays true since upload failed
     return { success: false, error: await t('common.errors.unknownError') };
   }
 }
@@ -512,9 +529,13 @@ async function uploadNewVaultToServer(sqliteClient: SqliteClient) : Promise<Vaul
     encryptionKey
   );
 
-  // Store in local: storage for persistence
+  /*
+   * Store in local: storage for persistence with pending sync flag.
+   * We're about to upload, so mark as pending until confirmed.
+   */
   await storage.setItems([
-    { key: 'local:encryptedVault', value: encryptedVault }
+    { key: 'local:encryptedVault', value: encryptedVault },
+    { key: 'local:hasPendingSync', value: true }
   ]);
 
   // Get metadata from local: storage
@@ -542,8 +563,13 @@ async function uploadNewVaultToServer(sqliteClient: SqliteClient) : Promise<Vaul
 
   // Check if response is successful (.status === 0)
   if (response.status === 0) {
-    await storage.setItem('local:vaultRevisionNumber', response.newRevisionNumber);
+    // Upload succeeded - update revision and clear pending sync
+    await storage.setItems([
+      { key: 'local:vaultRevisionNumber', value: response.newRevisionNumber },
+      { key: 'local:hasPendingSync', value: false }
+    ]);
   } else {
+    // Upload failed - hasPendingSync stays true (was set above)
     throw new Error(await t('common.errors.unknownError'));
   }
 
@@ -590,6 +616,21 @@ export async function handleSetOfflineMode(isOffline: boolean): Promise<void> {
 }
 
 /**
+ * Get pending sync status (true if local vault has changes not yet uploaded to server).
+ */
+export async function handleGetHasPendingSync(): Promise<boolean> {
+  const hasPendingSync = await storage.getItem('local:hasPendingSync') as boolean;
+  return hasPendingSync ?? false;
+}
+
+/**
+ * Set pending sync status.
+ */
+export async function handleSetHasPendingSync(hasPendingSync: boolean): Promise<void> {
+  await storage.setItem('local:hasPendingSync', hasPendingSync);
+}
+
+/**
  * Get the encrypted vault blob directly (for merge operations).
  */
 export async function handleGetEncryptedVault(): Promise<string | null> {
@@ -597,8 +638,12 @@ export async function handleGetEncryptedVault(): Promise<string | null> {
 }
 
 /**
- * Store the encrypted vault blob directly (for merge operations).
+ * Store the encrypted vault blob with pending sync flag.
+ * This is the atomic operation that should be used for all local vault mutations.
+ *
+ * @param request Object with vaultBlob and hasPendingSync flag
  */
-export async function handleStoreEncryptedVault(encryptedVault: string): Promise<void> {
-  await storage.setItem('local:encryptedVault', encryptedVault);
+export async function handleStoreEncryptedVault(request: { vaultBlob: string; hasPendingSync: boolean }): Promise<void> {
+  await storage.setItem('local:encryptedVault', request.vaultBlob);
+  await storage.setItem('local:hasPendingSync', request.hasPendingSync);
 }

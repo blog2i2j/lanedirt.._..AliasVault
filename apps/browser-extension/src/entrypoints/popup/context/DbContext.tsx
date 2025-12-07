@@ -15,7 +15,9 @@ type DbContextType = {
   dbInitialized: boolean;
   dbAvailable: boolean;
   isOffline: boolean;
+  hasPendingSync: boolean;
   setIsOffline: (offline: boolean) => Promise<void>;
+  setHasPendingSync: (hasPendingSync: boolean) => Promise<void>;
   initializeDatabase: (vaultResponse: VaultResponse, derivedKey: string) => Promise<SqliteClient>;
   initializeDatabaseFromDecryptedVault: (decryptedVaultBase64: string) => Promise<SqliteClient>;
   storeEncryptionKey: (derivedKey: string) => Promise<void>;
@@ -53,6 +55,11 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [isOffline, setIsOfflineState] = useState(false);
 
   /**
+   * Pending sync state. If true, the local vault has changes not yet uploaded to server.
+   */
+  const [hasPendingSync, setHasPendingSyncState] = useState(false);
+
+  /**
    * Set the offline mode state and persist it.
    */
   const setIsOffline = useCallback(async (offline: boolean) => {
@@ -61,17 +68,28 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   }, []);
 
   /**
-   * Load initial offline state from storage.
+   * Set the pending sync state and persist it.
+   */
+  const setHasPendingSync = useCallback(async (pendingSync: boolean) => {
+    setHasPendingSyncState(pendingSync);
+    await sendMessage('SET_HAS_PENDING_SYNC', pendingSync, 'background');
+  }, []);
+
+  /**
+   * Load initial offline and pending sync state from storage.
    */
   useEffect(() => {
     /**
-     * Load the offline mode state from background storage.
+     * Load the offline mode and pending sync state from background storage.
      */
-    const loadOfflineState = async () : Promise<void> => {
+    const loadSyncState = async () : Promise<void> => {
       const offlineMode = await sendMessage('GET_OFFLINE_MODE', {}, 'background') as boolean;
       setIsOfflineState(offlineMode);
+
+      const pendingSync = await sendMessage('GET_HAS_PENDING_SYNC', {}, 'background') as boolean;
+      setHasPendingSyncState(pendingSync);
     };
-    loadOfflineState();
+    loadSyncState();
   }, []);
 
   const initializeDatabase = useCallback(async (vaultResponse: VaultResponse, derivedKey: string) => {
@@ -90,7 +108,8 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     setDbAvailable(true);
 
     /**
-     * Store encrypted vault and metadata in background worker (session storage).
+     * Store encrypted vault and metadata in background worker (persistent storage).
+     * Since we just fetched from server, hasPendingSync is false - vault is in sync.
      */
     const request: StoreVaultRequest = {
       vaultBlob: vaultResponse.vault.blob,
@@ -98,9 +117,13 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       privateEmailDomainList: vaultResponse.vault.privateEmailDomainList,
       hiddenPrivateEmailDomainList: vaultResponse.vault.hiddenPrivateEmailDomainList,
       vaultRevisionNumber: vaultResponse.vault.currentRevisionNumber,
+      hasPendingSync: false, // Fresh from server, no pending changes
     };
 
     await sendMessage('STORE_VAULT', request, 'background');
+
+    // Update local state to reflect sync status
+    setHasPendingSyncState(false);
 
     return client;
   }, []);
@@ -224,7 +247,9 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     dbInitialized,
     dbAvailable,
     isOffline,
+    hasPendingSync,
     setIsOffline,
+    setHasPendingSync,
     initializeDatabase,
     initializeDatabaseFromDecryptedVault,
     storeEncryptionKey,
@@ -233,7 +258,7 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     getVaultMetadata,
     setCurrentVaultRevisionNumber,
     hasPendingMigrations,
-  }), [sqliteClient, dbInitialized, dbAvailable, isOffline, setIsOffline, initializeDatabase, initializeDatabaseFromDecryptedVault, storeEncryptionKey, storeEncryptionKeyDerivationParams, clearDatabase, getVaultMetadata, setCurrentVaultRevisionNumber, hasPendingMigrations]);
+  }), [sqliteClient, dbInitialized, dbAvailable, isOffline, hasPendingSync, setIsOffline, setHasPendingSync, initializeDatabase, initializeDatabaseFromDecryptedVault, storeEncryptionKey, storeEncryptionKeyDerivationParams, clearDatabase, getVaultMetadata, setCurrentVaultRevisionNumber, hasPendingMigrations]);
 
   return (
     <DbContext.Provider value={contextValue}>
