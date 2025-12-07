@@ -243,10 +243,24 @@ export async function handleGetVault(
 }
 
 /**
- * Clear the vault from browser storage (both local: and session:).
+ * Lock the vault by clearing only session data.
+ * This preserves local vault data so user can unlock again without server.
  */
-export function handleClearVault(
-) : messageBoolResponse {
+export function handleLockVault(): messageBoolResponse {
+  // Clear session-only data (locks the vault)
+  storage.removeItems([
+    'session:encryptionKey',
+    'session:persistedFormValues',
+  ]);
+
+  return { success: true };
+}
+
+/**
+ * Clear the vault completely from browser storage (both local: and session:).
+ * This is used for full logout - removes all vault data.
+ */
+export function handleClearVault(): messageBoolResponse {
   // Clear persistent vault data from local: storage
   storage.removeItems([
     'local:encryptedVault',
@@ -262,10 +276,7 @@ export function handleClearVault(
   // Clear session-only data
   storage.removeItems([
     'session:encryptionKey',
-    // TODO: the derivedKey clear can be removed some period of time after 0.22.0 is released.
-    'session:derivedKey',
-    // TODO: the session encryptionKeyDerivationParams clear can be removed after users have migrated to local: storage.
-    'session:encryptionKeyDerivationParams'
+    'session:persistedFormValues',
   ]);
 
   return { success: true };

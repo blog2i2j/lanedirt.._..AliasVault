@@ -9,7 +9,7 @@ import { handleClipboardCopied, handleCancelClipboardClear, handleGetClipboardCl
 import { setupContextMenus } from '@/entrypoints/background/ContextMenu';
 import { handleGetWebAuthnSettings, handleWebAuthnCreate, handleWebAuthnGet, handlePasskeyPopupResponse, handleGetRequestData } from '@/entrypoints/background/PasskeyHandler';
 import { handleOpenPopup, handlePopupWithCredential, handleOpenPopupCreateCredential, handleToggleContextMenu } from '@/entrypoints/background/PopupMessageHandler';
-import { handleCheckAuthStatus, handleClearPersistedFormValues, handleClearVault, handleCreateIdentity, handleGetCredentials, handleGetDefaultEmailDomain, handleGetDefaultIdentitySettings, handleGetEncryptionKey, handleGetEncryptionKeyDerivationParams, handleGetPasswordSettings, handleGetPersistedFormValues, handleGetVault, handlePersistFormValues, handleStoreEncryptionKey, handleStoreEncryptionKeyDerivationParams, handleStoreVault, handleSyncVault, handleUploadVault, handleGetOfflineMode, handleSetOfflineMode, handleGetEncryptedVault, handleStoreEncryptedVault, handleGetHasPendingSync, handleSetHasPendingSync } from '@/entrypoints/background/VaultMessageHandler';
+import { handleCheckAuthStatus, handleClearPersistedFormValues, handleClearVault, handleLockVault, handleCreateIdentity, handleGetCredentials, handleGetDefaultEmailDomain, handleGetDefaultIdentitySettings, handleGetEncryptionKey, handleGetEncryptionKeyDerivationParams, handleGetPasswordSettings, handleGetPersistedFormValues, handleGetVault, handlePersistFormValues, handleStoreEncryptionKey, handleStoreEncryptionKeyDerivationParams, handleStoreVault, handleSyncVault, handleUploadVault, handleGetOfflineMode, handleSetOfflineMode, handleGetEncryptedVault, handleStoreEncryptedVault, handleGetHasPendingSync, handleSetHasPendingSync } from '@/entrypoints/background/VaultMessageHandler';
 
 import { GLOBAL_CONTEXT_MENU_ENABLED_KEY } from '@/utils/Constants';
 import { EncryptionKeyDerivationParams } from "@/utils/dist/shared/models/metadata";
@@ -40,6 +40,7 @@ export default defineBackground({
     onMessage('CREATE_IDENTITY', ({ data }) => handleCreateIdentity(data));
     onMessage('UPLOAD_VAULT', ({ data }) => handleUploadVault(data));
     onMessage('SYNC_VAULT', () => handleSyncVault());
+    onMessage('LOCK_VAULT', () => handleLockVault());
     onMessage('CLEAR_VAULT', () => handleClearVault());
 
     // Offline mode management messages
