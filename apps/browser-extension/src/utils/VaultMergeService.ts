@@ -1,4 +1,4 @@
-import initSqlJs, { Database } from 'sql.js';
+import initSqlJs, { Database, SqlJsStatic } from 'sql.js';
 
 /**
  * Entity record from a SyncableEntity table.
@@ -71,6 +71,16 @@ const SYNCABLE_TABLES: ITableConfig[] = [
  * which version of a record wins in case of conflict.
  */
 export class VaultMergeService {
+  private sqlJsInstance: SqlJsStatic | null = null;
+
+  /**
+   * Set a pre-initialized SQL.js instance (useful for testing).
+   * @param sql - The SQL.js static instance
+   */
+  public setSqlJs(sql: SqlJsStatic): void {
+    this.sqlJsInstance = sql;
+  }
+
   /**
    * Merge local vault changes with server vault using LWW strategy.
    *
@@ -88,8 +98,8 @@ export class VaultMergeService {
     };
 
     try {
-      // Initialize SQL.js
-      const SQL = await initSqlJs({
+      // Use injected SQL.js instance or initialize a new one
+      const SQL = this.sqlJsInstance ?? await initSqlJs({
         /**
          * Locate the SQL.js WASM file.
          * @param file - The file name to locate
