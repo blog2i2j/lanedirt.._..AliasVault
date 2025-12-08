@@ -2118,19 +2118,38 @@ export class SqliteClient {
         item.Id
       ]);
 
-      // 2. Track history for fields that have EnableHistory=true before deleting
+      // 2. Track history for fields that have EnableHistory=true before updating
       await this.trackFieldHistory(item.Id, item.Fields, currentDateTime);
 
-      // 3. Delete all existing FieldValues for this item
-      const deleteFieldsQuery = `
-        UPDATE FieldValues
-        SET IsDeleted = 1,
-            UpdatedAt = ?
-        WHERE ItemId = ?`;
+      // 3. Get existing FieldValues for this item (to update in place, preserving IDs for merge)
+      const existingFieldValuesQuery = `
+        SELECT Id, FieldKey, FieldDefinitionId, Value
+        FROM FieldValues
+        WHERE ItemId = ? AND IsDeleted = 0`;
 
-      this.executeUpdate(deleteFieldsQuery, [currentDateTime, item.Id]);
+      const existingFieldValues = this.executeQuery<{
+        Id: string;
+        FieldKey: string | null;
+        FieldDefinitionId: string | null;
+        Value: string;
+      }>(existingFieldValuesQuery, [item.Id]);
 
-      // 4. Insert new FieldValues
+      // Build a map of existing FieldValues by their effective key (FieldKey for system fields, FieldDefinitionId for custom)
+      // Key format: "fieldKey:index" to handle multi-value fields
+      const existingByKey = new Map<string, { Id: string; Value: string }>();
+      const fieldValueCounts = new Map<string, number>();
+
+      for (const fv of existingFieldValues) {
+        const key = fv.FieldKey || fv.FieldDefinitionId || '';
+        const count = fieldValueCounts.get(key) || 0;
+        existingByKey.set(`${key}:${count}`, { Id: fv.Id, Value: fv.Value });
+        fieldValueCounts.set(key, count + 1);
+      }
+
+      // Track which existing FieldValue IDs we've processed (to know which to soft-delete)
+      const processedIds = new Set<string>();
+
+      // 4. Update existing or insert new FieldValues
       if (item.Fields && item.Fields.length > 0) {
         for (const field of item.Fields) {
           // Skip empty fields
@@ -2195,6 +2214,7 @@ export class SqliteClient {
 
           // Handle multi-value fields by creating separate FieldValue records
           const values = Array.isArray(field.Value) ? field.Value : [field.Value];
+          const effectiveKey = isCustomField ? field.FieldKey : field.FieldKey;
 
           for (let i = 0; i < values.length; i++) {
             const value = values[i];
@@ -2204,23 +2224,62 @@ export class SqliteClient {
               continue;
             }
 
-            const fieldValueId = crypto.randomUUID().toUpperCase();
-            const fieldQuery = `
-              INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+            const lookupKey = `${effectiveKey}:${i}`;
+            const existing = existingByKey.get(lookupKey);
 
-            this.executeUpdate(fieldQuery, [
-              fieldValueId,
-              item.Id,
-              fieldDefinitionId, // NULL for system fields, custom field ID for custom fields
-              isCustomField ? null : field.FieldKey, // FieldKey set for system fields only
-              value, // Store each value separately, not as JSON
-              field.DisplayOrder ?? 0,
-              currentDateTime,
-              currentDateTime,
-              0
-            ]);
+            if (existing) {
+              // Update existing FieldValue in place (preserves ID for merge)
+              processedIds.add(existing.Id);
+
+              // Only update if value actually changed
+              if (existing.Value !== value) {
+                const updateQuery = `
+                  UPDATE FieldValues
+                  SET Value = ?,
+                      Weight = ?,
+                      UpdatedAt = ?
+                  WHERE Id = ?`;
+
+                this.executeUpdate(updateQuery, [
+                  value,
+                  field.DisplayOrder ?? 0,
+                  currentDateTime,
+                  existing.Id
+                ]);
+              }
+            } else {
+              // Insert new FieldValue
+              const fieldValueId = crypto.randomUUID().toUpperCase();
+              const fieldQuery = `
+                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+              this.executeUpdate(fieldQuery, [
+                fieldValueId,
+                item.Id,
+                fieldDefinitionId, // NULL for system fields, custom field ID for custom fields
+                isCustomField ? null : field.FieldKey, // FieldKey set for system fields only
+                value, // Store each value separately, not as JSON
+                field.DisplayOrder ?? 0,
+                currentDateTime,
+                currentDateTime,
+                0
+              ]);
+            }
           }
+        }
+      }
+
+      // 5. Soft-delete any FieldValues that were not processed (removed fields)
+      for (const fv of existingFieldValues) {
+        if (!processedIds.has(fv.Id)) {
+          const deleteQuery = `
+            UPDATE FieldValues
+            SET IsDeleted = 1,
+                UpdatedAt = ?
+            WHERE Id = ?`;
+
+          this.executeUpdate(deleteQuery, [currentDateTime, fv.Id]);
         }
       }
 

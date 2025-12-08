@@ -24,7 +24,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
 
   // Retry failed tests (more retries on CI)
-  retries: process.env.CI ? 2 : 1,
+  retries: process.env.CI ? 2 : 0,
 
   // Use single worker to ensure sequential execution
   workers: 1,

@@ -45,14 +45,19 @@ interface ITableConfig {
   name: string;
   primaryKey: string;
   isItemTable?: boolean; // Special handling for Item.DeletedAt
+  compositeKey?: string[]; // For tables that should merge by composite key instead of Id
 }
 
 /**
  * All tables that extend SyncableEntity and need LWW merge.
+ *
+ * FieldValues uses a composite key (ItemId + FieldKey/FieldDefinitionId) for merging
+ * because different clients may create FieldValues with different random UUIDs for the
+ * same logical field. By matching on the composite key, we ensure proper LWW merging.
  */
 const SYNCABLE_TABLES: ITableConfig[] = [
   { name: 'Items', primaryKey: 'Id', isItemTable: true },
-  { name: 'FieldValues', primaryKey: 'Id' },
+  { name: 'FieldValues', primaryKey: 'Id', compositeKey: ['ItemId', 'FieldKey', 'FieldDefinitionId'] },
   { name: 'Folders', primaryKey: 'Id' },
   { name: 'Tags', primaryKey: 'Id' },
   { name: 'ItemTags', primaryKey: 'Id' },
@@ -188,13 +193,22 @@ export class VaultMergeService {
     tableConfig: ITableConfig,
     stats: IMergeStats
   ): Promise<void> {
-    const { name: tableName, primaryKey: _primaryKey, isItemTable } = tableConfig;
+    const { name: tableName, isItemTable, compositeKey } = tableConfig;
 
     // Get all records from both databases
     const localRecords = this.getTableRecords(localDb, tableName);
     const serverRecords = this.getTableRecords(serverDb, tableName);
 
-    // Create a map of server records by primary key for quick lookup
+    // Use composite key matching for tables that define it (e.g., FieldValues)
+    if (compositeKey) {
+      await this.mergeTableByCompositeKey(localDb, serverDb, tableName, localRecords, serverRecords, compositeKey, stats);
+      return;
+    }
+
+    /*
+     * Standard merge by Id for other tables
+     * Create a map of server records by primary key for quick lookup
+     */
     const serverMap = new Map<string, ISyncableRecord>();
     for (const record of serverRecords) {
       serverMap.set(record.Id, record);
@@ -242,6 +256,142 @@ export class VaultMergeService {
         this.insertRecord(localDb, tableName, serverRecord, serverDb);
       }
     }
+  }
+
+  /**
+   * Generate a composite key string for a record.
+   * For FieldValues, this combines ItemId + (FieldKey or FieldDefinitionId).
+   * @param record - The record to generate key for
+   * @param keyColumns - The columns that make up the composite key
+   * @returns A string representing the composite key
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private getCompositeKey(record: any, _keyColumns: string[]): string {
+    /*
+     * For FieldValues: use ItemId + (FieldKey if set, otherwise FieldDefinitionId)
+     * This handles both system fields (FieldKey) and custom fields (FieldDefinitionId)
+     */
+    const itemId = record.ItemId || '';
+    const fieldIdentifier = record.FieldKey || record.FieldDefinitionId || '';
+    return `${itemId}:${fieldIdentifier}`;
+  }
+
+  /**
+   * Merge a table using composite key matching instead of Id.
+   * This is used for FieldValues where the same logical field may have different UUIDs
+   * on different clients.
+   *
+   * @param localDb - The local database
+   * @param serverDb - The server database
+   * @param tableName - The name of the table
+   * @param localRecords - Records from local database
+   * @param serverRecords - Records from server database
+   * @param keyColumns - Columns that make up the composite key
+   * @param stats - Statistics to update
+   */
+  private async mergeTableByCompositeKey(
+    localDb: Database,
+    serverDb: Database,
+    tableName: string,
+    localRecords: ISyncableRecord[],
+    serverRecords: ISyncableRecord[],
+    keyColumns: string[],
+    stats: IMergeStats
+  ): Promise<void> {
+    // Create a map of server records by composite key
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const serverMap = new Map<string, any>();
+    for (const record of serverRecords) {
+      const key = this.getCompositeKey(record, keyColumns);
+      // If multiple records have the same composite key, keep the one with latest UpdatedAt
+      const existing = serverMap.get(key);
+      if (!existing || new Date(record.UpdatedAt).getTime() > new Date(existing.UpdatedAt).getTime()) {
+        serverMap.set(key, record);
+      }
+    }
+
+    // Create a map of local records by composite key (to track processed keys)
+    const processedKeys = new Set<string>();
+
+    // Process local records
+    for (const localRecord of localRecords) {
+      const compositeKey = this.getCompositeKey(localRecord, keyColumns);
+      processedKeys.add(compositeKey);
+
+      const serverRecord = serverMap.get(compositeKey);
+
+      if (!serverRecord) {
+        // Record only exists locally (created offline) - keep it
+        stats.recordsCreatedLocally++;
+        continue;
+      }
+
+      // Record exists in both (by composite key) - compare UpdatedAt for LWW
+      const localUpdated = new Date(localRecord.UpdatedAt).getTime();
+      const serverUpdated = new Date(serverRecord.UpdatedAt).getTime();
+
+      if (serverUpdated > localUpdated) {
+        /*
+         * Server wins - update local record with server data
+         * Keep local Id but update all other fields
+         */
+        stats.conflicts++;
+        stats.recordsFromServer++;
+
+        this.updateRecordById(localDb, tableName, localRecord.Id, serverRecord, serverDb);
+      } else {
+        // Local wins - keep local (already there)
+        stats.recordsFromLocal++;
+      }
+
+      // Remove from server map to track what's been processed
+      serverMap.delete(compositeKey);
+    }
+
+    /*
+     * Insert server-only records into local (new records from other devices)
+     * These are records with composite keys that don't exist locally
+     */
+    for (const serverRecord of serverMap.values()) {
+      stats.recordsFromServer++;
+      this.insertRecord(localDb, tableName, serverRecord, serverDb);
+    }
+  }
+
+  /**
+   * Update a record by its Id, replacing all fields except Id with values from source.
+   * Used when merging by composite key - we keep the local Id but take server's field values.
+   *
+   * @param localDb - The local database
+   * @param tableName - The name of the table
+   * @param localId - The local record's Id to update
+   * @param sourceRecord - The source record with values to copy
+   * @param serverDb - The server database (for schema info)
+   */
+  private updateRecordById(
+    localDb: Database,
+    tableName: string,
+    localId: string,
+    sourceRecord: ISyncableRecord,
+    serverDb: Database
+  ): void {
+    const columns = this.getTableColumns(serverDb, tableName);
+
+    // Build UPDATE statement - update all columns except Id
+    const setClause = columns
+      .filter(col => col !== 'Id')
+      .map(col => `${col} = ?`)
+      .join(', ');
+
+    const values = columns
+      .filter(col => col !== 'Id')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map(col => (sourceRecord as any)[col]);
+
+    values.push(localId); // For WHERE clause - use local Id
+
+    const sql = `UPDATE ${tableName} SET ${setClause} WHERE Id = ?`;
+    localDb.run(sql, values);
   }
 
   /**
