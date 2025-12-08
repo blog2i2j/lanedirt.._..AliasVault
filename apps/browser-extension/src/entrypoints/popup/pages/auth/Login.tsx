@@ -1,5 +1,3 @@
-import { Buffer } from 'buffer';
-
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -14,13 +12,12 @@ import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useHeaderButtons } from '@/entrypoints/popup/context/HeaderButtonsContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 import { useWebApi } from '@/entrypoints/popup/context/WebApiContext';
-import ConversionUtility from '@/entrypoints/popup/utils/ConversionUtility';
 import { PopoutUtility } from '@/entrypoints/popup/utils/PopoutUtility';
 import SrpUtility from '@/entrypoints/popup/utils/SrpUtility';
 
 import { AppInfo } from '@/utils/AppInfo';
+import { SrpAuthService } from '@/utils/auth/SrpAuthService';
 import type { VaultResponse, LoginResponse } from '@/utils/dist/shared/models/webapi';
-import EncryptionUtility from '@/utils/EncryptionUtility';
 import { ApiAuthError } from '@/utils/types/errors/ApiAuthError';
 import type { MobileLoginResult } from '@/utils/types/messaging/MobileLoginResult';
 
@@ -152,32 +149,27 @@ const Login: React.FC = () => {
       // Clear global message if set with every login attempt.
       app.clearGlobalMessage();
 
-      // Use the srpUtil instance instead of the imported singleton
-      const loginResponse = await srpUtil.initiateLogin(ConversionUtility.normalizeUsername(credentials.username));
+      // Initiate login with server
+      const normalizedUsername = SrpAuthService.normalizeUsername(credentials.username);
+      const loginResponse = await srpUtil.initiateLogin(normalizedUsername);
 
-      // 1. Derive key from password using Argon2id
-      const passwordHash = await EncryptionUtility.deriveKeyFromPassword(
+      // Derive key from password using Argon2id and prepare credentials
+      const { passwordHashString, passwordHashBase64 } = await SrpAuthService.prepareCredentials(
         credentials.password,
         loginResponse.salt,
         loginResponse.encryptionType,
         loginResponse.encryptionSettings
       );
 
-      // Convert uint8 array to uppercase hex string which is expected by the server.
-      const passwordHashString = Buffer.from(passwordHash).toString('hex').toUpperCase();
-
-      // Get the derived key as base64 string required for decryption.
-      const passwordHashBase64 = Buffer.from(passwordHash).toString('base64');
-
-      // 2. Validate login with SRP protocol
+      // Validate login with SRP protocol
       const validationResponse = await srpUtil.validateLogin(
-        ConversionUtility.normalizeUsername(credentials.username),
+        normalizedUsername,
         passwordHashString,
         rememberMe,
         loginResponse
       );
 
-      // 3. Handle 2FA if required
+      // Handle 2FA if required
       if (validationResponse.requiresTwoFactor) {
         // Store login response as we need it for 2FA validation
         setLoginResponse(loginResponse);
@@ -198,7 +190,7 @@ const Login: React.FC = () => {
 
       // Handle successful authentication
       await handleSuccessfulAuth(
-        ConversionUtility.normalizeUsername(credentials.username),
+        normalizedUsername,
         validationResponse.token.token,
         validationResponse.token.refreshToken,
         passwordHashBase64,
@@ -235,8 +227,9 @@ const Login: React.FC = () => {
         throw new Error(t('auth.errors.invalidCode'));
       }
 
+      const twoFaUsername = SrpAuthService.normalizeUsername(credentials.username);
       const validationResponse = await srpUtil.validateLogin2Fa(
-        ConversionUtility.normalizeUsername(credentials.username),
+        twoFaUsername,
         passwordHashString,
         rememberMe,
         loginResponse,
@@ -250,7 +243,7 @@ const Login: React.FC = () => {
 
       // Handle successful authentication
       await handleSuccessfulAuth(
-        ConversionUtility.normalizeUsername(credentials.username),
+        twoFaUsername,
         validationResponse.token.token,
         validationResponse.token.refreshToken,
         passwordHashBase64,

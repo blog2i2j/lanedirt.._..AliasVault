@@ -1,5 +1,3 @@
-import { Buffer } from 'buffer';
-
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -20,9 +18,9 @@ import { useWebApi } from '@/entrypoints/popup/context/WebApiContext';
 import { PopoutUtility } from '@/entrypoints/popup/utils/PopoutUtility';
 import SrpUtility from '@/entrypoints/popup/utils/SrpUtility';
 
+import { SrpAuthService } from '@/utils/auth/SrpAuthService';
 import { VAULT_LOCKED_DISMISS_UNTIL_KEY } from '@/utils/Constants';
 import type { EncryptionKeyDerivationParams } from '@/utils/dist/shared/models/metadata';
-import EncryptionUtility from '@/utils/EncryptionUtility';
 import {
   getPinLength,
   isPinEnabled,
@@ -222,15 +220,13 @@ const Unlock: React.FC = () => {
         const loginResponse = await srpUtil.initiateLogin(authContext.username!);
 
         // Derive key from password using user's encryption settings
-        const passwordHash = await EncryptionUtility.deriveKeyFromPassword(
+        const credentials = await SrpAuthService.prepareCredentials(
           password,
           loginResponse.salt,
           loginResponse.encryptionType,
           loginResponse.encryptionSettings
         );
-
-        // Get the derived key as base64 string required for decryption.
-        passwordHashBase64 = Buffer.from(passwordHash).toString('base64');
+        passwordHashBase64 = credentials.passwordHashBase64;
 
         // Store encryption params for future offline unlock
         await dbContext.storeEncryptionKeyDerivationParams({
@@ -250,14 +246,13 @@ const Unlock: React.FC = () => {
         }
 
         // Derive key from password using stored encryption settings
-        const passwordHash = await EncryptionUtility.deriveKeyFromPassword(
+        const credentials = await SrpAuthService.prepareCredentials(
           password,
           storedParams.salt,
           storedParams.encryptionType,
           storedParams.encryptionSettings
         );
-
-        passwordHashBase64 = Buffer.from(passwordHash).toString('base64');
+        passwordHashBase64 = credentials.passwordHashBase64;
 
         // Set offline mode
         await dbContext.setIsOffline(true);
