@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { FormInputCopyToClipboard } from '@/entrypoints/popup/components/Forms/FormInputCopyToClipboard';
-import FieldHistoryModal from './FieldHistoryModal';
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 
 import type { ItemField } from '@/utils/dist/shared/models/vault';
 import { getSystemField } from '@/utils/dist/shared/models/vault';
+
+import FieldHistoryModal from './FieldHistoryModal';
 
 interface FieldBlockProps {
   field: ItemField;

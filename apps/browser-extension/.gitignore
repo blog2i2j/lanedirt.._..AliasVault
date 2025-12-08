@@ -28,4 +28,5 @@ web-ext.config.ts
 # Test related output files
 playwright-report
 tests/screenshots
+tests/test-results
 test-results

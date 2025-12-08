@@ -1,7 +1,7 @@
+import { SrpAuthService } from '@/utils/auth/SrpAuthService';
 import type { LoginResponse, ValidateLoginResponse, ValidateLoginRequest, ValidateLoginRequest2Fa, BadRequestResponse } from '@/utils/dist/shared/models/webapi';
 import { ApiAuthError } from '@/utils/types/errors/ApiAuthError';
 import { WebApiService } from '@/utils/WebApiService';
-import { SrpAuthService } from '@/utils/auth/SrpAuthService';
 
 /**
  * Utility class for SRP authentication operations.
