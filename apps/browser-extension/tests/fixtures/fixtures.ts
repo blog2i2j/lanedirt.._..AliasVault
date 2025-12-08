@@ -257,3 +257,32 @@ export async function fullLoginFlow(
   await configureApiUrl(popup, apiUrl);
   await login(popup, username, password, waitForSuccess);
 }
+
+/**
+ * Creates a fresh browser context with the extension loaded.
+ * This is useful for multi-client tests where you need independent browser instances.
+ *
+ * IMPORTANT: The caller is responsible for closing the context when done.
+ *
+ * @returns An object containing the context and extension ID
+ */
+export async function createFreshContext(): Promise<{ context: BrowserContext; extensionId: string }> {
+  const context = await chromium.launchPersistentContext('', {
+    headless: false, // Extensions require headed mode
+    args: [
+      `--disable-extensions-except=${EXTENSION_PATH}`,
+      `--load-extension=${EXTENSION_PATH}`,
+      '--no-first-run',
+      '--disable-gpu',
+    ],
+  });
+
+  // Wait for service worker and get extension ID
+  let [background] = context.serviceWorkers();
+  if (!background) {
+    background = await context.waitForEvent('serviceworker');
+  }
+  const extensionId = background.url().split('/')[2];
+
+  return { context, extensionId };
+}

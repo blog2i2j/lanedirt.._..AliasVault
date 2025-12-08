@@ -14,4 +14,5 @@ export {
   login,
   fullLoginFlow,
   closeCachedContext,
+  createFreshContext,
 } from './fixtures';

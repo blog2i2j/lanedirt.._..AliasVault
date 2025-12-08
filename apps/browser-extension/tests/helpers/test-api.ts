@@ -20,7 +20,7 @@ import Database from 'better-sqlite3';
 import * as srp from 'secure-remote-password/client.js';
 
 // Get the vault schema SQL from the shared vault-sql package
-import { COMPLETE_SCHEMA_SQL } from '../../src/utils/dist/shared/vault-sql/index.mjs';
+import { COMPLETE_SCHEMA_SQL, VAULT_VERSIONS } from '../../src/utils/dist/shared/vault-sql/index.mjs';
 
 /**
  * Token model returned from successful registration/login.
@@ -85,11 +85,6 @@ const DEFAULT_ENCRYPTION = {
   memorySize: 19456,
   parallelism: 1,
 };
-
-/**
- * Current vault version - should match the latest version in vault-sql.
- */
-const CURRENT_VAULT_VERSION = '1.7.2';
 
 /**
  * Normalizes a username by converting to lowercase and trimming whitespace.
@@ -314,7 +309,7 @@ async function uploadInitialVault(
   const vaultRequest: VaultUploadRequest = {
     username: normalizeUsername(username),
     blob: encryptedVault,
-    version: CURRENT_VAULT_VERSION,
+    version: VAULT_VERSIONS[VAULT_VERSIONS.length - 1].version,
     currentRevisionNumber: 0,
     encryptionPublicKey: rsaKeyPair.publicKey,
     credentialsCount: 0,
