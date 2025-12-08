@@ -187,11 +187,12 @@ export const useVaultSync = (): { syncVault: (options?: VaultSyncOptions) => Pro
 
                 /*
                  * Upload the merged vault to server.
-                 * Use the server's revision as our current revision since we just fetched it.
+                 * Pass the server's revision as our base revision since we just fetched and merged with it.
                  */
                 onStatus?.(t('common.uploadingVault'));
                 const uploadResponse = await sendMessage('UPLOAD_VAULT', {
-                  vaultBlob: mergedEncryptedVault
+                  vaultBlob: mergedEncryptedVault,
+                  baseRevisionNumber: statusResponse.vaultRevision
                 }, 'background') as VaultUploadResponse;
 
                 if (uploadResponse.success && uploadResponse.status === 0) {

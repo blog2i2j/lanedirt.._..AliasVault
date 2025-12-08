@@ -109,6 +109,10 @@ test.describe.serial('5. Vault Merge', () => {
 
     await clientB.popup.getByRole('button', { name: 'Vault' }).click();
     await navigateToAddCredentialForm(clientB.popup);
+
+    // Take screenshots of both clients on the add form
+    await clientA.popup.screenshot({ path: 'tests/screenshots/5.1-client-a-add-form.png' });
+    await clientB.popup.screenshot({ path: 'tests/screenshots/5.1-client-b-add-form.png' });
   });
 
   test('5.2 Client A should create a credential and sync', async () => {
@@ -139,8 +143,6 @@ test.describe.serial('5. Vault Merge', () => {
 
     const popup = clientB.popup;
 
-    await popup.waitForTimeout(555555);
-
     // Enter the item name
     await popup.fill('input#itemName', credentialNameB);
 
@@ -154,11 +156,6 @@ test.describe.serial('5. Vault Merge', () => {
     await popup.fill('input#login\\.username', 'clientB@example.com');
     await popup.fill('input#login\\.password', 'ClientBPassword456!');
 
-    // Take screenshot before saving
-    await popup.screenshot({ path: 'tests/screenshots/5.3-client-b-form-filled.png' });
-
-      await popup.waitForTimeout(555555);
-
     // Click Save button
     await popup.click('button:has-text("Save")');
 
@@ -166,8 +163,7 @@ test.describe.serial('5. Vault Merge', () => {
     // 1. Navigation to item details page (success)
     // 2. Navigation back to vault list (merge happened, redirected)
     // 3. Stay on form with error (sync conflict)
-    // Use a longer timeout and check for any of these states
-    await popup.waitForTimeout(555555);
+    await popup.waitForTimeout(100);
 
     // Take a screenshot to see current state
     await popup.screenshot({ path: 'tests/screenshots/5.3-client-b-after-save.png' });
@@ -180,7 +176,7 @@ test.describe.serial('5. Vault Merge', () => {
     await popup.getByRole('button', { name: 'Vault' }).click();
 
     // Wait for the credentials list to load
-    await popup.waitForTimeout(2000);
+    await popup.waitForTimeout(100);
 
     // Take a screenshot first to see what's there
     await popup.screenshot({ path: 'tests/screenshots/5.4-client-b-vault-state.png' });
@@ -194,23 +190,12 @@ test.describe.serial('5. Vault Merge', () => {
     const hasBothCredentials = await clientBCredential.isVisible().catch(() => false);
 
     if (hasBothCredentials) {
-      // Both credentials exist - merge worked correctly!
-      await popup.screenshot({ path: 'tests/screenshots/5.4-client-b-merged-vault-success.png' });
-
-      // Check the item count shows 2 items
+      // Both credentials exist: merge worked correctly!
       const itemsText = popup.locator('text=/\\(2 items\\)/');
       await expect(itemsText).toBeVisible({ timeout: 5000 });
     } else {
-      // Only Client A's credential exists - merge overwrote local changes
-      // This is a known limitation - take screenshot for debugging
-      await popup.screenshot({ path: 'tests/screenshots/5.4-client-b-merge-overwrote-local.png' });
-
-      // For now, we'll accept this behavior but log it
-      console.warn('MERGE LIMITATION: Client B local changes were lost during merge');
-
-      // The test passes but documents the current behavior
-      const itemsText = popup.locator('text=/\\(1 items?\\)/');
-      await expect(itemsText).toBeVisible({ timeout: 5000 });
+      // Only Client A's credential exists: merge logic failed
+      throw new Error('Merge logic failed');
     }
   });
 

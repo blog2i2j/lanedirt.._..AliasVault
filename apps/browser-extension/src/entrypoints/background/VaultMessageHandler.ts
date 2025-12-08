@@ -449,17 +449,27 @@ export async function handleGetEncryptionKeyDerivationParams(
  * Upload the vault to the server.
  */
 export async function handleUploadVault(
-  message: any
+  message: { vaultBlob: string; baseRevisionNumber?: number }
 ) : Promise<messageVaultUploadResponse> {
   try {
     /*
      * Store the new vault blob in local: storage with pending sync flag.
-     * The uploadNewVaultToServer will clear this on success.
+     * If a baseRevisionNumber is provided (e.g., after a merge), update it atomically.
+     * The uploadNewVaultToServer will clear hasPendingSync on success.
      */
-    await storage.setItems([
-      { key: 'local:encryptedVault', value: message.vaultBlob },
-      { key: 'local:hasPendingSync', value: true }
-    ]);
+    if (message.baseRevisionNumber !== undefined) {
+      // Store vault, pending sync flag, and revision number atomically
+      await storage.setItems([
+        { key: 'local:encryptedVault', value: message.vaultBlob },
+        { key: 'local:hasPendingSync', value: true },
+        { key: 'local:vaultRevisionNumber', value: message.baseRevisionNumber }
+      ]);
+    } else {
+      await storage.setItems([
+        { key: 'local:encryptedVault', value: message.vaultBlob },
+        { key: 'local:hasPendingSync', value: true }
+      ]);
+    }
 
     // Create new sqlite client which will use the new vault blob.
     const sqliteClient = await createVaultSqliteClient();
