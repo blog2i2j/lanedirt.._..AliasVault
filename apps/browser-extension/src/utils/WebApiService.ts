@@ -3,6 +3,7 @@ import type { StatusResponse } from '@/utils/dist/shared/models/webapi';
 import { logoutEventEmitter } from '@/events/LogoutEventEmitter';
 
 import { AppInfo } from "./AppInfo";
+import { NetworkError } from './types/errors/NetworkError';
 
 import { storage } from '#imports';
 
@@ -94,6 +95,7 @@ export class WebApiService {
 
   /**
    * Fetch data from the API without authentication headers and without access token refresh retry.
+   * Throws NetworkError for network-related failures (offline, timeout, DNS, etc.)
    */
   public async rawFetch(
     endpoint: string,
@@ -116,7 +118,11 @@ export class WebApiService {
       return response;
     } catch (error) {
       console.error('API request failed:', error);
-      throw error;
+      // Convert fetch errors to NetworkError for proper error handling
+      throw new NetworkError(
+        error instanceof Error ? error.message : 'Network request failed',
+        error instanceof Error ? error : undefined
+      );
     }
   }
 

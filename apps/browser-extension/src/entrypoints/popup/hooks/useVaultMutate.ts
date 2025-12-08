@@ -52,7 +52,7 @@ export function useVaultMutate(): {
       encryptionKey
     );
 
-    // Store the updated vault locally with pending sync flag (atomic operation)
+    // Store the updated vault locally with pending sync flag
     await sendMessage('STORE_ENCRYPTED_VAULT', {
       vaultBlob: encryptedVaultBlob,
       hasPendingSync: true

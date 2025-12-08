@@ -9,6 +9,7 @@ import { useWebApi } from '@/entrypoints/popup/context/WebApiContext';
 import type { EncryptionKeyDerivationParams } from '@/utils/dist/shared/models/metadata';
 import type { VaultResponse } from '@/utils/dist/shared/models/webapi';
 import { EncryptionUtility } from '@/utils/EncryptionUtility';
+import { NetworkError } from '@/utils/types/errors/NetworkError';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
 import type { VaultUploadResponse } from '@/utils/types/messaging/VaultUploadResponse';
 import { vaultMergeService } from '@/utils/VaultMergeService';
@@ -50,13 +51,39 @@ type VaultSyncOptions = {
  * Hook to sync the vault with the server.
  * Supports offline mode: if server is unavailable, continues with local vault.
  */
-export const useVaultSync = () : {
-  syncVault: (options?: VaultSyncOptions) => Promise<boolean>;
-} => {
+export const useVaultSync = (): { syncVault: (options?: VaultSyncOptions) => Promise<boolean>; } => {
   const { t } = useTranslation();
   const app = useApp();
   const dbContext = useDb();
   const webApi = useWebApi();
+
+  /**
+   * Check for pending migrations and trigger upgrade if needed.
+   * @returns True if upgrade is required (caller should return), false otherwise.
+   */
+  const checkAndHandleUpgrade = useCallback(async (onUpgradeRequired?: () => void): Promise<boolean> => {
+    if (await dbContext.hasPendingMigrations()) {
+      onUpgradeRequired?.();
+      return true;
+    }
+    return false;
+  }, [dbContext]);
+
+  /**
+   * Handle entering offline mode.
+   * @returns True to indicate success (caller should return true).
+   */
+  const enterOfflineMode = useCallback(async (
+    onStatus?: (message: string) => void,
+    onOffline?: () => void,
+    onSuccess?: (hasNewVault: boolean) => void
+  ): Promise<boolean> => {
+    await dbContext.setIsOffline(true);
+    onStatus?.(t('common.offlineMode'));
+    onOffline?.();
+    onSuccess?.(false);
+    return true;
+  }, [dbContext, t]);
 
   const syncVault = useCallback(async (options: VaultSyncOptions = {}) => {
     const { initialSync = false, onSuccess, onError, onStatus, onOffline, onUpgradeRequired } = options;
@@ -80,12 +107,7 @@ export const useVaultSync = () : {
       if (statusResponse.serverVersion === '0.0.0') {
         // Server is unavailable - enter offline mode if we have a local vault
         if (dbContext.dbAvailable) {
-          // We have a local vault, continue in offline mode
-          await dbContext.setIsOffline(true);
-          onStatus?.(t('common.offlineMode'));
-          onOffline?.();
-          onSuccess?.(false);
-          return true;
+          return enterOfflineMode(onStatus, onOffline, onSuccess);
         } else {
           // No local vault available, can't operate offline
           onError?.(t('common.errors.serverNotAvailable'));
@@ -186,11 +208,10 @@ export const useVaultSync = () : {
             }
           }
 
-          const sqliteClient = await dbContext.initializeDatabase(vaultResponseJson, encryptionKey);
+          await dbContext.initializeDatabase(vaultResponseJson, encryptionKey);
 
-          // Check if the current vault version is known and up to date, if not known trigger an exception, if not up to date redirect to the upgrade page.
-          if (await sqliteClient.hasPendingMigrations()) {
-            onUpgradeRequired?.();
+          // Check if upgrade is required after initializing database
+          if (await checkAndHandleUpgrade(onUpgradeRequired)) {
             return false;
           }
 
@@ -243,9 +264,8 @@ export const useVaultSync = () : {
         }
       }
 
-      // Check if the vault is up to date, if not, redirect to the upgrade page.
-      if (await dbContext.hasPendingMigrations()) {
-        onUpgradeRequired?.();
+      // Check if upgrade is required (for paths that didn't initialize a new database)
+      if (await checkAndHandleUpgrade(onUpgradeRequired)) {
         return false;
       }
 
@@ -262,21 +282,16 @@ export const useVaultSync = () : {
       }
 
       // Check if it's a network error - enter offline mode if we have a local vault
-      if (errorMessage.includes('network') || errorMessage.includes('timeout') || errorMessage.includes('fetch') || errorMessage.includes('Failed to fetch')) {
+      if (err instanceof NetworkError) {
         if (dbContext.dbAvailable) {
-          // We have a local vault, continue in offline mode
-          await dbContext.setIsOffline(true);
-          onStatus?.(t('common.offlineMode'));
-          onOffline?.();
-          onSuccess?.(false);
-          return true;
+          return enterOfflineMode(onStatus, onOffline, onSuccess);
         }
       }
 
       onError?.(errorMessage);
       return false;
     }
-  }, [app, dbContext, webApi, t]);
+  }, [app, dbContext, webApi, t, checkAndHandleUpgrade, enterOfflineMode]);
 
   return { syncVault };
 };
