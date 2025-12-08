@@ -104,7 +104,7 @@ export function normalizeUsername(username: string): string {
  */
 export function generateTestUsername(): string {
   const randomPart = Math.random().toString(36).substring(2, 12);
-  return `test_${randomPart}@test.com`;
+  return `test_${randomPart}@example.tld`;
 }
 
 /**

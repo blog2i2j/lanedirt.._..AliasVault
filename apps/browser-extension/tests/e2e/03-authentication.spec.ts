@@ -25,7 +25,7 @@ test.describe.serial('3. Authentication Flow', () => {
     await configureApiUrl(popup, apiUrl);
 
     // Try to login with invalid credentials
-    await popup.fill('input[type="text"]', 'nonexistent@test.com');
+    await popup.fill('input[type="text"]', 'nonexistent@example.tld');
     await popup.fill('input[type="password"]', 'wrongpassword');
     await popup.click('button:has-text("Log in")');
 
