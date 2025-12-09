@@ -3,7 +3,7 @@ import initSqlJs, { Database } from 'sql.js';
 import * as dateFormatter from '@/utils/dateFormatter';
 import type { Credential, EncryptionKey, PasswordSettings, TotpCode, Passkey, Item, ItemField, ItemTagRef, FieldType, FieldHistory } from '@/utils/dist/shared/models/vault';
 import type { Attachment } from '@/utils/dist/shared/models/vault';
-import { FieldKey, SystemFieldRegistry, getSystemField, MAX_FIELD_HISTORY_RECORDS } from '@/utils/dist/shared/models/vault';
+import { FieldKey, getSystemField, MAX_FIELD_HISTORY_RECORDS } from '@/utils/dist/shared/models/vault';
 import type { VaultVersion } from '@/utils/dist/shared/vault-sql';
 import { VaultSqlGenerator, checkVersionCompatibility, extractVersionFromMigrationId } from '@/utils/dist/shared/vault-sql';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
@@ -2134,8 +2134,10 @@ export class SqliteClient {
         Value: string;
       }>(existingFieldValuesQuery, [item.Id]);
 
-      // Build a map of existing FieldValues by their effective key (FieldKey for system fields, FieldDefinitionId for custom)
-      // Key format: "fieldKey:index" to handle multi-value fields
+      /*
+       * Build a map of existing FieldValues by their effective key (FieldKey for system fields, FieldDefinitionId for custom)
+       * Key format: "fieldKey:index" to handle multi-value fields
+       */
       const existingByKey = new Map<string, { Id: string; Value: string }>();
       const fieldValueCounts = new Map<string, number>();
 

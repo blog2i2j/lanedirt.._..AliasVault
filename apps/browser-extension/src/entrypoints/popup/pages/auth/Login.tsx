@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { sendMessage } from 'webext-bridge/popup';
 
 import Button from '@/entrypoints/popup/components/Button';
 import MobileUnlockModal from '@/entrypoints/popup/components/Dialogs/MobileUnlockModal';
@@ -18,6 +19,8 @@ import SrpUtility from '@/entrypoints/popup/utils/SrpUtility';
 import { AppInfo } from '@/utils/AppInfo';
 import { SrpAuthService } from '@/utils/auth/SrpAuthService';
 import type { VaultResponse, LoginResponse } from '@/utils/dist/shared/models/webapi';
+import { EncryptionUtility } from '@/utils/EncryptionUtility';
+import SqliteClient from '@/utils/SqliteClient';
 import { ApiAuthError } from '@/utils/types/errors/ApiAuthError';
 import type { MobileLoginResult } from '@/utils/types/messaging/MobileLoginResult';
 
@@ -51,6 +54,29 @@ const Login: React.FC = () => {
   const srpUtil = new SrpUtility(webApi);
 
   /**
+   * Helper to persist and load vault after successful authentication.
+   * @returns The initialized SqliteClient
+   */
+  const persistAndLoadVault = async (vaultResponse: VaultResponse, encryptionKey: string): Promise<SqliteClient> => {
+    // Persist vault to local storage (fresh from server, no pending sync)
+    await sendMessage('STORE_ENCRYPTED_VAULT', {
+      vaultBlob: vaultResponse.vault.blob,
+      hasPendingSync: false,
+      vaultRevisionNumber: vaultResponse.vault.currentRevisionNumber,
+    }, 'background');
+
+    await sendMessage('STORE_VAULT_METADATA', {
+      publicEmailDomainList: vaultResponse.vault.publicEmailDomainList,
+      privateEmailDomainList: vaultResponse.vault.privateEmailDomainList,
+      hiddenPrivateEmailDomainList: vaultResponse.vault.hiddenPrivateEmailDomainList,
+    }, 'background');
+
+    // Decrypt and load the vault into memory
+    const decryptedVault = await EncryptionUtility.symmetricDecrypt(vaultResponse.vault.blob, encryptionKey);
+    return dbContext.loadDatabase(decryptedVault);
+  };
+
+  /**
    * Handle successful authentication by storing tokens and initializing the database
    */
   const handleSuccessfulAuth = async (
@@ -76,8 +102,8 @@ const Login: React.FC = () => {
       encryptionSettings: loginResponse.encryptionSettings
     });
 
-    // Initialize the SQLite context with the new vault data.
-    const sqliteClient = await dbContext.initializeDatabase(vaultResponseJson, passwordHashBase64);
+    // Persist and load the vault
+    const sqliteClient = await persistAndLoadVault(vaultResponseJson, passwordHashBase64);
 
     // If there are pending migrations, redirect to the upgrade page.
     try {
@@ -153,12 +179,6 @@ const Login: React.FC = () => {
       const normalizedUsername = SrpAuthService.normalizeUsername(credentials.username);
       const loginResponse = await srpUtil.initiateLogin(normalizedUsername);
 
-      console.debug('[LOGIN DEBUG] Login params from server:', {
-        salt: loginResponse.salt,
-        encryptionType: loginResponse.encryptionType,
-        encryptionSettings: loginResponse.encryptionSettings,
-      });
-
       // Derive key from password using Argon2id and prepare credentials
       const { passwordHashString, passwordHashBase64 } = await SrpAuthService.prepareCredentials(
         credentials.password,
@@ -166,8 +186,6 @@ const Login: React.FC = () => {
         loginResponse.encryptionType,
         loginResponse.encryptionSettings
       );
-
-      console.debug('[LOGIN DEBUG] Derived key (first 20 chars):', passwordHashBase64.substring(0, 20));
 
       // Validate login with SRP protocol
       const validationResponse = await srpUtil.validateLogin(
@@ -304,8 +322,8 @@ const Login: React.FC = () => {
         encryptionSettings: result.encryptionSettings,
       });
 
-      // Initialize the database with the vault data
-      const sqliteClient = await dbContext.initializeDatabase(vaultResponse, result.decryptionKey);
+      // Persist and load the vault
+      const sqliteClient = await persistAndLoadVault(vaultResponse, result.decryptionKey);
 
       // Check for pending migrations
       try {

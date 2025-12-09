@@ -9,7 +9,7 @@ import { handleClipboardCopied, handleCancelClipboardClear, handleGetClipboardCl
 import { setupContextMenus } from '@/entrypoints/background/ContextMenu';
 import { handleGetWebAuthnSettings, handleWebAuthnCreate, handleWebAuthnGet, handlePasskeyPopupResponse, handleGetRequestData } from '@/entrypoints/background/PasskeyHandler';
 import { handleOpenPopup, handlePopupWithCredential, handleOpenPopupCreateCredential, handleToggleContextMenu } from '@/entrypoints/background/PopupMessageHandler';
-import { handleCheckAuthStatus, handleClearPersistedFormValues, handleClearVault, handleLockVault, handleCreateIdentity, handleGetCredentials, handleGetDefaultEmailDomain, handleGetDefaultIdentitySettings, handleGetEncryptionKey, handleGetEncryptionKeyDerivationParams, handleGetPasswordSettings, handleGetPersistedFormValues, handleGetVault, handlePersistFormValues, handleStoreEncryptionKey, handleStoreEncryptionKeyDerivationParams, handleStoreVault, handleSyncVault, handleUploadVault, handleGetOfflineMode, handleSetOfflineMode, handleGetEncryptedVault, handleStoreEncryptedVault, handleGetHasPendingSync, handleSetHasPendingSync } from '@/entrypoints/background/VaultMessageHandler';
+import { handleCheckAuthStatus, handleClearPersistedFormValues, handleClearVault, handleLockVault, handleCreateIdentity, handleGetCredentials, handleGetDefaultEmailDomain, handleGetDefaultIdentitySettings, handleGetEncryptionKey, handleGetEncryptionKeyDerivationParams, handleGetPasswordSettings, handleGetPersistedFormValues, handleGetVault, handlePersistFormValues, handleStoreEncryptionKey, handleStoreEncryptionKeyDerivationParams, handleStoreVaultMetadata, handleSyncVault, handleUploadVault, handleGetOfflineMode, handleSetOfflineMode, handleGetEncryptedVault, handleStoreEncryptedVault, handleGetHasPendingSync, handleSetHasPendingSync } from '@/entrypoints/background/VaultMessageHandler';
 
 import { GLOBAL_CONTEXT_MENU_ENABLED_KEY } from '@/utils/Constants';
 import { EncryptionKeyDerivationParams } from "@/utils/dist/shared/models/metadata";
@@ -33,12 +33,17 @@ export default defineBackground({
     onMessage('GET_DEFAULT_IDENTITY_SETTINGS', () => handleGetDefaultIdentitySettings());
     onMessage('GET_PASSWORD_SETTINGS', () => handleGetPasswordSettings());
 
-    onMessage('STORE_VAULT', ({ data }) => handleStoreVault(data));
+    onMessage('STORE_VAULT_METADATA', ({ data }) => handleStoreVaultMetadata(data as { publicEmailDomainList?: string[]; privateEmailDomainList?: string[]; hiddenPrivateEmailDomainList?: string[] }));
     onMessage('STORE_ENCRYPTION_KEY', ({ data }) => handleStoreEncryptionKey(data as string));
     onMessage('STORE_ENCRYPTION_KEY_DERIVATION_PARAMS', ({ data }) => handleStoreEncryptionKeyDerivationParams(data as EncryptionKeyDerivationParams));
 
+    onMessage('GET_ENCRYPTED_VAULT', () => handleGetEncryptedVault());
+    onMessage('STORE_ENCRYPTED_VAULT', ({ data }) => handleStoreEncryptedVault(data as { vaultBlob: string; hasPendingSync: boolean; vaultRevisionNumber?: number }));
+    onMessage('GET_HAS_PENDING_SYNC', () => handleGetHasPendingSync());
+    onMessage('SET_HAS_PENDING_SYNC', ({ data }) => handleSetHasPendingSync(data as boolean));
+
     onMessage('CREATE_IDENTITY', ({ data }) => handleCreateIdentity(data));
-    onMessage('UPLOAD_VAULT', ({ data }) => handleUploadVault(data));
+    onMessage('UPLOAD_VAULT', () => handleUploadVault());
     onMessage('SYNC_VAULT', () => handleSyncVault());
     onMessage('LOCK_VAULT', () => handleLockVault());
     onMessage('CLEAR_VAULT', () => handleClearVault());
@@ -46,10 +51,6 @@ export default defineBackground({
     // Offline mode management messages
     onMessage('GET_OFFLINE_MODE', () => handleGetOfflineMode());
     onMessage('SET_OFFLINE_MODE', ({ data }) => handleSetOfflineMode(data as boolean));
-    onMessage('GET_ENCRYPTED_VAULT', () => handleGetEncryptedVault());
-    onMessage('STORE_ENCRYPTED_VAULT', ({ data }) => handleStoreEncryptedVault(data as { vaultBlob: string; hasPendingSync: boolean }));
-    onMessage('GET_HAS_PENDING_SYNC', () => handleGetHasPendingSync());
-    onMessage('SET_HAS_PENDING_SYNC', ({ data }) => handleSetHasPendingSync(data as boolean));
 
     onMessage('OPEN_POPUP', () => handleOpenPopup());
     onMessage('OPEN_POPUP_WITH_CREDENTIAL', ({ data }) => handlePopupWithCredential(data));

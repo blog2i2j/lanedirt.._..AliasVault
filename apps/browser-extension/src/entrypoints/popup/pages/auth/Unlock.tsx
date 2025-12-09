@@ -219,12 +219,6 @@ const Unlock: React.FC = () => {
         // Online mode: get encryption params from server for key derivation
         const loginResponse = await srpUtil.initiateLogin(authContext.username!);
 
-        console.debug('[UNLOCK DEBUG] Online mode - params from server:', {
-          salt: loginResponse.salt,
-          encryptionType: loginResponse.encryptionType,
-          encryptionSettings: loginResponse.encryptionSettings,
-        });
-
         // Derive key from password using user's encryption settings
         const credentials = await SrpAuthService.prepareCredentials(
           password,
@@ -233,8 +227,6 @@ const Unlock: React.FC = () => {
           loginResponse.encryptionSettings
         );
         passwordHashBase64 = credentials.passwordHashBase64;
-
-        console.debug('[UNLOCK DEBUG] Online mode - derived key (first 20 chars):', passwordHashBase64.substring(0, 20));
 
         // Store encryption params for future offline unlock
         await dbContext.storeEncryptionKeyDerivationParams({
@@ -246,22 +238,12 @@ const Unlock: React.FC = () => {
         // Offline mode: use stored encryption params to derive key
         const storedParams = await sendMessage('GET_ENCRYPTION_KEY_DERIVATION_PARAMS', {}, 'background') as EncryptionKeyDerivationParams | null;
 
-        console.debug('[UNLOCK DEBUG] Offline mode - stored params:', storedParams);
-        console.debug('[UNLOCK DEBUG] Offline mode - password length:', password.length);
-
         if (!storedParams) {
           // No stored params - can't unlock offline without having logged in before
           setError(t('common.errors.serverNotAvailable'));
           hideLoading();
           return;
         }
-
-        console.debug('[UNLOCK DEBUG] Calling prepareCredentials with:', {
-          passwordLength: password.length,
-          salt: storedParams.salt,
-          encryptionType: storedParams.encryptionType,
-          encryptionSettings: storedParams.encryptionSettings,
-        });
 
         // Derive key from password using stored encryption settings
         const credentials = await SrpAuthService.prepareCredentials(
@@ -272,34 +254,23 @@ const Unlock: React.FC = () => {
         );
         passwordHashBase64 = credentials.passwordHashBase64;
 
-        console.debug('[UNLOCK DEBUG] Offline mode - derived key (first 20 chars):', passwordHashBase64.substring(0, 20));
-
         // Set offline mode
         await dbContext.setIsOffline(true);
       }
 
       // Store the encryption key in session storage.
       await dbContext.storeEncryptionKey(passwordHashBase64);
-      console.debug('[UNLOCK DEBUG] Stored encryption key, attempting to get vault...');
 
-      /*
-       * Always unlock from local vault first.
-       * The /reinitialize page will call syncVault which handles:
-       * - Checking if server has newer version
-       * - Merging local changes with server if hasPendingSync is true
-       * - Overwriting local with server if no local changes
-       */
-      const vaultResponse = await sendMessage('GET_VAULT', {}, 'background') as { success: boolean; vault?: string; error?: string };
-
-      if (!vaultResponse.success || !vaultResponse.vault) {
+      // Load the stored vault from background (decrypts using stored encryption key)
+      const loaded = await dbContext.loadStoredDatabase();
+      if (!loaded) {
         // Decryption failed - likely wrong password
         setError(t('auth.errors.wrongPassword'));
         hideLoading();
         return;
       }
 
-      // Initialize SQLite client with the decrypted local vault
-      const sqliteClient = await dbContext.initializeDatabaseFromDecryptedVault(vaultResponse.vault);
+      const sqliteClient = dbContext.sqliteClient!;
 
       // Check if there are pending migrations
       if (await sqliteClient.hasPendingMigrations()) {
@@ -393,15 +364,13 @@ const Unlock: React.FC = () => {
        * - Merging local changes with server if hasPendingSync is true
        * - Overwriting local with server if no local changes
        */
-      const vaultResponse = await sendMessage('GET_VAULT', {}, 'background') as { success: boolean; vault?: string; error?: string };
-
-      if (!vaultResponse.success || !vaultResponse.vault) {
+      const loaded = await dbContext.loadStoredDatabase();
+      if (!loaded) {
         // Decryption failed - likely wrong PIN
         throw new IncorrectPinError(3);
       }
 
-      // Initialize SQLite client with the decrypted local vault
-      const sqliteClient = await dbContext.initializeDatabaseFromDecryptedVault(vaultResponse.vault);
+      const sqliteClient = dbContext.sqliteClient!;
 
       // Check if there are pending migrations
       if (await sqliteClient.hasPendingMigrations()) {
@@ -476,17 +445,15 @@ const Unlock: React.FC = () => {
        * - Merging local changes with server if hasPendingSync is true
        * - Overwriting local with server if no local changes
        */
-      const vaultResponse = await sendMessage('GET_VAULT', {}, 'background') as { success: boolean; vault?: string; error?: string };
-
-      if (!vaultResponse.success || !vaultResponse.vault) {
+      const loaded = await dbContext.loadStoredDatabase();
+      if (!loaded) {
         // Decryption failed
         setError(t('common.errors.unknownErrorTryAgain'));
         hideLoading();
         return;
       }
 
-      // Initialize SQLite client with the decrypted local vault
-      const sqliteClient = await dbContext.initializeDatabaseFromDecryptedVault(vaultResponse.vault);
+      const sqliteClient = dbContext.sqliteClient!;
 
       // Check if there are pending migrations
       if (await sqliteClient.hasPendingMigrations()) {

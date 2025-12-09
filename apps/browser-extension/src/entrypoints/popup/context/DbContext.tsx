@@ -2,10 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { sendMessage } from 'webext-bridge/popup';
 
 import type { EncryptionKeyDerivationParams, VaultMetadata } from '@/utils/dist/shared/models/metadata';
-import type { VaultResponse } from '@/utils/dist/shared/models/webapi';
-import EncryptionUtility from '@/utils/EncryptionUtility';
 import SqliteClient from '@/utils/SqliteClient';
-import { StoreVaultRequest } from '@/utils/types/messaging/StoreVaultRequest';
 import type { VaultResponse as messageVaultResponse } from '@/utils/types/messaging/VaultResponse';
 
 import { storage } from '#imports';
@@ -18,8 +15,15 @@ type DbContextType = {
   hasPendingSync: boolean;
   setIsOffline: (offline: boolean) => Promise<void>;
   setHasPendingSync: (hasPendingSync: boolean) => Promise<void>;
-  initializeDatabase: (vaultResponse: VaultResponse, derivedKey: string) => Promise<SqliteClient>;
-  initializeDatabaseFromDecryptedVault: (decryptedVaultBase64: string) => Promise<SqliteClient>;
+  /**
+   * Load a decrypted vault into memory (SQLite client).
+   */
+  loadDatabase: (decryptedVaultBase64: string) => Promise<SqliteClient>;
+  /**
+   * Load the stored (encrypted) vault from background storage into memory.
+   * Returns true if vault was loaded successfully, false otherwise.
+   */
+  loadStoredDatabase: () => Promise<boolean>;
   storeEncryptionKey: (derivedKey: string) => Promise<void>;
   storeEncryptionKeyDerivationParams: (params: EncryptionKeyDerivationParams) => Promise<void>;
   clearDatabase: () => void;
@@ -92,48 +96,10 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     loadSyncState();
   }, []);
 
-  const initializeDatabase = useCallback(async (vaultResponse: VaultResponse, derivedKey: string) => {
-    // Attempt to decrypt the blob.
-    const decryptedBlob = await EncryptionUtility.symmetricDecrypt(
-      vaultResponse.vault.blob,
-      derivedKey
-    );
-
-    // Initialize the SQLite client.
-    const client = new SqliteClient();
-    await client.initializeFromBase64(decryptedBlob);
-
-    setSqliteClient(client);
-    setDbInitialized(true);
-    setDbAvailable(true);
-
-    /**
-     * Store encrypted vault and metadata in background worker (persistent storage).
-     * Since we just fetched from server, hasPendingSync is false - vault is in sync.
-     */
-    const request: StoreVaultRequest = {
-      vaultBlob: vaultResponse.vault.blob,
-      publicEmailDomainList: vaultResponse.vault.publicEmailDomainList,
-      privateEmailDomainList: vaultResponse.vault.privateEmailDomainList,
-      hiddenPrivateEmailDomainList: vaultResponse.vault.hiddenPrivateEmailDomainList,
-      vaultRevisionNumber: vaultResponse.vault.currentRevisionNumber,
-      hasPendingSync: false, // Fresh from server, no pending changes
-    };
-
-    await sendMessage('STORE_VAULT', request, 'background');
-
-    // Update local state to reflect sync status
-    setHasPendingSyncState(false);
-
-    return client;
-  }, []);
-
   /**
-   * Initialize the database from an already-decrypted vault (for offline mode).
-   * This is used when we have the decryption key but the server is unavailable.
+   * Load a decrypted vault into memory (SQLite client).
    */
-  const initializeDatabaseFromDecryptedVault = useCallback(async (decryptedVaultBase64: string) => {
-    // Initialize the SQLite client.
+  const loadDatabase = useCallback(async (decryptedVaultBase64: string) => {
     const client = new SqliteClient();
     await client.initializeFromBase64(decryptedVaultBase64);
 
@@ -144,7 +110,11 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     return client;
   }, []);
 
-  const checkStoredVault = useCallback(async () => {
+  /**
+   * Load the stored (encrypted) vault from background storage into memory.
+   * Returns true if vault was loaded successfully, false otherwise.
+   */
+  const loadStoredDatabase = useCallback(async (): Promise<boolean> => {
     try {
       const response = await sendMessage('GET_VAULT', {}, 'background') as messageVaultResponse;
       if (response?.vault) {
@@ -154,15 +124,17 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         setSqliteClient(client);
         setDbInitialized(true);
         setDbAvailable(true);
-        // Metadata is already stored in session storage by background worker
+        return true;
       } else {
         setDbInitialized(true);
         setDbAvailable(false);
+        return false;
       }
     } catch (error) {
       console.error('Error retrieving vault from background:', error);
       setDbInitialized(true);
       setDbAvailable(false);
+      return false;
     }
   }, []);
 
@@ -210,13 +182,13 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   }, [sqliteClient]);
 
   /**
-   * Check if database is initialized and try to retrieve vault from background
+   * Check if database is initialized and try to retrieve and init stored vault
    */
   useEffect(() : void => {
     if (!dbInitialized) {
-      checkStoredVault();
+      loadStoredDatabase();
     }
-  }, [dbInitialized, checkStoredVault]);
+  }, [dbInitialized, loadStoredDatabase]);
 
   /**
    * Store encryption key in background worker.
@@ -250,15 +222,15 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     hasPendingSync,
     setIsOffline,
     setHasPendingSync,
-    initializeDatabase,
-    initializeDatabaseFromDecryptedVault,
+    loadDatabase,
+    loadStoredDatabase,
     storeEncryptionKey,
     storeEncryptionKeyDerivationParams,
     clearDatabase,
     getVaultMetadata,
     setCurrentVaultRevisionNumber,
     hasPendingMigrations,
-  }), [sqliteClient, dbInitialized, dbAvailable, isOffline, hasPendingSync, setIsOffline, setHasPendingSync, initializeDatabase, initializeDatabaseFromDecryptedVault, storeEncryptionKey, storeEncryptionKeyDerivationParams, clearDatabase, getVaultMetadata, setCurrentVaultRevisionNumber, hasPendingMigrations]);
+  }), [sqliteClient, dbInitialized, dbAvailable, isOffline, hasPendingSync, setIsOffline, setHasPendingSync, loadDatabase, loadStoredDatabase, storeEncryptionKey, storeEncryptionKeyDerivationParams, clearDatabase, getVaultMetadata, setCurrentVaultRevisionNumber, hasPendingMigrations]);
 
   return (
     <DbContext.Provider value={contextValue}>

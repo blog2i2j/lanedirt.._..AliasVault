@@ -26,8 +26,8 @@ export default defineConfig({
   // Retry failed tests (more retries on CI)
   retries: process.env.CI ? 2 : 0,
 
-  // Use single worker to ensure sequential execution
-  workers: 1,
+  // Amount of parallel tests to run
+  workers: 4,
 
   // Reporter configuration
   reporter: [

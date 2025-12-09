@@ -2,19 +2,19 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
-import ItemCard from '@/entrypoints/popup/components/Items/ItemCard';
-import FolderCard from '@/entrypoints/popup/components/Items/FolderCard';
 import FolderModal from '@/entrypoints/popup/components/Folders/FolderModal';
 import HeaderButton from '@/entrypoints/popup/components/HeaderButton';
 import { HeaderIconType } from '@/entrypoints/popup/components/Icons/HeaderIcons';
+import FolderCard from '@/entrypoints/popup/components/Items/FolderCard';
+import ItemCard from '@/entrypoints/popup/components/Items/ItemCard';
 import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
 import ReloadButton from '@/entrypoints/popup/components/ReloadButton';
 import { useApp } from '@/entrypoints/popup/context/AppContext';
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useHeaderButtons } from '@/entrypoints/popup/context/HeaderButtonsContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
-import { useVaultSync } from '@/entrypoints/popup/hooks/useVaultSync';
 import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
+import { useVaultSync } from '@/entrypoints/popup/hooks/useVaultSync';
 import { PopoutUtility } from '@/entrypoints/popup/utils/PopoutUtility';
 
 import type { Item } from '@/utils/dist/shared/models/vault';
