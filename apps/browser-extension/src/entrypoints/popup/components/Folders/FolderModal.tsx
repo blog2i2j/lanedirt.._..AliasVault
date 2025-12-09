@@ -31,7 +31,10 @@ const FolderModal: React.FC<FolderModalProps> = ({
     }
   }, [isOpen, initialName]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  /**
+   * Handle the form submission.
+   */
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
 
     const trimmedName = folderName.trim();
@@ -54,7 +57,10 @@ const FolderModal: React.FC<FolderModalProps> = ({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  /**
+   * Handle the escape key press.
+   */
+  const handleKeyDown = (e: React.KeyboardEvent): void => {
     if (e.key === 'Escape') {
       onClose();
     }

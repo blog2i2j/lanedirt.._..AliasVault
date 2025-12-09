@@ -2,8 +2,8 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import type { Item } from '@/utils/dist/shared/models/vault';
-import SqliteClient from '@/utils/SqliteClient';
 import { FieldKey } from '@/utils/dist/shared/models/vault';
+import SqliteClient from '@/utils/SqliteClient';
 
 type ItemCardProps = {
   item: Item;

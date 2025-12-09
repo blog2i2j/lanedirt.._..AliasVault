@@ -22,11 +22,11 @@ import CredentialsList from '@/entrypoints/popup/pages/credentials/CredentialsLi
 import ItemAddEdit from '@/entrypoints/popup/pages/credentials/ItemAddEdit';
 import ItemDetails from '@/entrypoints/popup/pages/credentials/ItemDetails';
 import ItemTypeSelector from '@/entrypoints/popup/pages/credentials/ItemTypeSelector';
-import ItemsList from '@/entrypoints/popup/pages/items/ItemsList';
-import RecentlyDeleted from '@/entrypoints/popup/pages/items/RecentlyDeleted';
 import EmailDetails from '@/entrypoints/popup/pages/emails/EmailDetails';
 import EmailsList from '@/entrypoints/popup/pages/emails/EmailsList';
 import Index from '@/entrypoints/popup/pages/Index';
+import ItemsList from '@/entrypoints/popup/pages/items/ItemsList';
+import RecentlyDeleted from '@/entrypoints/popup/pages/items/RecentlyDeleted';
 import PasskeyAuthenticate from '@/entrypoints/popup/pages/passkeys/PasskeyAuthenticate';
 import PasskeyCreate from '@/entrypoints/popup/pages/passkeys/PasskeyCreate';
 import Reinitialize from '@/entrypoints/popup/pages/Reinitialize';

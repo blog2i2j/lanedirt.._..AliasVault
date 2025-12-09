@@ -20,19 +20,28 @@ const EditableFieldLabel: React.FC<EditableFieldLabelProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(label);
 
-  const handleSave = () => {
+  /**
+   * Handle the save action.
+   */
+  const handleSave = (): void => {
     if (editValue.trim()) {
       onLabelChange(editValue.trim());
       setIsEditing(false);
     }
   };
 
-  const handleCancel = () => {
+  /**
+   * Handle the cancel action.
+   */
+  const handleCancel = (): void => {
     setEditValue(label);
     setIsEditing(false);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  /**
+   * Handle the key down event.
+   */
+  const handleKeyDown = (e: React.KeyboardEvent): void => {
     if (e.key === 'Enter') {
       handleSave();
     } else if (e.key === 'Escape') {

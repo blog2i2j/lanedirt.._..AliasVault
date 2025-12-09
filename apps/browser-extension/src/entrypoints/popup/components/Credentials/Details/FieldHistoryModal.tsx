@@ -59,6 +59,9 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
     return null;
   }
 
+  /**
+   * Toggle the visibility of a field value in the history modal.
+   */
   const toggleValueVisibility = (historyId: string): void => {
     setVisibleValues(prev => {
       const newSet = new Set(prev);
@@ -71,6 +74,9 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
     });
   };
 
+  /**
+   * Copy a field value to the clipboard.
+   */
   const copyToClipboard = async (value: string): Promise<void> => {
     try {
       await navigator.clipboard.writeText(value);
@@ -79,6 +85,9 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
     }
   };
 
+  /**
+   * Format a date string to a human readable format.
+   */
   const formatDate = (dateString: string): string => {
     try {
       const date = new Date(dateString);
@@ -94,6 +103,9 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
     }
   };
 
+  /**
+   * Parse a value snapshot into an array of values.
+   */
   const parseValueSnapshot = (snapshot: string): string[] => {
     try {
       return JSON.parse(snapshot);
@@ -141,8 +153,10 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
               <div className="space-y-3">
                 {history.map((record) => {
                   const values = parseValueSnapshot(record.ValueSnapshot);
-                  // For hidden fields, check if this record is explicitly set to visible
-                  // For non-hidden fields, always show values (no toggle needed)
+                  /**
+                   * For hidden fields, check if this record is explicitly set to visible
+                   * For non-hidden fields, always show values (no toggle needed)
+                   */
                   const isVisible = shouldMaskByDefault ? visibleValues.has(record.Id) : true;
 
                   return (
