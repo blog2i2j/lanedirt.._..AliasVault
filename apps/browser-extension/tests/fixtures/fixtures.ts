@@ -207,8 +207,8 @@ export async function configureApiUrl(popup: Page, apiUrl: string): Promise<void
   // Go back to main page
   await popup.click('button#back');
 
-  // Wait a moment for the settings to be saved
-  await popup.waitForTimeout(200);
+  // Wait for the login form to be visible (indicates settings were saved and we're back)
+  await popup.waitForSelector('input[type="text"], input[type="password"]', { state: 'visible' });
 }
 
 /**

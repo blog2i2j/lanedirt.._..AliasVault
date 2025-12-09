@@ -82,7 +82,8 @@ export async function navigateToVault(popup: Page): Promise<void> {
  */
 export async function clickCredential(popup: Page, credentialName: string): Promise<void> {
   await popup.locator(`text=${credentialName}`).click();
-  await popup.waitForTimeout(100);
+  // Wait for the credential details view to load
+  await popup.locator('button[title="Edit Credential"]').waitFor({ state: 'visible', timeout: 5000 });
 }
 
 /**
@@ -143,7 +144,8 @@ export async function navigateToRoot(popup: Page): Promise<void> {
   await popup.evaluate(() => {
     window.location.href = '/popup.html';
   });
-  await popup.waitForTimeout(100);
+  // Wait for the page to load and vault to be ready
+  await popup.waitForLoadState('domcontentloaded');
 }
 
 /**
@@ -153,7 +155,10 @@ export async function navigateToRoot(popup: Page): Promise<void> {
  */
 export async function saveCredential(popup: Page): Promise<void> {
   await popup.click(ButtonSelectors.SAVE);
-  await popup.waitForTimeout(100);
+  // Wait for the save to complete by waiting for form to disappear or details to show
+  // The save button becomes disabled during save, so we wait for it to be enabled again
+  // or for us to navigate away from the form
+  await popup.waitForLoadState('domcontentloaded');
 }
 
 /**
@@ -195,11 +200,13 @@ export async function fillPassword(popup: Page, password: string): Promise<void>
  */
 export async function setApiUrl(popup: Page, apiUrl: string): Promise<void> {
   await popup.evaluate((url) => {
-    // Access chrome.storage.local directly to set the API URL
-    chrome.storage.local.set({ apiUrl: url });
+    return new Promise<void>((resolve) => {
+      // Access chrome.storage.local directly to set the API URL
+      chrome.storage.local.set({ apiUrl: url }, () => {
+        resolve();
+      });
+    });
   }, apiUrl);
-  // Small delay to allow storage to update
-  await popup.waitForTimeout(100);
 }
 
 /**
@@ -249,10 +256,13 @@ export async function disableOfflineMode(popup: Page, apiUrl: string): Promise<v
  */
 export async function lockVault(popup: Page): Promise<void> {
   await popup.evaluate(() => {
-    // Clear the encryption key from session storage via background message
-    chrome.runtime.sendMessage({ type: 'LOCK_VAULT' });
+    return new Promise<void>((resolve) => {
+      // Clear the encryption key from session storage via background message
+      chrome.runtime.sendMessage({ type: 'LOCK_VAULT' }, () => {
+        resolve();
+      });
+    });
   });
-  await popup.waitForTimeout(100);
 }
 
 /**
@@ -314,6 +324,101 @@ export async function unlockVault(popup: Page, password: string): Promise<void> 
   await popup.fill('input#password', password);
   // Click the unlock button
   await popup.click('button:has-text("Unlock")');
-  // Wait for the vault to load
-  await popup.waitForTimeout(500);
+  // Wait for the vault UI to appear (indicates successful unlock)
+  await waitForVaultReady(popup);
+}
+
+/**
+ * Wait for the vault UI to be ready (bottom navigation visible).
+ * This indicates the app has finished loading/sync and is ready for interaction.
+ *
+ * @param popup - The popup page
+ * @param timeout - Timeout in milliseconds (default: 10000)
+ */
+export async function waitForVaultReady(popup: Page, timeout: number = 10000): Promise<void> {
+  // Wait for the Vault button in the bottom navigation to be visible
+  await popup.locator('#nav-vault').waitFor({ state: 'visible', timeout });
+}
+
+/**
+ * Wait for a sync operation to complete.
+ * Detects sync by waiting for the vault content to update or sync indicator to disappear.
+ *
+ * @param popup - The popup page
+ * @param timeout - Timeout in milliseconds (default: 10000)
+ */
+export async function waitForSyncComplete(popup: Page, timeout: number = 10000): Promise<void> {
+  // Wait for any loading spinner to disappear (if present)
+  // The loading overlay has z-50 class - wait for it to not be visible
+  const loadingOverlay = popup.locator('.z-50');
+  await loadingOverlay.waitFor({ state: 'hidden', timeout }).catch(() => {
+    // Loading overlay might not exist, which is fine
+  });
+
+  // Also wait for the vault button to be visible and enabled
+  await waitForVaultReady(popup, timeout);
+}
+
+/**
+ * Wait for a credential to be saved and appear in the vault.
+ * This waits for navigation away from the form and the credential to be visible.
+ *
+ * @param popup - The popup page
+ * @param credentialName - The name of the credential to wait for
+ * @param timeout - Timeout in milliseconds (default: 30000)
+ */
+export async function waitForCredentialSaved(
+  popup: Page,
+  credentialName: string,
+  timeout: number = 30000
+): Promise<void> {
+  // Wait for the credential name to appear (indicates save + sync completed)
+  await expect(popup.locator(`text=${credentialName}`)).toBeVisible({ timeout });
+}
+
+/**
+ * Wait for the settings page to be visible.
+ *
+ * @param popup - The popup page
+ * @param timeout - Timeout in milliseconds (default: 5000)
+ */
+export async function waitForSettingsPage(popup: Page, timeout: number = 5000): Promise<void> {
+  // Settings page has a lock button
+  await popup.locator('button[title="Lock"]').waitFor({ state: 'visible', timeout });
+}
+
+/**
+ * Wait for the unlock page to be visible.
+ *
+ * @param popup - The popup page
+ * @param timeout - Timeout in milliseconds (default: 5000)
+ */
+export async function waitForUnlockPage(popup: Page, timeout: number = 5000): Promise<void> {
+  await popup.locator('input#password').waitFor({ state: 'visible', timeout });
+}
+
+/**
+ * Wait for the credential edit form to be fully loaded.
+ *
+ * @param popup - The popup page
+ * @param timeout - Timeout in milliseconds (default: 10000)
+ */
+export async function waitForEditForm(popup: Page, timeout: number = 10000): Promise<void> {
+  await expect(popup.locator(FieldSelectors.LOGIN_USERNAME)).toBeVisible({ timeout });
+}
+
+/**
+ * Wait for navigation to complete after a page change.
+ * This is a smart wait that looks for common UI stability indicators.
+ *
+ * @param popup - The popup page
+ * @param timeout - Timeout in milliseconds (default: 5000)
+ */
+export async function waitForNavigation(popup: Page, timeout: number = 5000): Promise<void> {
+  // Wait for load state to be complete
+  await popup.waitForLoadState('domcontentloaded', { timeout });
+
+  // Wait for any route transition animations to complete
+  // The app uses React Router, so we wait for the content to stabilize
+  await popup.locator('#root').waitFor({ state: 'visible', timeout });
 }

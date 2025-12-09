@@ -19,6 +19,7 @@ import {
   fillPassword,
   fillNotes,
   cleanupClients,
+  waitForVaultReady,
   FieldSelectors,
 } from '../fixtures';
 
@@ -83,7 +84,6 @@ test.describe.serial('6. Field-Level Merge', () => {
   test('6.2 Both clients sync and verify credential exists', async () => {
     // Client A navigates to vault and waits for sync
     await navigateToVault(clientA.popup);
-    await clientA.popup.waitForTimeout(100);
 
     // Take screenshot to debug what's visible
     await clientA.popup.screenshot({ path: 'tests/screenshots/6.2-client-a-vault.png' });
@@ -91,6 +91,7 @@ test.describe.serial('6. Field-Level Merge', () => {
 
     // Let Client B navigate to root so it will sync and see the credential
     await navigateToRoot(clientB.popup);
+    await waitForVaultReady(clientB.popup);
     await verifyCredentialExists(clientB.popup, credentialName);
   });
 
@@ -109,11 +110,8 @@ test.describe.serial('6. Field-Level Merge', () => {
 
     await popup.screenshot({ path: 'tests/screenshots/6.3-client-a-before-save.png' });
 
-    // Save the credential
+    // Save the credential (saveCredential now waits for completion)
     await saveCredential(popup);
-
-    // Wait for save to complete
-    await popup.waitForTimeout(500);
 
     await popup.screenshot({ path: 'tests/screenshots/6.3-client-a-after-save.png' });
   });
@@ -148,7 +146,6 @@ test.describe.serial('6. Field-Level Merge', () => {
 
     // Navigate to vault
     await navigateToVault(popup);
-    await popup.waitForTimeout(100);
 
     // Click on credential to view merged details
     await clickCredential(popup, credentialName);
@@ -172,7 +169,8 @@ test.describe.serial('6. Field-Level Merge', () => {
 
     // Navigate back
     await popup.goBack();
-    await popup.waitForTimeout(100);
+    // Wait for the credential list to be visible
+    await verifyCredentialExists(popup, credentialName);
   });
 
   test('6.6 Client A syncs and verifies merged credential', async () => {

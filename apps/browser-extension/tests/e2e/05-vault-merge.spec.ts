@@ -12,8 +12,10 @@ import {
   verifyCredentialExists,
   verifyVaultItemCount,
   cleanupClients,
+  waitForVaultReady,
   FieldSelectors,
   ButtonSelectors,
+  waitForCredentialSaved,
 } from '../fixtures';
 
 /**
@@ -112,11 +114,8 @@ test.describe.serial('5. Vault Merge', () => {
     // Click Save button
     await popup.click(ButtonSelectors.SAVE);
 
-    // Wait for either:
-    // 1. Navigation to item details page (success)
-    // 2. Navigation back to vault list (merge happened, redirected)
-    // 3. Stay on form with error (sync conflict)
-    await popup.waitForTimeout(100);
+    // Wait for vault to be ready after save/merge
+    await waitForCredentialSaved(popup, credentialNameB);
 
     // Take a screenshot to see current state
     await popup.screenshot({ path: 'tests/screenshots/5.3-client-b-after-save.png' });
@@ -127,9 +126,6 @@ test.describe.serial('5. Vault Merge', () => {
 
     // Navigate back to the Vault tab
     await navigateToVault(popup);
-
-    // Wait for the credentials list to load
-    await popup.waitForTimeout(100);
 
     // Take a screenshot first to see what's there
     await popup.screenshot({ path: 'tests/screenshots/5.4-client-b-vault-state.png' });
@@ -157,14 +153,11 @@ test.describe.serial('5. Vault Merge', () => {
     // Navigate to the Vault tab (this should trigger a sync/refresh)
     await navigateToVault(popup);
 
-    // Wait a moment for sync to complete
-    await popup.waitForTimeout(2000);
+    // Wait for Client A's original credential to be visible (indicates vault is ready)
+    await verifyCredentialExists(popup, credentialNameA);
 
     // Take a screenshot first to see what's there
     await popup.screenshot({ path: 'tests/screenshots/5.5-client-a-vault-state.png' });
-
-    // Verify Client A's original credential exists
-    await verifyCredentialExists(popup, credentialNameA);
 
     // Check if Client B's credential also synced
     const clientBCredential = popup.locator(`text=${credentialNameB}`);

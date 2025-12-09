@@ -9,6 +9,7 @@ import {
   navigateToVault,
   navigateToAddCredentialForm,
   verifyCredentialExists,
+  waitForVaultReady,
   FieldSelectors,
   ButtonSelectors,
 } from '../fixtures';
@@ -87,8 +88,8 @@ test.describe.serial('4. Create Credential', () => {
     // Navigate back to the Vault tab
     await navigateToVault(popup);
 
-    // Wait for credentials list to load
-    await popup.waitForTimeout(500);
+    // Wait for vault to be ready
+    await waitForVaultReady(popup);
 
     // Verify our created credential appears in the list
     await verifyCredentialExists(popup, testCredentialName);

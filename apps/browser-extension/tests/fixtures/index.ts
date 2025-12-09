@@ -44,6 +44,14 @@ export {
   waitForOfflineIndicator,
   isOfflineIndicatorVisible,
   unlockVault,
+  // Smart waiting helpers
+  waitForVaultReady,
+  waitForSyncComplete,
+  waitForCredentialSaved,
+  waitForSettingsPage,
+  waitForUnlockPage,
+  waitForEditForm,
+  waitForNavigation,
 } from './helpers';
 
 // Field selectors and constants
