@@ -1,29 +1,3 @@
-import {
-  test,
-  expect,
-  openPopup,
-  fullLoginFlow,
-  waitForLoggedIn,
-  createFreshContext,
-  type ClientState,
-  navigateToAddCredentialForm,
-  fillAndSaveCredential,
-  navigateToVault,
-  navigateToRoot,
-  verifyCredentialExists,
-  verifyVaultItemCount,
-  cleanupClients,
-  enableOfflineMode,
-  disableOfflineMode,
-  waitForOfflineIndicator,
-  waitForSettingsPage,
-  waitForUnlockPage,
-  waitForVaultReady,
-  waitForCredentialSaved,
-  FieldSelectors,
-  ButtonSelectors,
-} from '../fixtures';
-
 /**
  * Category 7: Offline Sync (Requires API + Multi-Client Scenario)
  *
@@ -40,202 +14,108 @@ import {
  * 8. Client B navigates to root to trigger sync (should merge local changes with server)
  * 9. Client A syncs and verifies both credentials are present
  */
+import { test, expect, TestClient, FieldSelectors } from '../fixtures';
+
 test.describe.serial('7. Offline Sync', () => {
-  let clientA: ClientState;
-  let clientB: ClientState;
-  let originalApiUrl: string | null = null;
+  let clientA: TestClient;
+  let clientB: TestClient;
+  let originalApiUrl: string;
   let sharedTestUser: { username: string; password: string };
 
   const credentialNameA = `Online Client A ${Date.now()}`;
   const credentialNameB = `Offline Client B ${Date.now() + 1}`;
 
   test.afterAll(async () => {
-    await cleanupClients(clientA, clientB);
+    await TestClient.cleanupAll(clientA, clientB);
   });
 
   test('7.1 Setup: Both clients login to the same account', async ({ testUser, apiUrl }) => {
-    // Store the testUser for use in later tests (fixture creates new user each time)
     sharedTestUser = { username: testUser.username, password: testUser.password };
-
-    // Create Client A (will stay online)
-    const contextA = await createFreshContext();
-    const popupA = await openPopup(contextA.context, contextA.extensionId);
-    await fullLoginFlow(popupA, apiUrl, sharedTestUser.username, sharedTestUser.password);
-    await waitForLoggedIn(popupA);
-    clientA = { ...contextA, popup: popupA };
-
-    // Create Client B (will go offline later)
-    const contextB = await createFreshContext();
-    const popupB = await openPopup(contextB.context, contextB.extensionId);
-    await fullLoginFlow(popupB, apiUrl, sharedTestUser.username, sharedTestUser.password);
-    await waitForLoggedIn(popupB);
-    clientB = { ...contextB, popup: popupB };
-
-    // Store the original API URL for later restoration
     originalApiUrl = apiUrl;
 
-    await clientA.popup.screenshot({ path: 'tests/screenshots/7.1-client-a-logged-in.png' });
-    await clientB.popup.screenshot({ path: 'tests/screenshots/7.1-client-b-logged-in.png' });
+    clientA = await TestClient.create();
+    await clientA.login(apiUrl, testUser.username, testUser.password);
+
+    clientB = await TestClient.create();
+    await clientB.login(apiUrl, testUser.username, testUser.password);
+
+    await clientA.screenshot('7.1-client-a-logged-in.png');
+    await clientB.screenshot('7.1-client-b-logged-in.png');
   });
 
   test('7.2 Client A creates a credential while online', async () => {
-    // Client A creates a credential (online, syncs immediately)
-    await navigateToVault(clientA.popup);
-    await navigateToAddCredentialForm(clientA.popup);
-    await fillAndSaveCredential(
-      clientA.popup,
-      credentialNameA,
-      'clientA@example.com',
-      'ClientAPassword123!'
-    );
-
-    // Verify credential was saved
-    await navigateToVault(clientA.popup);
-    await verifyCredentialExists(clientA.popup, credentialNameA);
-
-    await clientA.popup.screenshot({ path: 'tests/screenshots/7.2-client-a-credential-created.png' });
+    await clientA
+      .goToVault()
+      .then((c) => c.createCredential(credentialNameA, 'clientA@example.com', 'ClientAPassword123!'))
+      .then((c) => c.goToVault())
+      .then((c) => c.verifyCredentialExists(credentialNameA))
+      .then((c) => c.screenshot('7.2-client-a-credential-created.png'));
   });
 
   test('7.3 Client B goes offline', async () => {
-    const popup = clientB.popup;
-
-    // Put Client B into offline mode by setting an invalid API URL
-    await enableOfflineMode(popup);
-
-    // Navigate to root to trigger the offline detection
-    await navigateToRoot(popup);
-
-    // The offline indicator should be visible (this is the smart wait)
-    await waitForOfflineIndicator(popup, 10000);
-
-    // Take a screenshot to see the offline state
-    await popup.screenshot({ path: 'tests/screenshots/7.3-client-b-offline-mode.png' });
+    await clientB
+      .enableOfflineMode()
+      .then((c) => c.triggerSync())
+      .then((c) => c.waitForOffline())
+      .then((c) => c.screenshot('7.3-client-b-offline-mode.png'));
   });
 
   test('7.4 Client B creates a credential while offline', async () => {
-    const popup = clientB.popup;
+    await clientB.goToVault();
+    await clientB.popup.locator('[title="Add new item"]').click();
+    await expect(clientB.popup.locator('input#itemName')).toBeVisible();
+    await clientB.popup.fill('input#itemName', credentialNameB);
+    await clientB.popup.click('button:has-text("Next")');
+    await expect(clientB.popup.locator(FieldSelectors.LOGIN_USERNAME)).toBeVisible({ timeout: 10000 });
+    await clientB.popup.fill(FieldSelectors.LOGIN_USERNAME, 'clientB@example.com');
+    await clientB.popup.fill(FieldSelectors.LOGIN_PASSWORD, 'ClientBPassword456!');
+    await clientB.popup.click('button:has-text("Save")');
 
-    // Navigate to vault and create a credential while offline
-    await navigateToVault(popup);
-    await navigateToAddCredentialForm(popup);
+    await clientB
+      .verifyCredentialExists(credentialNameB)
+      .then((c) => c.screenshot('7.4-client-b-offline-credential-saved.png'));
 
-    // Fill and save the credential
-    // Note: In offline mode, this should be saved locally with hasPendingSync=true
-    await popup.fill(FieldSelectors.ITEM_NAME, credentialNameB);
-    await popup.click(ButtonSelectors.NEXT);
-    await expect(popup.locator(FieldSelectors.LOGIN_USERNAME)).toBeVisible({ timeout: 10000 });
-    await popup.fill(FieldSelectors.LOGIN_USERNAME, 'clientB@example.com');
-    await popup.fill(FieldSelectors.LOGIN_PASSWORD, 'ClientBPassword456!');
-    await popup.click(ButtonSelectors.SAVE);
-
-    // Wait for save to complete by waiting for credential to appear
-    await waitForCredentialSaved(popup, credentialNameB);
-
-    await popup.screenshot({ path: 'tests/screenshots/7.4-client-b-offline-credential-saved.png' });
-
-    // Navigate to vault to verify the credential exists locally
-    await navigateToVault(popup);
-    await verifyCredentialExists(popup, credentialNameB);
-
-    await popup.screenshot({ path: 'tests/screenshots/7.4-client-b-offline-credential-in-list.png' });
+    await clientB
+      .goToVault()
+      .then((c) => c.verifyCredentialExists(credentialNameB))
+      .then((c) => c.screenshot('7.4-client-b-offline-credential-in-list.png'));
   });
 
   test('7.5 Client B locks vault while offline', async () => {
-    const popup = clientB.popup;
-
-    // Navigate to Settings tab via bottom navigation
-    await popup.getByRole('button', { name: 'Settings' }).click();
-
-    // Wait for settings page to load
-    await waitForSettingsPage(popup);
-
-    await popup.screenshot({ path: 'tests/screenshots/7.5-client-b-settings-page.png' });
-
-    // Click the lock button (has title="Lock")
-    const lockButton = popup.locator('button[title="Lock"]');
-    await lockButton.click();
-
-    // Wait for unlock page to appear
-    await waitForUnlockPage(popup);
-
-    await popup.screenshot({ path: 'tests/screenshots/7.5-client-b-vault-locked.png' });
+    await clientB
+      .lockVault()
+      .then((c) => c.screenshot('7.5-client-b-vault-locked.png'));
   });
 
   test('7.6 Client B unlocks vault while still offline', async () => {
-    const popup = clientB.popup;
-
-    // Unlock the vault with the master password (use stored user from test 7.1)
-    // In offline mode, this should work using stored encryption params
-    await popup.fill('input#password', sharedTestUser.password);
-    await popup.click('button:has-text("Unlock")');
-
-    // Wait for vault UI to be ready after unlock
-    await waitForVaultReady(popup, 30000);
-
-    await popup.screenshot({ path: 'tests/screenshots/7.6-client-b-after-unlock.png' });
-
-    // After unlock, verify we can see our credential
-    // The extension should still be in offline mode
-    await navigateToVault(popup);
-    await verifyCredentialExists(popup, credentialNameB);
-
-    await popup.screenshot({ path: 'tests/screenshots/7.6-client-b-offline-vault-unlocked.png' });
+    await clientB
+      .unlockVault(sharedTestUser.password)
+      .then((c) => c.screenshot('7.6-client-b-after-unlock.png'))
+      .then((c) => c.goToVault())
+      .then((c) => c.verifyCredentialExists(credentialNameB))
+      .then((c) => c.screenshot('7.6-client-b-offline-vault-unlocked.png'));
   });
 
   test('7.7 Client B goes back online and triggers sync', async () => {
-    const popup = clientB.popup;
-
-    // Restore the valid API URL to go back online
-    if (originalApiUrl) {
-      await disableOfflineMode(popup, originalApiUrl);
-    }
-
-    // Navigate to root to trigger a sync
-    await navigateToRoot(popup);
-
-    // Wait for vault to be ready (sync happens automatically)
-    await waitForVaultReady(popup, 30000);
-
-    await popup.screenshot({ path: 'tests/screenshots/7.7-client-b-back-online.png' });
-
-    // After coming back online and syncing, Client B should have both credentials:
-    // - The credential it created offline (uploaded during sync)
-    // - The credential Client A created (downloaded during sync)
-    await navigateToVault(popup);
-
-    // Wait for both credentials to appear (indicates sync completed)
-    await verifyCredentialExists(popup, credentialNameB);
-    await verifyCredentialExists(popup, credentialNameA);
-
-    await popup.screenshot({ path: 'tests/screenshots/7.7-client-b-vault-after-sync.png' });
-
-    // Verify total item count is 2
-    await verifyVaultItemCount(popup, 2);
+    await clientB
+      .disableOfflineMode(originalApiUrl)
+      .then((c) => c.triggerSync())
+      .then((c) => c.screenshot('7.7-client-b-back-online.png'))
+      .then((c) => c.goToVault())
+      .then((c) => c.verifyCredentialExists(credentialNameB))
+      .then((c) => c.verifyCredentialExists(credentialNameA))
+      .then((c) => c.screenshot('7.7-client-b-vault-after-sync.png'))
+      .then((c) => c.verifyVaultItemCount(2));
   });
 
   test('7.8 Client A syncs and verifies both credentials are present', async () => {
-    const popup = clientA.popup;
-
-    // Navigate to root to trigger a sync
-    await navigateToRoot(popup);
-
-    // Wait for vault to be ready
-    await waitForVaultReady(popup, 30000);
-
-    // Verify both credentials exist
-    await navigateToVault(popup);
-
-    // Client A's original credential
-    await verifyCredentialExists(popup, credentialNameA);
-
-    // Client B's credential (created offline, then synced)
-    await verifyCredentialExists(popup, credentialNameB);
-
-    await popup.screenshot({ path: 'tests/screenshots/7.8-client-a-vault-after-sync.png' });
-
-    // Verify total item count is 2
-    await verifyVaultItemCount(popup, 2);
-
-    await popup.screenshot({ path: 'tests/screenshots/7.8-client-a-both-credentials.png' });
+    await clientA
+      .triggerSync()
+      .then((c) => c.goToVault())
+      .then((c) => c.verifyCredentialExists(credentialNameA))
+      .then((c) => c.verifyCredentialExists(credentialNameB))
+      .then((c) => c.screenshot('7.8-client-a-vault-after-sync.png'))
+      .then((c) => c.verifyVaultItemCount(2))
+      .then((c) => c.screenshot('7.8-client-a-both-credentials.png'));
   });
 });

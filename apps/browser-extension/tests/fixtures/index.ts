@@ -2,49 +2,23 @@
  * Test fixtures index.
  *
  * This module exports all Playwright test fixtures and helpers.
+ *
+ * Structure:
+ * - fixtures.ts: Core Playwright fixtures (test, expect, context management)
+ * - TestClient.ts: Fluent API class for writing cleaner tests (PRIMARY API)
+ * - waits.ts: Smart waiting helpers (condition-based waits)
+ * - helpers.ts: Utility functions for direct page access
+ * - selectors.ts: CSS selectors and field constants
  */
 
 // Core fixtures
-export {
-  test,
-  expect,
-  openPopup,
-  waitForPopupReady,
-  waitForLoggedIn,
-  configureApiUrl,
-  login,
-  fullLoginFlow,
-  closeCachedContext,
-  createFreshContext,
-} from './fixtures';
+export { test, expect, closeCachedContext } from './fixtures';
 
-// Shared helpers for credential operations and multi-client tests
+// TestClient - the primary API for writing tests
+export { TestClient } from './TestClient';
+
+// Smart waiting helpers
 export {
-  type ClientState,
-  navigateToAddCredentialForm,
-  fillAndSaveCredential,
-  navigateToVault,
-  clickCredential,
-  openCredentialEditForm,
-  verifyCredentialExists,
-  verifyVaultItemCount,
-  getFieldValue,
-  navigateToRoot,
-  saveCredential,
-  fillNotes,
-  fillUsername,
-  fillPassword,
-  setApiUrl,
-  getApiUrl,
-  enableOfflineMode,
-  disableOfflineMode,
-  lockVault,
-  cleanupClient,
-  cleanupClients,
-  waitForOfflineIndicator,
-  isOfflineIndicatorVisible,
-  unlockVault,
-  // Smart waiting helpers
   waitForVaultReady,
   waitForSyncComplete,
   waitForCredentialSaved,
@@ -52,6 +26,21 @@ export {
   waitForUnlockPage,
   waitForEditForm,
   waitForNavigation,
+  waitForOfflineIndicator,
+  waitForLoginForm,
+  waitForText,
+  waitFor,
+  waitForHidden,
+  isOfflineIndicatorVisible,
+  Timeouts,
+} from './waits';
+
+// Utility helpers for direct page access
+export {
+  getFieldValue,
+  getUsernameValue,
+  getPasswordValue,
+  getNotesValue,
 } from './helpers';
 
 // Field selectors and constants
