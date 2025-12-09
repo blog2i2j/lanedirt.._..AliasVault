@@ -21,9 +21,9 @@ type DbContextType = {
   loadDatabase: (decryptedVaultBase64: string) => Promise<SqliteClient>;
   /**
    * Load the stored (encrypted) vault from background storage into memory.
-   * Returns true if vault was loaded successfully, false otherwise.
+   * Returns the SqliteClient if vault was loaded successfully, null otherwise.
    */
-  loadStoredDatabase: () => Promise<boolean>;
+  loadStoredDatabase: () => Promise<SqliteClient | null>;
   storeEncryptionKey: (derivedKey: string) => Promise<void>;
   storeEncryptionKeyDerivationParams: (params: EncryptionKeyDerivationParams) => Promise<void>;
   clearDatabase: () => void;
@@ -112,9 +112,9 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
   /**
    * Load the stored (encrypted) vault from background storage into memory.
-   * Returns true if vault was loaded successfully, false otherwise.
+   * Returns the SqliteClient if vault was loaded successfully, null otherwise.
    */
-  const loadStoredDatabase = useCallback(async (): Promise<boolean> => {
+  const loadStoredDatabase = useCallback(async (): Promise<SqliteClient | null> => {
     try {
       const response = await sendMessage('GET_VAULT', {}, 'background') as messageVaultResponse;
       if (response?.vault) {
@@ -124,17 +124,17 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         setSqliteClient(client);
         setDbInitialized(true);
         setDbAvailable(true);
-        return true;
+        return client;
       } else {
         setDbInitialized(true);
         setDbAvailable(false);
-        return false;
+        return null;
       }
     } catch (error) {
       console.error('Error retrieving vault from background:', error);
       setDbInitialized(true);
       setDbAvailable(false);
-      return false;
+      return null;
     }
   }, []);
 

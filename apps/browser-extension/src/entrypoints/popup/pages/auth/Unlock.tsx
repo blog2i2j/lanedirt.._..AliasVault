@@ -262,15 +262,13 @@ const Unlock: React.FC = () => {
       await dbContext.storeEncryptionKey(passwordHashBase64);
 
       // Load the stored vault from background (decrypts using stored encryption key)
-      const loaded = await dbContext.loadStoredDatabase();
-      if (!loaded) {
+      const sqliteClient = await dbContext.loadStoredDatabase();
+      if (!sqliteClient) {
         // Decryption failed - likely wrong password
         setError(t('auth.errors.wrongPassword'));
         hideLoading();
         return;
       }
-
-      const sqliteClient = dbContext.sqliteClient!;
 
       // Check if there are pending migrations
       if (await sqliteClient.hasPendingMigrations()) {
@@ -364,13 +362,11 @@ const Unlock: React.FC = () => {
        * - Merging local changes with server if hasPendingSync is true
        * - Overwriting local with server if no local changes
        */
-      const loaded = await dbContext.loadStoredDatabase();
-      if (!loaded) {
+      const sqliteClient = await dbContext.loadStoredDatabase();
+      if (!sqliteClient) {
         // Decryption failed - likely wrong PIN
         throw new IncorrectPinError(3);
       }
-
-      const sqliteClient = dbContext.sqliteClient!;
 
       // Check if there are pending migrations
       if (await sqliteClient.hasPendingMigrations()) {
@@ -445,15 +441,13 @@ const Unlock: React.FC = () => {
        * - Merging local changes with server if hasPendingSync is true
        * - Overwriting local with server if no local changes
        */
-      const loaded = await dbContext.loadStoredDatabase();
-      if (!loaded) {
+      const sqliteClient = await dbContext.loadStoredDatabase();
+      if (!sqliteClient) {
         // Decryption failed
         setError(t('common.errors.unknownErrorTryAgain'));
         hideLoading();
         return;
       }
-
-      const sqliteClient = dbContext.sqliteClient!;
 
       // Check if there are pending migrations
       if (await sqliteClient.hasPendingMigrations()) {
