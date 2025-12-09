@@ -292,6 +292,9 @@
     "typeLabel": "Item Type",
     "creating": "Creating",
     "generateAlias": "Generate random alias",
+    "addAlias": "Add alias",
+    "addNotes": "Add notes",
+    "addCustomField": "Add custom field",
     "login": {
       "title": "Login",
       "description": "Username, password, and website credentials"
