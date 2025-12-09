@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import FolderModal from '@/entrypoints/popup/components/Folders/FolderModal';
 import HeaderButton from '@/entrypoints/popup/components/HeaderButton';
 import { HeaderIconType } from '@/entrypoints/popup/components/Icons/HeaderIcons';
-import FolderCard from '@/entrypoints/popup/components/Items/FolderCard';
+import FolderPill from '@/entrypoints/popup/components/Items/FolderPill';
 import ItemCard from '@/entrypoints/popup/components/Items/ItemCard';
 import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
 import ReloadButton from '@/entrypoints/popup/components/ReloadButton';
@@ -407,7 +407,7 @@ const ItemsList: React.FC = () => {
               <h2 className="flex items-baseline gap-1.5">
                 {getFilterTitle()}
                 <span className="text-sm text-gray-500 dark:text-gray-400">
-                  ({folders.length > 0 ? `${folders.length} ${t('items.folders')}, ` : ''}{filteredItems.length} {t('items.items')})
+                  ({filteredItems.length})
                 </span>
               </h2>
               <svg
@@ -554,52 +554,40 @@ const ItemsList: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* Folders section (only show at root level when not searching) */}
-          {!currentFolderId && !searchTerm && (
-            <div className="space-y-2 mb-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t('items.folders')}
-                </h3>
-                <button
-                  onClick={handleAddFolder}
-                  className="text-xs text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 focus:outline-none"
-                >
-                  + {t('items.newFolder')}
-                </button>
-              </div>
-              {folders.length > 0 && (
-                <ul className="space-y-2">
-                  {folders.map(folder => (
-                    <FolderCard
-                      key={folder.id}
-                      folder={folder}
-                      onClick={() => handleFolderClick(folder.id, folder.name)}
-                    />
-                  ))}
-                </ul>
-              )}
+          {/* Folders as inline pills (only show at root level when not searching) */}
+          {!currentFolderId && !searchTerm && folders.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              {folders.map(folder => (
+                <FolderPill
+                  key={folder.id}
+                  folder={folder}
+                  onClick={() => handleFolderClick(folder.id, folder.name)}
+                />
+              ))}
+              <button
+                onClick={handleAddFolder}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-full transition-colors focus:outline-none"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                {t('items.newFolder')}
+              </button>
             </div>
           )}
 
           {/* Items */}
           {filteredItems.length > 0 && (
-            <div className="space-y-2">
-              {folders.length > 0 && (
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t('items.items')}
-                </h3>
-              )}
-              <ul className="space-y-2">
-                {filteredItems.map(item => (
-                  <ItemCard
-                    key={item.Id}
-                    item={item}
-                    showFolderPath={!!searchTerm && !!item.FolderPath}
-                  />
-                ))}
-              </ul>
-            </div>
+            <ul className="space-y-2">
+              {filteredItems.map(item => (
+                <ItemCard
+                  key={item.Id}
+                  item={item}
+                  showFolderPath={!!searchTerm && !!item.FolderPath}
+                />
+              ))}
+            </ul>
           )}
 
           {/* Recently Deleted link (only show at root level when not searching) */}
