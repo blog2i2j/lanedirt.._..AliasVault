@@ -1,5 +1,3 @@
-import type { BrowserContext, Page } from '@playwright/test';
-
 import {
   test,
   expect,
@@ -7,57 +5,16 @@ import {
   fullLoginFlow,
   waitForLoggedIn,
   createFreshContext,
+  type ClientState,
+  navigateToAddCredentialForm,
+  fillAndSaveCredential,
+  navigateToVault,
+  verifyCredentialExists,
+  verifyVaultItemCount,
+  cleanupClients,
+  FieldSelectors,
+  ButtonSelectors,
 } from '../fixtures';
-
-/**
- * Helper to navigate to add credential form without syncing vault first.
- * This is useful for testing merge scenarios where we need stale data.
- *
- * @param popup - The popup page
- */
-async function navigateToAddCredentialForm(popup: Page): Promise<void> {
-  // Click the add button (assumes we're already on vault page or can click from anywhere)
-  const addButton = popup.locator('button[title="Add new item"]');
-  await expect(addButton).toBeVisible();
-  await addButton.click();
-
-  // Wait for the item type selector page
-  await expect(popup.locator('input#itemName')).toBeVisible();
-}
-
-/**
- * Helper to fill and save a credential form.
- *
- * @param popup - The popup page
- * @param name - The credential name
- * @param username - The username for the credential
- * @param password - The password for the credential
- */
-async function fillAndSaveCredential(
-  popup: Page,
-  name: string,
-  username: string,
-  password: string
-): Promise<void> {
-  // Enter the item name
-  await popup.fill('input#itemName', name);
-
-  // Click Continue/Next button
-  await popup.click('button:has-text("Next")');
-
-  // Wait for the add/edit form to load
-  await expect(popup.locator('input#login\\.username')).toBeVisible({ timeout: 10000 });
-
-  // Fill in credentials
-  await popup.fill('input#login\\.username', username);
-  await popup.fill('input#login\\.password', password);
-
-  // Click Save button
-  await popup.click('button:has-text("Save")');
-
-  // Wait for navigation to item details page (after save and sync)
-  await expect(popup.locator(`text=${name}`)).toBeVisible({ timeout: 30000 });
-}
 
 /**
  * Category 5: Vault Merge (Requires API + Multi-Client Scenario)
@@ -73,18 +30,14 @@ async function fillAndSaveCredential(
  * 6. Client A syncs and should also see both credentials
  */
 test.describe.serial('5. Vault Merge', () => {
-  let clientA: { context: BrowserContext; extensionId: string; popup: Page };
-  let clientB: { context: BrowserContext; extensionId: string; popup: Page };
+  let clientA: ClientState;
+  let clientB: ClientState;
 
   const credentialNameA = `Client A Credential ${Date.now()}`;
   const credentialNameB = `Client B Credential ${Date.now() + 1}`;
 
   test.afterAll(async () => {
-    // Clean up both browser contexts
-    await clientA?.popup?.close();
-    await clientA?.context?.close();
-    await clientB?.popup?.close();
-    await clientB?.context?.close();
+    await cleanupClients(clientA, clientB);
   });
 
   test('5.1 should setup two clients and navigate both to add credential form', async ({ testUser, apiUrl }) => {
@@ -104,10 +57,10 @@ test.describe.serial('5. Vault Merge', () => {
 
     // Navigate BOTH clients to the add credential form NOW, before either makes changes.
     // This ensures both have the same vault revision (empty vault, revision 1).
-    await clientA.popup.getByRole('button', { name: 'Vault' }).click();
+    await navigateToVault(clientA.popup);
     await navigateToAddCredentialForm(clientA.popup);
 
-    await clientB.popup.getByRole('button', { name: 'Vault' }).click();
+    await navigateToVault(clientB.popup);
     await navigateToAddCredentialForm(clientB.popup);
 
     // Take screenshots of both clients on the add form
@@ -129,8 +82,8 @@ test.describe.serial('5. Vault Merge', () => {
     await clientA.popup.screenshot({ path: 'tests/screenshots/5.2-client-a-credential-saved.png' });
 
     // Navigate back to vault list to verify
-    await clientA.popup.getByRole('button', { name: 'Vault' }).click();
-    await expect(clientA.popup.locator(`text=${credentialNameA}`)).toBeVisible({ timeout: 10000 });
+    await navigateToVault(clientA.popup);
+    await verifyCredentialExists(clientA.popup, credentialNameA);
 
     // Take screenshot of Client A's vault (now has 1 credential, revision 2)
     await clientA.popup.screenshot({ path: 'tests/screenshots/5.2-client-a-vault.png' });
@@ -144,20 +97,20 @@ test.describe.serial('5. Vault Merge', () => {
     const popup = clientB.popup;
 
     // Enter the item name
-    await popup.fill('input#itemName', credentialNameB);
+    await popup.fill(FieldSelectors.ITEM_NAME, credentialNameB);
 
     // Click Continue/Next button
-    await popup.click('button:has-text("Next")');
+    await popup.click(ButtonSelectors.NEXT);
 
     // Wait for the add/edit form to load
-    await expect(popup.locator('input#login\\.username')).toBeVisible({ timeout: 10000 });
+    await expect(popup.locator(FieldSelectors.LOGIN_USERNAME)).toBeVisible({ timeout: 10000 });
 
     // Fill in credentials
-    await popup.fill('input#login\\.username', 'clientB@example.com');
-    await popup.fill('input#login\\.password', 'ClientBPassword456!');
+    await popup.fill(FieldSelectors.LOGIN_USERNAME, 'clientB@example.com');
+    await popup.fill(FieldSelectors.LOGIN_PASSWORD, 'ClientBPassword456!');
 
     // Click Save button
-    await popup.click('button:has-text("Save")');
+    await popup.click(ButtonSelectors.SAVE);
 
     // Wait for either:
     // 1. Navigation to item details page (success)
@@ -173,7 +126,7 @@ test.describe.serial('5. Vault Merge', () => {
     const popup = clientB.popup;
 
     // Navigate back to the Vault tab
-    await popup.getByRole('button', { name: 'Vault' }).click();
+    await navigateToVault(popup);
 
     // Wait for the credentials list to load
     await popup.waitForTimeout(100);
@@ -182,7 +135,7 @@ test.describe.serial('5. Vault Merge', () => {
     await popup.screenshot({ path: 'tests/screenshots/5.4-client-b-vault-state.png' });
 
     // Verify Client A's credential exists (from the merge/sync)
-    await expect(popup.locator(`text=${credentialNameA}`)).toBeVisible({ timeout: 10000 });
+    await verifyCredentialExists(popup, credentialNameA);
 
     // Check if Client B's credential also exists
     // NOTE: If this fails, it indicates the merge logic isn't preserving local changes
@@ -191,8 +144,7 @@ test.describe.serial('5. Vault Merge', () => {
 
     if (hasBothCredentials) {
       // Both credentials exist: merge worked correctly!
-      const itemsText = popup.locator('text=/\\(2 items\\)/');
-      await expect(itemsText).toBeVisible({ timeout: 5000 });
+      await verifyVaultItemCount(popup, 2);
     } else {
       // Only Client A's credential exists: merge logic failed
       throw new Error('Merge logic failed');
@@ -203,7 +155,7 @@ test.describe.serial('5. Vault Merge', () => {
     const popup = clientA.popup;
 
     // Navigate to the Vault tab (this should trigger a sync/refresh)
-    await popup.getByRole('button', { name: 'Vault' }).click();
+    await navigateToVault(popup);
 
     // Wait a moment for sync to complete
     await popup.waitForTimeout(2000);
@@ -212,7 +164,7 @@ test.describe.serial('5. Vault Merge', () => {
     await popup.screenshot({ path: 'tests/screenshots/5.5-client-a-vault-state.png' });
 
     // Verify Client A's original credential exists
-    await expect(popup.locator(`text=${credentialNameA}`)).toBeVisible({ timeout: 10000 });
+    await verifyCredentialExists(popup, credentialNameA);
 
     // Check if Client B's credential also synced
     const clientBCredential = popup.locator(`text=${credentialNameB}`);
@@ -223,8 +175,7 @@ test.describe.serial('5. Vault Merge', () => {
       await popup.screenshot({ path: 'tests/screenshots/5.5-client-a-synced-both.png' });
 
       // Check the item count shows 2 items
-      const itemsText = popup.locator('text=/\\(2 items\\)/');
-      await expect(itemsText).toBeVisible({ timeout: 5000 });
+      await verifyVaultItemCount(popup, 2);
     } else {
       // Only Client A's credential - Client B's was lost in merge
       await popup.screenshot({ path: 'tests/screenshots/5.5-client-a-only-own-credential.png' });

@@ -1,5 +1,3 @@
-import type { BrowserContext, Page } from '@playwright/test';
-
 import {
   test,
   expect,
@@ -7,42 +5,22 @@ import {
   fullLoginFlow,
   waitForLoggedIn,
   createFreshContext,
+  type ClientState,
+  navigateToAddCredentialForm,
+  fillAndSaveCredential,
+  navigateToVault,
+  navigateToRoot,
+  clickCredential,
+  openCredentialEditForm,
+  verifyCredentialExists,
+  getFieldValue,
+  saveCredential,
+  fillUsername,
+  fillPassword,
+  fillNotes,
+  cleanupClients,
+  FieldSelectors,
 } from '../fixtures';
-
-/**
- * Helper to navigate to add credential form.
- *
- * @param popup - The popup page
- */
-async function navigateToAddCredentialForm(popup: Page): Promise<void> {
-  const addButton = popup.locator('button[title="Add new item"]');
-  await expect(addButton).toBeVisible();
-  await addButton.click();
-  await expect(popup.locator('input#itemName')).toBeVisible();
-}
-
-/**
- * Helper to fill and save a credential form.
- *
- * @param popup - The popup page
- * @param name - The credential name
- * @param username - The username for the credential
- * @param password - The password for the credential
- */
-async function fillAndSaveCredential(
-  popup: Page,
-  name: string,
-  username: string,
-  password: string
-): Promise<void> {
-  await popup.fill('input#itemName', name);
-  await popup.click('button:has-text("Next")');
-  await expect(popup.locator('input#login\\.username')).toBeVisible({ timeout: 10000 });
-  await popup.fill('input#login\\.username', username);
-  await popup.fill('input#login\\.password', password);
-  await popup.click('button:has-text("Save")');
-  await expect(popup.locator(`text=${name}`)).toBeVisible({ timeout: 30000 });
-}
 
 /**
  * Category 6: Field-Level Merge (Requires API + Multi-Client Scenario)
@@ -62,8 +40,8 @@ async function fillAndSaveCredential(
  * 6. Notes should have Client B's value (last writer wins)
  */
 test.describe.serial('6. Field-Level Merge', () => {
-  let clientA: { context: BrowserContext; extensionId: string; popup: Page };
-  let clientB: { context: BrowserContext; extensionId: string; popup: Page };
+  let clientA: ClientState;
+  let clientB: ClientState;
 
   const credentialName = `Field Merge Test ${Date.now()}`;
   const originalUsername = 'original@example.com';
@@ -76,10 +54,7 @@ test.describe.serial('6. Field-Level Merge', () => {
   const clientBNotes = 'Notes modified by Client B - this should win';
 
   test.afterAll(async () => {
-    await clientA?.popup?.close();
-    await clientA?.context?.close();
-    await clientB?.popup?.close();
-    await clientB?.context?.close();
+    await cleanupClients(clientA, clientB);
   });
 
   test('6.1 Setup: Both clients login and Client A creates a credential', async ({ testUser, apiUrl }) => {
@@ -98,7 +73,7 @@ test.describe.serial('6. Field-Level Merge', () => {
     clientB = { ...contextB, popup: popupB };
 
     // Client A creates the credential
-    await clientA.popup.getByRole('button', { name: 'Vault' }).click();
+    await navigateToVault(clientA.popup);
     await navigateToAddCredentialForm(clientA.popup);
     await fillAndSaveCredential(clientA.popup, credentialName, originalUsername, originalPassword);
 
@@ -107,46 +82,35 @@ test.describe.serial('6. Field-Level Merge', () => {
 
   test('6.2 Both clients sync and verify credential exists', async () => {
     // Client A navigates to vault and waits for sync
-    await clientA.popup.getByRole('button', { name: 'Vault' }).click();
+    await navigateToVault(clientA.popup);
     await clientA.popup.waitForTimeout(100);
 
     // Take screenshot to debug what's visible
     await clientA.popup.screenshot({ path: 'tests/screenshots/6.2-client-a-vault.png' });
-    await expect(clientA.popup.locator(`text=${credentialName}`)).toBeVisible({ timeout: 10000 });
+    await verifyCredentialExists(clientA.popup, credentialName);
 
     // Let Client B navigate to root so it will sync and see the credential
-    await clientB.popup.evaluate(() => {
-      window.location.href = '/popup.html';
-    });
-    await clientB.popup.waitForTimeout(100);
-    await expect(clientB.popup.locator(`text=${credentialName}`)).toBeVisible({ timeout: 10000 });
+    await navigateToRoot(clientB.popup);
+    await verifyCredentialExists(clientB.popup, credentialName);
   });
 
   test('6.3 Client A edits credential (username and notes) and saves', async () => {
     const popup = clientA.popup;
 
     // Click on the credential to open details
-    await popup.locator(`text=${credentialName}`).click();
-    await popup.waitForTimeout(100);
+    await clickCredential(popup, credentialName);
 
-    // Click the edit button
-    const editButton = popup.locator('button[title="Edit Credential"]');
-    await expect(editButton).toBeVisible({ timeout: 5000 });
-    await editButton.click();
+    // Open edit form
+    await openCredentialEditForm(popup);
 
-    // Wait for edit form to load
-    await expect(popup.locator('input#login\\.username')).toBeVisible({ timeout: 10000 });
-
-    // Modify username
-    await popup.fill('input#login\\.username', clientAUsername);
-
-    // Modify notes
-    await popup.fill('textarea#login\\.notes', clientANotes);
+    // Modify username and notes
+    await fillUsername(popup, clientAUsername);
+    await fillNotes(popup, clientANotes);
 
     await popup.screenshot({ path: 'tests/screenshots/6.3-client-a-before-save.png' });
 
-    // Click Save button
-    await popup.click('button:has-text("Save")');
+    // Save the credential
+    await saveCredential(popup);
 
     // Wait for save to complete
     await popup.waitForTimeout(500);
@@ -158,34 +122,23 @@ test.describe.serial('6. Field-Level Merge', () => {
     const popup = clientB.popup;
 
     // Client B has stale data - click on credential to open details
-    await popup.locator(`text=${credentialName}`).click();
-    await popup.waitForTimeout(100);
+    await clickCredential(popup, credentialName);
 
     await popup.screenshot({ path: 'tests/screenshots/6.4-client-b-stale-details.png' });
 
-    // Click the edit button
-    const editButton = popup.locator('button[title="Edit Credential"]');
-    await expect(editButton).toBeVisible({ timeout: 5000 });
-    await editButton.click();
-
-    // Wait for edit form to load
-    await expect(popup.locator('input#login\\.password')).toBeVisible({ timeout: 10000 });
+    // Open edit form
+    await openCredentialEditForm(popup);
 
     await popup.screenshot({ path: 'tests/screenshots/6.4-client-b-stale-form.png' });
 
-    // Modify password
-    await popup.fill('input#login\\.password', clientBPassword);
-
-    // Modify notes (different value than Client A)
-    await popup.fill('textarea#login\\.notes', clientBNotes);
+    // Modify password and notes (different value than Client A)
+    await fillPassword(popup, clientBPassword);
+    await fillNotes(popup, clientBNotes);
 
     await popup.screenshot({ path: 'tests/screenshots/6.4-client-b-before-save.png' });
 
-    // Click Save button - this should trigger a merge
-    await popup.click('button:has-text("Save")');
-
-    // Wait for save/merge to complete
-    await popup.waitForTimeout(100);
+    // Save the credential - this should trigger a merge
+    await saveCredential(popup);
 
     await popup.screenshot({ path: 'tests/screenshots/6.4-client-b-after-save.png' });
   });
@@ -194,32 +147,27 @@ test.describe.serial('6. Field-Level Merge', () => {
     const popup = clientB.popup;
 
     // Navigate to vault
-    await popup.getByRole('button', { name: 'Vault' }).click();
+    await navigateToVault(popup);
     await popup.waitForTimeout(100);
 
     // Click on credential to view merged details
-    await popup.locator(`text=${credentialName}`).click();
-    await popup.waitForTimeout(100);
+    await clickCredential(popup, credentialName);
 
-    // Click edit to see the actual field values
-    const editButton = popup.locator('button[title="Edit Credential"]');
-    await expect(editButton).toBeVisible({ timeout: 5000 });
-    await editButton.click();
-
-    await expect(popup.locator('input#login\\.username')).toBeVisible({ timeout: 10000 });
+    // Open edit form to see the actual field values
+    await openCredentialEditForm(popup);
 
     await popup.screenshot({ path: 'tests/screenshots/6.5-client-b-merged-form.png' });
 
     // Verify username has Client A's value (preserved from earlier edit)
-    const usernameValue = await popup.locator('input#login\\.username').inputValue();
+    const usernameValue = await getFieldValue(popup, FieldSelectors.LOGIN_USERNAME);
     expect(usernameValue).toBe(clientAUsername);
 
     // Verify password has Client B's value (preserved from this client's edit)
-    const passwordValue = await popup.locator('input#login\\.password').inputValue();
+    const passwordValue = await getFieldValue(popup, FieldSelectors.LOGIN_PASSWORD);
     expect(passwordValue).toBe(clientBPassword);
 
     // Verify notes has Client B's value (last writer wins)
-    const notesValue = await popup.locator('textarea#login\\.notes').inputValue();
+    const notesValue = await getFieldValue(popup, FieldSelectors.LOGIN_NOTES);
     expect(notesValue).toBe(clientBNotes);
 
     // Navigate back
@@ -230,34 +178,27 @@ test.describe.serial('6. Field-Level Merge', () => {
   test('6.6 Client A syncs and verifies merged credential', async () => {
     const popup = clientA.popup;
 
-    // Navigate to root so it will sync and see the credential
-    await popup.evaluate(() => {
-      window.location.href = '/popup.html';
-    });
+    // Navigate to root so it will sync and see the merged credential
+    await navigateToRoot(popup);
 
     // Click on credential to view synced details
-    await popup.locator(`text=${credentialName}`).click();
-    await popup.waitForTimeout(100);
+    await clickCredential(popup, credentialName);
 
-    // Click edit to verify the actual field values
-    const editButton = popup.locator('button[title="Edit Credential"]');
-    await expect(editButton).toBeVisible({ timeout: 5000 });
-    await editButton.click();
-
-    await expect(popup.locator('input#login\\.username')).toBeVisible({ timeout: 10000 });
+    // Open edit form to verify the actual field values
+    await openCredentialEditForm(popup);
 
     await popup.screenshot({ path: 'tests/screenshots/6.6-client-a-synced-form.png' });
 
     // Verify username has Client A's value (our original edit)
-    const usernameValue = await popup.locator('input#login\\.username').inputValue();
+    const usernameValue = await getFieldValue(popup, FieldSelectors.LOGIN_USERNAME);
     expect(usernameValue).toBe(clientAUsername);
 
     // Verify password has Client B's value (merged from other client)
-    const passwordValue = await popup.locator('input#login\\.password').inputValue();
+    const passwordValue = await getFieldValue(popup, FieldSelectors.LOGIN_PASSWORD);
     expect(passwordValue).toBe(clientBPassword);
 
     // Verify notes has Client B's value (last writer wins)
-    const notesValue = await popup.locator('textarea#login\\.notes').inputValue();
+    const notesValue = await getFieldValue(popup, FieldSelectors.LOGIN_NOTES);
     expect(notesValue).toBe(clientBNotes);
   });
 });
