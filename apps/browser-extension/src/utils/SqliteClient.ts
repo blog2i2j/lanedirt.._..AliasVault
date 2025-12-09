@@ -2307,7 +2307,6 @@ export class SqliteClient {
       WHERE ItemId = ? AND IsDeleted = 0 AND FieldKey IS NOT NULL`;
 
     const existingFields = this.executeQuery<{FieldKey: string, Value: string}>(existingFieldsQuery, [itemId]);
-    console.log('[History] Existing fields from DB:', existingFields);
 
     // Create a map of existing values by FieldKey
     const existingValuesMap: {[key: string]: string[]} = {};
@@ -2317,38 +2316,29 @@ export class SqliteClient {
       }
       existingValuesMap[field.FieldKey].push(field.Value);
     });
-    console.log('[History] Existing values map:', existingValuesMap);
 
     // Check each new field to see if it has EnableHistory and if the value changed
     for (const newField of newFields) {
-      console.log('[History] Checking field:', newField.FieldKey, 'Value:', newField.Value);
-
       // Skip custom fields (only track system fields for now)
       if (newField.FieldKey.startsWith('custom_')) {
-        console.log('[History] Skipping custom field:', newField.FieldKey);
         continue;
       }
 
       // Get system field definition
       const systemField = getSystemField(newField.FieldKey);
-      console.log('[History] System field definition:', systemField);
       if (!systemField || !systemField.EnableHistory) {
-        console.log('[History] Field does not have EnableHistory:', newField.FieldKey);
         continue;
       }
 
       // Get old and new values
       const oldValues = existingValuesMap[newField.FieldKey] || [];
       const newValues = Array.isArray(newField.Value) ? newField.Value : [newField.Value];
-      console.log('[History] Old values:', oldValues, 'New values:', newValues);
 
       // Check if values changed
       const valuesChanged = oldValues.length !== newValues.length ||
                             !oldValues.every((val, idx) => val === newValues[idx]);
-      console.log('[History] Values changed?', valuesChanged, 'Has old values?', oldValues.length > 0);
 
       if (valuesChanged && oldValues.length > 0) {
-        console.log('[History] Creating history record for:', newField.FieldKey);
         // Create history record for the old value
         const historyId = crypto.randomUUID().toUpperCase();
         // Store just the values as JSON array
@@ -2421,8 +2411,6 @@ export class SqliteClient {
       throw new Error('Database not initialized');
     }
 
-    console.log('[History] Getting history for itemId:', itemId, 'fieldKey:', fieldKey);
-
     const query = `
       SELECT
         Id,
@@ -2446,8 +2434,6 @@ export class SqliteClient {
       CreatedAt: string;
       UpdatedAt: string;
     }>(query, [itemId, fieldKey, MAX_FIELD_HISTORY_RECORDS]);
-
-    console.log('[History] History records found:', results);
 
     return results.map(row => ({
       Id: row.Id,

@@ -124,28 +124,23 @@ const ItemsList: React.FC = () => {
       return;
     }
 
-    console.log('[FOLDER DEBUG] Creating folder:', folderName, 'in parent:', currentFolderId);
-
     await executeVaultMutation(
       async () => {
-        const folderId = await dbContext.sqliteClient!.createFolder(folderName, currentFolderId);
-        console.log('[FOLDER DEBUG] Folder created with ID:', folderId);
+        await dbContext.sqliteClient!.createFolder(folderName, currentFolderId);
       },
       {
+        /**
+         * On success.
+         */
         onSuccess: () => {
-          console.log('[FOLDER DEBUG] Vault mutation successful, refreshing items...');
           // Refresh items to show the new folder
           const results = dbContext.sqliteClient!.getAllItems();
-          console.log('[FOLDER DEBUG] getAllItems returned:', results.length, 'items');
-          console.log('[FOLDER DEBUG] Items with FolderId:', results.filter(i => i.FolderId).map(i => ({ id: i.Id, name: i.Name, folderId: i.FolderId, folderPath: i.FolderPath })));
           setItems(results);
-
-          // Also try to get folders directly
-          const folders = dbContext.sqliteClient!.getAllFolders();
-          console.log('[FOLDER DEBUG] getAllFolders returned:', folders);
         },
+        /**
+         * On error.
+         */
         onError: (error) => {
-          console.error('[FOLDER DEBUG] Error creating folder:', error);
           throw error;
         }
       }
@@ -282,10 +277,7 @@ const ItemsList: React.FC = () => {
    * Get folders with item counts (only for root level when not searching)
    */
   const getFoldersWithCounts = (): FolderWithCount[] => {
-    console.log('[FOLDER DEBUG] getFoldersWithCounts called. currentFolderId:', currentFolderId, 'searchTerm:', searchTerm);
-
     if (currentFolderId || searchTerm) {
-      console.log('[FOLDER DEBUG] Returning empty folders (in folder view or searching)');
       return [];
     }
 
@@ -295,7 +287,6 @@ const ItemsList: React.FC = () => {
 
     // Get all folders directly from the database
     const allFolders = dbContext.sqliteClient.getAllFolders();
-    console.log('[FOLDER DEBUG] Got', allFolders.length, 'folders from database:', allFolders);
 
     // Count items per folder
     const folderCounts = new Map<string, number>();
@@ -312,7 +303,6 @@ const ItemsList: React.FC = () => {
       itemCount: folderCounts.get(folder.Id) || 0
     })).sort((a, b) => a.name.localeCompare(b.name));
 
-    console.log('[FOLDER DEBUG] Returning', result.length, 'folders with counts:', result);
     return result;
   };
 
@@ -372,8 +362,6 @@ const ItemsList: React.FC = () => {
   });
 
   const folders = getFoldersWithCounts();
-
-  console.log('[FOLDER DEBUG] Render: folders:', folders.length, 'filteredItems:', filteredItems.length, 'isLoading:', isLoading);
 
   if (isLoading) {
     return (

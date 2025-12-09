@@ -310,7 +310,7 @@ async function uploadInitialVault(
     username: normalizeUsername(username),
     blob: encryptedVault,
     version: VAULT_VERSIONS[VAULT_VERSIONS.length - 1].version,
-    currentRevisionNumber: 0,
+    currentRevisionNumber: 1,
     encryptionPublicKey: rsaKeyPair.publicKey,
     credentialsCount: 0,
     emailAddressList: [],

@@ -55,6 +55,7 @@ const BottomNav: React.FC = () => {
       <div className="flex justify-around items-center h-14">
         <button
           onClick={() => handleTabChange('items')}
+          id="nav-vault"
           className={`flex flex-col items-center justify-center w-1/3 h-full ${
             currentTab === 'items' ? 'text-primary-600 dark:text-primary-500' : 'text-gray-500 dark:text-gray-400'
           }`}
@@ -66,6 +67,7 @@ const BottomNav: React.FC = () => {
         </button>
         <button
           onClick={() => handleTabChange('emails')}
+          id="nav-emails"
           className={`flex flex-col items-center justify-center w-1/3 h-full ${
             currentTab === 'emails' ? 'text-primary-600 dark:text-primary-500' : 'text-gray-500 dark:text-gray-400'
           }`}
@@ -77,6 +79,7 @@ const BottomNav: React.FC = () => {
         </button>
         <button
           onClick={() => handleTabChange('settings')}
+          id="nav-settings"
           className={`flex flex-col items-center justify-center w-1/3 h-full ${
             currentTab === 'settings' ? 'text-primary-600 dark:text-primary-500' : 'text-gray-500 dark:text-gray-400'
           }`}

@@ -153,6 +153,12 @@ const Login: React.FC = () => {
       const normalizedUsername = SrpAuthService.normalizeUsername(credentials.username);
       const loginResponse = await srpUtil.initiateLogin(normalizedUsername);
 
+      console.debug('[LOGIN DEBUG] Login params from server:', {
+        salt: loginResponse.salt,
+        encryptionType: loginResponse.encryptionType,
+        encryptionSettings: loginResponse.encryptionSettings,
+      });
+
       // Derive key from password using Argon2id and prepare credentials
       const { passwordHashString, passwordHashBase64 } = await SrpAuthService.prepareCredentials(
         credentials.password,
@@ -160,6 +166,8 @@ const Login: React.FC = () => {
         loginResponse.encryptionType,
         loginResponse.encryptionSettings
       );
+
+      console.debug('[LOGIN DEBUG] Derived key (first 20 chars):', passwordHashBase64.substring(0, 20));
 
       // Validate login with SRP protocol
       const validationResponse = await srpUtil.validateLogin(

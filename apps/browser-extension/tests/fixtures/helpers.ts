@@ -71,7 +71,7 @@ export async function fillAndSaveCredential(
  * @param popup - The popup page
  */
 export async function navigateToVault(popup: Page): Promise<void> {
-  await popup.getByRole('button', { name: 'Vault' }).click();
+  await popup.locator('#nav-vault').click();
 }
 
 /**
@@ -280,13 +280,16 @@ export async function cleanupClients(...clients: (ClientState | null | undefined
 
 /**
  * Wait for the offline indicator to appear on the page.
+ * The indicator shows "Offline" text (from t('common.offline')) with amber background styling.
  *
  * @param popup - The popup page
  * @param timeout - Timeout in milliseconds (default: 5000)
  */
 export async function waitForOfflineIndicator(popup: Page, timeout: number = 5000): Promise<void> {
-  // The offline indicator shows "Offline Mode" text
-  await expect(popup.locator('text=Offline Mode')).toBeVisible({ timeout });
+  // The offline indicator has amber background (bg-amber-100 in light mode, bg-amber-900/30 in dark mode)
+  // and contains the text "Offline"
+  const offlineIndicator = popup.locator('div.bg-amber-100, div.bg-amber-900\\/30').filter({ hasText: 'Offline' });
+  await expect(offlineIndicator).toBeVisible({ timeout });
 }
 
 /**
@@ -296,7 +299,8 @@ export async function waitForOfflineIndicator(popup: Page, timeout: number = 500
  * @returns True if the offline indicator is visible
  */
 export async function isOfflineIndicatorVisible(popup: Page): Promise<boolean> {
-  return popup.locator('text=Offline Mode').isVisible().catch(() => false);
+  const offlineIndicator = popup.locator('div.bg-amber-100, div.bg-amber-900\\/30').filter({ hasText: 'Offline' });
+  return offlineIndicator.isVisible().catch(() => false);
 }
 
 /**
