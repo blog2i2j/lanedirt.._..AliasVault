@@ -1,14 +1,16 @@
-import initSqlJs, { Database, SqlJsStatic } from 'sql.js';
+import initSqlJs, { Database, SqlJsStatic, SqlValue } from 'sql.js';
 
 /**
  * Entity record from a SyncableEntity table.
  * All entities extending SyncableEntity have these fields.
+ * Additional fields are accessed dynamically via index signature.
  */
 interface ISyncableRecord {
   Id: string;
   CreatedAt: string;
   UpdatedAt: string;
   IsDeleted: number; // SQLite stores booleans as 0/1
+  [key: string]: SqlValue; // Allow dynamic column access with SQL-compatible types
 }
 
 /**
@@ -155,8 +157,7 @@ export class VaultMergeService {
    * @param base64String - The base64 encoded database
    * @returns The loaded Database instance
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private loadDatabase(SQL: any, base64String: string): Database {
+  private loadDatabase(SQL: SqlJsStatic, base64String: string): Database {
     const binaryString = atob(base64String);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
@@ -201,7 +202,7 @@ export class VaultMergeService {
 
     // Use composite key matching for tables that define it (e.g., FieldValues)
     if (compositeKey) {
-      await this.mergeTableByCompositeKey(localDb, serverDb, tableName, localRecords, serverRecords, compositeKey, stats);
+      await this.mergeTableByCompositeKey(localDb, serverDb, tableName, localRecords, serverRecords, stats);
       return;
     }
 
@@ -262,17 +263,15 @@ export class VaultMergeService {
    * Generate a composite key string for a record.
    * For FieldValues, this combines ItemId + (FieldKey or FieldDefinitionId).
    * @param record - The record to generate key for
-   * @param keyColumns - The columns that make up the composite key
    * @returns A string representing the composite key
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private getCompositeKey(record: any, _keyColumns: string[]): string {
+  private getCompositeKey(record: ISyncableRecord): string {
     /*
      * For FieldValues: use ItemId + (FieldKey if set, otherwise FieldDefinitionId)
      * This handles both system fields (FieldKey) and custom fields (FieldDefinitionId)
      */
-    const itemId = record.ItemId || '';
-    const fieldIdentifier = record.FieldKey || record.FieldDefinitionId || '';
+    const itemId = (record.ItemId as string) || '';
+    const fieldIdentifier = (record.FieldKey as string) || (record.FieldDefinitionId as string) || '';
     return `${itemId}:${fieldIdentifier}`;
   }
 
@@ -286,7 +285,6 @@ export class VaultMergeService {
    * @param tableName - The name of the table
    * @param localRecords - Records from local database
    * @param serverRecords - Records from server database
-   * @param keyColumns - Columns that make up the composite key
    * @param stats - Statistics to update
    */
   private async mergeTableByCompositeKey(
@@ -295,14 +293,12 @@ export class VaultMergeService {
     tableName: string,
     localRecords: ISyncableRecord[],
     serverRecords: ISyncableRecord[],
-    keyColumns: string[],
     stats: IMergeStats
   ): Promise<void> {
     // Create a map of server records by composite key
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const serverMap = new Map<string, any>();
+    const serverMap = new Map<string, ISyncableRecord>();
     for (const record of serverRecords) {
-      const key = this.getCompositeKey(record, keyColumns);
+      const key = this.getCompositeKey(record);
       // If multiple records have the same composite key, keep the one with latest UpdatedAt
       const existing = serverMap.get(key);
       if (!existing || new Date(record.UpdatedAt).getTime() > new Date(existing.UpdatedAt).getTime()) {
@@ -315,7 +311,7 @@ export class VaultMergeService {
 
     // Process local records
     for (const localRecord of localRecords) {
-      const compositeKey = this.getCompositeKey(localRecord, keyColumns);
+      const compositeKey = this.getCompositeKey(localRecord);
       processedKeys.add(compositeKey);
 
       const serverRecord = serverMap.get(compositeKey);
@@ -385,8 +381,7 @@ export class VaultMergeService {
 
     const values = columns
       .filter(col => col !== 'Id')
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map(col => (sourceRecord as any)[col]);
+      .map(col => sourceRecord[col]);
 
     values.push(localId); // For WHERE clause - use local Id
 
@@ -454,8 +449,7 @@ export class VaultMergeService {
 
     const values = columns
       .filter(col => col !== 'Id')
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map(col => (serverRecord as any)[col]);
+      .map(col => serverRecord[col]);
 
     values.push(serverRecord.Id); // For WHERE clause
 
@@ -497,8 +491,7 @@ export class VaultMergeService {
 
     const columnList = columns.join(', ');
     const placeholders = columns.map(() => '?').join(', ');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const values = columns.map(col => (serverRecord as any)[col]);
+    const values = columns.map(col => serverRecord[col]);
 
     const sql = `INSERT OR REPLACE INTO ${tableName} (${columnList}) VALUES (${placeholders})`;
     localDb.run(sql, values);
