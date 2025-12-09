@@ -90,20 +90,10 @@ test.describe.serial('5. Vault Merge', () => {
 
   test('5.5 Client A should see credentials after syncing', async () => {
     await clientA
-      .goToVault()
+      .triggerSync()
       .then((c) => c.verifyCredentialExists(credentialNameA))
       .then((c) => c.screenshot('5.5-client-a-vault-state.png'));
 
-    const clientBCredential = clientA.popup.locator(`text=${credentialNameB}`);
-    const hasBothCredentials = await clientBCredential.isVisible().catch(() => false);
-
-    if (hasBothCredentials) {
-      await clientA.screenshot('5.5-client-a-synced-both.png');
-      await clientA.verifyVaultItemCount(2);
-    } else {
-      await clientA.screenshot('5.5-client-a-only-own-credential.png');
-      const itemsText = clientA.popup.locator('text=/\\(1 items?\\)/');
-      await expect(itemsText).toBeVisible({ timeout: 5000 });
-    }
+    await clientA.verifyVaultItemCount(2);
   });
 });

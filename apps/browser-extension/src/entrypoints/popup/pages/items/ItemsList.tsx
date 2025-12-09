@@ -102,10 +102,10 @@ const ItemsList: React.FC = () => {
 
   /**
    * Handle add new item.
-   * Navigate to item type selector for new item-based flow.
+   * Navigate directly to add item page (defaults to Login type).
    */
   const handleAddItem = useCallback(() : void => {
-    navigate('/items/select-type');
+    navigate('/items/add');
   }, [navigate]);
 
   /**
@@ -579,7 +579,7 @@ const ItemsList: React.FC = () => {
 
           {/* Items */}
           {filteredItems.length > 0 && (
-            <ul className="space-y-2">
+            <ul id="items-list" className="space-y-2">
               {filteredItems.map(item => (
                 <ItemCard
                   key={item.Id}

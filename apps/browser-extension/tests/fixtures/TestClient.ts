@@ -303,8 +303,8 @@ export class TestClient {
    * Verify the vault shows a specific item count.
    */
   async verifyVaultItemCount(count: number): Promise<this> {
-    const itemsText = this.popup.locator(`text=/\\(${count} items?\\)/`);
-    await expect(itemsText).toBeVisible({ timeout: Timeouts.SHORT });
+    const itemsList = this.popup.locator('ul#items-list > li');
+    await expect(itemsList).toHaveCount(count, { timeout: Timeouts.SHORT });
     return this;
   }
 

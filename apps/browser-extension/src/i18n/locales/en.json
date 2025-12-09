@@ -290,6 +290,8 @@
     "selectType": "Add New Item",
     "selectTypeDescription": "Choose the type of item you want to create",
     "typeLabel": "Item Type",
+    "creating": "Creating",
+    "generateAlias": "Generate random alias",
     "login": {
       "title": "Login",
       "description": "Username, password, and website credentials"
