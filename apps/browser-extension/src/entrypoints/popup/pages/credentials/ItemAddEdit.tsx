@@ -17,7 +17,7 @@ import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
 import { IdentityHelperUtils, CreateIdentityGenerator, convertAgeRangeToBirthdateOptions } from '@/utils/dist/shared/identity-generator';
 import type { Item, ItemField, ItemType, FieldType } from '@/utils/dist/shared/models/vault';
-import { getSystemFieldsForItemType } from '@/utils/dist/shared/models/vault';
+import { getSystemFieldsForItemType, isFieldShownByDefault, getOptionalFieldsForItemType } from '@/utils/dist/shared/models/vault';
 import { CreatePasswordGenerator } from '@/utils/dist/shared/password-generator';
 
 // Valid item types from the shared model
@@ -152,14 +152,15 @@ const ItemAddEdit: React.FC = () => {
   }, [item]);
 
   /**
-   * Fields that should be shown inline with service name (like login.url).
-   * These are Login category fields that start with "login." but aren't username/password.
+   * Get optional fields that are not shown by default for the current item type.
+   * These can be added via the "+" menu.
    */
-  const serviceInlineFields = useMemo(() => {
-    return applicableSystemFields.filter(field =>
-      field.FieldKey === 'login.url'
-    );
-  }, [applicableSystemFields]);
+  const optionalFields = useMemo(() => {
+    if (!item) {
+      return [];
+    }
+    return getOptionalFieldsForItemType(item.ItemType);
+  }, [item]);
 
   /**
    * The notes field (login.notes) - handled separately for collapsible UI.
@@ -169,15 +170,29 @@ const ItemAddEdit: React.FC = () => {
   }, [applicableSystemFields]);
 
   /**
+   * Check if a field should be shown by default for the current item type.
+   */
+  const shouldShowFieldByDefault = useCallback((field: { FieldKey: string }) => {
+    if (!item) {
+      return false;
+    }
+    const systemField = applicableSystemFields.find(f => f.FieldKey === field.FieldKey);
+    if (!systemField) {
+      return true; // Custom fields are always shown
+    }
+    return isFieldShownByDefault(systemField, item.ItemType);
+  }, [item, applicableSystemFields]);
+
+  /**
    * Group system fields by category for organized rendering.
-   * Excludes service inline fields (login.url) and notes field.
+   * Excludes metadata fields (notes) which are handled separately.
    */
   const groupedSystemFields = useMemo(() => {
     const groups: Record<string, typeof applicableSystemFields> = {};
 
     applicableSystemFields.forEach(field => {
-      // Skip fields handled separately
-      if (field.FieldKey === 'login.url' || field.FieldKey === 'login.notes') {
+      // Skip metadata fields (notes) - handled separately
+      if (field.Category === 'Metadata') {
         return;
       }
 
@@ -213,6 +228,13 @@ const ItemAddEdit: React.FC = () => {
         CreatedAt: new Date().toISOString(),
         UpdatedAt: new Date().toISOString()
       });
+
+      // Check if notes should be shown by default for this type
+      const typeFields = getSystemFieldsForItemType(effectiveType);
+      const notesFieldDef = typeFields.find(f => f.FieldKey === 'login.notes');
+      if (notesFieldDef && isFieldShownByDefault(notesFieldDef, effectiveType)) {
+        setShowNotes(true);
+      }
 
       // Load folders
       if (dbContext?.sqliteClient) {
@@ -430,7 +452,12 @@ const ItemAddEdit: React.FC = () => {
     setFieldValues({});
     setCustomFields([]);
     setShowAliasFields(false);
-    setShowNotes(false);
+
+    // Check if notes should be shown by default for the new type
+    const newTypeFields = getSystemFieldsForItemType(newType);
+    const newNotesField = newTypeFields.find(f => f.FieldKey === 'login.notes');
+    const notesShownByDefault = newNotesField ? isFieldShownByDefault(newNotesField, newType) : false;
+    setShowNotes(notesShownByDefault);
 
     setItem({
       ...item,
@@ -574,8 +601,9 @@ const ItemAddEdit: React.FC = () => {
       action: () => void;
     }> = [];
 
-    // Notes option (when not shown and no value)
-    if (notesField && !showNotes && !fieldValues['login.notes'] && !isEditMode) {
+    // Notes option - show when notes field exists, is optional (not shown by default), not yet shown, and has no value
+    const notesIsOptional = notesField && !shouldShowFieldByDefault(notesField);
+    if (notesField && notesIsOptional && !showNotes && !fieldValues['login.notes'] && !isEditMode) {
       options.push({
         key: 'notes',
         label: t('credentials.notes'),
@@ -601,14 +629,20 @@ const ItemAddEdit: React.FC = () => {
     });
 
     return options;
-  }, [showNotes, notesField, fieldValues, isEditMode, t, handleAddNotesFromMenu, handleAddCustomFieldFromMenu]);
+  }, [showNotes, notesField, fieldValues, isEditMode, t, handleAddNotesFromMenu, handleAddCustomFieldFromMenu, shouldShowFieldByDefault]);
 
   /**
-   * Whether to show the dedicated "Add alias" button (for Login type in create mode when alias not shown).
+   * Whether to show the dedicated "Add alias" button.
+   * Show when alias fields exist as optional (not shown by default) and not yet added.
    */
   const showAddAliasButton = useMemo(() => {
-    return item?.ItemType === 'Login' && !showAliasFields && !isEditMode;
-  }, [item?.ItemType, showAliasFields, isEditMode]);
+    if (!item || isEditMode) {
+      return false;
+    }
+    // Check if there are any alias fields that are optional (not shown by default)
+    const hasOptionalAliasFields = optionalFields.some(f => f.Category === 'Alias');
+    return hasOptionalAliasFields && !showAliasFields;
+  }, [item, optionalFields, showAliasFields, isEditMode]);
 
   // Set header buttons
   useEffect(() => {
@@ -812,71 +846,55 @@ const ItemAddEdit: React.FC = () => {
         </div>
       )}
 
-      {/* Service Section - Name and URL */}
+      {/* Item Name - Central prominent field */}
       <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-        <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">{t('credentials.service')}</h2>
-        <div className="space-y-4">
-          {/* Service Name with Folder Button */}
-          <div>
-            <label htmlFor="itemName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('credentials.serviceName')} <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <input
-                id="itemName"
-                type="text"
-                value={item.Name || ''}
-                onChange={(e) => setItem({ ...item, Name: e.target.value })}
-                placeholder={t('credentials.serviceName')}
-                className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white ${folders.length > 0 ? 'pr-28' : ''}`}
-                required
-              />
-              {/* Folder Button inside input */}
-              {folders.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setShowFolderModal(true)}
-                  className={`absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded transition-colors text-xs ${
-                    item.FolderId
-                      ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 hover:bg-primary-200 dark:hover:bg-primary-900/50'
-                      : 'text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
-                  }`}
-                  title={item.FolderId ? folders.find(f => f.Id === item.FolderId)?.Name || t('items.folder') : t('items.noFolder')}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                  </svg>
-                  {item.FolderId && (
-                    <span className="max-w-16 truncate">
-                      {folders.find(f => f.Id === item.FolderId)?.Name}
-                    </span>
-                  )}
-                </button>
+        <label htmlFor="itemName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          {t('credentials.itemName')} <span className="text-red-500">*</span>
+        </label>
+        <div className="relative">
+          <input
+            id="itemName"
+            type="text"
+            value={item.Name || ''}
+            onChange={(e) => setItem({ ...item, Name: e.target.value })}
+            placeholder={t('credentials.itemName')}
+            className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white ${folders.length > 0 ? 'pr-28' : ''}`}
+            required
+          />
+          {/* Folder Button inside input */}
+          {folders.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowFolderModal(true)}
+              className={`absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded transition-colors text-xs ${
+                item.FolderId
+                  ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 hover:bg-primary-200 dark:hover:bg-primary-900/50'
+                  : 'text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
+              }`}
+              title={item.FolderId ? folders.find(f => f.Id === item.FolderId)?.Name || t('items.folder') : t('items.noFolder')}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+              </svg>
+              {item.FolderId && (
+                <span className="max-w-16 truncate">
+                  {folders.find(f => f.Id === item.FolderId)?.Name}
+                </span>
               )}
-            </div>
-          </div>
-          {/* Service inline fields (login.url) - shown without header */}
-          {serviceInlineFields.map(field => (
-            <div key={field.FieldKey}>
-              {renderFieldInput(
-                field.FieldKey,
-                field.Label,
-                field.FieldType,
-                field.IsHidden,
-                field.IsMultiValue
-              )}
-            </div>
-          ))}
+            </button>
+          )}
         </div>
       </div>
 
       {/* Render fields grouped by category */}
       {Object.keys(groupedSystemFields).map(category => {
-        // Special handling for Alias category in Login type (create mode only)
-        const isAliasInLoginCreate = category === 'Alias' && item.ItemType === 'Login' && !isEditMode;
+        // Check if this category has any fields that are optional (not shown by default)
+        const categoryFields = groupedSystemFields[category];
+        const allFieldsOptional = categoryFields.every(f => !shouldShowFieldByDefault(f));
+        const isOptionalCategory = category === 'Alias' && allFieldsOptional && !isEditMode;
 
-        // If alias in login create mode and not shown, skip rendering (will be available via + menu)
-        if (isAliasInLoginCreate && !showAliasFields) {
+        // If this is an optional category and not shown, skip rendering (will be available via + button)
+        if (isOptionalCategory && !showAliasFields) {
           return null;
         }
 
@@ -884,15 +902,15 @@ const ItemAddEdit: React.FC = () => {
           <div key={category} className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
             <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center justify-between">
               <span>
-                {category === 'Login' && t('credentials.loginCredentials')}
+                {category === 'Login' && t('common.credentials')}
                 {category === 'Alias' && t('credentials.alias')}
                 {category === 'Card' && t('credentials.cardInformation')}
                 {category === 'Identity' && t('credentials.identityInformation')}
                 {category !== 'Login' && category !== 'Alias' && category !== 'Card' && category !== 'Identity' && category}
               </span>
 
-              {/* Show action buttons for Alias section in Login create mode */}
-              {isAliasInLoginCreate && showAliasFields && (
+              {/* Show action buttons for optional Alias section in create mode */}
+              {isOptionalCategory && showAliasFields && (
                 <div className="flex items-center gap-2">
                   {/* Regenerate button */}
                   <button

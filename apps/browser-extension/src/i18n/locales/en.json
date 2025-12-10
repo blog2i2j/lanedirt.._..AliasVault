@@ -80,6 +80,7 @@
     "settings": "Settings",
     "recentEmails": "Recent emails",
     "loginCredentials": "Login credentials",
+    "credentials": "Credentials",
     "customFields": "Custom",
     "twoFactorAuthentication": "Two-factor authentication",
     "alias": "Alias",
@@ -191,6 +192,7 @@
     "deleteCredential": "Delete Credential",
     "credentialDetails": "Credential Details",
     "serviceName": "Service Name",
+    "itemName": "Name",
     "notes": "Notes",
     "totp": "Two-Factor Authentication",
     "totpCode": "TOTP Code",
@@ -245,6 +247,7 @@
     "validation": {
       "required": "This field is required",
       "serviceNameRequired": "Service name is required",
+      "nameRequired": "Name is required",
       "invalidEmail": "Invalid email format",
       "invalidDateFormat": "Date must be in YYYY-MM-DD format"
     },

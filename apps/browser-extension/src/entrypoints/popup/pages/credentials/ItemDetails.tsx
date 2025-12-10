@@ -181,7 +181,7 @@ const ItemDetails: React.FC = (): React.ReactElement => {
           {groupedFields.Login && groupedFields.Login.length > 0 && (
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                {t('credentials.loginCredentials')}
+                {t('common.credentials')}
               </h2>
               {groupedFields.Login.map((field) => (
                 <FieldBlock key={field.FieldKey} field={field} itemId={item.Id} />

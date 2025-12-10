@@ -232,7 +232,9 @@ var SystemFieldRegistry = {
     FieldType: "Text",
     IsHidden: false,
     IsMultiValue: false,
-    ApplicableToTypes: ["Login"],
+    ApplicableToTypes: {
+      Login: { ShowByDefault: true }
+    },
     EnableHistory: true,
     Category: "Login",
     DefaultDisplayOrder: 10
@@ -243,31 +245,41 @@ var SystemFieldRegistry = {
     FieldType: "Password",
     IsHidden: true,
     IsMultiValue: false,
-    ApplicableToTypes: ["Login"],
+    ApplicableToTypes: {
+      Login: { ShowByDefault: true }
+    },
     EnableHistory: true,
     Category: "Login",
     DefaultDisplayOrder: 20
   },
   "login.url": {
     FieldKey: "login.url",
-    Label: "Website",
+    Label: "URL",
     FieldType: "URL",
     IsHidden: false,
     IsMultiValue: true,
-    ApplicableToTypes: ["Login"],
+    ApplicableToTypes: {
+      Login: { ShowByDefault: true }
+    },
     EnableHistory: false,
     Category: "Login",
     DefaultDisplayOrder: 30
   },
+  // Metadata Fields
   "login.notes": {
     FieldKey: "login.notes",
     Label: "Notes",
     FieldType: "TextArea",
     IsHidden: false,
     IsMultiValue: false,
-    ApplicableToTypes: ["Login", "CreditCard", "Identity", "Note"],
+    ApplicableToTypes: {
+      Login: { ShowByDefault: false },
+      CreditCard: { ShowByDefault: false },
+      Identity: { ShowByDefault: false },
+      Note: { ShowByDefault: true }
+    },
     EnableHistory: false,
-    Category: "Login",
+    Category: "Metadata",
     DefaultDisplayOrder: 100
   },
   // Alias Fields
@@ -277,7 +289,9 @@ var SystemFieldRegistry = {
     FieldType: "Email",
     IsHidden: false,
     IsMultiValue: false,
-    ApplicableToTypes: ["Login"],
+    ApplicableToTypes: {
+      Login: { ShowByDefault: false }
+    },
     EnableHistory: true,
     Category: "Alias",
     DefaultDisplayOrder: 10
@@ -288,7 +302,10 @@ var SystemFieldRegistry = {
     FieldType: "Text",
     IsHidden: false,
     IsMultiValue: false,
-    ApplicableToTypes: ["Login", "Identity"],
+    ApplicableToTypes: {
+      Login: { ShowByDefault: false },
+      Identity: { ShowByDefault: true }
+    },
     EnableHistory: false,
     Category: "Alias",
     DefaultDisplayOrder: 20
@@ -299,7 +316,10 @@ var SystemFieldRegistry = {
     FieldType: "Text",
     IsHidden: false,
     IsMultiValue: false,
-    ApplicableToTypes: ["Login", "Identity"],
+    ApplicableToTypes: {
+      Login: { ShowByDefault: false },
+      Identity: { ShowByDefault: true }
+    },
     EnableHistory: false,
     Category: "Alias",
     DefaultDisplayOrder: 30
@@ -310,7 +330,9 @@ var SystemFieldRegistry = {
     FieldType: "Text",
     IsHidden: false,
     IsMultiValue: false,
-    ApplicableToTypes: ["Login"],
+    ApplicableToTypes: {
+      Login: { ShowByDefault: false }
+    },
     EnableHistory: false,
     Category: "Alias",
     DefaultDisplayOrder: 40
@@ -321,7 +343,10 @@ var SystemFieldRegistry = {
     FieldType: "Text",
     IsHidden: false,
     IsMultiValue: false,
-    ApplicableToTypes: ["Login", "Identity"],
+    ApplicableToTypes: {
+      Login: { ShowByDefault: false },
+      Identity: { ShowByDefault: true }
+    },
     EnableHistory: false,
     Category: "Alias",
     DefaultDisplayOrder: 50
@@ -332,7 +357,10 @@ var SystemFieldRegistry = {
     FieldType: "Date",
     IsHidden: false,
     IsMultiValue: false,
-    ApplicableToTypes: ["Login", "Identity"],
+    ApplicableToTypes: {
+      Login: { ShowByDefault: false },
+      Identity: { ShowByDefault: true }
+    },
     EnableHistory: false,
     Category: "Alias",
     DefaultDisplayOrder: 60
@@ -351,19 +379,35 @@ function getSystemField(fieldKey) {
 function isSystemField(fieldKey) {
   return fieldKey in SystemFieldRegistry;
 }
+function fieldAppliesToType(field, itemType) {
+  return itemType in field.ApplicableToTypes;
+}
+function getFieldConfigForType(field, itemType) {
+  return field.ApplicableToTypes[itemType];
+}
+function isFieldShownByDefault(field, itemType) {
+  const config = field.ApplicableToTypes[itemType];
+  return config?.ShowByDefault ?? false;
+}
 function getSystemFieldsForItemType(itemType) {
-  return Object.values(SystemFieldRegistry).filter((field) => field.ApplicableToTypes.includes(itemType)).sort((a, b) => a.DefaultDisplayOrder - b.DefaultDisplayOrder);
+  return Object.values(SystemFieldRegistry).filter((field) => fieldAppliesToType(field, itemType)).sort((a, b) => a.DefaultDisplayOrder - b.DefaultDisplayOrder);
+}
+function getDefaultFieldsForItemType(itemType) {
+  return Object.values(SystemFieldRegistry).filter((field) => isFieldShownByDefault(field, itemType)).sort((a, b) => a.DefaultDisplayOrder - b.DefaultDisplayOrder);
+}
+function getOptionalFieldsForItemType(itemType) {
+  return Object.values(SystemFieldRegistry).filter((field) => fieldAppliesToType(field, itemType) && !isFieldShownByDefault(field, itemType)).sort((a, b) => a.DefaultDisplayOrder - b.DefaultDisplayOrder);
 }
 function getAllSystemFieldKeys() {
   return Object.keys(SystemFieldRegistry);
 }
 function isSystemFieldPrefix(fieldKey) {
-  return fieldKey.startsWith("login.") || fieldKey.startsWith("alias.") || fieldKey.startsWith("card.") || fieldKey.startsWith("identity.") || fieldKey.startsWith("api.") || fieldKey.startsWith("note.");
+  return fieldKey.startsWith("login.") || fieldKey.startsWith("alias.") || fieldKey.startsWith("card.") || fieldKey.startsWith("identity.") || fieldKey.startsWith("api.") || fieldKey.startsWith("note.") || fieldKey.startsWith("metadata.");
 }
 
 // src/vault/FieldHistory.ts
 var MAX_FIELD_HISTORY_RECORDS = 10;
 
-export { FieldKey, MAX_FIELD_HISTORY_RECORDS, SystemFieldRegistry, getAllSystemFieldKeys, getFieldValue, getFieldValues, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isSystemField, isSystemFieldPrefix, itemToCredential };
+export { FieldKey, MAX_FIELD_HISTORY_RECORDS, SystemFieldRegistry, fieldAppliesToType, getAllSystemFieldKeys, getDefaultFieldsForItemType, getFieldConfigForType, getFieldValue, getFieldValues, getOptionalFieldsForItemType, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isFieldShownByDefault, isSystemField, isSystemFieldPrefix, itemToCredential };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map

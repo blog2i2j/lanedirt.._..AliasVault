@@ -398,6 +398,14 @@ declare function groupFieldsByCategory(item: Item): Record<string, ItemField[]>;
 declare function itemToCredential(item: Item): Credential;
 
 /**
+ * Per-item-type configuration for a system field.
+ * Allows specifying different behavior for each item type the field applies to.
+ */
+type ItemTypeFieldConfig = {
+    /** Whether this field is shown by default in create mode (vs. hidden behind an "add" button) */
+    ShowByDefault: boolean;
+};
+/**
  * System field definition with metadata.
  * System fields are predefined fields with immutable keys like 'login.username'.
  * Their metadata (label, type, etc.) is defined here in code, not in the database.
@@ -413,12 +421,15 @@ type SystemFieldDefinition = {
     IsHidden: boolean;
     /** Whether field supports multiple values */
     IsMultiValue: boolean;
-    /** Item types this field applies to */
-    ApplicableToTypes: ItemType[];
+    /**
+     * Item types this field applies to, with per-type configuration.
+     * Key is ItemType, value is the configuration for that type.
+     */
+    ApplicableToTypes: Partial<Record<ItemType, ItemTypeFieldConfig>>;
     /** Whether to track field value history */
     EnableHistory: boolean;
     /** Category for grouping in UI */
-    Category: 'Login' | 'Alias' | 'Card' | 'Identity' | 'API' | 'Note';
+    Category: 'Login' | 'Alias' | 'Card' | 'Identity' | 'API' | 'Metadata';
     /** Default display order within category (lower = first) */
     DefaultDisplayOrder: number;
 };
@@ -438,10 +449,35 @@ declare function getSystemField(fieldKey: string): SystemFieldDefinition | undef
  */
 declare function isSystemField(fieldKey: string): boolean;
 /**
+ * Check if a field applies to a specific item type.
+ */
+declare function fieldAppliesToType(field: SystemFieldDefinition, itemType: ItemType): boolean;
+/**
+ * Get the per-type configuration for a field and item type.
+ * Returns undefined if the field doesn't apply to that item type.
+ */
+declare function getFieldConfigForType(field: SystemFieldDefinition, itemType: ItemType): ItemTypeFieldConfig | undefined;
+/**
+ * Check if a field should be shown by default for a specific item type.
+ * Returns false if the field doesn't apply to that item type.
+ */
+declare function isFieldShownByDefault(field: SystemFieldDefinition, itemType: ItemType): boolean;
+/**
  * Get all system fields applicable to a specific item type.
  * Results are sorted by DefaultDisplayOrder.
  */
 declare function getSystemFieldsForItemType(itemType: ItemType): SystemFieldDefinition[];
+/**
+ * Get system fields that should be shown by default for a specific item type.
+ * Results are sorted by DefaultDisplayOrder.
+ */
+declare function getDefaultFieldsForItemType(itemType: ItemType): SystemFieldDefinition[];
+/**
+ * Get system fields that are NOT shown by default for a specific item type.
+ * These are the fields that can be added via an "add field" button.
+ * Results are sorted by DefaultDisplayOrder.
+ */
+declare function getOptionalFieldsForItemType(itemType: ItemType): SystemFieldDefinition[];
 /**
  * Get all system field keys.
  */
@@ -478,4 +514,4 @@ type FieldHistory = {
  */
 declare const MAX_FIELD_HISTORY_RECORDS = 10;
 
-export { type Alias, type Attachment, type Credential, type EncryptionKey, type FieldHistory, FieldKey, type FieldKeyValue, type FieldType, type Item, type ItemField, type ItemTag, type ItemTagRef, type ItemType, MAX_FIELD_HISTORY_RECORDS, type Passkey, type PasswordSettings, type SystemFieldDefinition, SystemFieldRegistry, type Tag, type TotpCode, getAllSystemFieldKeys, getFieldValue, getFieldValues, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isSystemField, isSystemFieldPrefix, itemToCredential };
+export { type Alias, type Attachment, type Credential, type EncryptionKey, type FieldHistory, FieldKey, type FieldKeyValue, type FieldType, type Item, type ItemField, type ItemTag, type ItemTagRef, type ItemType, type ItemTypeFieldConfig, MAX_FIELD_HISTORY_RECORDS, type Passkey, type PasswordSettings, type SystemFieldDefinition, SystemFieldRegistry, type Tag, type TotpCode, fieldAppliesToType, getAllSystemFieldKeys, getDefaultFieldsForItemType, getFieldConfigForType, getFieldValue, getFieldValues, getOptionalFieldsForItemType, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isFieldShownByDefault, isSystemField, isSystemFieldPrefix, itemToCredential };
