@@ -300,6 +300,19 @@
     "addAlias": "Add alias",
     "addNotes": "Add notes",
     "addCustomField": "Add custom field",
+    "fieldLabel": "Field Label",
+    "enterFieldName": "Enter field name",
+    "fieldType": "Field Type",
+    "fieldTypes": {
+      "text": "Text",
+      "hidden": "Hidden (masked text)",
+      "email": "Email",
+      "url": "URL",
+      "phone": "Phone",
+      "number": "Number",
+      "date": "Date",
+      "textArea": "Text Area"
+    },
     "login": {
       "title": "Login",
       "description": "Username, password, and website credentials"
