@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
+import AttachmentUploader from '@/entrypoints/popup/components/Credentials/Details/AttachmentUploader';
+import TotpEditor from '@/entrypoints/popup/components/Credentials/Details/TotpEditor';
 import Modal from '@/entrypoints/popup/components/Dialogs/Modal';
 import EditableFieldLabel from '@/entrypoints/popup/components/Forms/EditableFieldLabel';
 import { FormInput } from '@/entrypoints/popup/components/Forms/FormInput';
@@ -16,7 +18,7 @@ import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
 import { IdentityHelperUtils, CreateIdentityGenerator, convertAgeRangeToBirthdateOptions } from '@/utils/dist/shared/identity-generator';
-import type { Item, ItemField, ItemType, FieldType } from '@/utils/dist/shared/models/vault';
+import type { Item, ItemField, ItemType, FieldType, Attachment, TotpCode } from '@/utils/dist/shared/models/vault';
 import { getSystemFieldsForItemType, isFieldShownByDefault } from '@/utils/dist/shared/models/vault';
 import { CreatePasswordGenerator } from '@/utils/dist/shared/password-generator';
 
@@ -159,6 +161,23 @@ const ItemAddEdit: React.FC = () => {
 
   // Track password field visibility (for showing generated passwords)
   const [showPassword, setShowPassword] = useState(false);
+
+  // TOTP codes state
+  const [totpCodes, setTotpCodes] = useState<TotpCode[]>([]);
+  const [originalTotpCodeIds, setOriginalTotpCodeIds] = useState<string[]>([]);
+  const [totpEditorState, setTotpEditorState] = useState<{
+    isAddFormVisible: boolean;
+    formData: { name: string; secretKey: string };
+  }>({
+    isAddFormVisible: false,
+    formData: { name: '', secretKey: '' }
+  });
+  const [show2FA, setShow2FA] = useState(false);
+
+  // Attachments state
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [originalAttachmentIds, setOriginalAttachmentIds] = useState<string[]>([]);
+  const [showAttachments, setShowAttachments] = useState(false);
 
   /**
    * Get all applicable system fields for the current item type.
@@ -303,6 +322,22 @@ const ItemAddEdit: React.FC = () => {
         setFieldValues(initialValues);
         setCustomFields(existingCustomFields);
 
+        // Load TOTP codes for this item
+        const itemTotpCodes = dbContext.sqliteClient.getTotpCodesForItem(id);
+        setTotpCodes(itemTotpCodes);
+        setOriginalTotpCodeIds(itemTotpCodes.map(tc => tc.Id));
+        if (itemTotpCodes.length > 0) {
+          setShow2FA(true);
+        }
+
+        // Load attachments for this item
+        const itemAttachments = dbContext.sqliteClient.getAttachmentsForItem(id);
+        setAttachments(itemAttachments);
+        setOriginalAttachmentIds(itemAttachments.map(a => a.Id));
+        if (itemAttachments.length > 0) {
+          setShowAttachments(true);
+        }
+
         setLocalLoading(false);
         setIsInitialLoading(false);
       } else {
@@ -405,9 +440,15 @@ const ItemAddEdit: React.FC = () => {
 
       await executeVaultMutation(async () => {
         if (isEditMode) {
-          await dbContext.sqliteClient!.updateItem(updatedItem);
+          await dbContext.sqliteClient!.updateItem(
+            updatedItem,
+            originalAttachmentIds,
+            attachments,
+            originalTotpCodeIds,
+            totpCodes
+          );
         } else {
-          await dbContext.sqliteClient!.createItem(updatedItem);
+          await dbContext.sqliteClient!.createItem(updatedItem, attachments, totpCodes);
         }
       });
 
@@ -416,7 +457,7 @@ const ItemAddEdit: React.FC = () => {
     } catch (err) {
       console.error('Error saving item:', err);
     }
-  }, [item, fieldValues, applicableSystemFields, customFields, dbContext, isEditMode, executeVaultMutation, navigate]);
+  }, [item, fieldValues, applicableSystemFields, customFields, dbContext, isEditMode, executeVaultMutation, navigate, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes]);
 
   /**
    * Handle delete action.
@@ -674,7 +715,23 @@ const ItemAddEdit: React.FC = () => {
   }, []);
 
   /**
-   * Add menu options - shows available optional sections (Notes and Custom Fields only).
+   * Handle adding 2FA section from menu.
+   */
+  const handleAdd2FAFromMenu = useCallback((): void => {
+    setShow2FA(true);
+    setShowAddMenu(false);
+  }, []);
+
+  /**
+   * Handle adding attachments section from menu.
+   */
+  const handleAddAttachmentsFromMenu = useCallback((): void => {
+    setShowAttachments(true);
+    setShowAddMenu(false);
+  }, []);
+
+  /**
+   * Add menu options - shows available optional sections (Notes, 2FA, Attachments, and Custom Fields).
    * Alias has its own dedicated button since it's a core feature.
    */
   const addMenuOptions = useMemo(() => {
@@ -700,6 +757,35 @@ const ItemAddEdit: React.FC = () => {
       });
     }
 
+    // 2FA TOTP option - only for Login and Alias types, and when not already shown
+    const supports2FA = item?.ItemType === 'Login' || item?.ItemType === 'Alias';
+    if (supports2FA && !show2FA) {
+      options.push({
+        key: '2fa',
+        label: t('common.twoFactorAuthentication'),
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+        ),
+        action: handleAdd2FAFromMenu
+      });
+    }
+
+    // Attachments option - available for all types, when not already shown
+    if (!showAttachments) {
+      options.push({
+        key: 'attachments',
+        label: t('common.attachments'),
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+          </svg>
+        ),
+        action: handleAddAttachmentsFromMenu
+      });
+    }
+
     // Custom field option (always available)
     options.push({
       key: 'custom',
@@ -713,7 +799,7 @@ const ItemAddEdit: React.FC = () => {
     });
 
     return options;
-  }, [showNotes, notesField, fieldValues, isEditMode, t, handleAddNotesFromMenu, handleAddCustomFieldFromMenu, shouldShowFieldByDefault]);
+  }, [showNotes, notesField, fieldValues, isEditMode, t, handleAddNotesFromMenu, handleAddCustomFieldFromMenu, handleAdd2FAFromMenu, handleAddAttachmentsFromMenu, shouldShowFieldByDefault, item?.ItemType, show2FA, showAttachments]);
 
   // Set header buttons
   useEffect(() => {
@@ -1131,6 +1217,26 @@ const ItemAddEdit: React.FC = () => {
             )}
           </div>
         </div>
+      )}
+
+      {/* 2FA TOTP Section - only for Login and Alias types */}
+      {show2FA && (item?.ItemType === 'Login' || item?.ItemType === 'Alias') && (
+        <TotpEditor
+          totpCodes={totpCodes}
+          onTotpCodesChange={setTotpCodes}
+          originalTotpCodeIds={originalTotpCodeIds}
+          isAddFormVisible={totpEditorState.isAddFormVisible}
+          formData={totpEditorState.formData}
+          onStateChange={setTotpEditorState}
+        />
+      )}
+
+      {/* Attachments Section */}
+      {showAttachments && (
+        <AttachmentUploader
+          attachments={attachments}
+          onAttachmentsChange={setAttachments}
+        />
       )}
 
       {/* Generic + button with dropdown menu for Notes and Custom Fields */}

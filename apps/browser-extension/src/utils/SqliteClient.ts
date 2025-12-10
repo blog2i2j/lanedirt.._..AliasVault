@@ -1175,6 +1175,70 @@ export class SqliteClient {
   }
 
   /**
+   * Get TOTP codes for an item
+   * @param itemId - The ID of the item to get TOTP codes for
+   * @returns Array of TotpCode objects
+   */
+  public getTotpCodesForItem(itemId: string): TotpCode[] {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      if (!this.tableExists('TotpCodes')) {
+        return [];
+      }
+
+      const query = `
+        SELECT
+          Id,
+          Name,
+          SecretKey,
+          ItemId
+        FROM TotpCodes
+        WHERE ItemId = ? AND IsDeleted = 0`;
+
+      return this.executeQuery<TotpCode>(query, [itemId]);
+    } catch (error) {
+      console.error('Error getting TOTP codes for item:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get attachments for an item
+   * @param itemId - The ID of the item
+   * @returns Array of attachments for the item
+   */
+  public getAttachmentsForItem(itemId: string): Attachment[] {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      if (!this.tableExists('Attachments')) {
+        return [];
+      }
+
+      const query = `
+        SELECT
+          Id,
+          Filename,
+          Blob,
+          ItemId,
+          CreatedAt,
+          UpdatedAt,
+          IsDeleted
+        FROM Attachments
+        WHERE ItemId = ? AND IsDeleted = 0`;
+      return this.executeQuery<Attachment>(query, [itemId]);
+    } catch (error) {
+      console.error('Error getting attachments for item:', error);
+      return [];
+    }
+  }
+
+  /**
    * Delete a credential by ID
    * @param credentialId - The ID of the credential to delete
    * @returns The number of rows deleted
@@ -1973,9 +2037,11 @@ export class SqliteClient {
   /**
    * Create a new item with field-based structure
    * @param item The item object to insert
+   * @param attachments Optional attachments to associate with the item
+   * @param totpCodes Optional TOTP codes to associate with the item
    * @returns The ID of the created item
    */
-  public async createItem(item: Item): Promise<string> {
+  public async createItem(item: Item, attachments: Attachment[] = [], totpCodes: TotpCode[] = []): Promise<string> {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
@@ -2077,6 +2143,45 @@ export class SqliteClient {
         }
       }
 
+      // 3. Insert TOTP codes
+      for (const totpCode of totpCodes) {
+        const totpQuery = `
+          INSERT INTO TotpCodes (Id, Name, SecretKey, ItemId, CreatedAt, UpdatedAt, IsDeleted)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`;
+
+        this.executeUpdate(totpQuery, [
+          totpCode.Id || crypto.randomUUID().toUpperCase(),
+          totpCode.Name,
+          totpCode.SecretKey,
+          itemId,
+          currentDateTime,
+          currentDateTime,
+          0
+        ]);
+      }
+
+      // 4. Insert attachments
+      for (const attachment of attachments) {
+        const attachmentQuery = `
+          INSERT INTO Attachments (Id, Filename, Blob, ItemId, CreatedAt, UpdatedAt, IsDeleted)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`;
+
+        // Convert number[] to Uint8Array if needed
+        const blobData = attachment.Blob instanceof Uint8Array
+          ? attachment.Blob
+          : new Uint8Array(attachment.Blob);
+
+        this.executeUpdate(attachmentQuery, [
+          attachment.Id || crypto.randomUUID().toUpperCase(),
+          attachment.Filename,
+          blobData,
+          itemId,
+          currentDateTime,
+          currentDateTime,
+          0
+        ]);
+      }
+
       await this.commitTransaction();
       return itemId;
     } catch (error) {
@@ -2089,9 +2194,19 @@ export class SqliteClient {
   /**
    * Update an existing item with field-based structure
    * @param item The item object to update
+   * @param originalAttachmentIds Original attachment IDs for tracking changes
+   * @param attachments Current attachments list
+   * @param originalTotpCodeIds Original TOTP code IDs for tracking changes
+   * @param totpCodes Current TOTP codes list
    * @returns The number of rows modified
    */
-  public async updateItem(item: Item): Promise<number> {
+  public async updateItem(
+    item: Item,
+    originalAttachmentIds: string[] = [],
+    attachments: Attachment[] = [],
+    originalTotpCodeIds: string[] = [],
+    totpCodes: TotpCode[] = []
+  ): Promise<number> {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
@@ -2283,6 +2398,87 @@ export class SqliteClient {
 
           this.executeUpdate(deleteQuery, [currentDateTime, fv.Id]);
         }
+      }
+
+      // 6. Handle TOTP codes
+      for (const totpCode of totpCodes) {
+        const wasOriginal = originalTotpCodeIds.includes(totpCode.Id);
+
+        if (totpCode.IsDeleted) {
+          // Soft-delete existing TOTP codes
+          if (wasOriginal) {
+            const deleteTotpQuery = `
+              UPDATE TotpCodes
+              SET IsDeleted = 1,
+                  UpdatedAt = ?
+              WHERE Id = ?`;
+            this.executeUpdate(deleteTotpQuery, [currentDateTime, totpCode.Id]);
+          }
+        } else if (wasOriginal) {
+          // Update existing TOTP code
+          const updateTotpQuery = `
+            UPDATE TotpCodes
+            SET Name = ?,
+                SecretKey = ?,
+                UpdatedAt = ?
+            WHERE Id = ?`;
+          this.executeUpdate(updateTotpQuery, [
+            totpCode.Name,
+            totpCode.SecretKey,
+            currentDateTime,
+            totpCode.Id
+          ]);
+        } else {
+          // Insert new TOTP code
+          const insertTotpQuery = `
+            INSERT INTO TotpCodes (Id, Name, SecretKey, ItemId, CreatedAt, UpdatedAt, IsDeleted)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`;
+          this.executeUpdate(insertTotpQuery, [
+            totpCode.Id || crypto.randomUUID().toUpperCase(),
+            totpCode.Name,
+            totpCode.SecretKey,
+            item.Id,
+            currentDateTime,
+            currentDateTime,
+            0
+          ]);
+        }
+      }
+
+      // 7. Handle attachments
+      for (const attachment of attachments) {
+        const wasOriginal = originalAttachmentIds.includes(attachment.Id);
+
+        if (attachment.IsDeleted) {
+          // Soft-delete existing attachments
+          if (wasOriginal) {
+            const deleteAttachmentQuery = `
+              UPDATE Attachments
+              SET IsDeleted = 1,
+                  UpdatedAt = ?
+              WHERE Id = ?`;
+            this.executeUpdate(deleteAttachmentQuery, [currentDateTime, attachment.Id]);
+          }
+        } else if (!wasOriginal) {
+          // Insert new attachment
+          const blobData = attachment.Blob instanceof Uint8Array
+            ? attachment.Blob
+            : new Uint8Array(attachment.Blob);
+
+          const insertAttachmentQuery = `
+            INSERT INTO Attachments (Id, Filename, Blob, ItemId, CreatedAt, UpdatedAt, IsDeleted)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`;
+          this.executeUpdate(insertAttachmentQuery, [
+            attachment.Id || crypto.randomUUID().toUpperCase(),
+            attachment.Filename,
+            blobData,
+            item.Id,
+            currentDateTime,
+            currentDateTime,
+            0
+          ]);
+        }
+        // Note: Existing attachments are not updated (blob data doesn't change)
       }
 
       await this.commitTransaction();

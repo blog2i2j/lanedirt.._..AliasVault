@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import {
-  HeaderBlock,
   TotpBlock,
   AttachmentBlock,
   FieldBlock
@@ -168,12 +167,10 @@ const ItemDetails: React.FC = (): React.ReactElement => {
         </div>
       </div>
 
-      {/* Debug info */}
-      <div className="bg-yellow-100 dark:bg-yellow-900 p-2 rounded text-xs">
-        <strong>Debug:</strong> Fields count: {item.Fields.length},
-        Tags count: {item.Tags?.length || 0},
-        Grouped keys: {Object.keys(groupedFields).join(', ')}
-      </div>
+      {/* TOTP codes - only for Login and Alias types, shown at top */}
+      {(item.ItemType === 'Login' || item.ItemType === 'Alias') && (
+        <TotpBlock itemId={item.Id} />
+      )}
 
       {/* Render fields dynamically by category */}
       {Object.keys(groupedFields).length > 0 && (
@@ -235,11 +232,8 @@ const ItemDetails: React.FC = (): React.ReactElement => {
         </>
       )}
 
-      {/* TOTP codes */}
-      {item.HasTotp && <TotpBlock credentialId={item.Id} />}
-
-      {/* Attachments */}
-      {item.HasAttachment && <AttachmentBlock credentialId={item.Id} />}
+      {/* Attachments - shown at bottom */}
+      <AttachmentBlock itemId={item.Id} />
 
       {/* Tags */}
       {item.Tags && item.Tags.length > 0 && (
