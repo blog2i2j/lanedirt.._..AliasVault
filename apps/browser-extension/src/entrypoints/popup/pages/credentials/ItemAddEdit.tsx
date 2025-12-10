@@ -104,7 +104,7 @@ const ItemAddEdit: React.FC = () => {
   const itemTypeParam = searchParams.get('type') as ItemType | null;
   const itemNameParam = searchParams.get('name');
 
-  const { executeVaultMutation, isLoading, syncStatus } = useVaultMutate();
+  const { executeVaultMutation, syncStatus } = useVaultMutate();
   const { setHeaderButtons } = useHeaderButtons();
   const { setIsInitialLoading } = useLoading();
   const [localLoading, setLocalLoading] = useState(true);
@@ -127,6 +127,9 @@ const ItemAddEdit: React.FC = () => {
 
   // Type selector dropdown state (for create mode)
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
+
+  // Folder selection modal state
+  const [showFolderModal, setShowFolderModal] = useState(false);
 
   // Alias fields visibility state (for Login type - hidden by default, shown when user adds it)
   const [showAliasFields, setShowAliasFields] = useState(false);
@@ -372,17 +375,6 @@ const ItemAddEdit: React.FC = () => {
   }, [item, isEditMode, dbContext, executeVaultMutation, navigate]);
 
   /**
-   * Handle cancel action.
-   */
-  const handleCancel = useCallback(() => {
-    if (isEditMode) {
-      navigate(`/items/${id}`);
-    } else {
-      navigate('/items');
-    }
-  }, [isEditMode, id, navigate]);
-
-  /**
    * Add custom field handler.
    */
   const handleAddCustomField = useCallback(() => {
@@ -620,18 +612,28 @@ const ItemAddEdit: React.FC = () => {
 
   // Set header buttons
   useEffect(() => {
-    const headerButtonsJSX = isEditMode ? (
-      <HeaderButton
-        onClick={() => setShowDeleteModal(true)}
-        title={t('credentials.deleteCredential')}
-        iconType={HeaderIconType.DELETE}
-      />
-    ) : null;
+    const headerButtonsJSX = (
+      <div className="flex items-center gap-2">
+        {isEditMode && (
+          <HeaderButton
+            onClick={() => setShowDeleteModal(true)}
+            title={t('credentials.deleteCredential')}
+            iconType={HeaderIconType.DELETE}
+            variant="danger"
+          />
+        )}
+        <HeaderButton
+          onClick={handleSave}
+          title={t('credentials.saveCredential')}
+          iconType={HeaderIconType.SAVE}
+        />
+      </div>
+    );
 
     setHeaderButtons(headerButtonsJSX);
 
     return (): void => setHeaderButtons(null);
-  }, [setHeaderButtons, isEditMode, t]);
+  }, [setHeaderButtons, isEditMode, t, handleSave]);
 
   /**
    * Render a field input based on field type.
@@ -649,26 +651,28 @@ const ItemAddEdit: React.FC = () => {
             {label}
           </label>
           {values.map((val, idx) => (
-            <div key={`${fieldKey}-${idx}`} className="flex gap-2">
-              <FormInput
+            <div key={`${fieldKey}-${idx}`} className="relative">
+              <input
                 id={`${fieldKey}-${idx}`}
-                label=""
+                type="text"
                 value={val}
-                onChange={(value) => {
+                onChange={(e) => {
                   const newValues = [...values];
-                  newValues[idx] = value;
+                  newValues[idx] = e.target.value;
                   handleFieldChange(fieldKey, newValues.filter(v => v.trim() !== ''));
                 }}
-                type="text"
                 placeholder={`${label} ${idx + 1}`}
+                className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
               />
               {idx === values.length - 1 && (
                 <button
                   type="button"
                   onClick={() => handleFieldChange(fieldKey, [...values, ''])}
-                  className="px-3 py-2 text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-gray-400 hover:text-primary-500 dark:hover:text-primary-400 transition-colors"
                 >
-                  +
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
                 </button>
               )}
             </div>
@@ -812,15 +816,45 @@ const ItemAddEdit: React.FC = () => {
       <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
         <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">{t('credentials.service')}</h2>
         <div className="space-y-4">
-          <FormInput
-            id="itemName"
-            label={t('credentials.serviceName')}
-            value={item.Name || ''}
-            onChange={(value) => setItem({ ...item, Name: value })}
-            type="text"
-            placeholder={t('credentials.serviceName')}
-            required
-          />
+          {/* Service Name with Folder Button */}
+          <div>
+            <label htmlFor="itemName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {t('credentials.serviceName')} <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <input
+                id="itemName"
+                type="text"
+                value={item.Name || ''}
+                onChange={(e) => setItem({ ...item, Name: e.target.value })}
+                placeholder={t('credentials.serviceName')}
+                className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white ${folders.length > 0 ? 'pr-28' : ''}`}
+                required
+              />
+              {/* Folder Button inside input */}
+              {folders.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowFolderModal(true)}
+                  className={`absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded transition-colors text-xs ${
+                    item.FolderId
+                      ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 hover:bg-primary-200 dark:hover:bg-primary-900/50'
+                      : 'text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
+                  }`}
+                  title={item.FolderId ? folders.find(f => f.Id === item.FolderId)?.Name || t('items.folder') : t('items.noFolder')}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  </svg>
+                  {item.FolderId && (
+                    <span className="max-w-16 truncate">
+                      {folders.find(f => f.Id === item.FolderId)?.Name}
+                    </span>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
           {/* Service inline fields (login.url) - shown without header */}
           {serviceInlineFields.map(field => (
             <div key={field.FieldKey}>
@@ -1023,48 +1057,6 @@ const ItemAddEdit: React.FC = () => {
         )}
       </div>
 
-      {/* Folder Selection - Compact at bottom */}
-      {folders.length > 0 && (
-        <div className="flex items-center gap-2 text-sm">
-          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-          </svg>
-          <select
-            id="folderSelect"
-            value={item.FolderId || ''}
-            onChange={(e) => setItem({ ...item, FolderId: e.target.value || null })}
-            className="flex-1 py-1 px-2 text-sm border dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-primary-500 focus:border-primary-500"
-          >
-            <option value="">{t('items.noFolder')}</option>
-            {folders.map(folder => (
-              <option key={folder.Id} value={folder.Id}>
-                {folder.Name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {/* Action Buttons */}
-      <div className="flex gap-3 pt-4">
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={isLoading}
-          className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoading ? t('common.saving') : t('common.save')}
-        </button>
-        <button
-          type="button"
-          onClick={handleCancel}
-          disabled={isLoading}
-          className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {t('common.cancel')}
-        </button>
-      </div>
-
       {/* Add Custom Field Dialog */}
       {showAddCustomFieldModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -1146,6 +1138,95 @@ const ItemAddEdit: React.FC = () => {
           onConfirm={handleDelete}
           variant="danger"
         />
+      )}
+
+      {/* Folder Selection Modal */}
+      {showFolderModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black bg-opacity-80 transition-opacity"
+            onClick={() => setShowFolderModal(false)}
+          />
+
+          {/* Modal */}
+          <div className="fixed inset-0 flex items-center justify-center p-4">
+            <div className="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 pb-4 pt-5 text-left shadow-xl transition-all w-full max-w-sm">
+              {/* Close button */}
+              <button
+                type="button"
+                className="absolute right-4 top-4 text-gray-400 hover:text-gray-500 focus:outline-none"
+                onClick={() => setShowFolderModal(false)}
+              >
+                <span className="sr-only">{t('common.close')}</span>
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+
+              {/* Content */}
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold leading-6 text-gray-900 dark:text-white">
+                  {t('items.folder')}
+                </h3>
+              </div>
+
+              {/* Folder Options */}
+              <div className="space-y-1 max-h-64 overflow-y-auto">
+                {/* No Folder Option */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setItem({ ...item, FolderId: null });
+                    setShowFolderModal(false);
+                  }}
+                  className={`w-full px-3 py-2 text-left rounded-md flex items-center gap-3 transition-colors ${
+                    !item.FolderId
+                      ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  <svg className={`w-5 h-5 ${!item.FolderId ? 'text-primary-500' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                  </svg>
+                  <span className="font-medium">{t('items.noFolder')}</span>
+                  {!item.FolderId && (
+                    <svg className="w-5 h-5 ml-auto text-primary-600 dark:text-primary-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </button>
+
+                {/* Folder Options */}
+                {folders.map(folder => (
+                  <button
+                    key={folder.Id}
+                    type="button"
+                    onClick={() => {
+                      setItem({ ...item, FolderId: folder.Id });
+                      setShowFolderModal(false);
+                    }}
+                    className={`w-full px-3 py-2 text-left rounded-md flex items-center gap-3 transition-colors ${
+                      item.FolderId === folder.Id
+                        ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    <svg className={`w-5 h-5 ${item.FolderId === folder.Id ? 'text-primary-500' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                    </svg>
+                    <span className="font-medium">{folder.Name}</span>
+                    {item.FolderId === folder.Id && (
+                      <svg className="w-5 h-5 ml-auto text-primary-600 dark:text-primary-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Sync Status */}
