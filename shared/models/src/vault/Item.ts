@@ -1,10 +1,14 @@
 /**
  * Item types supported by the vault
+ * - Login: Username/password credentials with optional notes
+ * - Alias: Login with pre-filled alias identity fields (email, name, etc.)
+ * - CreditCard: Payment card information
+ * - Note: Secure notes
  */
 export type ItemType =
     | 'Login'
+    | 'Alias'
     | 'CreditCard'
-    | 'Identity'
     | 'Note';
 
 /**

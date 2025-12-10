@@ -323,8 +323,12 @@ type ItemTag = {
 
 /**
  * Item types supported by the vault
+ * - Login: Username/password credentials with optional notes
+ * - Alias: Login with pre-filled alias identity fields (email, name, etc.)
+ * - CreditCard: Payment card information
+ * - Note: Secure notes
  */
-type ItemType = 'Login' | 'CreditCard' | 'Identity' | 'Note';
+type ItemType = 'Login' | 'Alias' | 'CreditCard' | 'Note';
 /**
  * Item type representing vault entries in the new field-based data model.
  * Replaces the old Credential type.
@@ -428,8 +432,8 @@ type SystemFieldDefinition = {
     ApplicableToTypes: Partial<Record<ItemType, ItemTypeFieldConfig>>;
     /** Whether to track field value history */
     EnableHistory: boolean;
-    /** Category for grouping in UI */
-    Category: 'Login' | 'Alias' | 'Card' | 'Identity' | 'API' | 'Metadata';
+    /** Category for grouping in UI. 'Primary' fields are shown in the name block. */
+    Category: 'Primary' | 'Login' | 'Alias' | 'Card' | 'Metadata';
     /** Default display order within category (lower = first) */
     DefaultDisplayOrder: number;
 };
@@ -437,6 +441,11 @@ type SystemFieldDefinition = {
  * Registry of all system-defined fields.
  * These fields are immutable and their metadata is defined in code.
  * DO NOT modify these definitions without careful consideration of backwards compatibility.
+ *
+ * Item Types:
+ * - Login: Username/password credentials (alias fields optional)
+ * - Alias: Login with pre-filled alias identity fields shown by default
+ * - CreditCard: Payment card information
  */
 declare const SystemFieldRegistry: Record<string, SystemFieldDefinition>;
 /**

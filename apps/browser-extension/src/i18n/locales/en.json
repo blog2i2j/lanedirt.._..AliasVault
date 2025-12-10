@@ -295,6 +295,7 @@
     "typeLabel": "Item Type",
     "creating": "Creating",
     "generateAlias": "Generate random alias",
+    "regenerateAlias": "Regenerate alias",
     "addAlias": "Add alias",
     "addNotes": "Add notes",
     "addCustomField": "Add custom field",
@@ -302,13 +303,13 @@
       "title": "Login",
       "description": "Username, password, and website credentials"
     },
+    "alias": {
+      "title": "Alias",
+      "description": "Login with auto-generated email alias and identity"
+    },
     "creditCard": {
       "title": "Credit Card",
       "description": "Credit card information and payment details"
-    },
-    "identity": {
-      "title": "Identity",
-      "description": "Personal information and contact details"
     },
     "note": {
       "title": "Secure Note",

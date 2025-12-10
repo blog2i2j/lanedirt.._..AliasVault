@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
@@ -17,11 +17,11 @@ import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
 import { IdentityHelperUtils, CreateIdentityGenerator, convertAgeRangeToBirthdateOptions } from '@/utils/dist/shared/identity-generator';
 import type { Item, ItemField, ItemType, FieldType } from '@/utils/dist/shared/models/vault';
-import { getSystemFieldsForItemType, isFieldShownByDefault, getOptionalFieldsForItemType } from '@/utils/dist/shared/models/vault';
+import { getSystemFieldsForItemType, isFieldShownByDefault } from '@/utils/dist/shared/models/vault';
 import { CreatePasswordGenerator } from '@/utils/dist/shared/password-generator';
 
 // Valid item types from the shared model
-const VALID_ITEM_TYPES: ItemType[] = ['Login', 'CreditCard', 'Identity', 'Note'];
+const VALID_ITEM_TYPES: ItemType[] = ['Login', 'Alias', 'CreditCard', 'Note'];
 
 // Default item type for new items
 const DEFAULT_ITEM_TYPE: ItemType = 'Login';
@@ -49,20 +49,20 @@ const ITEM_TYPE_OPTIONS: ItemTypeOption[] = [
     )
   },
   {
+    type: 'Alias',
+    titleKey: 'itemTypes.alias.title',
+    iconSvg: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+      </svg>
+    )
+  },
+  {
     type: 'CreditCard',
     titleKey: 'itemTypes.creditCard.title',
     iconSvg: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-      </svg>
-    )
-  },
-  {
-    type: 'Identity',
-    titleKey: 'itemTypes.identity.title',
-    iconSvg: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
       </svg>
     )
   },
@@ -140,6 +140,26 @@ const ItemAddEdit: React.FC = () => {
   // Add menu dropdown state (unified + button)
   const [showAddMenu, setShowAddMenu] = useState(false);
 
+  // Track if alias was already auto-generated (to avoid re-generating on re-renders)
+  const aliasGeneratedRef = useRef(false);
+
+  // Ref for the item name input field (for auto-focus)
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  // Track last generated values to avoid overwriting manual user entries on regenerate
+  const [lastGeneratedValues, setLastGeneratedValues] = useState<{
+    username: string | null;
+    password: string | null;
+    email: string | null;
+  }>({
+    username: null,
+    password: null,
+    email: null
+  });
+
+  // Track password field visibility (for showing generated passwords)
+  const [showPassword, setShowPassword] = useState(false);
+
   /**
    * Get all applicable system fields for the current item type.
    * These are sorted by DefaultDisplayOrder.
@@ -152,21 +172,10 @@ const ItemAddEdit: React.FC = () => {
   }, [item]);
 
   /**
-   * Get optional fields that are not shown by default for the current item type.
-   * These can be added via the "+" menu.
-   */
-  const optionalFields = useMemo(() => {
-    if (!item) {
-      return [];
-    }
-    return getOptionalFieldsForItemType(item.ItemType);
-  }, [item]);
-
-  /**
-   * The notes field (login.notes) - handled separately for collapsible UI.
+   * The notes field (metadata.notes) - handled separately for collapsible UI.
    */
   const notesField = useMemo(() => {
-    return applicableSystemFields.find(field => field.FieldKey === 'login.notes');
+    return applicableSystemFields.find(field => field.FieldKey === 'metadata.notes');
   }, [applicableSystemFields]);
 
   /**
@@ -184,8 +193,15 @@ const ItemAddEdit: React.FC = () => {
   }, [item, applicableSystemFields]);
 
   /**
+   * Primary fields (like URL) that should be shown in the name block.
+   */
+  const primaryFields = useMemo(() => {
+    return applicableSystemFields.filter(field => field.Category === 'Primary');
+  }, [applicableSystemFields]);
+
+  /**
    * Group system fields by category for organized rendering.
-   * Excludes metadata fields (notes) which are handled separately.
+   * Excludes metadata fields (notes) and header fields which are handled separately.
    */
   const groupedSystemFields = useMemo(() => {
     const groups: Record<string, typeof applicableSystemFields> = {};
@@ -193,6 +209,10 @@ const ItemAddEdit: React.FC = () => {
     applicableSystemFields.forEach(field => {
       // Skip metadata fields (notes) - handled separately
       if (field.Category === 'Metadata') {
+        return;
+      }
+      // Skip primary fields - rendered in name block
+      if (field.Category === 'Primary') {
         return;
       }
 
@@ -231,9 +251,14 @@ const ItemAddEdit: React.FC = () => {
 
       // Check if notes should be shown by default for this type
       const typeFields = getSystemFieldsForItemType(effectiveType);
-      const notesFieldDef = typeFields.find(f => f.FieldKey === 'login.notes');
+      const notesFieldDef = typeFields.find(f => f.FieldKey === 'metadata.notes');
       if (notesFieldDef && isFieldShownByDefault(notesFieldDef, effectiveType)) {
         setShowNotes(true);
+      }
+
+      // For Alias type, show alias fields by default
+      if (effectiveType === 'Alias') {
+        setShowAliasFields(true);
       }
 
       // Load folders
@@ -290,6 +315,26 @@ const ItemAddEdit: React.FC = () => {
       setIsInitialLoading(false);
     }
   }, [dbContext?.sqliteClient, id, isEditMode, itemTypeParam, itemNameParam, navigate, setIsInitialLoading]);
+
+  /**
+   * Auto-generate alias when Alias type is selected in create mode.
+   */
+  useEffect(() => {
+    if (!isEditMode && item?.ItemType === 'Alias' && !localLoading && dbContext?.sqliteClient && !aliasGeneratedRef.current) {
+      aliasGeneratedRef.current = true;
+      void handleGenerateAlias();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode, item?.ItemType, localLoading, dbContext?.sqliteClient]);
+
+  /**
+   * Auto-focus the name input field when in add mode.
+   */
+  useEffect(() => {
+    if (!isEditMode && !localLoading && nameInputRef.current) {
+      nameInputRef.current.focus();
+    }
+  }, [isEditMode, localLoading]);
 
   /**
    * Handle field value change.
@@ -451,11 +496,19 @@ const ItemAddEdit: React.FC = () => {
     // Clear field values when changing type (except name)
     setFieldValues({});
     setCustomFields([]);
-    setShowAliasFields(false);
+
+    // For Alias type, show alias fields by default; otherwise hide
+    if (newType === 'Alias') {
+      setShowAliasFields(true);
+      // Reset the ref so alias will be auto-generated
+      aliasGeneratedRef.current = false;
+    } else {
+      setShowAliasFields(false);
+    }
 
     // Check if notes should be shown by default for the new type
     const newTypeFields = getSystemFieldsForItemType(newType);
-    const newNotesField = newTypeFields.find(f => f.FieldKey === 'login.notes');
+    const newNotesField = newTypeFields.find(f => f.FieldKey === 'metadata.notes');
     const notesShownByDefault = newNotesField ? isFieldShownByDefault(newNotesField, newType) : false;
     setShowNotes(notesShownByDefault);
 
@@ -488,6 +541,7 @@ const ItemAddEdit: React.FC = () => {
   /**
    * Generate random alias and populate alias fields.
    * This shows the alias fields and fills them with random values.
+   * Only overwrites username/password/email if they're empty or match the last generated value.
    */
   const handleGenerateAlias = useCallback(async () => {
     if (!dbContext?.sqliteClient) {
@@ -512,25 +566,55 @@ const ItemAddEdit: React.FC = () => {
       const email = defaultEmailDomain ? `${identity.emailPrefix}@${defaultEmailDomain}` : identity.emailPrefix;
 
       // Set field values for alias fields
-      setFieldValues(prev => ({
-        ...prev,
-        'alias.email': email,
-        'alias.first_name': identity.firstName,
-        'alias.last_name': identity.lastName,
-        'alias.nickname': identity.nickName,
-        'alias.gender': identity.gender,
-        'alias.birthdate': IdentityHelperUtils.normalizeBirthDateForDisplay(identity.birthDate.toISOString()),
-        // Also set username and password if they're empty
-        'login.username': prev['login.username'] || identity.nickName,
-        'login.password': prev['login.password'] || password
-      }));
+      setFieldValues(prev => {
+        const currentUsername = (prev['login.username'] as string) || '';
+        const currentPassword = (prev['login.password'] as string) || '';
+        const currentEmail = (prev['alias.email'] as string) || '';
+
+        const newValues: Record<string, string | string[]> = {
+          ...prev,
+          // Always update alias identity fields
+          'alias.first_name': identity.firstName,
+          'alias.last_name': identity.lastName,
+          'alias.nickname': identity.nickName,
+          'alias.gender': identity.gender,
+          'alias.birthdate': IdentityHelperUtils.normalizeBirthDateForDisplay(identity.birthDate.toISOString())
+        };
+
+        // Only overwrite email if it's empty or matches the last generated value
+        if (!currentEmail || currentEmail === lastGeneratedValues.email) {
+          newValues['alias.email'] = email;
+        }
+
+        // Only overwrite username if it's empty or matches the last generated value
+        if (!currentUsername || currentUsername === lastGeneratedValues.username) {
+          newValues['login.username'] = identity.nickName;
+        }
+
+        // Only overwrite password if it's empty or matches the last generated value
+        if (!currentPassword || currentPassword === lastGeneratedValues.password) {
+          newValues['login.password'] = password;
+        }
+
+        return newValues;
+      });
+
+      // Update tracking with new generated values
+      setLastGeneratedValues({
+        username: identity.nickName,
+        password: password,
+        email: email
+      });
+
+      // Show the generated password (it's random so no need to hide)
+      setShowPassword(true);
 
       // Show alias fields section
       setShowAliasFields(true);
     } catch (error) {
       console.error('Error generating random alias:', error);
     }
-  }, [dbContext.sqliteClient, initializeGenerators]);
+  }, [dbContext.sqliteClient, initializeGenerators, lastGeneratedValues]);
 
   /**
    * Clear all alias field values but keep them visible.
@@ -561,7 +645,7 @@ const ItemAddEdit: React.FC = () => {
   const handleRemoveNotesSection = useCallback(() => {
     setFieldValues(prev => ({
       ...prev,
-      'login.notes': ''
+      'metadata.notes': ''
     }));
     setShowNotes(false);
   }, []);
@@ -603,7 +687,7 @@ const ItemAddEdit: React.FC = () => {
 
     // Notes option - show when notes field exists, is optional (not shown by default), not yet shown, and has no value
     const notesIsOptional = notesField && !shouldShowFieldByDefault(notesField);
-    if (notesField && notesIsOptional && !showNotes && !fieldValues['login.notes'] && !isEditMode) {
+    if (notesField && notesIsOptional && !showNotes && !fieldValues['metadata.notes'] && !isEditMode) {
       options.push({
         key: 'notes',
         label: t('credentials.notes'),
@@ -630,19 +714,6 @@ const ItemAddEdit: React.FC = () => {
 
     return options;
   }, [showNotes, notesField, fieldValues, isEditMode, t, handleAddNotesFromMenu, handleAddCustomFieldFromMenu, shouldShowFieldByDefault]);
-
-  /**
-   * Whether to show the dedicated "Add alias" button.
-   * Show when alias fields exist as optional (not shown by default) and not yet added.
-   */
-  const showAddAliasButton = useMemo(() => {
-    if (!item || isEditMode) {
-      return false;
-    }
-    // Check if there are any alias fields that are optional (not shown by default)
-    const hasOptionalAliasFields = optionalFields.some(f => f.Category === 'Alias');
-    return hasOptionalAliasFields && !showAliasFields;
-  }, [item, optionalFields, showAliasFields, isEditMode]);
 
   // Set header buttons
   useEffect(() => {
@@ -726,6 +797,8 @@ const ItemAddEdit: React.FC = () => {
             label={label}
             value={stringValue}
             onChange={(val) => handleFieldChange(fieldKey, val)}
+            showPassword={showPassword}
+            onShowPasswordChange={setShowPassword}
           />
         );
 
@@ -774,39 +847,66 @@ const ItemAddEdit: React.FC = () => {
           />
         );
     }
-  }, [fieldValues, handleFieldChange]);
+  }, [fieldValues, handleFieldChange, showPassword]);
+
+  /**
+   * Handle form submission via Enter key.
+   */
+  const handleFormSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    void handleSave();
+  }, [handleSave]);
 
   if (localLoading || !item) {
     return <LoadingSpinner />;
   }
 
   return (
-    <div className="space-y-4">
+    <form onSubmit={handleFormSubmit} className="space-y-4">
       {/* Item Type Selector (create mode only) */}
       {!isEditMode && (
         <div className="relative">
-          <button
-            type="button"
-            onClick={() => setShowTypeDropdown(!showTypeDropdown)}
-            className="w-full px-4 py-2 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg text-left flex items-center justify-between hover:bg-primary-100 dark:hover:bg-primary-900/30 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-primary-600 dark:text-primary-400">
-                {selectedTypeOption?.iconSvg}
-              </span>
-              <span className="text-primary-700 dark:text-primary-300 font-medium text-sm">
-                {t('itemTypes.creating')} {selectedTypeOption ? t(selectedTypeOption.titleKey) : ''}
-              </span>
-            </div>
-            <svg
-              className={`w-4 h-4 text-primary-500 transition-transform ${showTypeDropdown ? 'rotate-180' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          <div className="w-full px-4 py-2 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowTypeDropdown(!showTypeDropdown)}
+              className="flex-1 flex items-center justify-between hover:opacity-80 transition-opacity"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
+              <div className="flex items-center gap-2">
+                <span className="text-primary-600 dark:text-primary-400">
+                  {selectedTypeOption?.iconSvg}
+                </span>
+                <span className="text-primary-700 dark:text-primary-300 font-medium text-sm">
+                  {t('itemTypes.creating')} {selectedTypeOption ? t(selectedTypeOption.titleKey) : ''}
+                </span>
+              </div>
+              <svg
+                className={`w-4 h-4 text-primary-500 transition-transform ${showTypeDropdown ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {/* Regenerate alias button - icon only for flexibility */}
+            {item?.ItemType === 'Alias' && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void handleGenerateAlias();
+                }}
+                className="flex-shrink-0 p-1.5 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 hover:bg-primary-100 dark:hover:bg-primary-900/40 rounded transition-colors"
+                title={t('itemTypes.regenerateAlias')}
+              >
+                <svg className='w-4 h-4' viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 4v6h-6"/>
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                </svg>
+              </button>
+            )}
+          </div>
 
           {/* Type Dropdown Menu */}
           {showTypeDropdown && (
@@ -846,44 +946,59 @@ const ItemAddEdit: React.FC = () => {
         </div>
       )}
 
-      {/* Item Name - Central prominent field */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-        <label htmlFor="itemName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {t('credentials.itemName')} <span className="text-red-500">*</span>
-        </label>
-        <div className="relative">
-          <input
-            id="itemName"
-            type="text"
-            value={item.Name || ''}
-            onChange={(e) => setItem({ ...item, Name: e.target.value })}
-            placeholder={t('credentials.itemName')}
-            className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white ${folders.length > 0 ? 'pr-28' : ''}`}
-            required
-          />
-          {/* Folder Button inside input */}
-          {folders.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowFolderModal(true)}
-              className={`absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded transition-colors text-xs ${
-                item.FolderId
-                  ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 hover:bg-primary-200 dark:hover:bg-primary-900/50'
-                  : 'text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
-              }`}
-              title={item.FolderId ? folders.find(f => f.Id === item.FolderId)?.Name || t('items.folder') : t('items.noFolder')}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-              </svg>
-              {item.FolderId && (
-                <span className="max-w-16 truncate">
-                  {folders.find(f => f.Id === item.FolderId)?.Name}
-                </span>
-              )}
-            </button>
-          )}
+      {/* Item Name and Header fields block */}
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 space-y-4">
+        <div>
+          <label htmlFor="itemName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            {t('credentials.itemName')} <span className="text-red-500">*</span>
+          </label>
+          <div className="relative">
+            <input
+              ref={nameInputRef}
+              id="itemName"
+              type="text"
+              value={item.Name || ''}
+              onChange={(e) => setItem({ ...item, Name: e.target.value })}
+              placeholder={t('credentials.itemName')}
+              className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white ${folders.length > 0 ? 'pr-28' : ''}`}
+              required
+            />
+            {/* Folder Button inside input */}
+            {folders.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowFolderModal(true)}
+                className={`absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded transition-colors text-xs ${
+                  item.FolderId
+                    ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 hover:bg-primary-200 dark:hover:bg-primary-900/50'
+                    : 'text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
+                }`}
+                title={item.FolderId ? folders.find(f => f.Id === item.FolderId)?.Name || t('items.folder') : t('items.noFolder')}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                </svg>
+                {item.FolderId && (
+                  <span className="max-w-16 truncate">
+                    {folders.find(f => f.Id === item.FolderId)?.Name}
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
         </div>
+        {/* Primary fields (like URL) shown below name */}
+        {primaryFields.map(field => (
+          <div key={field.FieldKey}>
+            {renderFieldInput(
+              field.FieldKey,
+              field.Label,
+              field.FieldType,
+              field.IsHidden,
+              field.IsMultiValue
+            )}
+          </div>
+        ))}
       </div>
 
       {/* Render fields grouped by category */}
@@ -986,13 +1101,13 @@ const ItemAddEdit: React.FC = () => {
         </div>
       )}
 
-      {/* Notes Section - Hidden by default in create mode, with remove button */}
-      {notesField && (showNotes || isEditMode || fieldValues['login.notes']) && (
+      {/* Notes Section - Hidden by default in create mode, with remove button if optional */}
+      {notesField && (showNotes || isEditMode || fieldValues['metadata.notes']) && (
         <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center justify-between">
             <span>{t('credentials.notes')}</span>
-            {/* Remove button for notes in create mode */}
-            {!isEditMode && (
+            {/* Remove button for notes in create mode - only if notes is optional (not shown by default) */}
+            {!isEditMode && !shouldShowFieldByDefault(notesField) && (
               <button
                 type="button"
                 onClick={handleRemoveNotesSection}
@@ -1016,25 +1131,6 @@ const ItemAddEdit: React.FC = () => {
             )}
           </div>
         </div>
-      )}
-
-      {/* Dedicated "Add Alias" button - highlighted as core feature */}
-      {showAddAliasButton && (
-        <button
-          type="button"
-          onClick={handleGenerateAlias}
-          className="w-full px-4 py-3 bg-primary-50 dark:bg-primary-900/20 border-2 border-primary-300 dark:border-primary-700 text-primary-700 dark:text-primary-300 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/30 hover:border-primary-400 dark:hover:border-primary-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors flex items-center justify-center gap-2 font-medium"
-        >
-          <svg className='w-5 h-5' viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-            <circle cx="8" cy="8" r="1"/>
-            <circle cx="16" cy="8" r="1"/>
-            <circle cx="12" cy="12" r="1"/>
-            <circle cx="8" cy="16" r="1"/>
-            <circle cx="16" cy="16" r="1"/>
-          </svg>
-          {t('itemTypes.addAlias')}
-        </button>
       )}
 
       {/* Generic + button with dropdown menu for Notes and Custom Fields */}
@@ -1253,7 +1349,7 @@ const ItemAddEdit: React.FC = () => {
           <p className="text-sm text-gray-700 dark:text-gray-300">{syncStatus}</p>
         </div>
       )}
-    </div>
+    </form>
   );
 };
 

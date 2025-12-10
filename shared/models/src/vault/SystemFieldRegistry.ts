@@ -32,8 +32,8 @@ export type SystemFieldDefinition = {
   ApplicableToTypes: Partial<Record<ItemType, ItemTypeFieldConfig>>;
   /** Whether to track field value history */
   EnableHistory: boolean;
-  /** Category for grouping in UI */
-  Category: 'Login' | 'Alias' | 'Card' | 'Identity' | 'API' | 'Metadata';
+  /** Category for grouping in UI. 'Primary' fields are shown in the name block. */
+  Category: 'Primary' | 'Login' | 'Alias' | 'Card' | 'Metadata';
   /** Default display order within category (lower = first) */
   DefaultDisplayOrder: number;
 };
@@ -42,9 +42,14 @@ export type SystemFieldDefinition = {
  * Registry of all system-defined fields.
  * These fields are immutable and their metadata is defined in code.
  * DO NOT modify these definitions without careful consideration of backwards compatibility.
+ *
+ * Item Types:
+ * - Login: Username/password credentials (alias fields optional)
+ * - Alias: Login with pre-filled alias identity fields shown by default
+ * - CreditCard: Payment card information
  */
 export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
-  // Login Fields
+  /* =================== LOGIN FIELDS =================== */
   'login.username': {
     FieldKey: 'login.username',
     Label: 'Username',
@@ -52,7 +57,8 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
     IsHidden: false,
     IsMultiValue: false,
     ApplicableToTypes: {
-      Login: { ShowByDefault: true }
+      Login: { ShowByDefault: true },
+      Alias: { ShowByDefault: true }
     },
     EnableHistory: true,
     Category: 'Login',
@@ -65,7 +71,8 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
     IsHidden: true,
     IsMultiValue: false,
     ApplicableToTypes: {
-      Login: { ShowByDefault: true }
+      Login: { ShowByDefault: true },
+      Alias: { ShowByDefault: true }
     },
     EnableHistory: true,
     Category: 'Login',
@@ -78,32 +85,15 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
     IsHidden: false,
     IsMultiValue: true,
     ApplicableToTypes: {
-      Login: { ShowByDefault: true }
+      Login: { ShowByDefault: true },
+      Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: 'Login',
-    DefaultDisplayOrder: 30
+    Category: 'Primary',
+    DefaultDisplayOrder: 5
   },
 
-  // Metadata Fields
-  'login.notes': {
-    FieldKey: 'login.notes',
-    Label: 'Notes',
-    FieldType: 'TextArea',
-    IsHidden: false,
-    IsMultiValue: false,
-    ApplicableToTypes: {
-      Login: { ShowByDefault: false },
-      CreditCard: { ShowByDefault: false },
-      Identity: { ShowByDefault: false },
-      Note: { ShowByDefault: true }
-    },
-    EnableHistory: false,
-    Category: 'Metadata',
-    DefaultDisplayOrder: 100
-  },
-
-  // Alias Fields
+  /* =================== ALIAS FIELDS =================== */
   'alias.email': {
     FieldKey: 'alias.email',
     Label: 'Email',
@@ -111,7 +101,8 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
     IsHidden: false,
     IsMultiValue: false,
     ApplicableToTypes: {
-      Login: { ShowByDefault: false }
+      Login: { ShowByDefault: false },
+      Alias: { ShowByDefault: true }
     },
     EnableHistory: true,
     Category: 'Alias',
@@ -125,7 +116,7 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
     IsMultiValue: false,
     ApplicableToTypes: {
       Login: { ShowByDefault: false },
-      Identity: { ShowByDefault: true }
+      Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
     Category: 'Alias',
@@ -139,7 +130,7 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
     IsMultiValue: false,
     ApplicableToTypes: {
       Login: { ShowByDefault: false },
-      Identity: { ShowByDefault: true }
+      Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
     Category: 'Alias',
@@ -152,7 +143,8 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
     IsHidden: false,
     IsMultiValue: false,
     ApplicableToTypes: {
-      Login: { ShowByDefault: false }
+      Login: { ShowByDefault: false },
+      Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
     Category: 'Alias',
@@ -166,7 +158,7 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
     IsMultiValue: false,
     ApplicableToTypes: {
       Login: { ShowByDefault: false },
-      Identity: { ShowByDefault: true }
+      Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
     Category: 'Alias',
@@ -180,20 +172,110 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
     IsMultiValue: false,
     ApplicableToTypes: {
       Login: { ShowByDefault: false },
-      Identity: { ShowByDefault: true }
+      Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
     Category: 'Alias',
     DefaultDisplayOrder: 60
   },
 
-  /*
-   * Note: Card, Identity, and API fields can be added here when those item types are implemented
-   * Example:
-   * 'card.number': { ... },
-   * 'card.cardholder_name': { ... },
-   * 'identity.phone_number': { ... },
-   */
+  /* =================== CREDIT CARD FIELDS =================== */
+  'card.cardholder_name': {
+    FieldKey: 'card.cardholder_name',
+    Label: 'Cardholder Name',
+    FieldType: 'Text',
+    IsHidden: false,
+    IsMultiValue: false,
+    ApplicableToTypes: {
+      CreditCard: { ShowByDefault: true }
+    },
+    EnableHistory: false,
+    Category: 'Card',
+    DefaultDisplayOrder: 10
+  },
+  'card.number': {
+    FieldKey: 'card.number',
+    Label: 'Card Number',
+    FieldType: 'Hidden',
+    IsHidden: true,
+    IsMultiValue: false,
+    ApplicableToTypes: {
+      CreditCard: { ShowByDefault: true }
+    },
+    EnableHistory: false,
+    Category: 'Card',
+    DefaultDisplayOrder: 20
+  },
+  'card.expiry_month': {
+    FieldKey: 'card.expiry_month',
+    Label: 'Expiry Month',
+    FieldType: 'Text',
+    IsHidden: false,
+    IsMultiValue: false,
+    ApplicableToTypes: {
+      CreditCard: { ShowByDefault: true }
+    },
+    EnableHistory: false,
+    Category: 'Card',
+    DefaultDisplayOrder: 30
+  },
+  'card.expiry_year': {
+    FieldKey: 'card.expiry_year',
+    Label: 'Expiry Year',
+    FieldType: 'Text',
+    IsHidden: false,
+    IsMultiValue: false,
+    ApplicableToTypes: {
+      CreditCard: { ShowByDefault: true }
+    },
+    EnableHistory: false,
+    Category: 'Card',
+    DefaultDisplayOrder: 40
+  },
+  'card.cvv': {
+    FieldKey: 'card.cvv',
+    Label: 'CVV',
+    FieldType: 'Hidden',
+    IsHidden: true,
+    IsMultiValue: false,
+    ApplicableToTypes: {
+      CreditCard: { ShowByDefault: true }
+    },
+    EnableHistory: false,
+    Category: 'Card',
+    DefaultDisplayOrder: 50
+  },
+  'card.pin': {
+    FieldKey: 'card.pin',
+    Label: 'PIN',
+    FieldType: 'Hidden',
+    IsHidden: true,
+    IsMultiValue: false,
+    ApplicableToTypes: {
+      CreditCard: { ShowByDefault: false }
+    },
+    EnableHistory: false,
+    Category: 'Card',
+    DefaultDisplayOrder: 60
+  },
+
+  /* =================== METADATA FIELDS =================== */
+  'metadata.notes': {
+    FieldKey: 'metadata.notes',
+    Label: 'Notes',
+    FieldType: 'TextArea',
+    IsHidden: false,
+    IsMultiValue: false,
+    ApplicableToTypes: {
+      Login: { ShowByDefault: false },
+      Alias: { ShowByDefault: false },
+      CreditCard: { ShowByDefault: false },
+      Note: { ShowByDefault: true }
+    },
+    EnableHistory: false,
+    Category: 'Metadata',
+    DefaultDisplayOrder: 100
+  }
 };
 
 /**
