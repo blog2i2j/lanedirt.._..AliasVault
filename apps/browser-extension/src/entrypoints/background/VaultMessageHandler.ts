@@ -18,6 +18,21 @@ import { WebApiService } from '@/utils/WebApiService';
 import { t } from '@/i18n/StandaloneI18n';
 
 /**
+ * Cache for the SqliteClient to avoid repeated decryption and initialization.
+ * The cached instance is the single source of truth for the in-memory vault.
+ *
+ * Cache Strategy:
+ * - Local mutations (createCredential, etc.): Work directly on cachedSqliteClient, no cache clearing
+ * - New vault from remote (login, sync): Clear cache by setting both to null
+ * - Logout/clear vault: Clear cache by setting both to null
+ *
+ * The cache is cleared by setting cachedSqliteClient and cachedVaultBlob to null directly
+ * in the functions that receive new vault data from external sources.
+ */
+let cachedSqliteClient: SqliteClient | null = null;
+let cachedVaultBlob: string | null = null;
+
+/**
  * Check if the user is logged in and if the vault is locked, and also check for pending migrations.
  */
 export async function handleCheckAuthStatus() : Promise<{ isLoggedIn: boolean, isVaultLocked: boolean, hasPendingMigrations: boolean, error?: string }> {
@@ -58,8 +73,6 @@ export async function handleCheckAuthStatus() : Promise<{ isLoggedIn: boolean, i
       hasPendingMigrations
     };
   } catch (error) {
-    console.error('Error checking pending migrations:', error);
-
     // If it's a version incompatibility error, we need to handle it specially
     if (error instanceof VaultVersionIncompatibleError) {
       // Return the error so the UI can handle it appropriately (logout user)
@@ -169,6 +182,10 @@ export async function handleSyncVault(
       { key: 'local:vaultRevisionNumber', value: vaultResponse.vault.currentRevisionNumber },
       { key: 'local:hasPendingSync', value: false }
     ]);
+
+    // Clear cached client since we received a new vault blob from server
+    cachedSqliteClient = null;
+    cachedVaultBlob = null;
   }
 
   return { success: true };
@@ -255,6 +272,10 @@ export function handleClearVault(): messageBoolResponse {
     'session:persistedFormValues',
   ]);
 
+  // Clear cached client since vault was cleared
+  cachedSqliteClient = null;
+  cachedVaultBlob = null;
+
   return { success: true };
 }
 
@@ -275,6 +296,100 @@ export async function handleGetCredentials(
     return { success: true, credentials: credentials };
   } catch (error) {
     console.error('Error getting credentials:', error);
+    return { success: false, error: await t('common.errors.unknownError') };
+  }
+}
+
+/**
+ * Get credentials filtered by URL and page title for autofill performance optimization.
+ * Filters credentials in the background script before sending to reduce message payload size.
+ * Critical for large vaults (1000+ credentials) to avoid multi-second delays.
+ *
+ * @param message - Filtering parameters: currentUrl, pageTitle, matchingMode
+ */
+export async function handleGetFilteredCredentials(
+  message: { currentUrl: string, pageTitle: string, matchingMode?: string }
+) : Promise<messageCredentialsResponse> {
+  const encryptionKey = await handleGetEncryptionKey();
+
+  if (!encryptionKey) {
+    return { success: false, error: await t('common.errors.vaultIsLocked') };
+  }
+
+  try {
+    const sqliteClient = await createVaultSqliteClient();
+    const allCredentials = sqliteClient.getAllCredentials();
+
+    const { filterCredentials, AutofillMatchingMode } = await import('@/utils/credentialMatcher/CredentialMatcher');
+
+    // Parse matching mode from string
+    let matchingMode = AutofillMatchingMode.DEFAULT;
+    if (message.matchingMode) {
+      matchingMode = message.matchingMode as typeof AutofillMatchingMode[keyof typeof AutofillMatchingMode];
+    }
+
+    // Filter credentials in background to reduce payload size (~95% reduction)
+    const filteredCredentials = filterCredentials(
+      allCredentials,
+      message.currentUrl,
+      message.pageTitle,
+      matchingMode
+    );
+
+    return { success: true, credentials: filteredCredentials };
+  } catch (error) {
+    console.error('Error getting filtered credentials:', error);
+    return { success: false, error: await t('common.errors.unknownError') };
+  }
+}
+
+/**
+ * Get credentials filtered by text search query.
+ * Searches across entire vault (service name, username, email, URL) and returns matches.
+ *
+ * @param message - Search parameters: searchTerm
+ */
+export async function handleGetSearchCredentials(
+  message: { searchTerm: string }
+) : Promise<messageCredentialsResponse> {
+  const encryptionKey = await handleGetEncryptionKey();
+
+  if (!encryptionKey) {
+    return { success: false, error: await t('common.errors.vaultIsLocked') };
+  }
+
+  try {
+    const sqliteClient = await createVaultSqliteClient();
+    const allCredentials = sqliteClient.getAllCredentials();
+
+    // If search term is empty, return empty array
+    if (!message.searchTerm || message.searchTerm.trim() === '') {
+      return { success: true, credentials: [] };
+    }
+
+    const searchTerm = message.searchTerm.toLowerCase().trim();
+
+    // Filter credentials by search term across multiple fields
+    const searchResults = allCredentials.filter(cred => {
+      const searchableFields = [
+        cred.ServiceName?.toLowerCase(),
+        cred.Username?.toLowerCase(),
+        cred.Alias?.Email?.toLowerCase(),
+        cred.ServiceUrl?.toLowerCase()
+      ];
+      return searchableFields.some(field => field?.includes(searchTerm));
+    }).sort((a, b) => {
+      // Sort by service name, then username
+      const serviceNameComparison = (a.ServiceName ?? '').localeCompare(b.ServiceName ?? '');
+      if (serviceNameComparison !== 0) {
+        return serviceNameComparison;
+      }
+      return (a.Username ?? '').localeCompare(b.Username ?? '');
+    });
+
+    return { success: true, credentials: searchResults };
+  } catch (error) {
+    console.error('Error searching credentials:', error);
     return { success: false, error: await t('common.errors.unknownError') };
   }
 }
@@ -555,6 +670,7 @@ async function uploadNewVaultToServer(sqliteClient: SqliteClient) : Promise<Vaul
 
 /**
  * Create a new sqlite client for the stored vault.
+ * Uses a cache to avoid repeated decryption and initialization for read operations.
  */
 async function createVaultSqliteClient() : Promise<SqliteClient> {
   // Read from local: storage for persistent vault access
@@ -564,15 +680,24 @@ async function createVaultSqliteClient() : Promise<SqliteClient> {
     throw new Error(await t('common.errors.unknownError'));
   }
 
-  // Decrypt the vault.
+  // Check if we have a valid cached client
+  if (cachedSqliteClient && cachedVaultBlob === encryptedVault) {
+    return cachedSqliteClient;
+  }
+
+  // Decrypt the vault
   const decryptedVault = await EncryptionUtility.symmetricDecrypt(
     encryptedVault,
     encryptionKey
   );
 
-  // Initialize the SQLite client with the decrypted vault.
+  // Initialize the SQLite client with the decrypted vault
   const sqliteClient = new SqliteClient();
   await sqliteClient.initializeFromBase64(decryptedVault);
+
+  // Cache the client and vault blob
+  cachedSqliteClient = sqliteClient;
+  cachedVaultBlob = encryptedVault;
 
   return sqliteClient;
 }

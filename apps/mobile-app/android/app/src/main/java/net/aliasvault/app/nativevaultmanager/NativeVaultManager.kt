@@ -21,6 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import net.aliasvault.app.qrscanner.QRScannerActivity
 import net.aliasvault.app.vaultstore.VaultStore
 import net.aliasvault.app.vaultstore.VaultSyncError
 import net.aliasvault.app.vaultstore.keystoreprovider.AndroidKeystoreProvider
@@ -62,6 +63,11 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
          * Request code for PIN setup activity.
          */
         const val PIN_SETUP_REQUEST_CODE = 1002
+
+        /**
+         * Request code for QR scanner activity.
+         */
+        const val QR_SCANNER_REQUEST_CODE = 1003
 
         /**
          * Static holder for the pending promise from showPinUnlock.
@@ -1436,6 +1442,42 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
      * @param subtitle The subtitle for authentication. If null or empty, uses default.
      * @param promise The promise to resolve with authentication result.
      */
+    @ReactMethod
+    override fun scanQRCode(prefixes: ReadableArray?, statusText: String?, promise: Promise) {
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                val activity = currentActivity
+                if (activity == null) {
+                    promise.reject("NO_ACTIVITY", "No activity available", null)
+                    return@launch
+                }
+
+                // Store promise for later resolution by MainActivity
+                pendingActivityResultPromise = promise
+
+                // Launch QR scanner activity with optional prefixes and status text
+                val intent = Intent(activity, QRScannerActivity::class.java)
+                if (prefixes != null && prefixes.size() > 0) {
+                    val prefixList = ArrayList<String>()
+                    for (i in 0 until prefixes.size()) {
+                        val prefix = prefixes.getString(i)
+                        if (prefix != null) {
+                            prefixList.add(prefix)
+                        }
+                    }
+                    intent.putStringArrayListExtra(QRScannerActivity.EXTRA_PREFIXES, prefixList)
+                }
+                if (statusText != null && statusText.isNotEmpty()) {
+                    intent.putExtra(QRScannerActivity.EXTRA_STATUS_TEXT, statusText)
+                }
+                activity.startActivityForResult(intent, QR_SCANNER_REQUEST_CODE)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to launch QR scanner", e)
+                promise.reject("SCANNER_ERROR", "Failed to launch QR scanner: ${e.message}", e)
+            }
+        }
+    }
+
     @ReactMethod
     override fun authenticateUser(title: String?, subtitle: String?, promise: Promise) {
         CoroutineScope(Dispatchers.Main).launch {

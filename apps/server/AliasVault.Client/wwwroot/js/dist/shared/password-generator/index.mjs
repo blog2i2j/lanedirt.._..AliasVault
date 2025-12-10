@@ -13,7 +13,21 @@ var PasswordGenerator = class {
     this.uppercaseChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     this.numberChars = "0123456789";
     this.specialChars = "!@#$%^&*()_+-=[]{}|;:,.<>?";
-    this.ambiguousChars = "Il1O0o";
+    /**
+     * Ambiguous characters that look similar and are easy to confuse when typing:
+     * - I, l, 1, | (pipe) - all look like vertical lines
+     * - O, 0, o - all look like circles
+     * - Z, 2 - similar appearance
+     * - S, 5 - similar appearance
+     * - B, 8 - similar appearance
+     * - G, 6 - similar appearance
+     * - Brackets, braces, parentheses: [], {}, ()
+     * - Quotes: ', ", `
+     * - Punctuation pairs: ;:, .,
+     * - Dashes: -, _
+     * - Angle brackets: <>
+     */
+    this.ambiguousChars = "Il1O0oZzSsBbGg2568|[]{}()<>;:,.`'\"_-";
     this.length = 18;
     this.useLowercase = true;
     this.useUppercase = true;

@@ -920,7 +920,8 @@ namespace AliasServerDb.Migrations
                 {
                     b.HasOne("AliasServerDb.AliasVaultUser", "User")
                         .WithMany()
-                        .HasForeignKey("UserId");
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("User");
                 });
