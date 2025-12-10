@@ -1,23 +1,66 @@
 import initSqlJs, { Database, SqlJsStatic, SqlValue } from 'sql.js';
+import { browser } from 'wxt/browser';
+
+import init, { getSyncableTableNames, mergeVaults } from './dist/shared/rust-core/aliasvault_core.js';
 
 /**
- * Entity record from a SyncableEntity table.
- * All entities extending SyncableEntity have these fields.
- * Additional fields are accessed dynamically via index signature.
+ * Record type for JSON data passed to/from Rust.
  */
-interface ISyncableRecord {
-  Id: string;
-  CreatedAt: string;
-  UpdatedAt: string;
-  IsDeleted: number; // SQLite stores booleans as 0/1
-  [key: string]: SqlValue; // Allow dynamic column access with SQL-compatible types
+type JsonRecord = { [key: string]: unknown };
+
+/**
+ * Type for Rust merge function.
+ */
+type MergeFunction = (input: IMergeInput) => IMergeOutput;
+
+/**
+ * Type for Rust getSyncableTableNames function.
+ */
+type GetTableNamesFunction = () => string[];
+
+/**
+ * Table data structure for Rust merge input/output.
+ */
+interface ITableData {
+  name: string;
+  records: JsonRecord[];
 }
 
 /**
- * Item record with additional deletion tracking fields.
+ * Input structure for Rust merge function.
  */
-interface IItemRecord extends ISyncableRecord {
-  DeletedAt: string | null;
+interface IMergeInput {
+  local_tables: ITableData[];
+  server_tables: ITableData[];
+}
+
+/**
+ * SQL statement with parameters from Rust.
+ */
+interface ISqlStatement {
+  sql: string;
+  params: SqlValue[];
+}
+
+/**
+ * Statistics from Rust merge.
+ */
+interface IRustMergeStats {
+  tables_processed: number;
+  records_from_local: number;
+  records_from_server: number;
+  records_created_locally: number;
+  conflicts: number;
+  records_inserted: number;
+}
+
+/**
+ * Output structure from Rust merge function.
+ */
+interface IMergeOutput {
+  success: boolean;
+  statements: ISqlStatement[];
+  stats: IRustMergeStats;
 }
 
 /**
@@ -41,70 +84,56 @@ export interface IMergeStats {
 }
 
 /**
- * Configuration for a syncable table.
- */
-interface ITableConfig {
-  name: string;
-  primaryKey: string;
-  isItemTable?: boolean; // Special handling for Item.DeletedAt
-  compositeKey?: string[]; // For tables that should merge by composite key instead of Id
-}
-
-/**
- * All tables that extend SyncableEntity and need LWW merge.
- *
- * FieldValues uses a composite key (ItemId + FieldKey/FieldDefinitionId) for merging
- * because different clients may create FieldValues with different random UUIDs for the
- * same logical field. By matching on the composite key, we ensure proper LWW merging.
- */
-const SYNCABLE_TABLES: ITableConfig[] = [
-  { name: 'Items', primaryKey: 'Id', isItemTable: true },
-  { name: 'FieldValues', primaryKey: 'Id', compositeKey: ['ItemId', 'FieldKey', 'FieldDefinitionId'] },
-  { name: 'Folders', primaryKey: 'Id' },
-  { name: 'Tags', primaryKey: 'Id' },
-  { name: 'ItemTags', primaryKey: 'Id' },
-  { name: 'Attachments', primaryKey: 'Id' },
-  { name: 'TotpCodes', primaryKey: 'Id' },
-  { name: 'Passkeys', primaryKey: 'Id' },
-  { name: 'FieldDefinitions', primaryKey: 'Id' },
-  { name: 'FieldHistories', primaryKey: 'Id' },
-  { name: 'Logos', primaryKey: 'Id' },
-];
-
-/**
  * Service for merging two vault SQLite databases using Last-Write-Wins (LWW) strategy.
+ *
+ * This implementation uses Rust WASM for the core merge logic, ensuring consistency
+ * across all platforms (browser, iOS, Android, server).
  *
  * The merge uses UpdatedAt timestamps on all SyncableEntity records to determine
  * which version of a record wins in case of conflict.
  */
 export class VaultMergeService {
   private sqlJsInstance: SqlJsStatic | null = null;
+  private rustInitialized = false;
 
   /**
-   * Set a pre-initialized SQL.js instance (useful for testing).
-   * @param sql - The SQL.js static instance
+   * Initialize the Rust WASM module.
+   * Called automatically by merge() if not already initialized.
    */
-  public setSqlJs(sql: SqlJsStatic): void {
-    this.sqlJsInstance = sql;
+  private async initRust(): Promise<void> {
+    if (this.rustInitialized) {
+      return;
+    }
+    /*
+     * Fetch WASM bytes using browser.runtime.getURL for correct extension path.
+     * Cast to string to bypass WXT's strict PublicPath typing.
+     */
+    const wasmUrl = (browser.runtime.getURL as (path: string) => string)('src/aliasvault_core_bg.wasm');
+    const wasmResponse = await fetch(wasmUrl);
+    const wasmBytes = await wasmResponse.arrayBuffer();
+    await init(wasmBytes);
+    this.rustInitialized = true;
   }
 
   /**
    * Merge local vault changes with server vault using LWW strategy.
+   *
+   * Uses Rust WASM for the merge logic:
+   * 1. Load both SQLite databases with sql.js
+   * 2. Read all tables as JSON
+   * 3. Call Rust merge (returns SQL statements)
+   * 4. Execute SQL statements on local database
+   * 5. Export merged database
    *
    * @param localVaultBase64 - The local vault (with offline changes) as base64 SQLite
    * @param serverVaultBase64 - The server vault (latest version) as base64 SQLite
    * @returns MergeResult with the merged vault as base64
    */
   public async merge(localVaultBase64: string, serverVaultBase64: string): Promise<IMergeResult> {
-    const stats: IMergeStats = {
-      tablesProcessed: 0,
-      recordsFromLocal: 0,
-      recordsFromServer: 0,
-      recordsCreatedLocally: 0,
-      conflicts: 0,
-    };
-
     try {
+      // Initialize Rust WASM
+      await this.initRust();
+
       // Use injected SQL.js instance or initialize a new one
       const SQL = this.sqlJsInstance ?? await initSqlJs({
         /**
@@ -119,32 +148,71 @@ export class VaultMergeService {
       const localDb = this.loadDatabase(SQL, localVaultBase64);
       const serverDb = this.loadDatabase(SQL, serverVaultBase64);
 
-      /*
-       * We'll merge INTO the local database (which has our changes)
-       * by comparing with server and updating where server wins.
-       */
-      for (const tableConfig of SYNCABLE_TABLES) {
-        try {
-          await this.mergeTable(localDb, serverDb, tableConfig, stats);
-          stats.tablesProcessed++;
-        } catch (error) {
-          // Table might not exist in one of the databases (schema mismatch)
-          console.warn(`Skipping table ${tableConfig.name} during merge:`, error);
+      try {
+        // Get syncable table names from Rust (or injected function)
+        const tableNames = getSyncableTableNames();
+
+        // Read all tables from both databases as JSON
+        const localTables: ITableData[] = tableNames.map(name => ({
+          name,
+          records: this.readTableAsJson(localDb, name),
+        }));
+
+        const serverTables: ITableData[] = tableNames.map(name => ({
+          name,
+          records: this.readTableAsJson(serverDb, name),
+        }));
+
+        /*
+         * Call Rust WASM merge (or injected function).
+         * Use JSON stringify/parse to ensure no undefined values reach Rust/serde.
+         */
+        const mergeInput: IMergeInput = JSON.parse(JSON.stringify({
+          local_tables: localTables,
+          server_tables: serverTables,
+        })) as IMergeInput;
+
+        console.debug('[VaultMerge] Merge input:', {
+          localTableCount: localTables.length,
+          serverTableCount: serverTables.length,
+          localTables: localTables.map(t => ({ name: t.name, recordCount: t.records.length })),
+          serverTables: serverTables.map(t => ({ name: t.name, recordCount: t.records.length })),
+        });
+
+        const mergeOutput = mergeVaults(mergeInput);
+
+        console.debug('[VaultMerge] Merge output:', {
+          success: mergeOutput.success,
+          stats: mergeOutput.stats,
+          statementCount: mergeOutput.statements.length,
+        });
+
+        // Execute SQL statements from Rust on local database
+        for (const stmt of mergeOutput.statements) {
+          // Convert undefined to null for sql.js (serde-wasm-bindgen may convert null to undefined)
+          const sanitizedParams = stmt.params.map(p => p === undefined ? null : p);
+          localDb.run(stmt.sql, sanitizedParams);
         }
+
+        // Export the merged database
+        const mergedVaultBase64 = this.exportDatabase(localDb);
+
+        return {
+          success: mergeOutput.success,
+          mergedVaultBase64,
+          stats: {
+            tablesProcessed: mergeOutput.stats.tables_processed,
+            recordsFromLocal: mergeOutput.stats.records_from_local,
+            recordsFromServer: mergeOutput.stats.records_from_server,
+            recordsCreatedLocally: mergeOutput.stats.records_created_locally,
+            conflicts: mergeOutput.stats.conflicts,
+          },
+        };
+      } finally {
+        // Clean up databases
+        localDb.close();
+        serverDb.close();
       }
-
-      // Export the merged database
-      const mergedVaultBase64 = this.exportDatabase(localDb);
-
-      // Clean up
-      localDb.close();
-      serverDb.close();
-
-      return {
-        success: true,
-        mergedVaultBase64,
-        stats,
-      };
     } catch (error) {
       console.error('Vault merge failed:', error);
       throw error;
@@ -182,370 +250,27 @@ export class VaultMergeService {
   }
 
   /**
-   * Merge a single table using LWW strategy.
-   * @param localDb - The local database
-   * @param serverDb - The server database
-   * @param tableConfig - Configuration for the table
-   * @param stats - Statistics to update
-   */
-  private async mergeTable(
-    localDb: Database,
-    serverDb: Database,
-    tableConfig: ITableConfig,
-    stats: IMergeStats
-  ): Promise<void> {
-    const { name: tableName, isItemTable, compositeKey } = tableConfig;
-
-    // Get all records from both databases
-    const localRecords = this.getTableRecords(localDb, tableName);
-    const serverRecords = this.getTableRecords(serverDb, tableName);
-
-    // Use composite key matching for tables that define it (e.g., FieldValues)
-    if (compositeKey) {
-      await this.mergeTableByCompositeKey(localDb, serverDb, tableName, localRecords, serverRecords, stats);
-      return;
-    }
-
-    /*
-     * Standard merge by Id for other tables
-     * Create a map of server records by primary key for quick lookup
-     */
-    const serverMap = new Map<string, ISyncableRecord>();
-    for (const record of serverRecords) {
-      serverMap.set(record.Id, record);
-    }
-
-    // Process local records
-    for (const localRecord of localRecords) {
-      const serverRecord = serverMap.get(localRecord.Id);
-
-      if (!serverRecord) {
-        // Record only exists locally (created offline) - keep it
-        stats.recordsCreatedLocally++;
-        continue;
-      }
-
-      // Record exists in both - compare UpdatedAt for LWW
-      const localUpdated = new Date(localRecord.UpdatedAt).getTime();
-      const serverUpdated = new Date(serverRecord.UpdatedAt).getTime();
-
-      if (serverUpdated > localUpdated) {
-        // Server wins - update local with server data
-        stats.conflicts++;
-        stats.recordsFromServer++;
-
-        if (isItemTable) {
-          this.updateItemRecord(localDb, tableName, serverRecord as IItemRecord, serverDb);
-        } else {
-          this.updateRecord(localDb, tableName, serverRecord, serverDb);
-        }
-      } else {
-        // Local wins - keep local (already there)
-        stats.recordsFromLocal++;
-      }
-
-      // Remove from server map to track what's been processed
-      serverMap.delete(localRecord.Id);
-    }
-
-    // Insert server-only records into local (new records from other devices)
-    for (const serverRecord of serverMap.values()) {
-      stats.recordsFromServer++;
-      if (isItemTable) {
-        this.insertItemRecord(localDb, tableName, serverRecord as IItemRecord, serverDb);
-      } else {
-        this.insertRecord(localDb, tableName, serverRecord, serverDb);
-      }
-    }
-  }
-
-  /**
-   * Generate a composite key string for a record.
-   * For FieldValues, this combines ItemId + (FieldKey or FieldDefinitionId).
-   * @param record - The record to generate key for
-   * @returns A string representing the composite key
-   */
-  private getCompositeKey(record: ISyncableRecord): string {
-    /*
-     * For FieldValues: use ItemId + (FieldKey if set, otherwise FieldDefinitionId)
-     * This handles both system fields (FieldKey) and custom fields (FieldDefinitionId)
-     */
-    const itemId = (record.ItemId as string) || '';
-    const fieldIdentifier = (record.FieldKey as string) || (record.FieldDefinitionId as string) || '';
-    return `${itemId}:${fieldIdentifier}`;
-  }
-
-  /**
-   * Merge a table using composite key matching instead of Id.
-   * This is used for FieldValues where the same logical field may have different UUIDs
-   * on different clients.
-   *
-   * @param localDb - The local database
-   * @param serverDb - The server database
-   * @param tableName - The name of the table
-   * @param localRecords - Records from local database
-   * @param serverRecords - Records from server database
-   * @param stats - Statistics to update
-   */
-  private async mergeTableByCompositeKey(
-    localDb: Database,
-    serverDb: Database,
-    tableName: string,
-    localRecords: ISyncableRecord[],
-    serverRecords: ISyncableRecord[],
-    stats: IMergeStats
-  ): Promise<void> {
-    // Create a map of server records by composite key
-    const serverMap = new Map<string, ISyncableRecord>();
-    for (const record of serverRecords) {
-      const key = this.getCompositeKey(record);
-      // If multiple records have the same composite key, keep the one with latest UpdatedAt
-      const existing = serverMap.get(key);
-      if (!existing || new Date(record.UpdatedAt).getTime() > new Date(existing.UpdatedAt).getTime()) {
-        serverMap.set(key, record);
-      }
-    }
-
-    // Create a map of local records by composite key (to track processed keys)
-    const processedKeys = new Set<string>();
-
-    // Process local records
-    for (const localRecord of localRecords) {
-      const compositeKey = this.getCompositeKey(localRecord);
-      processedKeys.add(compositeKey);
-
-      const serverRecord = serverMap.get(compositeKey);
-
-      if (!serverRecord) {
-        // Record only exists locally (created offline) - keep it
-        stats.recordsCreatedLocally++;
-        continue;
-      }
-
-      // Record exists in both (by composite key) - compare UpdatedAt for LWW
-      const localUpdated = new Date(localRecord.UpdatedAt).getTime();
-      const serverUpdated = new Date(serverRecord.UpdatedAt).getTime();
-
-      if (serverUpdated > localUpdated) {
-        /*
-         * Server wins - update local record with server data
-         * Keep local Id but update all other fields
-         */
-        stats.conflicts++;
-        stats.recordsFromServer++;
-
-        this.updateRecordById(localDb, tableName, localRecord.Id, serverRecord, serverDb);
-      } else {
-        // Local wins - keep local (already there)
-        stats.recordsFromLocal++;
-      }
-
-      // Remove from server map to track what's been processed
-      serverMap.delete(compositeKey);
-    }
-
-    /*
-     * Insert server-only records into local (new records from other devices)
-     * These are records with composite keys that don't exist locally
-     */
-    for (const serverRecord of serverMap.values()) {
-      stats.recordsFromServer++;
-      this.insertRecord(localDb, tableName, serverRecord, serverDb);
-    }
-  }
-
-  /**
-   * Update a record by its Id, replacing all fields except Id with values from source.
-   * Used when merging by composite key - we keep the local Id but take server's field values.
-   *
-   * @param localDb - The local database
-   * @param tableName - The name of the table
-   * @param localId - The local record's Id to update
-   * @param sourceRecord - The source record with values to copy
-   * @param serverDb - The server database (for schema info)
-   */
-  private updateRecordById(
-    localDb: Database,
-    tableName: string,
-    localId: string,
-    sourceRecord: ISyncableRecord,
-    serverDb: Database
-  ): void {
-    const columns = this.getTableColumns(serverDb, tableName);
-
-    // Build UPDATE statement - update all columns except Id
-    const setClause = columns
-      .filter(col => col !== 'Id')
-      .map(col => `${col} = ?`)
-      .join(', ');
-
-    const values = columns
-      .filter(col => col !== 'Id')
-      .map(col => sourceRecord[col]);
-
-    values.push(localId); // For WHERE clause - use local Id
-
-    const sql = `UPDATE ${tableName} SET ${setClause} WHERE Id = ?`;
-    localDb.run(sql, values);
-  }
-
-  /**
-   * Get all records from a table.
+   * Read all records from a table as JSON objects.
    * @param db - The database to query
    * @param tableName - The name of the table
-   * @returns Array of records from the table
+   * @returns Array of records as JSON objects
    */
-  private getTableRecords(db: Database, tableName: string): ISyncableRecord[] {
+  private readTableAsJson(db: Database, tableName: string): JsonRecord[] {
+    const records: JsonRecord[] = [];
     const stmt = db.prepare(`SELECT * FROM ${tableName}`);
-    const records: ISyncableRecord[] = [];
 
     while (stmt.step()) {
-      records.push(stmt.getAsObject() as unknown as ISyncableRecord);
+      const obj = stmt.getAsObject();
+      /*
+       * Use JSON stringify/parse to sanitize the object for Rust/serde.
+       * This converts undefined to null and ensures clean JSON types.
+       */
+      const record = JSON.parse(JSON.stringify(obj)) as JsonRecord;
+      records.push(record);
     }
     stmt.free();
 
     return records;
-  }
-
-  /**
-   * Get column names for a table (excluding computed columns).
-   * @param db - The database to query
-   * @param tableName - The name of the table
-   * @returns Array of column names
-   */
-  private getTableColumns(db: Database, tableName: string): string[] {
-    const stmt = db.prepare(`PRAGMA table_info(${tableName})`);
-    const columns: string[] = [];
-
-    while (stmt.step()) {
-      const col = stmt.getAsObject() as { name: string };
-      columns.push(col.name);
-    }
-    stmt.free();
-
-    return columns;
-  }
-
-  /**
-   * Update a record in local database with data from server.
-   * @param localDb - The local database
-   * @param tableName - The name of the table
-   * @param serverRecord - The record from server
-   * @param serverDb - The server database (for schema info)
-   */
-  private updateRecord(
-    localDb: Database,
-    tableName: string,
-    serverRecord: ISyncableRecord,
-    serverDb: Database
-  ): void {
-    const columns = this.getTableColumns(serverDb, tableName);
-
-    // Build UPDATE statement
-    const setClause = columns
-      .filter(col => col !== 'Id')
-      .map(col => `${col} = ?`)
-      .join(', ');
-
-    const values = columns
-      .filter(col => col !== 'Id')
-      .map(col => serverRecord[col]);
-
-    values.push(serverRecord.Id); // For WHERE clause
-
-    const sql = `UPDATE ${tableName} SET ${setClause} WHERE Id = ?`;
-    localDb.run(sql, values);
-  }
-
-  /**
-   * Update an Item record with special handling for DeletedAt.
-   * @param localDb - The local database
-   * @param tableName - The name of the table
-   * @param serverRecord - The record from server
-   * @param serverDb - The server database (for schema info)
-   */
-  private updateItemRecord(
-    localDb: Database,
-    tableName: string,
-    serverRecord: IItemRecord,
-    serverDb: Database
-  ): void {
-    // For Item table, use same update logic but server record includes DeletedAt
-    this.updateRecord(localDb, tableName, serverRecord, serverDb);
-  }
-
-  /**
-   * Insert a new record from server into local database.
-   * @param localDb - The local database
-   * @param tableName - The name of the table
-   * @param serverRecord - The record from server
-   * @param serverDb - The server database (for schema info)
-   */
-  private insertRecord(
-    localDb: Database,
-    tableName: string,
-    serverRecord: ISyncableRecord,
-    serverDb: Database
-  ): void {
-    const columns = this.getTableColumns(serverDb, tableName);
-
-    const columnList = columns.join(', ');
-    const placeholders = columns.map(() => '?').join(', ');
-    const values = columns.map(col => serverRecord[col]);
-
-    const sql = `INSERT OR REPLACE INTO ${tableName} (${columnList}) VALUES (${placeholders})`;
-    localDb.run(sql, values);
-  }
-
-  /**
-   * Insert an Item record with special handling for DeletedAt.
-   * @param localDb - The local database
-   * @param tableName - The name of the table
-   * @param serverRecord - The record from server
-   * @param serverDb - The server database (for schema info)
-   */
-  private insertItemRecord(
-    localDb: Database,
-    tableName: string,
-    serverRecord: IItemRecord,
-    serverDb: Database
-  ): void {
-    // For Item table, use same insert logic
-    this.insertRecord(localDb, tableName, serverRecord, serverDb);
-  }
-
-  /**
-   * Resolve deletion conflicts for Item records.
-   *
-   * Rules:
-   * - IsDeleted=true (permanent delete) is "sticky" unless restored with later UpdatedAt
-   * - DeletedAt (moved to trash) follows LWW
-   * @param local - The local record
-   * @param server - The server record
-   * @returns The resolved record
-   */
-  public resolveItemDeletionConflict(local: IItemRecord, server: IItemRecord): IItemRecord {
-    const localUpdated = new Date(local.UpdatedAt).getTime();
-    const serverUpdated = new Date(server.UpdatedAt).getTime();
-
-    // Standard LWW for the base winner
-    const winner = serverUpdated > localUpdated ? { ...server } : { ...local };
-
-    /*
-     * Special handling for IsDeleted (permanent delete)
-     * If both are deleted, stay deleted
-     */
-    if (local.IsDeleted && server.IsDeleted) {
-      winner.IsDeleted = 1;
-    } else if (local.IsDeleted && localUpdated > serverUpdated) {
-      // If only one is deleted, the delete wins if it's newer
-      winner.IsDeleted = 1;
-    } else if (server.IsDeleted && serverUpdated > localUpdated) {
-      winner.IsDeleted = 1;
-    }
-    // Otherwise, the non-deleted (restore) wins if it's newer
-
-    return winner;
   }
 }
 

@@ -434,3 +434,21 @@ temp
 
 # Safari extension build files
 apps/browser-extension/safari-xcode/AliasVault/build
+
+# Rust core binaries (built by ./build.sh in shared/rust-core)
+# These are platform-specific and must be built locally or by CI
+shared/rust-core/dist/
+shared/rust-core/target/
+
+# Browser extension WASM (built by: cd shared/rust-core && ./build.sh --browser)
+apps/browser-extension/src/utils/dist/shared/rust-core
+
+# iOS Swift bindings (built by: cd shared/rust-core && ./build.sh --ios)
+apps/mobile-app/ios/AliasVaultCore/
+
+# Android Kotlin bindings (built by: cd shared/rust-core && ./build.sh --android)
+apps/mobile-app/android/app/src/main/java/com/aliasvault/core/
+apps/mobile-app/android/app/src/main/jniLibs/
+
+# Server .NET bindings (built by: cd shared/rust-core && ./build.sh --server)
+apps/server/Utilities/AliasVault.RustCore/
