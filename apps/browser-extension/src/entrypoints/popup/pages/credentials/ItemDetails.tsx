@@ -9,6 +9,7 @@ import {
 } from '@/entrypoints/popup/components/Credentials/Details';
 import HeaderButton from '@/entrypoints/popup/components/HeaderButton';
 import { HeaderIconType } from '@/entrypoints/popup/components/Icons/HeaderIcons';
+import ItemIcon from '@/entrypoints/popup/components/Items/ItemIcon';
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useHeaderButtons } from '@/entrypoints/popup/context/HeaderButtonsContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
@@ -16,7 +17,6 @@ import { PopoutUtility } from '@/entrypoints/popup/utils/PopoutUtility';
 
 import type { Item } from '@/utils/dist/shared/models/vault';
 import { groupFieldsByCategory } from '@/utils/dist/shared/models/vault';
-import SqliteClient from '@/utils/SqliteClient';
 
 /**
  * Item details page with dynamic field rendering.
@@ -122,11 +122,7 @@ const ItemDetails: React.FC = (): React.ReactElement => {
       {/* Header with name, logo, and URLs */}
       <div className="flex justify-between items-start">
         <div className="flex items-start gap-3">
-          <img
-            src={SqliteClient.imgSrcFromBytes(item.Logo as Uint8Array | undefined)}
-            alt={item.Name || 'Item'}
-            className="w-12 h-12 rounded-lg"
-          />
+          <ItemIcon item={item} className="w-12 h-12 rounded-lg" />
           <div>
             <h1 className="text-lg font-bold text-gray-900 dark:text-white">
               {item.Name || 'Untitled Item'}

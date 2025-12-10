@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 
 import type { Item } from '@/utils/dist/shared/models/vault';
 import { FieldKey } from '@/utils/dist/shared/models/vault';
-import SqliteClient from '@/utils/SqliteClient';
+
+import ItemIcon from './ItemIcon';
 
 type ItemCardProps = {
   item: Item;
@@ -66,15 +67,9 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, showFolderPath = false }) => 
         onClick={() => navigate(`/items/${item.Id}`)}
         className="w-full p-2 border dark:border-gray-600 rounded flex items-center bg-white dark:bg-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
-        <img
-          src={SqliteClient.imgSrcFromBytes(item.Logo)}
-          alt={item.Name || 'Item'}
-          className="w-8 h-8 mr-2 flex-shrink-0"
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            target.src = '/assets/images/service-placeholder.webp';
-          }}
-        />
+        <div className="w-8 h-8 mr-2 flex-shrink-0">
+          <ItemIcon item={item} className="w-8 h-8" />
+        </div>
         <div className="text-left flex-1">
           <div className="flex items-center gap-1.5">
             <p className="font-medium text-gray-900 dark:text-white">
