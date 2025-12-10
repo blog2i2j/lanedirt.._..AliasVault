@@ -14,6 +14,9 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests/e2e',
 
+  // Global setup to check API availability before tests
+  globalSetup: './tests/global-setup.ts',
+
   // Global teardown to clean up browser contexts
   globalTeardown: './tests/global-teardown.ts',
 

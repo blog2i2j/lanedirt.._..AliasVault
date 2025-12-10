@@ -70,6 +70,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -77,7 +82,40 @@ jobs:
           cache: 'npm'
           cache-dependency-path: apps/browser-extension/package-lock.json
 
-      - name: Install dependencies
+      - name: Install .NET dependencies
+        working-directory: apps/server
+        run: dotnet workload install wasm-tools
+
+      - name: Build API server
+        working-directory: apps/server
+        run: dotnet build AliasVault.Api
+
+      - name: Start dev database
+        run: ./install.sh configure-dev-db start
+
+      - name: Start API server
+        working-directory: apps/server/AliasVault.Api
+        run: |
+          dotnet run --no-build &
+          # Wait for API to be ready
+          echo "Waiting for API to start..."
+          for i in {1..30}; do
+            if curl -s http://localhost:5092/v1/Auth/status > /dev/null 2>&1; then
+              echo "API is ready!"
+              break
+            fi
+            echo "Attempt $i: API not ready yet..."
+            sleep 2
+          done
+        env:
+          ConnectionStrings__AliasServerDbContext: "Host=localhost;Port=5433;Database=aliasdb_e2e_extension;Username=aliasvault;Password=password"
+          JWT_KEY: "12345678901234567890123456789012"
+          DATA_PROTECTION_CERT_PASS: "Development"
+          PUBLIC_REGISTRATION_ENABLED: "true"
+          ADMIN_PASSWORD_HASH: "AQAAAAIAAYagAAAAEKWfKfa2gh9Z72vjAlnNP1xlME7FsunRznzyrfqFte40FToufRwa3kX8wwDwnEXZag=="
+          ADMIN_PASSWORD_GENERATED: "2024-01-01T00:00:00Z"
+
+      - name: Install browser extension dependencies
         run: npm ci
         working-directory: apps/browser-extension
 
@@ -88,6 +126,8 @@ jobs:
       - name: Build and run E2E tests
         run: xvfb-run --auto-servernum npm run test:e2e:build
         working-directory: apps/browser-extension
+        env:
+          ALIASVAULT_API_URL: "http://localhost:5092"
 
       - name: Upload Playwright report
         if: always()

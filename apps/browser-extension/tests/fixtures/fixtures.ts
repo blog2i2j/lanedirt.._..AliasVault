@@ -2,7 +2,7 @@ import { test as base, chromium, type BrowserContext, type Page } from '@playwri
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import { createTestUser, isApiAvailable, type TestUser } from '../helpers/test-api';
+import { createTestUser, type TestUser } from '../helpers/test-api';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -100,18 +100,7 @@ export const test = base.extend<TestFixtures>({
   },
 
   testUser: async ({ apiUrl }, use) => {
-    // Check if the API is available
-    const apiAvailable = await isApiAvailable(apiUrl);
-    if (!apiAvailable) {
-      console.warn(`API not available at ${apiUrl}. Tests requiring authentication will fail.`);
-      // Return a placeholder user - tests should handle this gracefully
-      await use({
-        username: 'api_unavailable',
-        password: 'api_unavailable',
-      });
-      return;
-    }
-
+    // API availability is checked in global setup
     // Create a test user for this test run
     const testUser = await createTestUser(apiUrl);
     await use(testUser);
