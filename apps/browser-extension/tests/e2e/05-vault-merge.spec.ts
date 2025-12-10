@@ -11,7 +11,7 @@
  * 5. After merge, Client B's vault should contain both credentials
  * 6. Client A syncs and should also see both credentials
  */
-import { test, expect, TestClient, FieldSelectors } from '../fixtures';
+import { test, expect, TestClient, FieldSelectors, ButtonSelectors } from '../fixtures';
 
 test.describe.serial('5. Vault Merge', () => {
   let clientA: TestClient;
@@ -42,12 +42,12 @@ test.describe.serial('5. Vault Merge', () => {
 
   test('5.2 Client A should create a credential and sync', async () => {
     // Client A fills and saves the credential (both clients have revision 1 at this point)
-    await clientA.popup.fill('input#itemName', credentialNameA);
-    await clientA.popup.click('button:has-text("Next")');
+    // All fields are now visible on the same page (no "Next" step)
     await expect(clientA.popup.locator(FieldSelectors.LOGIN_USERNAME)).toBeVisible({ timeout: 10000 });
+    await clientA.popup.fill(FieldSelectors.ITEM_NAME, credentialNameA);
     await clientA.popup.fill(FieldSelectors.LOGIN_USERNAME, 'clientA@example.com');
     await clientA.popup.fill(FieldSelectors.LOGIN_PASSWORD, 'ClientAPassword123!');
-    await clientA.popup.click('button:has-text("Save")');
+    await clientA.popup.click(ButtonSelectors.SAVE);
 
     await clientA
       .verifyCredentialExists(credentialNameA)
@@ -60,12 +60,12 @@ test.describe.serial('5. Vault Merge', () => {
   test('5.3 Client B should create a credential (triggers merge with Client A changes)', async () => {
     // Client B still has stale data (revision 1, empty vault)
     // This should trigger a merge because the server has revision 2 from Client A
-    await clientB.popup.fill('input#itemName', credentialNameB);
-    await clientB.popup.click('button:has-text("Next")');
+    // All fields are now visible on the same page (no "Next" step)
     await expect(clientB.popup.locator(FieldSelectors.LOGIN_USERNAME)).toBeVisible({ timeout: 10000 });
+    await clientB.popup.fill(FieldSelectors.ITEM_NAME, credentialNameB);
     await clientB.popup.fill(FieldSelectors.LOGIN_USERNAME, 'clientB@example.com');
     await clientB.popup.fill(FieldSelectors.LOGIN_PASSWORD, 'ClientBPassword456!');
-    await clientB.popup.click('button:has-text("Save")');
+    await clientB.popup.click(ButtonSelectors.SAVE);
 
     await clientB
       .verifyCredentialExists(credentialNameB)

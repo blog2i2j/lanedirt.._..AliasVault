@@ -595,6 +595,7 @@ const ItemAddEdit: React.FC = () => {
           />
         )}
         <HeaderButton
+          id="save-credential"
           onClick={handleSave}
           title={t('credentials.saveCredential')}
           iconType={HeaderIconType.SAVE}

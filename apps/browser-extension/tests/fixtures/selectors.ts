@@ -10,14 +10,14 @@
  */
 
 /**
- * Field key constants matching shared/models/src/vault/FieldKey.ts
+ * Field key constants matching shared/models/src/vault/FieldKey.ts and SystemFieldRegistry.ts
  * These are the raw field key values used in the application.
  */
 export const FieldKey = {
   LoginUsername: 'login.username',
   LoginPassword: 'login.password',
-  LoginNotes: 'login.notes',
   LoginUrl: 'login.url',
+  MetadataNotes: 'metadata.notes',
   CardNumber: 'card.number',
   CardCardholderName: 'card.cardholder_name',
   CardExpiryMonth: 'card.expiry_month',
@@ -51,8 +51,10 @@ export const FieldSelectors = {
   // Login fields
   LOGIN_USERNAME: `input#${escapeFieldKey(FieldKey.LoginUsername)}`,
   LOGIN_PASSWORD: `input#${escapeFieldKey(FieldKey.LoginPassword)}`,
-  LOGIN_NOTES: `textarea#${escapeFieldKey(FieldKey.LoginNotes)}`,
   LOGIN_URL: `input#${escapeFieldKey(FieldKey.LoginUrl)}`,
+
+  // Metadata fields (shared across item types)
+  LOGIN_NOTES: `textarea#${escapeFieldKey(FieldKey.MetadataNotes)}`,
 
   // Card fields
   CARD_NUMBER: `input#${escapeFieldKey(FieldKey.CardNumber)}`,
@@ -79,6 +81,6 @@ export const FieldSelectors = {
 export const ButtonSelectors = {
   ADD_NEW_ITEM: 'button[title="Add new item"]',
   EDIT_CREDENTIAL: 'button[title="Edit Credential"]',
-  SAVE: 'button:has-text("Save")',
-  NEXT: 'button:has-text("Next")',
+  SAVE: 'button#save-credential',
+  ADD_FIELD_MENU: 'button.border-dashed',
 } as const;

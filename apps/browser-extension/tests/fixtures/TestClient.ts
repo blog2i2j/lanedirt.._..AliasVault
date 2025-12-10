@@ -213,12 +213,13 @@ export class TestClient {
 
   /**
    * Create a new login credential.
+   * The new ItemAddEdit page shows all fields directly without an intermediate step.
    */
   async createCredential(name: string, username: string, password: string): Promise<this> {
     await this.openAddCredentialForm();
-    await this.popup.fill(FieldSelectors.ITEM_NAME, name);
-    await this.popup.click(ButtonSelectors.NEXT);
+    // All fields are now visible on the same page (no "Next" step)
     await expect(this.popup.locator(FieldSelectors.LOGIN_USERNAME)).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await this.popup.fill(FieldSelectors.ITEM_NAME, name);
     await this.popup.fill(FieldSelectors.LOGIN_USERNAME, username);
     await this.popup.fill(FieldSelectors.LOGIN_PASSWORD, password);
     await this.popup.click(ButtonSelectors.SAVE);
@@ -270,8 +271,22 @@ export class TestClient {
 
   /**
    * Fill the notes field.
+   * If the notes section is not visible, opens the add field menu and adds it first.
    */
   async fillNotes(notes: string): Promise<this> {
+    // Check if notes field is visible, if not add it via the add field menu
+    const notesField = this.popup.locator(FieldSelectors.LOGIN_NOTES);
+    const isVisible = await notesField.isVisible().catch(() => false);
+
+    if (!isVisible) {
+      // Click the add field menu button (dashed border button)
+      await this.popup.click(ButtonSelectors.ADD_FIELD_MENU);
+      // Click the Notes option in the dropdown
+      await this.popup.click('button:has-text("Notes")');
+      // Wait for notes field to appear
+      await expect(this.popup.locator(FieldSelectors.LOGIN_NOTES)).toBeVisible({ timeout: Timeouts.SHORT });
+    }
+
     return this.fillField(FieldSelectors.LOGIN_NOTES, notes);
   }
 

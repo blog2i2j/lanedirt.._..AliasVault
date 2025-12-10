@@ -14,7 +14,7 @@
  * 8. Client B navigates to root to trigger sync (should merge local changes with server)
  * 9. Client A syncs and verifies both credentials are present
  */
-import { test, expect, TestClient, FieldSelectors } from '../fixtures';
+import { test, expect, TestClient, FieldSelectors, ButtonSelectors } from '../fixtures';
 
 test.describe.serial('7. Offline Sync', () => {
   let clientA: TestClient;
@@ -62,14 +62,13 @@ test.describe.serial('7. Offline Sync', () => {
 
   test('7.4 Client B creates a credential while offline', async () => {
     await clientB.goToVault();
-    await clientB.popup.locator('[title="Add new item"]').click();
-    await expect(clientB.popup.locator('input#itemName')).toBeVisible();
-    await clientB.popup.fill('input#itemName', credentialNameB);
-    await clientB.popup.click('button:has-text("Next")');
+    await clientB.popup.locator(ButtonSelectors.ADD_NEW_ITEM).click();
+    // All fields are now visible on the same page (no "Next" step)
     await expect(clientB.popup.locator(FieldSelectors.LOGIN_USERNAME)).toBeVisible({ timeout: 10000 });
+    await clientB.popup.fill(FieldSelectors.ITEM_NAME, credentialNameB);
     await clientB.popup.fill(FieldSelectors.LOGIN_USERNAME, 'clientB@example.com');
     await clientB.popup.fill(FieldSelectors.LOGIN_PASSWORD, 'ClientBPassword456!');
-    await clientB.popup.click('button:has-text("Save")');
+    await clientB.popup.click(ButtonSelectors.SAVE);
 
     await clientB
       .verifyCredentialExists(credentialNameB)
