@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-interface EditableFieldLabelProps {
+type EditableFieldLabelProps = {
   htmlFor: string;
   label: string;
   onLabelChange: (newLabel: string) => void;

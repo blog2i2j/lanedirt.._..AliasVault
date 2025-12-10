@@ -83,7 +83,7 @@ const ItemsList: React.FC = () => {
   const app = useApp();
   const navigate = useNavigate();
   const { syncVault } = useVaultSync();
-  const { executeVaultMutation, isLoading: isSaving } = useVaultMutate();
+  const { executeVaultMutation } = useVaultMutate();
   const { setHeaderButtons } = useHeaderButtons();
   const [items, setItems] = useState<Item[]>([]);
   const [searchTerm, setSearchTerm] = useState('');

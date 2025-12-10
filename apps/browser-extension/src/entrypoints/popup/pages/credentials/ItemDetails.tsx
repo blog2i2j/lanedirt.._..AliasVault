@@ -57,9 +57,6 @@ const ItemDetails: React.FC = (): React.ReactElement => {
     try {
       const result = dbContext.sqliteClient.getItemById(id);
       if (result) {
-        console.log('Item loaded:', result);
-        console.log('Fields:', result.Fields);
-        console.log('Tags:', result.Tags);
         setItem(result);
         setIsInitialLoading(false);
       } else {
@@ -113,9 +110,6 @@ const ItemDetails: React.FC = (): React.ReactElement => {
 
   // Group fields by category for organized display (excluding URLs)
   const groupedFields = groupFieldsByCategory(itemWithoutUrls);
-
-  console.log('Grouped fields:', groupedFields);
-  console.log('Item:', item);
 
   return (
     <div className="space-y-4">

@@ -9,7 +9,7 @@ import { getSystemField } from '@/utils/dist/shared/models/vault';
 
 import FieldHistoryModal from './FieldHistoryModal';
 
-interface FieldBlockProps {
+type FieldBlockProps = {
   field: ItemField;
   itemId?: string;
 }
@@ -42,11 +42,9 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId }) => {
 
   // Check if there's actual history available
   useEffect(() => {
-    console.log('[FieldBlock] useEffect triggered - hasHistoryEnabled:', hasHistoryEnabled, 'itemId:', itemId, 'fieldKey:', field.FieldKey);
     if (hasHistoryEnabled && itemId && dbContext?.sqliteClient) {
       try {
         const history = dbContext.sqliteClient.getFieldHistory(itemId, field.FieldKey);
-        console.log('[FieldBlock] History retrieved:', history, 'count:', history.length);
         setHistoryCount(history.length);
       } catch (error) {
         console.error('[FieldBlock] Error checking history:', error);
@@ -153,7 +151,6 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId }) => {
 
     case 'TextArea':
       // Use NotesBlock-style rendering for multi-line text
-      const formattedText = convertUrlsToLinks(value);
       return (
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -162,7 +159,7 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId }) => {
           <div className="p-4 bg-gray-50 rounded-lg dark:bg-gray-700">
             <p
               className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap"
-              dangerouslySetInnerHTML={{ __html: formattedText }}
+              dangerouslySetInnerHTML={{ __html: convertUrlsToLinks(value) }}
             />
           </div>
         </div>

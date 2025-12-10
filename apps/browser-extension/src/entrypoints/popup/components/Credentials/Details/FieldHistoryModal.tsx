@@ -5,7 +5,7 @@ import { useDb } from '@/entrypoints/popup/context/DbContext';
 
 import type { FieldHistory, FieldType } from '@/utils/dist/shared/models/vault';
 
-interface FieldHistoryModalProps {
+type FieldHistoryModalProps = {
   isOpen: boolean;
   onClose: () => void;
   itemId: string;
