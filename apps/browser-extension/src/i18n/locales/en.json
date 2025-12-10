@@ -294,6 +294,7 @@
     "selectTypeDescription": "Choose the type of item you want to create",
     "typeLabel": "Item Type",
     "creating": "Creating",
+    "editing": "Editing",
     "generateAlias": "Generate random alias",
     "regenerateAlias": "Regenerate alias",
     "addAlias": "Add alias",

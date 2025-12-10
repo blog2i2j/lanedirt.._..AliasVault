@@ -528,21 +528,30 @@ const ItemAddEdit: React.FC = () => {
 
   /**
    * Handle item type change from dropdown.
+   * In edit mode, preserves existing field values that are compatible with the new type.
    */
   const handleTypeChange = useCallback((newType: ItemType) => {
-    if (!item || isEditMode) {
+    if (!item) {
       return;
     }
 
-    // Clear field values when changing type (except name)
-    setFieldValues({});
-    setCustomFields([]);
+    /*
+     * In create mode, clear all field values when changing type.
+     * In edit mode, keep existing field values - they'll be filtered during save
+     * based on what fields apply to the new type.
+     */
+    if (!isEditMode) {
+      setFieldValues({});
+      setCustomFields([]);
+    }
 
     // For Alias type, show alias fields by default; otherwise hide
     if (newType === 'Alias') {
       setShowAliasFields(true);
-      // Reset the ref so alias will be auto-generated
-      aliasGeneratedRef.current = false;
+      // Reset the ref so alias will be auto-generated (only in create mode)
+      if (!isEditMode) {
+        aliasGeneratedRef.current = false;
+      }
     } else {
       setShowAliasFields(false);
     }
@@ -551,16 +560,22 @@ const ItemAddEdit: React.FC = () => {
     const newTypeFields = getSystemFieldsForItemType(newType);
     const newNotesField = newTypeFields.find(f => f.FieldKey === 'metadata.notes');
     const notesShownByDefault = newNotesField ? isFieldShownByDefault(newNotesField, newType) : false;
-    setShowNotes(notesShownByDefault);
+    setShowNotes(notesShownByDefault || (isEditMode && !!fieldValues['metadata.notes']));
+
+    // Update 2FA visibility - only supported for Login and Alias types
+    const supports2FA = newType === 'Login' || newType === 'Alias';
+    if (!supports2FA && show2FA) {
+      setShow2FA(false);
+    }
 
     setItem({
       ...item,
       ItemType: newType,
-      Fields: []
+      Fields: isEditMode ? item.Fields : []
     });
 
     setShowTypeDropdown(false);
-  }, [item, isEditMode]);
+  }, [item, isEditMode, fieldValues, show2FA]);
 
   /**
    * Initialize generators for random alias generation.
@@ -949,88 +964,86 @@ const ItemAddEdit: React.FC = () => {
 
   return (
     <form onSubmit={handleFormSubmit} className="space-y-4">
-      {/* Item Type Selector (create mode only) */}
-      {!isEditMode && (
-        <div className="relative">
-          <div className="w-full px-4 py-2 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg flex items-center gap-2">
+      {/* Item Type Selector (both create and edit mode) */}
+      <div className="relative">
+        <div className="w-full px-4 py-2 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowTypeDropdown(!showTypeDropdown)}
+            className="flex-1 flex items-center justify-between hover:opacity-80 transition-opacity"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-primary-600 dark:text-primary-400">
+                {selectedTypeOption?.iconSvg}
+              </span>
+              <span className="text-primary-700 dark:text-primary-300 font-medium text-sm">
+                {isEditMode ? t('itemTypes.editing') : t('itemTypes.creating')} {selectedTypeOption ? t(selectedTypeOption.titleKey) : ''}
+              </span>
+            </div>
+            <svg
+              className={`w-4 h-4 text-primary-500 transition-transform ${showTypeDropdown ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {/* Regenerate alias button - icon only for flexibility */}
+          {item?.ItemType === 'Alias' && !isEditMode && (
             <button
               type="button"
-              onClick={() => setShowTypeDropdown(!showTypeDropdown)}
-              className="flex-1 flex items-center justify-between hover:opacity-80 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                void handleGenerateAlias();
+              }}
+              className="flex-shrink-0 p-1.5 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 hover:bg-primary-100 dark:hover:bg-primary-900/40 rounded transition-colors"
+              title={t('itemTypes.regenerateAlias')}
             >
-              <div className="flex items-center gap-2">
-                <span className="text-primary-600 dark:text-primary-400">
-                  {selectedTypeOption?.iconSvg}
-                </span>
-                <span className="text-primary-700 dark:text-primary-300 font-medium text-sm">
-                  {t('itemTypes.creating')} {selectedTypeOption ? t(selectedTypeOption.titleKey) : ''}
-                </span>
-              </div>
-              <svg
-                className={`w-4 h-4 text-primary-500 transition-transform ${showTypeDropdown ? 'rotate-180' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              <svg className='w-4 h-4' viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 4v6h-6"/>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
               </svg>
             </button>
-            {/* Regenerate alias button - icon only for flexibility */}
-            {item?.ItemType === 'Alias' && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void handleGenerateAlias();
-                }}
-                className="flex-shrink-0 p-1.5 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 hover:bg-primary-100 dark:hover:bg-primary-900/40 rounded transition-colors"
-                title={t('itemTypes.regenerateAlias')}
-              >
-                <svg className='w-4 h-4' viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M23 4v6h-6"/>
-                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-                </svg>
-              </button>
-            )}
-          </div>
-
-          {/* Type Dropdown Menu */}
-          {showTypeDropdown && (
-            <>
-              <div
-                className="fixed inset-0 z-10"
-                onClick={() => setShowTypeDropdown(false)}
-              />
-              <div className="absolute z-20 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg">
-                {ITEM_TYPE_OPTIONS.map((option) => (
-                  <button
-                    key={option.type}
-                    type="button"
-                    onClick={() => handleTypeChange(option.type)}
-                    className={`w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 border-b border-gray-100 dark:border-gray-700 last:border-b-0 ${
-                      item.ItemType === option.type
-                        ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
-                        : 'text-gray-900 dark:text-white'
-                    }`}
-                  >
-                    <span className={item.ItemType === option.type ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400'}>
-                      {option.iconSvg}
-                    </span>
-                    <span className="font-medium">
-                      {t(option.titleKey)}
-                    </span>
-                    {item.ItemType === option.type && (
-                      <svg className="w-5 h-5 ml-auto text-primary-600 dark:text-primary-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </>
           )}
         </div>
-      )}
+
+        {/* Type Dropdown Menu */}
+        {showTypeDropdown && (
+          <>
+            <div
+              className="fixed inset-0 z-10"
+              onClick={() => setShowTypeDropdown(false)}
+            />
+            <div className="absolute z-20 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg">
+              {ITEM_TYPE_OPTIONS.map((option) => (
+                <button
+                  key={option.type}
+                  type="button"
+                  onClick={() => handleTypeChange(option.type)}
+                  className={`w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 border-b border-gray-100 dark:border-gray-700 last:border-b-0 ${
+                    item.ItemType === option.type
+                      ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                      : 'text-gray-900 dark:text-white'
+                  }`}
+                >
+                  <span className={item.ItemType === option.type ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400'}>
+                    {option.iconSvg}
+                  </span>
+                  <span className="font-medium">
+                    {t(option.titleKey)}
+                  </span>
+                  {item.ItemType === option.type && (
+                    <svg className="w-5 h-5 ml-auto text-primary-600 dark:text-primary-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Item Name and Header fields block */}
       <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 space-y-4">
