@@ -58,11 +58,10 @@ const Login: React.FC = () => {
    * @returns The initialized SqliteClient
    */
   const persistAndLoadVault = async (vaultResponse: VaultResponse, encryptionKey: string): Promise<SqliteClient> => {
-    // Persist vault to local storage (fresh from server, no pending sync)
+    // Persist vault to local storage (fresh from server, not dirty)
     await sendMessage('STORE_ENCRYPTED_VAULT', {
       vaultBlob: vaultResponse.vault.blob,
-      hasPendingSync: false,
-      vaultRevisionNumber: vaultResponse.vault.currentRevisionNumber,
+      serverRevision: vaultResponse.vault.currentRevisionNumber,
     }, 'background');
 
     await sendMessage('STORE_VAULT_METADATA', {

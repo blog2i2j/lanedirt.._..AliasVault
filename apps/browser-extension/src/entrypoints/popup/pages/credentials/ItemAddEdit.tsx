@@ -58,7 +58,7 @@ const ItemAddEdit: React.FC = () => {
   const itemTypeParam = searchParams.get('type') as ItemType | null;
   const itemNameParam = searchParams.get('name');
 
-  const { executeVaultMutation, syncStatus } = useVaultMutate();
+  const { executeVaultMutationAsync } = useVaultMutate();
   const { setHeaderButtons } = useHeaderButtons();
   const { setIsInitialLoading } = useLoading();
   const { generateAlias, lastGeneratedValues } = useAliasGenerator();
@@ -419,7 +419,11 @@ const ItemAddEdit: React.FC = () => {
         throw new Error('Database not initialized');
       }
 
-      await executeVaultMutation(async () => {
+      /*
+       * Use async mutation - saves locally and navigates immediately.
+       * Sync happens in background, status shown via header indicator.
+       */
+      await executeVaultMutationAsync(async () => {
         if (isEditMode) {
           await dbContext.sqliteClient!.updateItem(
             updatedItem,
@@ -433,12 +437,15 @@ const ItemAddEdit: React.FC = () => {
         }
       });
 
-      // Navigate back to details page
-      navigate(`/items/${updatedItem.Id}`);
+      /*
+       * Navigate to details page, replacing the add/edit page in history.
+       * This way pressing back goes to items list, not back to the edit form.
+       */
+      navigate(`/items/${updatedItem.Id}`, { replace: true });
     } catch (err) {
       console.error('Error saving item:', err);
     }
-  }, [item, fieldValues, applicableSystemFields, customFields, dbContext, isEditMode, executeVaultMutation, navigate, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes]);
+  }, [item, fieldValues, applicableSystemFields, customFields, dbContext, isEditMode, executeVaultMutationAsync, navigate, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes]);
 
   /**
    * Handle delete action.
@@ -449,7 +456,7 @@ const ItemAddEdit: React.FC = () => {
     }
 
     try {
-      await executeVaultMutation(async () => {
+      await executeVaultMutationAsync(async () => {
         await dbContext.sqliteClient!.deleteItemById(item.Id);
       });
 
@@ -459,7 +466,7 @@ const ItemAddEdit: React.FC = () => {
     } finally {
       setShowDeleteModal(false);
     }
-  }, [item, isEditMode, dbContext, executeVaultMutation, navigate]);
+  }, [item, isEditMode, dbContext, executeVaultMutationAsync, navigate]);
 
   /**
    * Add custom field handler.
@@ -927,13 +934,6 @@ const ItemAddEdit: React.FC = () => {
           onConfirm={handleDelete}
           variant="danger"
         />
-      )}
-
-      {/* Sync Status */}
-      {syncStatus && (
-        <div className="fixed bottom-4 right-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 border border-gray-200 dark:border-gray-700">
-          <p className="text-sm text-gray-700 dark:text-gray-300">{syncStatus}</p>
-        </div>
       )}
     </form>
   );

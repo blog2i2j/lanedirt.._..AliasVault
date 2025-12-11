@@ -1,20 +1,36 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { sendMessage } from 'webext-bridge/popup';
 
-import type { EncryptionKeyDerivationParams, VaultMetadata } from '@/utils/dist/core/models/metadata';
+import type { EncryptionKeyDerivationParams } from '@/utils/dist/core/models/metadata';
 import SqliteClient from '@/utils/SqliteClient';
 import type { VaultResponse as messageVaultResponse } from '@/utils/types/messaging/VaultResponse';
 
 import { storage } from '#imports';
+
+/**
+ * Vault metadata including the server revision.
+ */
+type VaultMetadata = {
+  publicEmailDomains: string[];
+  privateEmailDomains: string[];
+  hiddenPrivateEmailDomains: string[];
+  serverRevision: number;
+};
 
 type DbContextType = {
   sqliteClient: SqliteClient | null;
   dbInitialized: boolean;
   dbAvailable: boolean;
   isOffline: boolean;
-  hasPendingSync: boolean;
+  /**
+   * True if local vault has changes not yet synced to server.
+   */
+  isDirty: boolean;
+  /**
+   * Current server revision number.
+   */
+  serverRevision: number;
   setIsOffline: (offline: boolean) => Promise<void>;
-  setHasPendingSync: (hasPendingSync: boolean) => Promise<void>;
   /**
    * Load a decrypted vault into memory (SQLite client).
    */
@@ -28,7 +44,10 @@ type DbContextType = {
   storeEncryptionKeyDerivationParams: (params: EncryptionKeyDerivationParams) => Promise<void>;
   clearDatabase: () => void;
   getVaultMetadata: () => Promise<VaultMetadata | null>;
-  setCurrentVaultRevisionNumber: (revisionNumber: number) => Promise<void>;
+  /**
+   * Refresh sync state (isDirty, serverRevision) from storage.
+   */
+  refreshSyncState: () => Promise<void>;
   hasPendingMigrations: () => Promise<boolean>;
 }
 
@@ -59,39 +78,39 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [isOffline, setIsOfflineState] = useState(false);
 
   /**
-   * Pending sync state. If true, the local vault has changes not yet uploaded to server.
+   * Dirty state - true if local vault has unsynced changes.
    */
-  const [hasPendingSync, setHasPendingSyncState] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
 
   /**
-   * Set the offline mode state and persist it.
+   * Server revision number.
+   */
+  const [serverRevision, setServerRevision] = useState(0);
+
+  /**
+   * Set the offline mode state and persist it to local storage.
    */
   const setIsOffline = useCallback(async (offline: boolean) => {
     setIsOfflineState(offline);
-    await sendMessage('SET_OFFLINE_MODE', offline, 'background');
+    await storage.setItem('local:isOfflineMode', offline);
   }, []);
 
   /**
-   * Set the pending sync state and persist it.
-   */
-  const setHasPendingSync = useCallback(async (pendingSync: boolean) => {
-    setHasPendingSyncState(pendingSync);
-    await sendMessage('SET_HAS_PENDING_SYNC', pendingSync, 'background');
-  }, []);
-
-  /**
-   * Load initial offline and pending sync state from storage.
+   * Load initial state from local storage.
    */
   useEffect(() => {
     /**
-     * Load the offline mode and pending sync state from background storage.
+     * Load the offline mode and sync state from local storage.
      */
-    const loadSyncState = async () : Promise<void> => {
-      const offlineMode = await sendMessage('GET_OFFLINE_MODE', {}, 'background') as boolean;
-      setIsOfflineState(offlineMode);
-
-      const pendingSync = await sendMessage('GET_HAS_PENDING_SYNC', {}, 'background') as boolean;
-      setHasPendingSyncState(pendingSync);
+    const loadSyncState = async (): Promise<void> => {
+      const [offlineMode, dirty, revision] = await Promise.all([
+        storage.getItem('local:isOfflineMode') as Promise<boolean | null>,
+        storage.getItem('local:isDirty') as Promise<boolean | null>,
+        storage.getItem('local:serverRevision') as Promise<number | null>
+      ]);
+      setIsOfflineState(offlineMode ?? false);
+      setIsDirty(dirty ?? false);
+      setServerRevision(revision ?? 0);
     };
     loadSyncState();
   }, []);
@@ -143,10 +162,12 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
    */
   const getVaultMetadata = useCallback(async () : Promise<VaultMetadata | null> => {
     try {
-      const publicEmailDomains = await storage.getItem('local:publicEmailDomains') as string[] | null;
-      const privateEmailDomains = await storage.getItem('local:privateEmailDomains') as string[] | null;
-      const hiddenPrivateEmailDomains = await storage.getItem('local:hiddenPrivateEmailDomains') as string[] | null;
-      const vaultRevisionNumber = await storage.getItem('local:vaultRevisionNumber') as number | null;
+      const [publicEmailDomains, privateEmailDomains, hiddenPrivateEmailDomains, revision] = await Promise.all([
+        storage.getItem('local:publicEmailDomains') as Promise<string[] | null>,
+        storage.getItem('local:privateEmailDomains') as Promise<string[] | null>,
+        storage.getItem('local:hiddenPrivateEmailDomains') as Promise<string[] | null>,
+        storage.getItem('local:serverRevision') as Promise<number | null>
+      ]);
 
       if (!publicEmailDomains && !privateEmailDomains) {
         return null;
@@ -156,7 +177,7 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         publicEmailDomains: publicEmailDomains ?? [],
         privateEmailDomains: privateEmailDomains ?? [],
         hiddenPrivateEmailDomains: hiddenPrivateEmailDomains ?? [],
-        vaultRevisionNumber: vaultRevisionNumber ?? 0,
+        serverRevision: revision ?? 0,
       };
     } catch (error) {
       console.error('Error getting vault metadata from local storage:', error);
@@ -165,10 +186,15 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   }, []);
 
   /**
-   * Set the current vault revision number in local storage (persistent).
+   * Refresh sync state from storage (called after background updates it).
    */
-  const setCurrentVaultRevisionNumber = useCallback(async (revisionNumber: number) => {
-    await storage.setItem('local:vaultRevisionNumber', revisionNumber);
+  const refreshSyncState = useCallback(async (): Promise<void> => {
+    const [dirty, revision] = await Promise.all([
+      storage.getItem('local:isDirty') as Promise<boolean | null>,
+      storage.getItem('local:serverRevision') as Promise<number | null>
+    ]);
+    setIsDirty(dirty ?? false);
+    setServerRevision(revision ?? 0);
   }, []);
 
   /**
@@ -219,18 +245,18 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     dbInitialized,
     dbAvailable,
     isOffline,
-    hasPendingSync,
+    isDirty,
+    serverRevision,
     setIsOffline,
-    setHasPendingSync,
     loadDatabase,
     loadStoredDatabase,
     storeEncryptionKey,
     storeEncryptionKeyDerivationParams,
     clearDatabase,
     getVaultMetadata,
-    setCurrentVaultRevisionNumber,
+    refreshSyncState,
     hasPendingMigrations,
-  }), [sqliteClient, dbInitialized, dbAvailable, isOffline, hasPendingSync, setIsOffline, setHasPendingSync, loadDatabase, loadStoredDatabase, storeEncryptionKey, storeEncryptionKeyDerivationParams, clearDatabase, getVaultMetadata, setCurrentVaultRevisionNumber, hasPendingMigrations]);
+  }), [sqliteClient, dbInitialized, dbAvailable, isOffline, isDirty, serverRevision, setIsOffline, loadDatabase, loadStoredDatabase, storeEncryptionKey, storeEncryptionKeyDerivationParams, clearDatabase, getVaultMetadata, refreshSyncState, hasPendingMigrations]);
 
   return (
     <DbContext.Provider value={contextValue}>

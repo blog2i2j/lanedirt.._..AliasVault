@@ -9,7 +9,7 @@ import { handleClipboardCopied, handleCancelClipboardClear, handleGetClipboardCl
 import { setupContextMenus } from '@/entrypoints/background/ContextMenu';
 import { handleGetWebAuthnSettings, handleWebAuthnCreate, handleWebAuthnGet, handlePasskeyPopupResponse, handleGetRequestData } from '@/entrypoints/background/PasskeyHandler';
 import { handleOpenPopup, handlePopupWithCredential, handleOpenPopupCreateCredential, handleToggleContextMenu } from '@/entrypoints/background/PopupMessageHandler';
-import { handleCheckAuthStatus, handleClearPersistedFormValues, handleClearVault, handleLockVault, handleCreateIdentity, handleGetCredentials, handleGetFilteredCredentials, handleGetSearchCredentials, handleGetDefaultEmailDomain, handleGetDefaultIdentitySettings, handleGetEncryptionKey, handleGetEncryptionKeyDerivationParams, handleGetPasswordSettings, handleGetPersistedFormValues, handleGetVault, handlePersistFormValues, handleStoreEncryptionKey, handleStoreEncryptionKeyDerivationParams, handleStoreVaultMetadata, handleSyncVault, handleUploadVault, handleGetOfflineMode, handleSetOfflineMode, handleGetEncryptedVault, handleStoreEncryptedVault, handleGetHasPendingSync, handleSetHasPendingSync } from '@/entrypoints/background/VaultMessageHandler';
+import { handleCheckAuthStatus, handleClearPersistedFormValues, handleClearVault, handleLockVault, handleCreateIdentity, handleGetCredentials, handleGetFilteredCredentials, handleGetSearchCredentials, handleGetDefaultEmailDomain, handleGetDefaultIdentitySettings, handleGetEncryptionKey, handleGetEncryptionKeyDerivationParams, handleGetPasswordSettings, handleGetPersistedFormValues, handleGetVault, handlePersistFormValues, handleStoreEncryptionKey, handleStoreEncryptionKeyDerivationParams, handleStoreVaultMetadata, handleSyncVault, handleUploadVault, handleGetEncryptedVault, handleStoreEncryptedVault, handleGetSyncState, handleMarkVaultClean, handleGetServerRevision } from '@/entrypoints/background/VaultMessageHandler';
 
 import { GLOBAL_CONTEXT_MENU_ENABLED_KEY } from '@/utils/Constants';
 import { EncryptionKeyDerivationParams } from "@/utils/dist/core/models/metadata";
@@ -40,19 +40,16 @@ export default defineBackground({
     onMessage('STORE_ENCRYPTION_KEY_DERIVATION_PARAMS', ({ data }) => handleStoreEncryptionKeyDerivationParams(data as EncryptionKeyDerivationParams));
 
     onMessage('GET_ENCRYPTED_VAULT', () => handleGetEncryptedVault());
-    onMessage('STORE_ENCRYPTED_VAULT', ({ data }) => handleStoreEncryptedVault(data as { vaultBlob: string; hasPendingSync: boolean; vaultRevisionNumber?: number }));
-    onMessage('GET_HAS_PENDING_SYNC', () => handleGetHasPendingSync());
-    onMessage('SET_HAS_PENDING_SYNC', ({ data }) => handleSetHasPendingSync(data as boolean));
+    onMessage('STORE_ENCRYPTED_VAULT', ({ data }) => handleStoreEncryptedVault(data as { vaultBlob: string; markDirty?: boolean; serverRevision?: number }));
+    onMessage('GET_SYNC_STATE', () => handleGetSyncState());
+    onMessage('MARK_VAULT_CLEAN', ({ data }) => handleMarkVaultClean(data as { mutationSeqAtStart: number; newServerRevision: number }));
+    onMessage('GET_SERVER_REVISION', () => handleGetServerRevision());
 
     onMessage('CREATE_IDENTITY', ({ data }) => handleCreateIdentity(data));
     onMessage('UPLOAD_VAULT', () => handleUploadVault());
     onMessage('SYNC_VAULT', () => handleSyncVault());
     onMessage('LOCK_VAULT', () => handleLockVault());
     onMessage('CLEAR_VAULT', () => handleClearVault());
-
-    // Offline mode management messages
-    onMessage('GET_OFFLINE_MODE', () => handleGetOfflineMode());
-    onMessage('SET_OFFLINE_MODE', ({ data }) => handleSetOfflineMode(data as boolean));
 
     onMessage('OPEN_POPUP', () => handleOpenPopup());
     onMessage('OPEN_POPUP_WITH_CREDENTIAL', ({ data }) => handlePopupWithCredential(data));

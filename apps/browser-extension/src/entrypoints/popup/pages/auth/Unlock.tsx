@@ -359,7 +359,7 @@ const Unlock: React.FC = () => {
        * Always unlock from local vault first.
        * The /reinitialize page will call syncVault which handles:
        * - Checking if server has newer version
-       * - Merging local changes with server if hasPendingSync is true
+       * - Merging local changes with server if isDirty is true
        * - Overwriting local with server if no local changes
        */
       const sqliteClient = await dbContext.loadStoredDatabase();
@@ -438,7 +438,7 @@ const Unlock: React.FC = () => {
        * Always unlock from local vault first.
        * The /reinitialize page will call syncVault which handles:
        * - Checking if server has newer version
-       * - Merging local changes with server if hasPendingSync is true
+       * - Merging local changes with server if isDirty is true
        * - Overwriting local with server if no local changes
        */
       const sqliteClient = await dbContext.loadStoredDatabase();

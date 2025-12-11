@@ -46,6 +46,17 @@ const withMinimumDelay = async <T>(operation: () => Promise<T>, minDelayMs: numb
 /**
  * Hook to sync the vault with the server.
  * Supports offline mode: if server is unavailable, continues with local vault.
+ *
+ * Sync logic:
+ * - If server has newer vault AND we have local changes (isDirty) → merge then upload
+ * - If server has newer vault AND no local changes → just download
+ * - If server has same revision AND we have local changes → upload
+ * - If offline → keep local changes, sync later
+ *
+ * Race detection:
+ * - Upload captures mutationSequence at start
+ * - After upload, only clears isDirty if sequence unchanged
+ * - If sequence changed during upload, stays dirty for next sync
  */
 export const useVaultSync = (): { syncVault: (options?: VaultSyncOptions) => Promise<boolean>; } => {
   const { t } = useTranslation();
@@ -131,17 +142,18 @@ export const useVaultSync = (): { syncVault: (options?: VaultSyncOptions) => Pro
         await dbContext.setIsOffline(false);
       }
 
-      // Compare vault revisions
-      const vaultMetadata = await dbContext.getVaultMetadata();
-      const vaultRevisionNumber = vaultMetadata?.vaultRevisionNumber ?? 0;
+      // Get current sync state
+      const syncState = await sendMessage('GET_SYNC_STATE', {}, 'background') as {
+        isDirty: boolean;
+        mutationSequence: number;
+        serverRevision: number;
+      };
 
-      if (statusResponse.vaultRevision > vaultRevisionNumber) {
+      if (statusResponse.vaultRevision > syncState.serverRevision) {
         /*
          * Server has a newer vault. Before overwriting local vault, check if we have
          * pending local changes that need to be merged.
          */
-        const hasPendingSync = await sendMessage('GET_HAS_PENDING_SYNC', {}, 'background') as boolean;
-
         onStatus?.(t('common.syncingUpdatedVault'));
         const vaultResponseJson = await withMinimumDelay(() => webApi.get<VaultResponse>('Vault'), 1000, enableDelay) as VaultResponse;
 
@@ -149,7 +161,7 @@ export const useVaultSync = (): { syncVault: (options?: VaultSyncOptions) => Pro
           // Get encryption key from background worker
           const encryptionKey = await sendMessage('GET_ENCRYPTION_KEY', {}, 'background') as string;
 
-          if (hasPendingSync) {
+          if (syncState.isDirty) {
             /*
              * We have local changes that haven't been synced to server.
              * Merge local vault with server vault, then upload the merged result.
@@ -178,25 +190,26 @@ export const useVaultSync = (): { syncVault: (options?: VaultSyncOptions) => Pro
                 vaultResponseJson.vault.blob = mergedEncryptedVault;
 
                 /*
-                 * Store the merged vault locally first, then upload to server.
-                 * Pass the server's revision as our base revision since we just fetched and merged with it.
+                 * Store the merged vault locally, keeping it dirty since we need to upload.
+                 * Update server revision to track what we merged with.
                  */
                 await sendMessage('STORE_ENCRYPTED_VAULT', {
                   vaultBlob: mergedEncryptedVault,
-                  hasPendingSync: true,
-                  vaultRevisionNumber: statusResponse.vaultRevision
+                  serverRevision: vaultResponseJson.vault.currentRevisionNumber
                 }, 'background');
 
                 onStatus?.(t('common.uploadingVault'));
                 const uploadResponse = await sendMessage('UPLOAD_VAULT', {}, 'background') as VaultUploadResponse;
 
                 if (uploadResponse.success && uploadResponse.status === 0) {
-                  // Upload succeeded - update revision
-                  await dbContext.setCurrentVaultRevisionNumber(uploadResponse.newRevisionNumber!);
-                  await dbContext.setHasPendingSync(false);
+                  // Upload succeeded - try to clear dirty flag
+                  await sendMessage('MARK_VAULT_CLEAN', {
+                    mutationSeqAtStart: uploadResponse.mutationSeqAtStart,
+                    newServerRevision: uploadResponse.newRevisionNumber
+                  }, 'background');
+                  await dbContext.refreshSyncState();
                 } else {
                   console.error('Failed to upload merged vault:', uploadResponse.error);
-                  // Keep hasPendingSync true so we retry later
                 }
               } else {
                 console.error('Vault merge failed during sync, using server vault');
@@ -207,15 +220,17 @@ export const useVaultSync = (): { syncVault: (options?: VaultSyncOptions) => Pro
           /*
            * Persist vault and metadata to local storage.
            * If merge happened, the merged vault was already stored via STORE_ENCRYPTED_VAULT above.
-           * If no merge (hasPendingSync was false), we store the server vault now.
+           * If no merge (isDirty was false), we store the server vault now.
            */
-          if (!hasPendingSync) {
+          if (!syncState.isDirty) {
             await sendMessage('STORE_ENCRYPTED_VAULT', {
               vaultBlob: vaultResponseJson.vault.blob,
-              hasPendingSync: false,
-              vaultRevisionNumber: vaultResponseJson.vault.currentRevisionNumber,
+              serverRevision: vaultResponseJson.vault.currentRevisionNumber,
             }, 'background');
           }
+
+          // Refresh sync state after storing vault
+          await dbContext.refreshSyncState();
 
           await sendMessage('STORE_VAULT_METADATA', {
             publicEmailDomainList: vaultResponseJson.vault.publicEmailDomainList,
@@ -243,21 +258,23 @@ export const useVaultSync = (): { syncVault: (options?: VaultSyncOptions) => Pro
           // Vault could not be decrypted, throw an error
           throw new Error('Vault could not be decrypted, if the problem persists please logout and login again.');
         }
-      } else if (statusResponse.vaultRevision === vaultRevisionNumber) {
+      } else if (statusResponse.vaultRevision === syncState.serverRevision) {
         /**
          * Server and local vault are at the same revision.
          * If we have pending local changes, upload them now.
          */
-        const hasPendingSync = await sendMessage('GET_HAS_PENDING_SYNC', {}, 'background') as boolean;
-        if (hasPendingSync) {
+        if (syncState.isDirty) {
           onStatus?.(t('common.uploadingVault'));
 
-          // Vault is already stored locally with hasPendingSync=true, just upload it
+          // Vault is already stored locally, just upload it
           const uploadResponse = await sendMessage('UPLOAD_VAULT', {}, 'background') as VaultUploadResponse;
           if (uploadResponse.success && uploadResponse.status === 0) {
-            // Upload succeeded - update revision and clear pending flag
-            await dbContext.setCurrentVaultRevisionNumber(uploadResponse.newRevisionNumber!);
-            await dbContext.setHasPendingSync(false);
+            // Upload succeeded - try to clear dirty flag
+            await sendMessage('MARK_VAULT_CLEAN', {
+              mutationSeqAtStart: uploadResponse.mutationSeqAtStart,
+              newServerRevision: uploadResponse.newRevisionNumber
+            }, 'background');
+            await dbContext.refreshSyncState();
           } else if (uploadResponse.status === 2) {
             /**
              * Server returned Outdated - another device uploaded first.

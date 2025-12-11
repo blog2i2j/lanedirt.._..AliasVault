@@ -39,7 +39,7 @@ const OfflineIndicator: React.FC = () => {
   }
 
   // Show pending sync indicator (only when online but has pending changes)
-  if (dbContext.hasPendingSync) {
+  if (dbContext.isDirty) {
     return (
       <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-md text-xs font-medium">
         <svg className="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">

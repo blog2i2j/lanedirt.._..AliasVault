@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { sendMessage } from 'webext-bridge/popup';
 
@@ -18,14 +18,17 @@ type VaultMutationOptions = {
  *
  * Flow:
  * 1. Execute the mutation on local database
- * 2. Save encrypted vault locally with hasPendingSync=true (atomic)
+ * 2. Save encrypted vault locally and mark as dirty (increments mutation sequence)
  * 3. Trigger sync which handles: upload, merge if needed, offline mode
  *
- * LWW (Last-Write-Wins) merge ensures conflicts are resolved by UpdatedAt timestamp,
- * so we don't need to pre-sync before mutations.
+ * The mutation sequence is used for race detection:
+ * - Each mutation increments the sequence
+ * - Sync captures sequence at start, only clears dirty if sequence unchanged
+ * - This ensures we never lose local changes during concurrent operations
  */
 export function useVaultMutate(): {
     executeVaultMutation: (operation: () => Promise<void>, options?: VaultMutationOptions) => Promise<void>;
+    executeVaultMutationAsync: (operation: () => Promise<void>) => Promise<void>;
     isLoading: boolean;
     syncStatus: string;
     } {
@@ -35,12 +38,14 @@ export function useVaultMutate(): {
   const dbContext = useDb();
   const { syncVault } = useVaultSync();
 
+  // Track if a sync is currently in progress
+  const isSyncingRef = useRef(false);
+
   /**
-   * Execute the provided operation and save locally with pending sync flag.
+   * Execute the provided operation and save locally.
+   * Atomically increments mutation sequence and marks dirty.
    */
   const saveLocally = useCallback(async (operation: () => Promise<void>): Promise<void> => {
-    setSyncStatus(t('common.savingChangesToVault'));
-
     // Execute the provided operation (e.g. create/update/delete credential)
     await operation();
 
@@ -52,22 +57,86 @@ export function useVaultMutate(): {
       encryptionKey
     );
 
-    // Store the updated vault locally with pending sync flag
+    // Store the updated vault locally, mark dirty, increment mutation sequence
     await sendMessage('STORE_ENCRYPTED_VAULT', {
       vaultBlob: encryptedVaultBlob,
-      hasPendingSync: true
+      markDirty: true
     }, 'background');
 
-    // Update local state to reflect pending sync
-    await dbContext.setHasPendingSync(true);
-  }, [dbContext, t]);
+    // Refresh the sync state in React
+    await dbContext.refreshSyncState();
+  }, [dbContext]);
 
   /**
-   * Execute a vault mutation: save locally, then sync.
+   * Trigger a sync cycle. If sync is already in progress, it will be queued.
+   * After sync completes, checks if more mutations happened and re-syncs if needed.
+   */
+  const triggerSync = useCallback(async (): Promise<void> => {
+    if (isSyncingRef.current) {
+      // Sync already in progress - it will re-sync if dirty when done
+      return;
+    }
+
+    isSyncingRef.current = true;
+
+    try {
+      await syncVault({
+        /**
+         * Handle successful sync completion.
+         */
+        onSuccess: async () => {
+          // Refresh state from storage
+          await dbContext.refreshSyncState();
+
+          // Check if still dirty (more mutations during sync)
+          const isDirty = await sendMessage('GET_SYNC_STATE', {}, 'background') as { isDirty: boolean };
+          if (isDirty.isDirty) {
+            isSyncingRef.current = false;
+            // Re-sync to pick up new changes
+            await triggerSync();
+          }
+        },
+        /**
+         * Handle offline mode - local save succeeded.
+         */
+        onOffline: () => {
+          // Offline mode - local save succeeded, will sync when back online
+        },
+        /**
+         * Handle sync errors.
+         * @param error - Error message from sync
+         */
+        onError: (error) => {
+          console.error('Background sync error:', error);
+        }
+      });
+    } catch (error) {
+      console.error('Error during background sync:', error);
+    } finally {
+      isSyncingRef.current = false;
+    }
+  }, [dbContext, syncVault]);
+
+  /**
+   * Execute a vault mutation asynchronously: save locally immediately, then
+   * trigger sync in background. This doesn't block the UI.
+   */
+  const executeVaultMutationAsync = useCallback(async (
+    operation: () => Promise<void>
+  ): Promise<void> => {
+    // 1. Execute mutation and save locally (fast, doesn't block)
+    await saveLocally(operation);
+
+    // 2. Trigger sync in background
+    void triggerSync();
+  }, [saveLocally, triggerSync]);
+
+  /**
+   * Execute a vault mutation: save locally, then sync with server.
    *
    * The sync handles all scenarios:
-   * - Online + same revision + hasPendingSync → upload
-   * - Online + server newer + hasPendingSync → merge + upload
+   * - Online + same revision + isDirty → upload
+   * - Online + server newer + isDirty → merge + upload
    * - Offline → changes are safe locally, will sync when back online
    */
   const executeVaultMutation = useCallback(async (
@@ -76,6 +145,7 @@ export function useVaultMutate(): {
   ) => {
     try {
       setIsLoading(true);
+      setSyncStatus(t('common.savingChangesToVault'));
 
       // 1. Execute mutation and save locally (always succeeds if no exceptions)
       await saveLocally(operation);
@@ -90,7 +160,11 @@ export function useVaultMutate(): {
         /**
          * Handle successful sync completion.
          */
-        onSuccess: () => options.onSuccess?.(),
+        onSuccess: async () => {
+          // Refresh state from storage
+          await dbContext.refreshSyncState();
+          options.onSuccess?.();
+        },
         /**
          * Handle offline mode - local save succeeded.
          */
@@ -112,10 +186,11 @@ export function useVaultMutate(): {
       setIsLoading(false);
       setSyncStatus('');
     }
-  }, [saveLocally, syncVault, t]);
+  }, [dbContext, saveLocally, syncVault, t]);
 
   return {
     executeVaultMutation,
+    executeVaultMutationAsync,
     isLoading,
     syncStatus,
   };

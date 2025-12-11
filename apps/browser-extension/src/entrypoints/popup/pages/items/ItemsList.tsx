@@ -277,13 +277,6 @@ const ItemsList: React.FC = () => {
   }, [navigate]);
 
   /**
-   * Navigate back to root (items list)
-   */
-  const handleBackToRoot = useCallback(() => {
-    navigate('/items');
-  }, [navigate]);
-
-  /**
    * Get folders with item counts (only for root level when not searching)
    */
   const getFoldersWithCounts = (): FolderWithCount[] => {
@@ -383,20 +376,20 @@ const ItemsList: React.FC = () => {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
-        <div className="relative flex-1">
+      <div className="flex justify-between items-center gap-2 mb-4">
+        <div className="relative min-w-0 flex-1">
           <button
             onClick={() => setShowFilterMenu(!showFilterMenu)}
-            className="flex items-center gap-1 text-gray-900 dark:text-white text-xl hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none"
+            className="flex items-center gap-1 text-gray-900 dark:text-white text-xl hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none max-w-full"
           >
-            <h2 className="flex items-baseline gap-1.5">
-              {getFilterTitle()}
-              <span className="text-sm text-gray-500 dark:text-gray-400">
+            <h2 className="flex items-baseline gap-1.5 min-w-0 overflow-hidden">
+              <span className="truncate">{getFilterTitle()}</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400 shrink-0">
                 ({filteredItems.length})
               </span>
             </h2>
             <svg
-              className="w-4 h-4 mt-1"
+              className="w-4 h-4 mt-1 shrink-0"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"

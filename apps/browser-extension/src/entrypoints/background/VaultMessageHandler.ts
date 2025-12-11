@@ -167,20 +167,20 @@ export async function handleSyncVault(
     return { success: false, error: await t('common.errors.' + statusError) };
   }
 
-  const vaultRevisionNumber = await storage.getItem('local:vaultRevisionNumber') as number;
+  const localServerRevision = await storage.getItem('local:serverRevision') as number | null ?? 0;
 
-  if (statusResponse.vaultRevision > vaultRevisionNumber) {
+  if (statusResponse.vaultRevision > localServerRevision) {
     // Retrieve the latest vault from the server.
     const vaultResponse = await webApi.get<VaultResponse>('Vault');
 
-    // Store in local: storage for persistence (fresh from server, no pending sync)
+    // Store in local: storage for persistence (fresh from server, not dirty)
     await storage.setItems([
       { key: 'local:encryptedVault', value: vaultResponse.vault.blob },
       { key: 'local:publicEmailDomains', value: vaultResponse.vault.publicEmailDomainList },
       { key: 'local:privateEmailDomains', value: vaultResponse.vault.privateEmailDomainList },
       { key: 'local:hiddenPrivateEmailDomains', value: vaultResponse.vault.hiddenPrivateEmailDomainList },
-      { key: 'local:vaultRevisionNumber', value: vaultResponse.vault.currentRevisionNumber },
-      { key: 'local:hasPendingSync', value: false }
+      { key: 'local:serverRevision', value: vaultResponse.vault.currentRevisionNumber },
+      { key: 'local:isDirty', value: false }
     ]);
 
     // Clear cached client since we received a new vault blob from server
@@ -204,7 +204,7 @@ export async function handleGetVault(
     const publicEmailDomains = await storage.getItem('local:publicEmailDomains') as string[];
     const privateEmailDomains = await storage.getItem('local:privateEmailDomains') as string[];
     const hiddenPrivateEmailDomains = await storage.getItem('local:hiddenPrivateEmailDomains') as string[] ?? [];
-    const vaultRevisionNumber = await storage.getItem('local:vaultRevisionNumber') as number;
+    const serverRevision = await storage.getItem('local:serverRevision') as number | null;
 
     if (!encryptedVault) {
       console.error('Vault not available');
@@ -227,7 +227,7 @@ export async function handleGetVault(
       publicEmailDomains: publicEmailDomains ?? [],
       privateEmailDomains: privateEmailDomains ?? [],
       hiddenPrivateEmailDomains: hiddenPrivateEmailDomains ?? [],
-      vaultRevisionNumber: vaultRevisionNumber ?? 0
+      serverRevision: serverRevision ?? 0
     };
   } catch (error) {
     console.error('Failed to get vault:', error);
@@ -260,10 +260,11 @@ export function handleClearVault(): messageBoolResponse {
     'local:publicEmailDomains',
     'local:privateEmailDomains',
     'local:hiddenPrivateEmailDomains',
-    'local:vaultRevisionNumber',
+    'local:serverRevision',
+    'local:isDirty',
+    'local:mutationSequence',
     'local:isOfflineMode',
-    'local:hasPendingSync',
-    'local:encryptionKeyDerivationParams'
+    'local:encryptionKeyDerivationParams',
   ]);
 
   // Clear session-only data
@@ -538,19 +539,28 @@ export async function handleGetEncryptionKeyDerivationParams(
 
 /**
  * Upload the currently stored vault to the server.
+ * Returns the upload status and captures the mutation sequence at start for race detection.
  */
 export async function handleUploadVault(
 ) : Promise<messageVaultUploadResponse> {
   try {
+    // Capture mutation sequence at start of upload for race detection
+    const mutationSeqAtStart = await storage.getItem('local:mutationSequence') as number | null ?? 0;
+
     // Create sqlite client from the already-stored vault blob.
     const sqliteClient = await createVaultSqliteClient();
 
     // Upload the vault to the server.
     const response = await uploadNewVaultToServer(sqliteClient);
-    return { success: true, status: response.status, newRevisionNumber: response.newRevisionNumber };
+
+    return {
+      success: true,
+      status: response.status,
+      newRevisionNumber: response.newRevisionNumber,
+      mutationSeqAtStart
+    };
   } catch (error) {
     console.error('Failed to upload vault:', error);
-    // hasPendingSync stays true since upload failed
     return { success: false, error: await t('common.errors.unknownError') };
   }
 }
@@ -621,17 +631,11 @@ async function uploadNewVaultToServer(sqliteClient: SqliteClient) : Promise<Vaul
     encryptionKey
   );
 
-  /*
-   * Store in local: storage for persistence with pending sync flag.
-   * We're about to upload, so mark as pending until confirmed.
-   */
-  await storage.setItems([
-    { key: 'local:encryptedVault', value: encryptedVault },
-    { key: 'local:hasPendingSync', value: true }
-  ]);
+  // Store in local: storage for persistence
+  await storage.setItem('local:encryptedVault', encryptedVault);
 
-  // Get metadata from local: storage
-  const vaultRevisionNumber = await storage.getItem('local:vaultRevisionNumber') as number;
+  // Get server revision for API
+  const serverRevision = await storage.getItem('local:serverRevision') as number | null ?? 0;
 
   // Upload new encrypted vault to server.
   const username = await storage.getItem('local:username') as string;
@@ -641,7 +645,7 @@ async function uploadNewVaultToServer(sqliteClient: SqliteClient) : Promise<Vaul
     blob: encryptedVault,
     createdAt: new Date().toISOString(),
     credentialsCount: sqliteClient.getAllCredentials().length,
-    currentRevisionNumber: vaultRevisionNumber,
+    currentRevisionNumber: serverRevision,
     emailAddressList: emailAddresses,
     updatedAt: new Date().toISOString(),
     username: username,
@@ -655,13 +659,10 @@ async function uploadNewVaultToServer(sqliteClient: SqliteClient) : Promise<Vaul
 
   // Check if response is successful (.status === 0)
   if (response.status === 0) {
-    // Upload succeeded - update revision and clear pending sync
-    await storage.setItems([
-      { key: 'local:vaultRevisionNumber', value: response.newRevisionNumber },
-      { key: 'local:hasPendingSync', value: false }
-    ]);
+    // Upload succeeded - update server revision
+    await storage.setItem('local:serverRevision', response.newRevisionNumber);
   } else {
-    // Upload failed - hasPendingSync stays true (was set above)
+    // Upload failed
     throw new Error(await t('common.errors.unknownError'));
   }
 
@@ -703,36 +704,6 @@ async function createVaultSqliteClient() : Promise<SqliteClient> {
 }
 
 /**
- * Get offline mode status.
- */
-export async function handleGetOfflineMode(): Promise<boolean> {
-  const isOffline = await storage.getItem('local:isOfflineMode') as boolean;
-  return isOffline ?? false;
-}
-
-/**
- * Set offline mode status.
- */
-export async function handleSetOfflineMode(isOffline: boolean): Promise<void> {
-  await storage.setItem('local:isOfflineMode', isOffline);
-}
-
-/**
- * Get pending sync status (true if local vault has changes not yet uploaded to server).
- */
-export async function handleGetHasPendingSync(): Promise<boolean> {
-  const hasPendingSync = await storage.getItem('local:hasPendingSync') as boolean;
-  return hasPendingSync ?? false;
-}
-
-/**
- * Set pending sync status.
- */
-export async function handleSetHasPendingSync(hasPendingSync: boolean): Promise<void> {
-  await storage.setItem('local:hasPendingSync', hasPendingSync);
-}
-
-/**
  * Get the encrypted vault blob directly (for merge operations).
  */
 export async function handleGetEncryptedVault(): Promise<string | null> {
@@ -740,23 +711,127 @@ export async function handleGetEncryptedVault(): Promise<string | null> {
 }
 
 /**
- * Store the encrypted vault blob with pending sync flag.
- * This is an atomic operation that should be used for all local vault mutations.
+ * Store the encrypted vault blob and mark as dirty.
+ * Atomically increments mutation sequence for sync coordination.
  *
- * @param request Object with vaultBlob, hasPendingSync flag, and optional vaultRevisionNumber
+ * @param request Object with:
+ *   - vaultBlob: The encrypted vault data
+ *   - markDirty: If true, marks vault as dirty and increments mutation sequence
+ *   - serverRevision: Optional explicit server revision (for sync operations)
  */
-export async function handleStoreEncryptedVault(request: { vaultBlob: string; hasPendingSync: boolean; vaultRevisionNumber?: number }): Promise<void> {
-  if (request.vaultRevisionNumber !== undefined) {
-    // Store vault, pending sync flag, and revision number atomically
+export async function handleStoreEncryptedVault(request: {
+  vaultBlob: string;
+  markDirty?: boolean;
+  serverRevision?: number;
+}): Promise<{ mutationSequence: number }> {
+  let mutationSequence = await storage.getItem('local:mutationSequence') as number | null ?? 0;
+
+  if (request.markDirty) {
+    // Increment mutation sequence and mark dirty
+    mutationSequence++;
+  }
+
+  // Build items to store - use explicit typing for storage.setItems
+  if (request.markDirty && request.serverRevision !== undefined) {
     await storage.setItems([
       { key: 'local:encryptedVault', value: request.vaultBlob },
-      { key: 'local:hasPendingSync', value: request.hasPendingSync },
-      { key: 'local:vaultRevisionNumber', value: request.vaultRevisionNumber }
+      { key: 'local:mutationSequence', value: mutationSequence },
+      { key: 'local:isDirty', value: true },
+      { key: 'local:serverRevision', value: request.serverRevision }
+    ]);
+  } else if (request.markDirty) {
+    await storage.setItems([
+      { key: 'local:encryptedVault', value: request.vaultBlob },
+      { key: 'local:mutationSequence', value: mutationSequence },
+      { key: 'local:isDirty', value: true }
+    ]);
+  } else if (request.serverRevision !== undefined) {
+    await storage.setItems([
+      { key: 'local:encryptedVault', value: request.vaultBlob },
+      { key: 'local:serverRevision', value: request.serverRevision }
     ]);
   } else {
-    await storage.setItems([
-      { key: 'local:encryptedVault', value: request.vaultBlob },
-      { key: 'local:hasPendingSync', value: request.hasPendingSync }
-    ]);
+    await storage.setItem('local:encryptedVault', request.vaultBlob);
   }
+
+  // Clear cache since vault blob changed
+  cachedSqliteClient = null;
+  cachedVaultBlob = null;
+
+  return { mutationSequence };
+}
+
+/**
+ * Mark the vault as clean after successful sync.
+ * Only clears dirty flag if no mutations happened during sync.
+ *
+ * @param mutationSeqAtStart - The mutation sequence when sync started
+ * @param newServerRevision - The new server revision after successful upload
+ * @returns Whether the dirty flag was cleared
+ */
+export async function handleMarkVaultClean(request: {
+  mutationSeqAtStart: number;
+  newServerRevision: number;
+}): Promise<{ cleared: boolean; currentMutationSeq: number }> {
+  const currentMutationSeq = await storage.getItem('local:mutationSequence') as number | null ?? 0;
+
+  if (currentMutationSeq === request.mutationSeqAtStart) {
+    // No mutations during sync - safe to mark as clean
+    await storage.setItems([
+      { key: 'local:isDirty', value: false },
+      { key: 'local:serverRevision', value: request.newServerRevision }
+    ]);
+    return { cleared: true, currentMutationSeq };
+  }
+
+  // Mutations happened during sync - keep dirty, but still update server revision
+  await storage.setItem('local:serverRevision', request.newServerRevision);
+  return { cleared: false, currentMutationSeq };
+}
+
+/**
+ * Get the current sync state.
+ */
+export async function handleGetSyncState(): Promise<{
+  isDirty: boolean;
+  mutationSequence: number;
+  serverRevision: number;
+}> {
+  const [isDirty, mutationSequence, serverRevision] = await Promise.all([
+    storage.getItem('local:isDirty') as Promise<boolean | null>,
+    storage.getItem('local:mutationSequence') as Promise<number | null>,
+    storage.getItem('local:serverRevision') as Promise<number | null>
+  ]);
+
+  return {
+    isDirty: isDirty ?? false,
+    mutationSequence: mutationSequence ?? 0,
+    serverRevision: serverRevision ?? 0
+  };
+}
+
+/**
+ * Get the current server revision.
+ */
+export async function handleGetServerRevision(): Promise<number> {
+  // First try new key, then fall back to legacy key
+  let revision = await storage.getItem('local:serverRevision') as number | null;
+
+  if (revision === null) {
+    // Try legacy key - parse string format "250" or "250+1" to get server part
+    const legacyRevision = await storage.getItem('local:vaultRevisionNumber') as string | number | null;
+    if (legacyRevision !== null) {
+      if (typeof legacyRevision === 'number') {
+        revision = legacyRevision;
+      } else {
+        // Handle legacy "250+1" format - extract just the server part
+        const parts = legacyRevision.split('+');
+        revision = parseInt(parts[0], 10) || 0;
+      }
+      // Migrate to new key
+      await storage.setItem('local:serverRevision', revision);
+    }
+  }
+
+  return revision ?? 0;
 }
