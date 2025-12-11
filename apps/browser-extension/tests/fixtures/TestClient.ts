@@ -228,6 +228,23 @@ export class TestClient {
   }
 
   /**
+   * Create a new login credential with a URL.
+   * This is used for testing credential matching based on URLs.
+   */
+  async createCredentialWithUrl(name: string, username: string, password: string, url: string): Promise<this> {
+    await this.openAddCredentialForm();
+    // All fields are now visible on the same page (no "Next" step)
+    await expect(this.popup.locator(FieldSelectors.LOGIN_USERNAME)).toBeVisible({ timeout: Timeouts.MEDIUM });
+    await this.popup.fill(FieldSelectors.ITEM_NAME, name);
+    await this.popup.fill(FieldSelectors.LOGIN_USERNAME, username);
+    await this.popup.fill(FieldSelectors.LOGIN_PASSWORD, password);
+    await this.popup.fill(FieldSelectors.LOGIN_URL, url);
+    await this.popup.click(ButtonSelectors.SAVE);
+    await waitForCredentialSaved(this.popup, name);
+    return this;
+  }
+
+  /**
    * Click on a credential in the vault list.
    */
   async clickCredential(name: string): Promise<this> {
@@ -320,6 +337,35 @@ export class TestClient {
   async verifyVaultItemCount(count: number): Promise<this> {
     const itemsList = this.popup.locator('ul#items-list > li');
     await expect(itemsList).toHaveCount(count, { timeout: Timeouts.SHORT });
+    return this;
+  }
+
+  /**
+   * Enable E2E test mode which sets the shadow DOM to 'open' mode for testability.
+   * This must be called before navigating to pages where you want to inspect the autofill popup.
+   */
+  async enableE2ETestMode(): Promise<this> {
+    await this.popup.evaluate(() => {
+      return new Promise<void>((resolve) => {
+        chrome.storage.local.set({ e2eTestMode: true }, () => {
+          resolve();
+        });
+      });
+    });
+    return this;
+  }
+
+  /**
+   * Disable E2E test mode.
+   */
+  async disableE2ETestMode(): Promise<this> {
+    await this.popup.evaluate(() => {
+      return new Promise<void>((resolve) => {
+        chrome.storage.local.remove('e2eTestMode', () => {
+          resolve();
+        });
+      });
+    });
     return this;
   }
 

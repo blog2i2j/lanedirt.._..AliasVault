@@ -395,3 +395,40 @@ fn test_max_three_results() {
     // Should return max 3 results
     assert!(matches.len() <= 3);
 }
+
+/// [#23] - E2E test scenario: credentials with URLs should only match their specific domains
+/// This mirrors the browser extension E2E test setup
+#[test]
+fn test_e2e_scenario_url_only_matching() {
+    let credentials = vec![
+        create_test_credential("Example Site", "https://example.com/login", "user@example.com"),
+        create_test_credential("Example Subdomain", "https://test.example.com/auth", "admin@example.com"),
+        create_test_credential("Another Site", "https://another-example.com/signin", "user@another.com"),
+    ];
+
+    // Test 1: Unrelated domain should return NO matches
+    let unrelated_matches = filter(credentials.clone(), "https://unrelated-domain.com/login", "E2E Test Form");
+    assert_eq!(unrelated_matches.len(), 0, "Unrelated domain should not match any credentials");
+
+    // Test 2: example.com should only match Example Site (and possibly subdomain due to root domain matching)
+    let example_matches = filter(credentials.clone(), "https://example.com/login", "E2E Test Form");
+    println!("example.com matches: {:?}", example_matches.iter().map(|c| c.service_name.as_deref()).collect::<Vec<_>>());
+    assert!(example_matches.len() >= 1, "example.com should match at least one credential");
+    assert!(example_matches.iter().any(|c| c.service_name.as_deref() == Some("Example Site")),
+        "example.com should match Example Site");
+    assert!(!example_matches.iter().any(|c| c.service_name.as_deref() == Some("Another Site")),
+        "example.com should NOT match Another Site");
+
+    // Test 3: another-example.com should only match Another Site
+    let another_matches = filter(credentials.clone(), "https://another-example.com/signin", "E2E Test Form");
+    assert_eq!(another_matches.len(), 1, "another-example.com should match exactly one credential");
+    assert_eq!(another_matches[0].service_name.as_deref(), Some("Another Site"));
+
+    // Test 4: test.example.com subdomain should match Example Subdomain
+    let subdomain_matches = filter(credentials, "https://test.example.com/auth", "E2E Test Form");
+    assert!(subdomain_matches.len() >= 1, "test.example.com should match at least one credential");
+    assert!(subdomain_matches.iter().any(|c| c.service_name.as_deref() == Some("Example Subdomain")),
+        "test.example.com should match Example Subdomain");
+    assert!(!subdomain_matches.iter().any(|c| c.service_name.as_deref() == Some("Another Site")),
+        "test.example.com should NOT match Another Site");
+}

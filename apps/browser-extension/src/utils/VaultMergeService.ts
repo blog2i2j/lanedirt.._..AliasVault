@@ -9,19 +9,9 @@ import init, { getSyncableTableNames, mergeVaults } from './dist/core/rust/alias
 type JsonRecord = { [key: string]: unknown };
 
 /**
- * Type for Rust merge function.
- */
-type MergeFunction = (input: IMergeInput) => IMergeOutput;
-
-/**
- * Type for Rust getSyncableTableNames function.
- */
-type GetTableNamesFunction = () => string[];
-
-/**
  * Table data structure for Rust merge input/output.
  */
-interface ITableData {
+type TableData = {
   name: string;
   records: JsonRecord[];
 }
@@ -29,15 +19,15 @@ interface ITableData {
 /**
  * Input structure for Rust merge function.
  */
-interface IMergeInput {
-  local_tables: ITableData[];
-  server_tables: ITableData[];
+type MergeInput = {
+  local_tables: TableData[];
+  server_tables: TableData[];
 }
 
 /**
  * SQL statement with parameters from Rust.
  */
-interface ISqlStatement {
+type SqlStatement = {
   sql: string;
   params: SqlValue[];
 }
@@ -45,7 +35,7 @@ interface ISqlStatement {
 /**
  * Statistics from Rust merge.
  */
-interface IRustMergeStats {
+type RustMergeStats = {
   tables_processed: number;
   records_from_local: number;
   records_from_server: number;
@@ -57,25 +47,25 @@ interface IRustMergeStats {
 /**
  * Output structure from Rust merge function.
  */
-interface IMergeOutput {
+type MergeOutput = {
   success: boolean;
-  statements: ISqlStatement[];
-  stats: IRustMergeStats;
+  statements: SqlStatement[];
+  stats: RustMergeStats;
 }
 
 /**
  * Result of a merge operation.
  */
-export interface IMergeResult {
+export type MergeResult = {
   success: boolean;
   mergedVaultBase64: string;
-  stats: IMergeStats;
+  stats: MergeStats;
 }
 
 /**
  * Statistics about what was merged.
  */
-export interface IMergeStats {
+export type MergeStats = {
   tablesProcessed: number;
   recordsFromLocal: number;
   recordsFromServer: number;
@@ -129,7 +119,7 @@ export class VaultMergeService {
    * @param serverVaultBase64 - The server vault (latest version) as base64 SQLite
    * @returns MergeResult with the merged vault as base64
    */
-  public async merge(localVaultBase64: string, serverVaultBase64: string): Promise<IMergeResult> {
+  public async merge(localVaultBase64: string, serverVaultBase64: string): Promise<MergeResult> {
     try {
       // Initialize Rust WASM
       await this.initRust();
@@ -153,12 +143,12 @@ export class VaultMergeService {
         const tableNames = getSyncableTableNames();
 
         // Read all tables from both databases as JSON
-        const localTables: ITableData[] = tableNames.map(name => ({
+        const localTables: TableData[] = tableNames.map(name => ({
           name,
           records: this.readTableAsJson(localDb, name),
         }));
 
-        const serverTables: ITableData[] = tableNames.map(name => ({
+        const serverTables: TableData[] = tableNames.map(name => ({
           name,
           records: this.readTableAsJson(serverDb, name),
         }));
@@ -167,10 +157,10 @@ export class VaultMergeService {
          * Call Rust WASM merge (or injected function).
          * Use JSON stringify/parse to ensure no undefined values reach Rust/serde.
          */
-        const mergeInput: IMergeInput = JSON.parse(JSON.stringify({
+        const mergeInput: MergeInput = JSON.parse(JSON.stringify({
           local_tables: localTables,
           server_tables: serverTables,
-        })) as IMergeInput;
+        })) as MergeInput;
 
         console.debug('[VaultMerge] Merge input:', {
           localTableCount: localTables.length,
@@ -179,13 +169,7 @@ export class VaultMergeService {
           serverTables: serverTables.map(t => ({ name: t.name, recordCount: t.records.length })),
         });
 
-        const mergeOutput = mergeVaults(mergeInput);
-
-        console.debug('[VaultMerge] Merge output:', {
-          success: mergeOutput.success,
-          stats: mergeOutput.stats,
-          statementCount: mergeOutput.statements.length,
-        });
+        const mergeOutput = mergeVaults(mergeInput) as MergeOutput;
 
         // Execute SQL statements from Rust on local database
         for (const stmt of mergeOutput.statements) {

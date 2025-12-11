@@ -189,7 +189,7 @@ pub fn extract_root_domain(domain: &str) -> String {
     }
 }
 
-/// Check if two domains match, supporting partial matches.
+/// Check if two domains match, supporting subdomain matching.
 /// Note: Both parameters should be pre-extracted domains (without protocol, www, path, etc.)
 pub fn domains_match(domain1: &str, domain2: &str) -> bool {
     if domain1.is_empty() || domain2.is_empty() {
@@ -201,8 +201,10 @@ pub fn domains_match(domain1: &str, domain2: &str) -> bool {
         return true;
     }
 
-    // Check if one domain contains the other (for subdomain matching)
-    if domain1.contains(domain2) || domain2.contains(domain1) {
+    // Check subdomain relationship (must end with ".domain" not just contain it)
+    // e.g., "sub.example.com" is a subdomain of "example.com"
+    // but "another-example.com" is NOT related to "example.com"
+    if is_subdomain_of(domain1, domain2) || is_subdomain_of(domain2, domain1) {
         return true;
     }
 
@@ -211,6 +213,19 @@ pub fn domains_match(domain1: &str, domain2: &str) -> bool {
     let d2_root = extract_root_domain(domain2);
 
     d1_root == d2_root
+}
+
+/// Check if domain1 is a subdomain of domain2.
+/// e.g., "sub.example.com" is a subdomain of "example.com"
+/// but "another-example.com" is NOT a subdomain of "example.com"
+fn is_subdomain_of(domain1: &str, domain2: &str) -> bool {
+    // domain1 must be longer and end with ".domain2"
+    if domain1.len() <= domain2.len() {
+        return false;
+    }
+
+    // Check if domain1 ends with ".domain2" (proper subdomain boundary)
+    domain1.ends_with(&format!(".{}", domain2))
 }
 
 #[cfg(test)]
@@ -270,5 +285,12 @@ mod tests {
         // No match
         assert!(!domains_match("example.com", "different.com"));
         assert!(!domains_match("coolblue.nl", "coolblue.be"));
+
+        // CRITICAL: Substring match should NOT work (anti-phishing protection)
+        // "another-example.com" contains "example.com" but is NOT a subdomain
+        assert!(!domains_match("another-example.com", "example.com"));
+        assert!(!domains_match("example.com", "another-example.com"));
+        assert!(!domains_match("myexample.com", "example.com"));
+        assert!(!domains_match("example.com.evil.com", "example.com"));
     }
 }

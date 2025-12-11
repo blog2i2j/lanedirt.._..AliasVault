@@ -43,16 +43,12 @@ export async function filterCredentials(
 ): Promise<Credential[]> {
   await ensureInit();
 
-  console.log('filterCredentials', credentials, currentUrl, pageTitle, matchingMode);
-
   const result = wasmFilterCredentials({
     credentials: credentials.map(c => ({ Id: c.Id, ServiceName: c.ServiceName, ServiceUrl: c.ServiceUrl })),
     current_url: currentUrl,
     page_title: pageTitle,
     matching_mode: matchingMode
   }) as { matched_ids: string[] };
-
-  console.log('result', result);
 
   return result.matched_ids
     .map(id => credentials.find(c => c.Id === id))

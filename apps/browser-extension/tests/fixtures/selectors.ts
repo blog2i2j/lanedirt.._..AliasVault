@@ -51,7 +51,7 @@ export const FieldSelectors = {
   // Login fields
   LOGIN_USERNAME: `input#${escapeFieldKey(FieldKey.LoginUsername)}`,
   LOGIN_PASSWORD: `input#${escapeFieldKey(FieldKey.LoginPassword)}`,
-  LOGIN_URL: `input#${escapeFieldKey(FieldKey.LoginUrl)}`,
+  LOGIN_URL: `input#${escapeFieldKey(FieldKey.LoginUrl)}-0`, // Multi-value field uses -0 suffix for first entry
 
   // Metadata fields (shared across item types)
   LOGIN_NOTES: `textarea#${escapeFieldKey(FieldKey.MetadataNotes)}`,

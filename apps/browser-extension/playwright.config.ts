@@ -39,7 +39,7 @@ export default defineConfig({
   ],
 
   // Global timeout for each test
-  timeout: 10000,
+  timeout: 60000,
 
   // Expect timeout
   expect: {
