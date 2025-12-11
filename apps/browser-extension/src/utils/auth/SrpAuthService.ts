@@ -13,6 +13,8 @@ export type RegisterRequest = {
   verifier: string;
   encryptionType: string;
   encryptionSettings: string;
+  /** The SRP identity used for authentication (a random GUID generated at registration). */
+  srpIdentity: string;
 };
 
 /**
@@ -194,11 +196,21 @@ export class SrpAuthService {
   }
 
   /**
+   * Generates a random UUID v4 for use as SRP identity.
+   *
+   * @returns A random UUID string
+   */
+  public static generateSrpIdentity(): string {
+    return crypto.randomUUID();
+  }
+
+  /**
    * Prepares SRP registration data for a new user.
    *
    * This generates all the cryptographic values needed to register a user:
    * - Salt for key derivation
    * - Verifier for SRP authentication
+   * - SRP identity (random GUID) for immutable authentication identity
    *
    * @param username - The username for registration
    * @param password - The password for registration
@@ -211,6 +223,12 @@ export class SrpAuthService {
     const normalizedUsername = SrpAuthService.normalizeUsername(username);
     const salt = SrpAuthService.generateSalt();
 
+    /**
+     * Generate a random GUID for SRP identity. This is used for all SRP operations,
+     * is set during registration, and never changes.
+     */
+    const srpIdentity = SrpAuthService.generateSrpIdentity();
+
     // Derive key from password using default Argon2Id settings
     const credentials = await SrpAuthService.prepareCredentials(
       password,
@@ -219,8 +237,8 @@ export class SrpAuthService {
       DEFAULT_ENCRYPTION.settings
     );
 
-    // Generate SRP private key and verifier
-    const privateKey = SrpAuthService.derivePrivateKey(salt, normalizedUsername, credentials.passwordHashString);
+    // Generate SRP private key and verifier using srpIdentity (not username)
+    const privateKey = SrpAuthService.derivePrivateKey(salt, srpIdentity, credentials.passwordHashString);
     const verifier = SrpAuthService.deriveVerifier(privateKey);
 
     return {
@@ -229,6 +247,7 @@ export class SrpAuthService {
       verifier,
       encryptionType: DEFAULT_ENCRYPTION.type,
       encryptionSettings: DEFAULT_ENCRYPTION.settings,
+      srpIdentity,
     };
   }
 
@@ -328,6 +347,12 @@ export class SrpAuthService {
 
       const loginResponse = (await initiateResponse.json()) as LoginResponse;
 
+      /**
+       * Use srpIdentity from server response if available, otherwise fall back to normalized username.
+       * Note: the fallback can be removed in the future after 0.26.0+ is deployed.
+       */
+      const srpIdentity = loginResponse.srpIdentity ?? normalizedUsername;
+
       // Step 2: Prepare credentials
       const credentials = await SrpAuthService.prepareCredentials(
         password,
@@ -336,18 +361,18 @@ export class SrpAuthService {
         loginResponse.encryptionSettings
       );
 
-      // Step 3: Generate SRP session
+      // Step 3: Generate SRP session using srpIdentity (not the typed username)
       const clientEphemeral = SrpAuthService.generateEphemeral();
       const privateKey = SrpAuthService.derivePrivateKey(
         loginResponse.salt,
-        normalizedUsername,
+        srpIdentity,
         credentials.passwordHashString
       );
       const session = SrpAuthService.deriveSession(
         clientEphemeral.secret,
         loginResponse.serverEphemeral,
         loginResponse.salt,
-        normalizedUsername,
+        srpIdentity,
         privateKey
       );
 

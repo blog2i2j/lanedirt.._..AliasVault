@@ -6,4 +6,5 @@ export type PasswordChangeInitiateResponse = {
   serverEphemeral: string;
   encryptionType: string;
   encryptionSettings: string;
+  srpIdentity?: string;
 };

@@ -13,4 +13,5 @@ export type LoginResponse = {
     serverEphemeral: string;
     encryptionType: string;
     encryptionSettings: string;
+    srpIdentity?: string;
 }

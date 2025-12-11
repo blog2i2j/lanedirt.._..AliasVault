@@ -82,6 +82,7 @@ type LoginResponse = {
     serverEphemeral: string;
     encryptionType: string;
     encryptionSettings: string;
+    srpIdentity?: string;
 };
 
 /**
@@ -318,6 +319,7 @@ type PasswordChangeInitiateResponse = {
     serverEphemeral: string;
     encryptionType: string;
     encryptionSettings: string;
+    srpIdentity?: string;
 };
 
 /**
