@@ -22,8 +22,8 @@ import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 import useAliasGenerator from '@/entrypoints/popup/hooks/useAliasGenerator';
 import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
-import type { Item, ItemField, ItemType, FieldType, Attachment, TotpCode } from '@/utils/dist/shared/models/vault';
-import { getSystemFieldsForItemType, isFieldShownByDefault } from '@/utils/dist/shared/models/vault';
+import type { Item, ItemField, ItemType, FieldType, Attachment, TotpCode } from '@/utils/dist/core/models/vault';
+import { getSystemFieldsForItemType, isFieldShownByDefault } from '@/utils/dist/core/models/vault';
 
 // Valid item types from the shared model
 const VALID_ITEM_TYPES: ItemType[] = ['Login', 'Alias', 'CreditCard', 'Note'];

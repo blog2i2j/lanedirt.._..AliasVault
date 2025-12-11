@@ -1,8 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import type { Item } from '@/utils/dist/shared/models/vault';
-import { FieldKey } from '@/utils/dist/shared/models/vault';
+import type { Item } from '@/utils/dist/core/models/vault';
+import { FieldKey } from '@/utils/dist/core/models/vault';
 
 import ItemIcon from './ItemIcon';
 

@@ -19,8 +19,8 @@ import argon2 from 'argon2';
 import Database from 'better-sqlite3';
 import * as srp from 'secure-remote-password/client.js';
 
-// Get the vault schema SQL from the shared vault-sql package
-import { COMPLETE_SCHEMA_SQL, VAULT_VERSIONS } from '../../src/utils/dist/shared/vault-sql/index.mjs';
+// Get the vault schema SQL from the core vault package
+import { COMPLETE_SCHEMA_SQL, VAULT_VERSIONS } from '../../src/utils/dist/core/vault/index.mjs';
 
 /**
  * Token model returned from successful registration/login.

@@ -14,7 +14,7 @@ import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 import { useVaultSync } from '@/entrypoints/popup/hooks/useVaultSync';
 import { PopoutUtility } from '@/entrypoints/popup/utils/PopoutUtility';
 
-import type { Credential } from '@/utils/dist/shared/models/vault';
+import type { Credential } from '@/utils/dist/core/models/vault';
 
 import { useMinDurationLoading } from '@/hooks/useMinDurationLoading';
 

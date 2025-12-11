@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import type { FieldType, ItemType } from '@/utils/dist/shared/models/vault';
+import type { FieldType, ItemType } from '@/utils/dist/core/models/vault';
 
 /**
  * Visibility state for optional sections.

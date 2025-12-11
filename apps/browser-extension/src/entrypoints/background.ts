@@ -12,7 +12,7 @@ import { handleOpenPopup, handlePopupWithCredential, handleOpenPopupCreateCreden
 import { handleCheckAuthStatus, handleClearPersistedFormValues, handleClearVault, handleLockVault, handleCreateIdentity, handleGetCredentials, handleGetDefaultEmailDomain, handleGetDefaultIdentitySettings, handleGetEncryptionKey, handleGetEncryptionKeyDerivationParams, handleGetPasswordSettings, handleGetPersistedFormValues, handleGetVault, handlePersistFormValues, handleStoreEncryptionKey, handleStoreEncryptionKeyDerivationParams, handleStoreVaultMetadata, handleSyncVault, handleUploadVault, handleGetOfflineMode, handleSetOfflineMode, handleGetEncryptedVault, handleStoreEncryptedVault, handleGetHasPendingSync, handleSetHasPendingSync } from '@/entrypoints/background/VaultMessageHandler';
 
 import { GLOBAL_CONTEXT_MENU_ENABLED_KEY } from '@/utils/Constants';
-import { EncryptionKeyDerivationParams } from "@/utils/dist/shared/models/metadata";
+import { EncryptionKeyDerivationParams } from "@/utils/dist/core/models/metadata";
 
 import { defineBackground, storage, browser } from '#imports';
 

@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next';
 
 import { FormInputCopyToClipboard } from '@/entrypoints/popup/components/Forms/FormInputCopyToClipboard';
 
-import { IdentityHelperUtils } from '@/utils/dist/shared/identity-generator';
-import type { Credential } from '@/utils/dist/shared/models/vault';
+import { IdentityHelperUtils } from '@/utils/dist/core/identity-generator';
+import type { Credential } from '@/utils/dist/core/models/vault';
 
 type AliasBlockProps = {
   credential: Credential;

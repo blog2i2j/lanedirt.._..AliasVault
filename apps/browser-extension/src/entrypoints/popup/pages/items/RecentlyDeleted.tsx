@@ -6,7 +6,7 @@ import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useHeaderButtons } from '@/entrypoints/popup/context/HeaderButtonsContext';
 import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
-import type { Item } from '@/utils/dist/shared/models/vault';
+import type { Item } from '@/utils/dist/core/models/vault';
 
 import { useMinDurationLoading } from '@/hooks/useMinDurationLoading';
 

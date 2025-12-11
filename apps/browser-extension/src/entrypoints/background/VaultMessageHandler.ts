@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { storage } from 'wxt/utils/storage';
 
-import type { EncryptionKeyDerivationParams } from '@/utils/dist/shared/models/metadata';
-import type { Vault, VaultResponse, VaultPostResponse } from '@/utils/dist/shared/models/webapi';
+import type { EncryptionKeyDerivationParams } from '@/utils/dist/core/models/metadata';
+import type { Vault, VaultResponse, VaultPostResponse } from '@/utils/dist/core/models/webapi';
 import { EncryptionUtility } from '@/utils/EncryptionUtility';
 import { SqliteClient } from '@/utils/SqliteClient';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';

@@ -18,7 +18,7 @@ import SrpUtility from '@/entrypoints/popup/utils/SrpUtility';
 
 import { AppInfo } from '@/utils/AppInfo';
 import { SrpAuthService } from '@/utils/auth/SrpAuthService';
-import type { VaultResponse, LoginResponse } from '@/utils/dist/shared/models/webapi';
+import type { VaultResponse, LoginResponse } from '@/utils/dist/core/models/webapi';
 import { EncryptionUtility } from '@/utils/EncryptionUtility';
 import SqliteClient from '@/utils/SqliteClient';
 import { ApiAuthError } from '@/utils/types/errors/ApiAuthError';

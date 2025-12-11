@@ -1,11 +1,11 @@
 import initSqlJs, { Database } from 'sql.js';
 
 import * as dateFormatter from '@/utils/dateFormatter';
-import type { Credential, EncryptionKey, PasswordSettings, TotpCode, Passkey, Item, ItemField, ItemTagRef, FieldType, FieldHistory } from '@/utils/dist/shared/models/vault';
-import type { Attachment } from '@/utils/dist/shared/models/vault';
-import { FieldKey, getSystemField, MAX_FIELD_HISTORY_RECORDS } from '@/utils/dist/shared/models/vault';
-import type { VaultVersion } from '@/utils/dist/shared/vault-sql';
-import { VaultSqlGenerator, checkVersionCompatibility, extractVersionFromMigrationId } from '@/utils/dist/shared/vault-sql';
+import type { Credential, EncryptionKey, PasswordSettings, TotpCode, Passkey, Item, ItemField, ItemTagRef, FieldType, FieldHistory } from '@/utils/dist/core/models/vault';
+import type { Attachment } from '@/utils/dist/core/models/vault';
+import { FieldKey, getSystemField, MAX_FIELD_HISTORY_RECORDS } from '@/utils/dist/core/models/vault';
+import type { VaultVersion } from '@/utils/dist/core/vault';
+import { VaultSqlGenerator, checkVersionCompatibility, extractVersionFromMigrationId } from '@/utils/dist/core/vault';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
 
 import { t } from '@/i18n/StandaloneI18n';
@@ -811,7 +811,7 @@ export class SqliteClient {
     }
 
     // Otherwise, try to match UI language to an identity generator language
-    const { mapUiLanguageToIdentityLanguage } = await import('@/utils/dist/shared/identity-generator');
+    const { mapUiLanguageToIdentityLanguage } = await import('@/utils/dist/core/identity-generator');
     const { default: i18n } = await import('@/i18n/i18n');
 
     const uiLanguage = i18n.language;

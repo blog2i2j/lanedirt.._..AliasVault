@@ -16,7 +16,7 @@ import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
 import { PASSKEY_DISABLED_SITES_KEY } from '@/utils/Constants';
 import { extractDomain, extractRootDomain } from '@/utils/credentialMatcher/CredentialMatcher';
-import type { Passkey } from '@/utils/dist/shared/models/vault';
+import type { Passkey } from '@/utils/dist/core/models/vault';
 import { PasskeyAuthenticator } from '@/utils/passkey/PasskeyAuthenticator';
 import { PasskeyHelper } from '@/utils/passkey/PasskeyHelper';
 import type { CreateRequest, PasskeyCreateCredentialResponse, PendingPasskeyCreateRequest } from '@/utils/passkey/types';

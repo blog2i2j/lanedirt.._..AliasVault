@@ -20,7 +20,7 @@ import SrpUtility from '@/entrypoints/popup/utils/SrpUtility';
 
 import { SrpAuthService } from '@/utils/auth/SrpAuthService';
 import { VAULT_LOCKED_DISMISS_UNTIL_KEY } from '@/utils/Constants';
-import type { EncryptionKeyDerivationParams } from '@/utils/dist/shared/models/metadata';
+import type { EncryptionKeyDerivationParams } from '@/utils/dist/core/models/metadata';
 import {
   getPinLength,
   isPinEnabled,

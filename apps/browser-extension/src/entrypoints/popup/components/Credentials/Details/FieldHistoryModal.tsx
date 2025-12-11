@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 
-import type { FieldHistory, FieldType } from '@/utils/dist/shared/models/vault';
+import type { FieldHistory, FieldType } from '@/utils/dist/core/models/vault';
 
 type FieldHistoryModalProps = {
   isOpen: boolean;

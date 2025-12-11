@@ -63,7 +63,7 @@ export default defineConfig({
             dest: 'src'
           },
           {
-            src: 'src/utils/dist/shared/rust-core/aliasvault_core_bg.wasm',
+            src: 'src/utils/dist/core/rust/aliasvault_core_bg.wasm',
             dest: 'src'
           }
         ]

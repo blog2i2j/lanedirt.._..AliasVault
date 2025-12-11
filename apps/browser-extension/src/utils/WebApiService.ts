@@ -1,4 +1,4 @@
-import type { StatusResponse } from '@/utils/dist/shared/models/webapi';
+import type { StatusResponse } from '@/utils/dist/core/models/webapi';
 
 import { logoutEventEmitter } from '@/events/LogoutEventEmitter';
 

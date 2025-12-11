@@ -1,7 +1,7 @@
 import initSqlJs, { Database, SqlJsStatic, SqlValue } from 'sql.js';
 import { browser } from 'wxt/browser';
 
-import init, { getSyncableTableNames, mergeVaults } from './dist/shared/rust-core/aliasvault_core.js';
+import init, { getSyncableTableNames, mergeVaults } from './dist/core/rust/aliasvault_core.js';
 
 /**
  * Record type for JSON data passed to/from Rust.

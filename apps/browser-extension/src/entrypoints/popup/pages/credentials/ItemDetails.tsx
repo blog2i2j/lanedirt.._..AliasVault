@@ -15,8 +15,8 @@ import { useHeaderButtons } from '@/entrypoints/popup/context/HeaderButtonsConte
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 import { PopoutUtility } from '@/entrypoints/popup/utils/PopoutUtility';
 
-import type { Item } from '@/utils/dist/shared/models/vault';
-import { groupFieldsByCategory } from '@/utils/dist/shared/models/vault';
+import type { Item } from '@/utils/dist/core/models/vault';
+import { groupFieldsByCategory } from '@/utils/dist/core/models/vault';
 
 /**
  * Item details page with dynamic field rendering.

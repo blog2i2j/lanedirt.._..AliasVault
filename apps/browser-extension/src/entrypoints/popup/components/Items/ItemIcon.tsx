@@ -1,7 +1,7 @@
 import React from 'react';
 
-import type { Item } from '@/utils/dist/shared/models/vault';
-import { FieldKey } from '@/utils/dist/shared/models/vault';
+import type { Item } from '@/utils/dist/core/models/vault';
+import { FieldKey } from '@/utils/dist/core/models/vault';
 import SqliteClient from '@/utils/SqliteClient';
 
 type ItemIconProps = {

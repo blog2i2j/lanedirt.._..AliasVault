@@ -2,8 +2,8 @@ import { useCallback, useState, type Dispatch, type SetStateAction } from 'react
 
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 
-import { IdentityHelperUtils, CreateIdentityGenerator, convertAgeRangeToBirthdateOptions } from '@/utils/dist/shared/identity-generator';
-import { CreatePasswordGenerator } from '@/utils/dist/shared/password-generator';
+import { IdentityHelperUtils, CreateIdentityGenerator, convertAgeRangeToBirthdateOptions } from '@/utils/dist/core/identity-generator';
+import { CreatePasswordGenerator } from '@/utils/dist/core/password-generator';
 
 /**
  * Generated alias data returned by the hook.

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { filterCredentials } from '@/utils/credentialMatcher/CredentialMatcher';
-import type { Credential } from '@/utils/dist/shared/models/vault';
+import type { Credential } from '@/utils/dist/core/models/vault';
 
 describe('CredentialMatcher - Credential URL Matching', () => {
   let testCredentials: Credential[];

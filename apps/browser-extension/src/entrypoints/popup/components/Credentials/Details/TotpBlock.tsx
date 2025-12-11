@@ -5,7 +5,7 @@ import { sendMessage } from 'webext-bridge/popup';
 
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 
-import type { TotpCode } from '@/utils/dist/shared/models/vault';
+import type { TotpCode } from '@/utils/dist/core/models/vault';
 
 type TotpBlockProps = {
   credentialId?: string;

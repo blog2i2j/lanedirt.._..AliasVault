@@ -16,8 +16,8 @@ import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 import { useVaultSync } from '@/entrypoints/popup/hooks/useVaultSync';
 import { PopoutUtility } from '@/entrypoints/popup/utils/PopoutUtility';
 
-import type { VaultVersion } from '@/utils/dist/shared/vault-sql';
-import { VaultSqlGenerator } from '@/utils/dist/shared/vault-sql';
+import type { VaultVersion } from '@/utils/dist/core/vault';
+import { VaultSqlGenerator } from '@/utils/dist/core/vault';
 
 /**
  * Upgrade page for handling vault version upgrades.
@@ -112,7 +112,7 @@ const Upgrade: React.FC = () => {
     setError(null);
 
     try {
-      // Get upgrade SQL commands from vault-sql shared library
+      // Get upgrade SQL commands from vault library
       const vaultSqlGenerator = new VaultSqlGenerator();
       const upgradeResult = vaultSqlGenerator.getUpgradeVaultSql(currentVersion.revision, latestVersion.revision);
 

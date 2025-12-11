@@ -25,9 +25,9 @@ import { useWebApi } from '@/entrypoints/popup/context/WebApiContext';
 import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
 import { SKIP_FORM_RESTORE_KEY } from '@/utils/Constants';
-import { IdentityHelperUtils, CreateIdentityGenerator, CreateUsernameEmailGenerator, Identity, Gender, convertAgeRangeToBirthdateOptions } from '@/utils/dist/shared/identity-generator';
-import type { Attachment, Credential, TotpCode } from '@/utils/dist/shared/models/vault';
-import { CreatePasswordGenerator } from '@/utils/dist/shared/password-generator';
+import { IdentityHelperUtils, CreateIdentityGenerator, CreateUsernameEmailGenerator, Identity, Gender, convertAgeRangeToBirthdateOptions } from '@/utils/dist/core/identity-generator';
+import type { Attachment, Credential, TotpCode } from '@/utils/dist/core/models/vault';
+import { CreatePasswordGenerator } from '@/utils/dist/core/password-generator';
 import { ServiceDetectionUtility } from '@/utils/serviceDetection/ServiceDetectionUtility';
 
 import { browser } from '#imports';

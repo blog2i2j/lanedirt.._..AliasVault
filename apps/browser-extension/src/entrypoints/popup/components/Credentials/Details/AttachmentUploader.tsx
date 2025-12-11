@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import type { Attachment } from '@/utils/dist/shared/models/vault';
+import type { Attachment } from '@/utils/dist/core/models/vault';
 
 type AttachmentUploaderProps = {
   attachments: Attachment[];

@@ -22,20 +22,20 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Build and distribute shared libraries
+      - name: Build and distribute core libraries
         run: |
-          cd ./shared
+          cd ./core
           chmod +x build-and-distribute.sh
           ./build-and-distribute.sh
 
-      - name: Verify shared library distribution
+      - name: Verify core library distribution
         run: |
           # Check if files exist and were recently modified
           TARGET_DIRS=(
-            "apps/browser-extension/src/utils/dist/shared/identity-generator"
-            "apps/browser-extension/src/utils/dist/shared/password-generator"
-            "apps/browser-extension/src/utils/dist/shared/models"
-            "apps/browser-extension/src/utils/dist/shared/vault-sql"
+            "apps/browser-extension/src/utils/dist/core/identity-generator"
+            "apps/browser-extension/src/utils/dist/core/password-generator"
+            "apps/browser-extension/src/utils/dist/core/models"
+            "apps/browser-extension/src/utils/dist/core/vault"
           )
 
           for dir in "${TARGET_DIRS[@]}"; do

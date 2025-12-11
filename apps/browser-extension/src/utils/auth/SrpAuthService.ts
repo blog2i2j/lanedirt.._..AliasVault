@@ -1,6 +1,6 @@
 import srp from 'secure-remote-password/client';
 
-import type { TokenModel, LoginResponse, BadRequestResponse } from '@/utils/dist/shared/models/webapi';
+import type { TokenModel, LoginResponse, BadRequestResponse } from '@/utils/dist/core/models/webapi';
 
 import { EncryptionUtility } from '../EncryptionUtility';
 

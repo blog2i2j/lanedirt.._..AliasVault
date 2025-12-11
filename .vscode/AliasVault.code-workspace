@@ -20,7 +20,7 @@
 			"path": "../docs"
 		},
 		{
-			"path": "../shared"
+			"path": "../core"
 		}
 	],
 	"settings": {

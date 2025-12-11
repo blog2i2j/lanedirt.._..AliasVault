@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import type { ItemType } from '@/utils/dist/shared/models/vault';
+import type { ItemType } from '@/utils/dist/core/models/vault';
 
 /**
  * Item type option configuration.
