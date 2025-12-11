@@ -101,7 +101,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
     IsHidden: false,
     IsMultiValue: false,
     ApplicableToTypes: {
-      Login: { ShowByDefault: false },
       Alias: { ShowByDefault: true }
     },
     EnableHistory: true,
@@ -115,7 +114,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
     IsHidden: false,
     IsMultiValue: false,
     ApplicableToTypes: {
-      Login: { ShowByDefault: false },
       Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
@@ -129,7 +127,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
     IsHidden: false,
     IsMultiValue: false,
     ApplicableToTypes: {
-      Login: { ShowByDefault: false },
       Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
@@ -143,7 +140,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
     IsHidden: false,
     IsMultiValue: false,
     ApplicableToTypes: {
-      Login: { ShowByDefault: false },
       Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
@@ -157,7 +153,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
     IsHidden: false,
     IsMultiValue: false,
     ApplicableToTypes: {
-      Login: { ShowByDefault: false },
       Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
@@ -171,7 +166,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
     IsHidden: false,
     IsMultiValue: false,
     ApplicableToTypes: {
-      Login: { ShowByDefault: false },
       Alias: { ShowByDefault: true }
     },
     EnableHistory: false,

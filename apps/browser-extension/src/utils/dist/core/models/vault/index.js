@@ -151,6 +151,19 @@ var FieldKey = {
   AliasBirthdate: "alias.birthdate"
 };
 
+// src/vault/Item.ts
+var FieldTypes = {
+  Text: "Text",
+  Password: "Password",
+  Hidden: "Hidden",
+  Email: "Email",
+  URL: "URL",
+  Date: "Date",
+  Number: "Number",
+  Phone: "Phone",
+  TextArea: "TextArea"
+};
+
 // src/vault/ItemMethods.ts
 function getFieldValue(item, fieldKey) {
   const field = item.Fields.find((f) => f.FieldKey === fieldKey);
@@ -276,7 +289,6 @@ var SystemFieldRegistry = {
     IsHidden: false,
     IsMultiValue: false,
     ApplicableToTypes: {
-      Login: { ShowByDefault: false },
       Alias: { ShowByDefault: true }
     },
     EnableHistory: true,
@@ -290,7 +302,6 @@ var SystemFieldRegistry = {
     IsHidden: false,
     IsMultiValue: false,
     ApplicableToTypes: {
-      Login: { ShowByDefault: false },
       Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
@@ -304,7 +315,6 @@ var SystemFieldRegistry = {
     IsHidden: false,
     IsMultiValue: false,
     ApplicableToTypes: {
-      Login: { ShowByDefault: false },
       Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
@@ -318,7 +328,6 @@ var SystemFieldRegistry = {
     IsHidden: false,
     IsMultiValue: false,
     ApplicableToTypes: {
-      Login: { ShowByDefault: false },
       Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
@@ -332,7 +341,6 @@ var SystemFieldRegistry = {
     IsHidden: false,
     IsMultiValue: false,
     ApplicableToTypes: {
-      Login: { ShowByDefault: false },
       Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
@@ -346,7 +354,6 @@ var SystemFieldRegistry = {
     IsHidden: false,
     IsMultiValue: false,
     ApplicableToTypes: {
-      Login: { ShowByDefault: false },
       Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
@@ -485,6 +492,6 @@ function isSystemFieldPrefix(fieldKey) {
 // src/vault/FieldHistory.ts
 var MAX_FIELD_HISTORY_RECORDS = 10;
 
-export { FieldKey, MAX_FIELD_HISTORY_RECORDS, SystemFieldRegistry, fieldAppliesToType, getAllSystemFieldKeys, getDefaultFieldsForItemType, getFieldConfigForType, getFieldValue, getFieldValues, getOptionalFieldsForItemType, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isFieldShownByDefault, isSystemField, isSystemFieldPrefix, itemToCredential };
+export { FieldKey, FieldTypes, MAX_FIELD_HISTORY_RECORDS, SystemFieldRegistry, fieldAppliesToType, getAllSystemFieldKeys, getDefaultFieldsForItemType, getFieldConfigForType, getFieldValue, getFieldValues, getOptionalFieldsForItemType, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isFieldShownByDefault, isSystemField, isSystemFieldPrefix, itemToCredential };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map

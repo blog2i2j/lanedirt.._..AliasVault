@@ -364,6 +364,20 @@ type ItemField = {
  */
 type FieldType = 'Text' | 'Password' | 'Hidden' | 'Email' | 'URL' | 'Date' | 'Number' | 'Phone' | 'TextArea';
 /**
+ * Runtime constants for FieldType values (for type-safe comparisons)
+ */
+declare const FieldTypes: {
+    Text: "Text";
+    Password: "Password";
+    Hidden: "Hidden";
+    Email: "Email";
+    URL: "URL";
+    Date: "Date";
+    Number: "Number";
+    Phone: "Phone";
+    TextArea: "TextArea";
+};
+/**
  * Tag reference for display within an item
  */
 type ItemTagRef = {
@@ -523,4 +537,4 @@ type FieldHistory = {
  */
 declare const MAX_FIELD_HISTORY_RECORDS = 10;
 
-export { type Alias, type Attachment, type Credential, type EncryptionKey, type FieldHistory, FieldKey, type FieldKeyValue, type FieldType, type Item, type ItemField, type ItemTag, type ItemTagRef, type ItemType, type ItemTypeFieldConfig, MAX_FIELD_HISTORY_RECORDS, type Passkey, type PasswordSettings, type SystemFieldDefinition, SystemFieldRegistry, type Tag, type TotpCode, fieldAppliesToType, getAllSystemFieldKeys, getDefaultFieldsForItemType, getFieldConfigForType, getFieldValue, getFieldValues, getOptionalFieldsForItemType, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isFieldShownByDefault, isSystemField, isSystemFieldPrefix, itemToCredential };
+export { type Alias, type Attachment, type Credential, type EncryptionKey, type FieldHistory, FieldKey, type FieldKeyValue, type FieldType, FieldTypes, type Item, type ItemField, type ItemTag, type ItemTagRef, type ItemType, type ItemTypeFieldConfig, MAX_FIELD_HISTORY_RECORDS, type Passkey, type PasswordSettings, type SystemFieldDefinition, SystemFieldRegistry, type Tag, type TotpCode, fieldAppliesToType, getAllSystemFieldKeys, getDefaultFieldsForItemType, getFieldConfigForType, getFieldValue, getFieldValues, getOptionalFieldsForItemType, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isFieldShownByDefault, isSystemField, isSystemFieldPrefix, itemToCredential };

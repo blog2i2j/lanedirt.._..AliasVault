@@ -23,7 +23,7 @@ import useAliasGenerator from '@/entrypoints/popup/hooks/useAliasGenerator';
 import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
 import type { Item, ItemField, ItemType, FieldType, Attachment, TotpCode } from '@/utils/dist/core/models/vault';
-import { getSystemFieldsForItemType, isFieldShownByDefault } from '@/utils/dist/core/models/vault';
+import { FieldTypes, getSystemFieldsForItemType, isFieldShownByDefault } from '@/utils/dist/core/models/vault';
 
 // Valid item types from the shared model
 const VALID_ITEM_TYPES: ItemType[] = ['Login', 'Alias', 'CreditCard', 'Note'];
@@ -79,7 +79,6 @@ const ItemAddEdit: React.FC = () => {
 
   // UI visibility state
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
-  const [showAliasFields, setShowAliasFields] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   const [show2FA, setShow2FA] = useState(false);
   const [showAttachments, setShowAttachments] = useState(false);
@@ -199,11 +198,6 @@ const ItemAddEdit: React.FC = () => {
         setShowNotes(true);
       }
 
-      // For Alias type, show alias fields by default
-      if (effectiveType === 'Alias') {
-        setShowAliasFields(true);
-      }
-
       // Load folders
       if (dbContext?.sqliteClient) {
         const allFolders = dbContext.sqliteClient.getAllFolders();
@@ -319,20 +313,35 @@ const ItemAddEdit: React.FC = () => {
 
     // Show the generated password
     setShowPassword(true);
-
-    // Show alias fields section
-    setShowAliasFields(true);
   }, [generateAlias, lastGeneratedValues]);
 
   /**
-   * Auto-generate alias when Alias type is selected in create mode.
+   * Check if alias fields are shown by default for the current item type.
+   */
+  const aliasFieldsShownByDefault = useMemo(() => {
+    if (!item) {
+      return false;
+    }
+    const aliasField = applicableSystemFields.find(f => f.FieldKey === 'alias.email');
+    return aliasField ? isFieldShownByDefault(aliasField, item.ItemType) : false;
+  }, [item, applicableSystemFields]);
+
+  /**
+   * Check if login fields exist for the current item type (determines 2FA support).
+   */
+  const hasLoginFields = useMemo(() => {
+    return applicableSystemFields.some(f => f.FieldKey === 'login.username' || f.FieldKey === 'login.password');
+  }, [applicableSystemFields]);
+
+  /**
+   * Auto-generate alias when alias fields are shown by default in create mode.
    */
   useEffect(() => {
-    if (!isEditMode && item?.ItemType === 'Alias' && !localLoading && dbContext?.sqliteClient && !aliasGeneratedRef.current) {
+    if (!isEditMode && aliasFieldsShownByDefault && !localLoading && dbContext?.sqliteClient && !aliasGeneratedRef.current) {
       aliasGeneratedRef.current = true;
       void handleGenerateAlias();
     }
-  }, [isEditMode, item?.ItemType, localLoading, dbContext?.sqliteClient, handleGenerateAlias]);
+  }, [isEditMode, aliasFieldsShownByDefault, localLoading, dbContext?.sqliteClient, handleGenerateAlias]);
 
   /**
    * Auto-focus the name input field when in add mode.
@@ -503,25 +512,24 @@ const ItemAddEdit: React.FC = () => {
       setCustomFields([]);
     }
 
-    // For Alias type, show alias fields by default
-    if (newType === 'Alias') {
-      setShowAliasFields(true);
-      if (!isEditMode) {
-        aliasGeneratedRef.current = false;
-      }
-    } else {
-      setShowAliasFields(false);
+    // Check field visibility based on model config for the new type
+    const newTypeFields = getSystemFieldsForItemType(newType);
+
+    // Check if alias fields should be shown by default for the new type (for auto-generation)
+    const newAliasField = newTypeFields.find(f => f.FieldKey === 'alias.email');
+    const aliasShownByDefault = newAliasField ? isFieldShownByDefault(newAliasField, newType) : false;
+    if (aliasShownByDefault && !isEditMode) {
+      aliasGeneratedRef.current = false;
     }
 
     // Check if notes should be shown by default for the new type
-    const newTypeFields = getSystemFieldsForItemType(newType);
     const newNotesField = newTypeFields.find(f => f.FieldKey === 'metadata.notes');
     const notesShownByDefault = newNotesField ? isFieldShownByDefault(newNotesField, newType) : false;
     setShowNotes(notesShownByDefault || (isEditMode && !!fieldValues['metadata.notes']));
 
-    // Update 2FA visibility - only supported for Login and Alias types
-    const supports2FA = newType === 'Login' || newType === 'Alias';
-    if (!supports2FA && show2FA) {
+    // Update 2FA visibility - supported for types with login fields
+    const newTypeHasLoginFields = newTypeFields.some(f => f.FieldKey === 'login.username' || f.FieldKey === 'login.password');
+    if (!newTypeHasLoginFields && show2FA) {
       setShow2FA(false);
     }
 
@@ -533,22 +541,6 @@ const ItemAddEdit: React.FC = () => {
 
     setShowTypeDropdown(false);
   }, [item, isEditMode, fieldValues, show2FA]);
-
-  /**
-   * Remove alias section - clears values and hides the section.
-   */
-  const handleRemoveAliasSection = useCallback(() => {
-    setFieldValues(prev => ({
-      ...prev,
-      'alias.email': '',
-      'alias.first_name': '',
-      'alias.last_name': '',
-      'alias.nickname': '',
-      'alias.gender': '',
-      'alias.birthdate': ''
-    }));
-    setShowAliasFields(false);
-  }, []);
 
   /**
    * Remove notes section - clears value and hides the section.
@@ -658,7 +650,7 @@ const ItemAddEdit: React.FC = () => {
     const stringValue = Array.isArray(value) ? value[0] || '' : value;
 
     switch (fieldType) {
-      case 'Password':
+      case FieldTypes.Password:
         return (
           <PasswordField
             id={fieldKey}
@@ -670,7 +662,7 @@ const ItemAddEdit: React.FC = () => {
           />
         );
 
-      case 'Hidden':
+      case FieldTypes.Hidden:
         return (
           <HiddenField
             id={fieldKey}
@@ -680,7 +672,7 @@ const ItemAddEdit: React.FC = () => {
           />
         );
 
-      case 'TextArea':
+      case FieldTypes.TextArea:
         return (
           <div>
             <label htmlFor={fieldKey} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -697,12 +689,12 @@ const ItemAddEdit: React.FC = () => {
           </div>
         );
 
-      case 'Email':
-      case 'URL':
-      case 'Phone':
-      case 'Number':
-      case 'Date':
-      case 'Text':
+      case FieldTypes.Email:
+      case FieldTypes.URL:
+      case FieldTypes.Phone:
+      case FieldTypes.Number:
+      case FieldTypes.Date:
+      case FieldTypes.Text:
       default:
         return (
           <FormInput
@@ -715,6 +707,7 @@ const ItemAddEdit: React.FC = () => {
           />
         );
     }
+
   }, [fieldValues, handleFieldChange, showPassword]);
 
   /**
@@ -744,10 +737,11 @@ const ItemAddEdit: React.FC = () => {
   }, [t]);
 
   /**
-   * Render section action buttons for optional sections.
+   * Render section action buttons for alias category.
    */
-  const renderSectionActions = useCallback((category: string, isOptional: boolean) => {
-    if (category === 'Alias' && isOptional && showAliasFields) {
+  const renderSectionActions = useCallback((category: string) => {
+    // Only show actions for Alias category when alias fields are shown by default
+    if (category === 'Alias' && aliasFieldsShownByDefault) {
       return (
         <>
           {/* Regenerate button */}
@@ -762,23 +756,11 @@ const ItemAddEdit: React.FC = () => {
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
             </svg>
           </button>
-          {/* Remove button */}
-          <button
-            type="button"
-            onClick={handleRemoveAliasSection}
-            className="p-1.5 text-gray-400 hover:text-red-500 focus:outline-none"
-            title={t('common.delete')}
-          >
-            <svg className='w-4 h-4' viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"/>
-              <line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
         </>
       );
     }
     return null;
-  }, [showAliasFields, handleGenerateAlias, handleRemoveAliasSection, t]);
+  }, [aliasFieldsShownByDefault, handleGenerateAlias, t]);
 
   if (localLoading || !item) {
     return <LoadingSpinner />;
@@ -793,7 +775,7 @@ const ItemAddEdit: React.FC = () => {
         showDropdown={showTypeDropdown}
         onDropdownToggle={setShowTypeDropdown}
         onTypeChange={handleTypeChange}
-        onRegenerateAlias={item.ItemType === 'Alias' && !isEditMode ? handleGenerateAlias : undefined}
+        onRegenerateAlias={aliasFieldsShownByDefault && !isEditMode ? handleGenerateAlias : undefined}
       />
 
       {/* Item Name and Primary fields block */}
@@ -823,19 +805,12 @@ const ItemAddEdit: React.FC = () => {
       {/* Render fields grouped by category */}
       {Object.keys(groupedSystemFields).map(category => {
         const categoryFields = groupedSystemFields[category];
-        const allFieldsOptional = categoryFields.every(f => !shouldShowFieldByDefault(f));
-        const isOptionalCategory = category === 'Alias' && allFieldsOptional && !isEditMode;
-
-        // Skip optional categories that aren't shown
-        if (isOptionalCategory && !showAliasFields) {
-          return null;
-        }
 
         return (
           <FormSection
             key={category}
             title={getCategoryTitle(category)}
-            actions={renderSectionActions(category, isOptionalCategory)}
+            actions={renderSectionActions(category)}
           >
             {categoryFields.map(field => (
               <div key={field.FieldKey}>
@@ -905,8 +880,8 @@ const ItemAddEdit: React.FC = () => {
         </FormSection>
       )}
 
-      {/* 2FA TOTP Section */}
-      {show2FA && (item?.ItemType === 'Login' || item?.ItemType === 'Alias') && (
+      {/* 2FA TOTP Section - only for types with login fields */}
+      {show2FA && hasLoginFields && (
         <TotpEditor
           totpCodes={totpCodes}
           onTotpCodesChange={setTotpCodes}
@@ -927,8 +902,8 @@ const ItemAddEdit: React.FC = () => {
 
       {/* Add Field Menu */}
       <AddFieldMenu
-        itemType={item.ItemType}
         isEditMode={isEditMode}
+        supports2FA={hasLoginFields}
         visibility={{
           showNotes,
           show2FA,

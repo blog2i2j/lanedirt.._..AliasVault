@@ -44,18 +44,25 @@ export type ItemField = {
 }
 
 /**
- * Field types for rendering and validation
+ * Field types for rendering and validation.
+ * Single source of truth - the type is derived from this constant.
  */
-export type FieldType =
-    | 'Text'
-    | 'Password'
-    | 'Hidden'
-    | 'Email'
-    | 'URL'
-    | 'Date'
-    | 'Number'
-    | 'Phone'
-    | 'TextArea';
+export const FieldTypes = {
+  Text: 'Text',
+  Password: 'Password',
+  Hidden: 'Hidden',
+  Email: 'Email',
+  URL: 'URL',
+  Date: 'Date',
+  Number: 'Number',
+  Phone: 'Phone',
+  TextArea: 'TextArea',
+} as const;
+
+/**
+ * Field type union derived from FieldTypes constant
+ */
+export type FieldType = typeof FieldTypes[keyof typeof FieldTypes];
 
 /**
  * Tag reference for display within an item

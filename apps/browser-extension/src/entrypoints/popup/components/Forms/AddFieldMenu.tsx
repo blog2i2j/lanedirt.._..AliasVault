@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import type { FieldType, ItemType } from '@/utils/dist/core/models/vault';
+import type { FieldType } from '@/utils/dist/core/models/vault';
 
 /**
  * Visibility state for optional sections.
@@ -23,8 +23,9 @@ type SectionCallbacks = {
 };
 
 type AddFieldMenuProps = {
-  itemType: ItemType;
   isEditMode: boolean;
+  /** Whether 2FA is supported for the current item type (determined by model config) */
+  supports2FA: boolean;
   visibility: SectionVisibility;
   callbacks: SectionCallbacks;
 };
@@ -81,8 +82,8 @@ const PlusIcon: React.FC = () => (
  * Also includes the custom field modal.
  */
 const AddFieldMenu: React.FC<AddFieldMenuProps> = ({
-  itemType,
   isEditMode,
+  supports2FA,
   visibility,
   callbacks
 }) => {
@@ -166,8 +167,7 @@ const AddFieldMenu: React.FC<AddFieldMenuProps> = ({
       });
     }
 
-    // 2FA TOTP option - only for Login and Alias types
-    const supports2FA = itemType === 'Login' || itemType === 'Alias';
+    // 2FA TOTP option - only for types with login fields
     if (supports2FA && !visibility.show2FA) {
       options.push({
         key: '2fa',
@@ -188,7 +188,7 @@ const AddFieldMenu: React.FC<AddFieldMenuProps> = ({
     }
 
     return options;
-  }, [itemType, isEditMode, visibility, t, handleAddNotes, handleAdd2FA, handleAddAttachments]);
+  }, [supports2FA, isEditMode, visibility, t, handleAddNotes, handleAdd2FA, handleAddAttachments]);
 
   return (
     <>
