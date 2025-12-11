@@ -105,7 +105,26 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install dependencies
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core/rust
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --locked
+
+      - name: Build core libraries
+        run: |
+          cd ./core
+          chmod +x build-and-distribute.sh
+          ./build-and-distribute.sh
+
+      - name: Install .NET dependencies
         working-directory: apps/server
         run: dotnet workload install wasm-tools
 
@@ -157,6 +176,25 @@ jobs:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: apps/browser-extension/package-lock.json
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core/rust
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --locked
+
+      - name: Build core libraries
+        run: |
+          cd ./core
+          chmod +x build-and-distribute.sh
+          ./build-and-distribute.sh
 
       - name: Install .NET dependencies
         working-directory: apps/server

@@ -99,6 +99,12 @@ jobs:
           cache: 'npm'
           cache-dependency-path: apps/mobile-app/package-lock.json
 
+      - name: Build core libraries
+        run: |
+          cd ../../core
+          chmod +x build-and-distribute.sh
+          ./build-and-distribute.sh
+
       - name: Install dependencies
         run: npm ci
 
