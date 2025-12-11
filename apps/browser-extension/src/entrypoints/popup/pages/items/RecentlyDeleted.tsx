@@ -30,7 +30,7 @@ const getDaysRemaining = (deletedAt: string, retentionDays: number = 30): number
 const RecentlyDeleted: React.FC = () => {
   const { t } = useTranslation();
   const dbContext = useDb();
-  const { executeVaultMutation } = useVaultMutate();
+  const { executeVaultMutationAsync } = useVaultMutate();
   const { setHeaderButtons } = useHeaderButtons();
   const [items, setItems] = useState<Item[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -60,27 +60,12 @@ const RecentlyDeleted: React.FC = () => {
       return;
     }
 
-    await executeVaultMutation(
-      async () => {
-        await dbContext.sqliteClient!.restoreItem(itemId);
-      },
-      {
-        /**
-         * On success callback.
-         */
-        onSuccess: () => {
-          loadItems();
-        },
-        /**
-         * On error callback.
-         * @param error - The error that occurred
-         */
-        onError: (error) => {
-          console.error('Error restoring item:', error);
-        }
-      }
-    );
-  }, [dbContext?.sqliteClient, executeVaultMutation, loadItems]);
+    await executeVaultMutationAsync(async () => {
+      await dbContext.sqliteClient!.restoreItem(itemId);
+    });
+
+    loadItems();
+  }, [dbContext?.sqliteClient, executeVaultMutationAsync, loadItems]);
 
   /**
    * Permanently delete an item.
@@ -90,29 +75,14 @@ const RecentlyDeleted: React.FC = () => {
       return;
     }
 
-    await executeVaultMutation(
-      async () => {
-        await dbContext.sqliteClient!.permanentlyDeleteItem(itemId);
-      },
-      {
-        /**
-         * On success callback.
-         */
-        onSuccess: () => {
-          loadItems();
-          setShowConfirmDelete(false);
-          setSelectedItemId(null);
-        },
-        /**
-         * On error callback.
-         * @param error - The error that occurred
-         */
-        onError: (error) => {
-          console.error('Error permanently deleting item:', error);
-        }
-      }
-    );
-  }, [dbContext?.sqliteClient, executeVaultMutation, loadItems]);
+    await executeVaultMutationAsync(async () => {
+      await dbContext.sqliteClient!.permanentlyDeleteItem(itemId);
+    });
+
+    loadItems();
+    setShowConfirmDelete(false);
+    setSelectedItemId(null);
+  }, [dbContext?.sqliteClient, executeVaultMutationAsync, loadItems]);
 
   /**
    * Empty all items from Recently Deleted (permanent delete all).
@@ -122,30 +92,15 @@ const RecentlyDeleted: React.FC = () => {
       return;
     }
 
-    await executeVaultMutation(
-      async () => {
-        for (const item of items) {
-          await dbContext.sqliteClient!.permanentlyDeleteItem(item.Id);
-        }
-      },
-      {
-        /**
-         * On success callback.
-         */
-        onSuccess: () => {
-          loadItems();
-          setShowConfirmEmptyAll(false);
-        },
-        /**
-         * On error callback.
-         * @param error - The error that occurred
-         */
-        onError: (error) => {
-          console.error('Error emptying recently deleted:', error);
-        }
+    await executeVaultMutationAsync(async () => {
+      for (const item of items) {
+        await dbContext.sqliteClient!.permanentlyDeleteItem(item.Id);
       }
-    );
-  }, [dbContext?.sqliteClient, executeVaultMutation, items, loadItems]);
+    });
+
+    loadItems();
+    setShowConfirmEmptyAll(false);
+  }, [dbContext?.sqliteClient, executeVaultMutationAsync, items, loadItems]);
 
   // Clear header buttons on mount
   useEffect((): (() => void) => {

@@ -91,7 +91,7 @@ const CredentialAddEdit: React.FC = () => {
     Notes: Yup.string().nullable().optional()
   }), [t]);
 
-  const { executeVaultMutation, isLoading, syncStatus } = useVaultMutate();
+  const { executeVaultMutationAsync } = useVaultMutate();
   const [mode, setMode] = useState<CredentialMode>('random');
   const { setHeaderButtons } = useHeaderButtons();
   const { setIsInitialLoading } = useLoading();
@@ -381,18 +381,13 @@ const CredentialAddEdit: React.FC = () => {
       return;
     }
 
-    executeVaultMutation(async () => {
+    await executeVaultMutationAsync(async () => {
       dbContext.sqliteClient!.deleteCredentialById(id);
-    }, {
-      /**
-       * Navigate to the credentials list page on success.
-       */
-      onSuccess: () => {
-        void clearPersistedValues();
-        navigate('/credentials');
-      }
     });
-  }, [id, executeVaultMutation, dbContext.sqliteClient, navigate, clearPersistedValues]);
+
+    void clearPersistedValues();
+    navigate('/credentials');
+  }, [id, executeVaultMutationAsync, dbContext.sqliteClient, navigate, clearPersistedValues]);
 
   /**
    * Initialize the identity and password generators with settings from user's vault.
@@ -595,7 +590,7 @@ const CredentialAddEdit: React.FC = () => {
       }
     }
 
-    executeVaultMutation(async () => {
+    await executeVaultMutationAsync(async () => {
       setLocalLoading(false);
 
       if (isEditMode) {
@@ -609,23 +604,18 @@ const CredentialAddEdit: React.FC = () => {
         const credentialId = await dbContext.sqliteClient!.createCredential(data, attachments, totpCodes);
         data.Id = credentialId.toString();
       }
-    }, {
-      /**
-       * Navigate to the credential details page on success.
-       */
-      onSuccess: () => {
-        void clearPersistedValues();
-        // If in add mode, navigate to the credential details page.
-        if (!isEditMode) {
-          // Navigate to the credential details page.
-          navigate(`/credentials/${data.Id}`, { replace: true });
-        } else {
-          // If in edit mode, pop the current page from the history stack to end up on details page as well.
-          navigate(-1);
-        }
-      },
     });
-  }, [isEditMode, dbContext.sqliteClient, executeVaultMutation, navigate, mode, watch, generateRandomAlias, webApi, clearPersistedValues, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes, passkeyMarkedForDeletion]);
+
+    void clearPersistedValues();
+    // If in add mode, navigate to the credential details page.
+    if (!isEditMode) {
+      // Navigate to the credential details page.
+      navigate(`/credentials/${data.Id}`, { replace: true });
+    } else {
+      // If in edit mode, pop the current page from the history stack to end up on details page as well.
+      navigate(-1);
+    }
+  }, [isEditMode, dbContext.sqliteClient, executeVaultMutationAsync, navigate, mode, watch, generateRandomAlias, webApi, clearPersistedValues, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes, passkeyMarkedForDeletion]);
 
   // Set header buttons on mount and clear on unmount
   useEffect((): (() => void) => {
@@ -664,12 +654,9 @@ const CredentialAddEdit: React.FC = () => {
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <button type="submit" style={{ display: 'none' }} />
-      {(localLoading || isLoading) && (
+      {localLoading && (
         <div className="fixed inset-0 flex flex-col justify-center items-center bg-white dark:bg-gray-900 bg-opacity-90 dark:bg-opacity-90 z-50">
           <LoadingSpinner />
-          <div className="text-sm text-gray-500 mt-2">
-            {syncStatus}
-          </div>
         </div>
       )}
 

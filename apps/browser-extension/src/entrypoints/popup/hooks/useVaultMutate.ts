@@ -1,5 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useCallback, useRef } from 'react';
 import { sendMessage } from 'webext-bridge/popup';
 
 import { useDb } from '@/entrypoints/popup/context/DbContext';
@@ -8,18 +7,13 @@ import { EncryptionUtility } from '@/utils/EncryptionUtility';
 
 import { useVaultSync } from './useVaultSync';
 
-type VaultMutationOptions = {
-  onSuccess?: () => void;
-  onError?: (error: Error) => void;
-}
-
 /**
  * Hook to execute a vault mutation.
  *
  * Flow:
  * 1. Execute the mutation on local database
  * 2. Save encrypted vault locally and mark as dirty (increments mutation sequence)
- * 3. Trigger sync which handles: upload, merge if needed, offline mode
+ * 3. Trigger sync in background which handles: upload, merge if needed, offline mode
  *
  * The mutation sequence is used for race detection:
  * - Each mutation increments the sequence
@@ -27,14 +21,8 @@ type VaultMutationOptions = {
  * - This ensures we never lose local changes during concurrent operations
  */
 export function useVaultMutate(): {
-    executeVaultMutation: (operation: () => Promise<void>, options?: VaultMutationOptions) => Promise<void>;
     executeVaultMutationAsync: (operation: () => Promise<void>) => Promise<void>;
-    isLoading: boolean;
-    syncStatus: string;
     } {
-  const { t } = useTranslation();
-  const [isLoading, setIsLoading] = useState(false);
-  const [syncStatus, setSyncStatus] = useState('');
   const dbContext = useDb();
   const { syncVault } = useVaultSync();
 
@@ -131,67 +119,7 @@ export function useVaultMutate(): {
     void triggerSync();
   }, [saveLocally, triggerSync]);
 
-  /**
-   * Execute a vault mutation: save locally, then sync with server.
-   *
-   * The sync handles all scenarios:
-   * - Online + same revision + isDirty → upload
-   * - Online + server newer + isDirty → merge + upload
-   * - Offline → changes are safe locally, will sync when back online
-   */
-  const executeVaultMutation = useCallback(async (
-    operation: () => Promise<void>,
-    options: VaultMutationOptions = {}
-  ) => {
-    try {
-      setIsLoading(true);
-      setSyncStatus(t('common.savingChangesToVault'));
-
-      // 1. Execute mutation and save locally (always succeeds if no exceptions)
-      await saveLocally(operation);
-
-      // 2. Sync with server (handles upload, merge, offline - everything)
-      await syncVault({
-        /**
-         * Handle status updates during sync.
-         * @param message - Status message to display
-         */
-        onStatus: (message) => setSyncStatus(message),
-        /**
-         * Handle successful sync completion.
-         */
-        onSuccess: async () => {
-          // Refresh state from storage
-          await dbContext.refreshSyncState();
-          options.onSuccess?.();
-        },
-        /**
-         * Handle offline mode - local save succeeded.
-         */
-        onOffline: () => {
-          // Local save succeeded, user can continue working offline
-          setSyncStatus(t('common.offlineModeSaved'));
-          options.onSuccess?.();
-        },
-        /**
-         * Handle sync errors.
-         * @param error - Error message from sync
-         */
-        onError: (error) => options.onError?.(new Error(error))
-      });
-    } catch (error) {
-      console.error('Error during vault mutation:', error);
-      options.onError?.(error instanceof Error ? error : new Error(t('common.errors.unknownError')));
-    } finally {
-      setIsLoading(false);
-      setSyncStatus('');
-    }
-  }, [dbContext, saveLocally, syncVault, t]);
-
   return {
-    executeVaultMutation,
     executeVaultMutationAsync,
-    isLoading,
-    syncStatus,
   };
 }

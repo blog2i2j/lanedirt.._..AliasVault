@@ -32,7 +32,7 @@ const PasskeyCreate: React.FC = () => {
   const { setIsInitialLoading } = useLoading();
   const dbContext = useDb();
   const webApi = useWebApi();
-  const { executeVaultMutation, isLoading: isMutating, syncStatus } = useVaultMutate();
+  const { executeVaultMutationAsync } = useVaultMutate();
   const [request, setRequest] = useState<PendingPasskeyCreateRequest | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -156,7 +156,7 @@ const PasskeyCreate: React.FC = () => {
      * Handle Enter key to submit
      */
     const handleKeyDown = (e: KeyboardEvent) : void => {
-      if (e.key === 'Enter' && !localLoading && !isMutating) {
+      if (e.key === 'Enter' && !localLoading) {
         if (showCreateForm) {
           handleCreate();
         }
@@ -166,7 +166,7 @@ const PasskeyCreate: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () : void => window.removeEventListener('keydown', handleKeyDown);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showCreateForm, localLoading, isMutating]);
+  }, [showCreateForm, localLoading]);
 
   /**
    * Handle when user clicks "Create New Passkey" button
@@ -259,69 +259,15 @@ const PasskeyCreate: React.FC = () => {
       const { credential, stored, prfEnabled, prfResults } = result;
 
       // Use vault mutation to store both credential and passkey
-      await executeVaultMutation(
-        async () => {
-          if (selectedPasskeyToReplace) {
-            // Replace existing passkey: update the credential and passkey
-            const existingPasskey = dbContext.sqliteClient!.getPasskeyById(selectedPasskeyToReplace);
-            if (existingPasskey) {
-              // Update the parent credential with new favicon and user-provided display name
-              await dbContext.sqliteClient!.updateCredentialById(
-                {
-                  Id: existingPasskey.CredentialId,
-                  ServiceName: displayName,
-                  ServiceUrl: request.origin,
-                  Username: request.publicKey.user.name,
-                  Password: '',
-                  Notes: '',
-                  Logo: faviconLogo ?? undefined,
-                  Alias: {
-                    FirstName: '',
-                    LastName: '',
-                    NickName: '',
-                    BirthDate: '0001-01-01 00:00:00',
-                    Gender: '',
-                    Email: ''
-                  },
-                },
-                [],
-                []
-              );
-
-              // Delete the old passkey
-              await dbContext.sqliteClient!.deletePasskeyById(selectedPasskeyToReplace);
-
-              /**
-               * Create new passkey with same credential
-               * Convert userId from base64 string to byte array for database storage
-               */
-              let userHandleBytes: Uint8Array | null = null;
-              if (stored.userId) {
-                try {
-                  userHandleBytes = PasskeyHelper.base64urlToBytes(stored.userId);
-                } catch {
-                  // If conversion fails, store as null
-                  userHandleBytes = null;
-                }
-              }
-
-              await dbContext.sqliteClient!.createPasskey({
-                Id: newPasskeyGuid,
-                CredentialId: existingPasskey.CredentialId,
-                RpId: stored.rpId,
-                UserHandle: userHandleBytes,
-                PublicKey: JSON.stringify(stored.publicKey),
-                PrivateKey: JSON.stringify(stored.privateKey),
-                DisplayName: request.publicKey.user.displayName || request.publicKey.user.name || '',
-                PrfKey: stored.prfSecret ? PasskeyHelper.base64urlToBytes(stored.prfSecret) : undefined,
-                AdditionalData: null
-              });
-            }
-          } else {
-            // Create new credential and passkey
-            const credentialId = await dbContext.sqliteClient!.createCredential(
+      await executeVaultMutationAsync(async () => {
+        if (selectedPasskeyToReplace) {
+          // Replace existing passkey: update the credential and passkey
+          const existingPasskey = dbContext.sqliteClient!.getPasskeyById(selectedPasskeyToReplace);
+          if (existingPasskey) {
+            // Update the parent credential with new favicon and user-provided display name
+            await dbContext.sqliteClient!.updateCredentialById(
               {
-                Id: '',
+                Id: existingPasskey.CredentialId,
                 ServiceName: displayName,
                 ServiceUrl: request.origin,
                 Username: request.publicKey.user.name,
@@ -332,17 +278,20 @@ const PasskeyCreate: React.FC = () => {
                   FirstName: '',
                   LastName: '',
                   NickName: '',
-                  BirthDate: '0001-01-01 00:00:00', // TODO: once birthdate is made nullable in datamodel refactor, remove this.
+                  BirthDate: '0001-01-01 00:00:00',
                   Gender: '',
                   Email: ''
-                }
+                },
               },
+              [],
               []
             );
 
+            // Delete the old passkey
+            await dbContext.sqliteClient!.deletePasskeyById(selectedPasskeyToReplace);
+
             /**
-             * Create the Passkey linked to the credential
-             * Note: We let the database generate a GUID for Id, which we'll convert to base64url for the RP
+             * Create new passkey with same credential
              * Convert userId from base64 string to byte array for database storage
              */
             let userHandleBytes: Uint8Array | null = null;
@@ -357,7 +306,7 @@ const PasskeyCreate: React.FC = () => {
 
             await dbContext.sqliteClient!.createPasskey({
               Id: newPasskeyGuid,
-              CredentialId: credentialId,
+              CredentialId: existingPasskey.CredentialId,
               RpId: stored.rpId,
               UserHandle: userHandleBytes,
               PublicKey: JSON.stringify(stored.publicKey),
@@ -367,54 +316,91 @@ const PasskeyCreate: React.FC = () => {
               AdditionalData: null
             });
           }
-        },
-        {
+        } else {
+          // Create new credential and passkey
+          const credentialId = await dbContext.sqliteClient!.createCredential(
+            {
+              Id: '',
+              ServiceName: displayName,
+              ServiceUrl: request.origin,
+              Username: request.publicKey.user.name,
+              Password: '',
+              Notes: '',
+              Logo: faviconLogo ?? undefined,
+              Alias: {
+                FirstName: '',
+                LastName: '',
+                NickName: '',
+                BirthDate: '0001-01-01 00:00:00', // TODO: once birthdate is made nullable in datamodel refactor, remove this.
+                Gender: '',
+                Email: ''
+              }
+            },
+            []
+          );
+
           /**
-           * Wait for vault mutation to have synced with server, then send passkey create success response
-           * with the GUID-based credential ID.
+           * Create the Passkey linked to the credential
+           * Note: We let the database generate a GUID for Id, which we'll convert to base64url for the RP
+           * Convert userId from base64 string to byte array for database storage
            */
-          onSuccess: async () => {
-            // Prepare PRF extension response if PRF was enabled
-            let prfExtensionResponse;
-            if (prfEnabled) {
-              prfExtensionResponse = {
-                prf: {
-                  enabled: true,
-                  results: prfResults ? {
-                    first: PasskeyHelper.bytesToBase64url(new Uint8Array(prfResults.first)),
-                    second: prfResults.second ? PasskeyHelper.bytesToBase64url(new Uint8Array(prfResults.second)) : undefined
-                  } : undefined
-                }
-              };
+          let userHandleBytes: Uint8Array | null = null;
+          if (stored.userId) {
+            try {
+              userHandleBytes = PasskeyHelper.base64urlToBytes(stored.userId);
+            } catch {
+              // If conversion fails, store as null
+              userHandleBytes = null;
             }
-
-            // Use the GUID-based credential ID instead of the random one from the provider
-            const flattenedCredential: PasskeyCreateCredentialResponse = {
-              id: newPasskeyGuidBase64url,
-              rawId: newPasskeyGuidBase64url,
-              clientDataJSON: credential.response.clientDataJSON,
-              attestationObject: credential.response.attestationObject,
-              extensions: prfExtensionResponse
-            };
-
-            /*
-             * Send response back to background
-             * The background script will close the window (Safari-compatible)
-             */
-            await sendMessage('PASSKEY_POPUP_RESPONSE', {
-              requestId: request.requestId,
-              credential: flattenedCredential
-            }, 'background');
-          },
-          /**
-           * onError
-           */
-          onError: (err) => {
-            console.error('PasskeyCreate: Error storing passkey', err);
-            setError(t('common.errors.unknownError'));
           }
+
+          await dbContext.sqliteClient!.createPasskey({
+            Id: newPasskeyGuid,
+            CredentialId: credentialId,
+            RpId: stored.rpId,
+            UserHandle: userHandleBytes,
+            PublicKey: JSON.stringify(stored.publicKey),
+            PrivateKey: JSON.stringify(stored.privateKey),
+            DisplayName: request.publicKey.user.displayName || request.publicKey.user.name || '',
+            PrfKey: stored.prfSecret ? PasskeyHelper.base64urlToBytes(stored.prfSecret) : undefined,
+            AdditionalData: null
+          });
         }
-      );
+      });
+
+      // Prepare PRF extension response if PRF was enabled
+      let prfExtensionResponse;
+      if (prfEnabled) {
+        prfExtensionResponse = {
+          prf: {
+            enabled: true,
+            results: prfResults ? {
+              first: PasskeyHelper.bytesToBase64url(new Uint8Array(prfResults.first)),
+              second: prfResults.second ? PasskeyHelper.bytesToBase64url(new Uint8Array(prfResults.second)) : undefined
+            } : undefined
+          }
+        };
+      }
+
+      // Use the GUID-based credential ID instead of the random one from the provider
+      const flattenedCredential: PasskeyCreateCredentialResponse = {
+        id: newPasskeyGuidBase64url,
+        rawId: newPasskeyGuidBase64url,
+        clientDataJSON: credential.response.clientDataJSON,
+        attestationObject: credential.response.attestationObject,
+        extensions: prfExtensionResponse
+      };
+
+      /*
+       * Send response back to background
+       * The background script will close the window (Safari-compatible)
+       */
+      await sendMessage('PASSKEY_POPUP_RESPONSE', {
+        requestId: request.requestId,
+        credential: flattenedCredential
+      }, 'background');
+
+      setLocalLoading(false);
     } catch (error) {
       console.error('PasskeyCreate: Error creating passkey', error);
       setError(t('common.errors.unknownError'));
@@ -495,12 +481,9 @@ const PasskeyCreate: React.FC = () => {
         />
       )}
 
-      {(localLoading || isMutating) && (
+      {localLoading && (
         <div className="fixed inset-0 flex flex-col justify-center items-center bg-white dark:bg-gray-900 bg-opacity-90 dark:bg-opacity-90 z-50">
           <LoadingSpinner />
-          <div className="text-sm text-gray-500 mt-2">
-            {syncStatus}
-          </div>
         </div>
       )}
 

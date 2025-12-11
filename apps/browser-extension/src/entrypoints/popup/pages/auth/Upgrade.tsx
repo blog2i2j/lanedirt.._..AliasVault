@@ -36,7 +36,7 @@ const Upgrade: React.FC = () => {
   const [showVersionInfo, setShowVersionInfo] = useState(false);
   const { setIsInitialLoading } = useLoading();
   const webApi = useWebApi();
-  const { executeVaultMutation, isLoading: isVaultMutationLoading, syncStatus } = useVaultMutate();
+  const { executeVaultMutationAsync } = useVaultMutate();
   const { syncVault } = useVaultSync();
   const navigate = useNavigate();
 
@@ -127,7 +127,7 @@ const Upgrade: React.FC = () => {
       }
 
       // Use the useVaultMutate hook to handle the upgrade and vault upload
-      await executeVaultMutation(async () => {
+      await executeVaultMutationAsync(async () => {
         // Begin transaction
         sqliteClient.beginTransaction();
 
@@ -146,21 +146,9 @@ const Upgrade: React.FC = () => {
 
         // Commit transaction
         sqliteClient.commitTransaction();
-      }, {
-        /**
-         * Handle successful upgrade completion.
-         */
-        onSuccess: () => {
-          void handleUpgradeSuccess();
-        },
-        /**
-         * Handle upgrade error.
-         */
-        onError: (error: Error) => {
-          console.error('Upgrade failed:', error);
-          setError(error.message);
-        }
       });
+
+      await handleUpgradeSuccess();
     } catch (error) {
       console.error('Upgrade failed:', error);
       setError(error instanceof Error ? error.message : t('common.errors.unknownError'));
@@ -217,11 +205,11 @@ const Upgrade: React.FC = () => {
   return (
     <div>
       {/* Full loading screen overlay */}
-      {(isLoading || isVaultMutationLoading) && (
+      {isLoading && (
         <div className="fixed inset-0 flex flex-col justify-center items-center bg-white dark:bg-gray-900 bg-opacity-90 dark:bg-opacity-90 z-50">
           <LoadingSpinner />
           <div className="text-sm text-gray-500 mt-2">
-            {syncStatus || t('upgrade.upgrading')}
+            {t('upgrade.upgrading')}
           </div>
         </div>
       )}
@@ -313,13 +301,13 @@ const Upgrade: React.FC = () => {
             id="upgrade-button"
             onClick={handleUpgrade}
           >
-            {isLoading || isVaultMutationLoading ? (syncStatus || t('upgrade.upgrading')) : t('upgrade.upgrade')}
+            {isLoading ? t('upgrade.upgrading') : t('upgrade.upgrade')}
           </Button>
           <button
             type="button"
             onClick={handleLogout}
             className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium py-2"
-            disabled={isLoading || isVaultMutationLoading}
+            disabled={isLoading}
           >
             {t('upgrade.logout')}
           </button>

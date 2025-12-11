@@ -84,7 +84,7 @@ const ItemsList: React.FC = () => {
   const app = useApp();
   const navigate = useNavigate();
   const { syncVault } = useVaultSync();
-  const { executeVaultMutation } = useVaultMutate();
+  const { executeVaultMutationAsync } = useVaultMutate();
   const { setHeaderButtons } = useHeaderButtons();
   const [items, setItems] = useState<Item[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -136,28 +136,14 @@ const ItemsList: React.FC = () => {
       return;
     }
 
-    await executeVaultMutation(
-      async () => {
-        await dbContext.sqliteClient!.createFolder(folderName, currentFolderId);
-      },
-      {
-        /**
-         * On success.
-         */
-        onSuccess: () => {
-          // Refresh items to show the new folder
-          const results = dbContext.sqliteClient!.getAllItems();
-          setItems(results);
-        },
-        /**
-         * On error.
-         */
-        onError: (error) => {
-          throw error;
-        }
-      }
-    );
-  }, [dbContext, currentFolderId, executeVaultMutation]);
+    await executeVaultMutationAsync(async () => {
+      await dbContext.sqliteClient!.createFolder(folderName, currentFolderId);
+    });
+
+    // Refresh items to show the new folder
+    const results = dbContext.sqliteClient!.getAllItems();
+    setItems(results);
+  }, [dbContext, currentFolderId, executeVaultMutationAsync]);
 
   /**
    * Retrieve latest vault and refresh the items list.
