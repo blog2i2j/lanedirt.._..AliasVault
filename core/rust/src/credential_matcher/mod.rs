@@ -58,8 +58,8 @@ pub struct CredentialMatcherInput {
 /// Output from credential filtering.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CredentialMatcherOutput {
-    /// Filtered credentials (max 3)
-    pub credentials: Vec<Credential>,
+    /// IDs of matched credentials (max 3), in priority order
+    pub matched_ids: Vec<String>,
     /// Which priority level matched (1-4, or 0 if no match)
     pub matched_priority: u8,
 }
@@ -89,7 +89,7 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
     // Early return for empty URL
     if current_url.is_empty() {
         return CredentialMatcherOutput {
-            credentials: vec![],
+            matched_ids: vec![],
             matched_priority: 0,
         };
     }
@@ -100,7 +100,7 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
     // ═══════════════════════════════════════════════════════════════════════════════
     let is_package_name = is_app_package_name(&current_url);
     if is_package_name {
-        let package_matches: Vec<Credential> = credentials
+        let package_match_ids: Vec<String> = credentials
             .iter()
             .filter(|cred| {
                 cred.service_url
@@ -108,13 +108,14 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
                     .map(|url| !url.is_empty() && url == &current_url)
                     .unwrap_or(false)
             })
-            .cloned()
+            .map(|cred| cred.id.clone())
+            .take(3)
             .collect();
 
         // EARLY RETURN if matches found
-        if !package_matches.is_empty() {
+        if !package_match_ids.is_empty() {
             return CredentialMatcherOutput {
-                credentials: package_matches.into_iter().take(3).collect(),
+                matched_ids: package_match_ids,
                 matched_priority: 1,
             };
         }
@@ -173,15 +174,15 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
                 // Sort by priority, deduplicate by ID, take first 3
                 filtered.sort_by_key(|c| c.priority);
                 let mut seen_ids: HashSet<String> = HashSet::new();
-                let unique_credentials: Vec<Credential> = filtered
+                let unique_ids: Vec<String> = filtered
                     .into_iter()
                     .filter(|c| seen_ids.insert(c.credential.id.clone()))
-                    .map(|c| c.credential)
+                    .map(|c| c.credential.id)
                     .take(3)
                     .collect();
 
                 return CredentialMatcherOutput {
-                    credentials: unique_credentials,
+                    matched_ids: unique_ids,
                     matched_priority: 2,
                 };
             }
@@ -195,7 +196,7 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
                 let title_words = extract_words(&page_title);
 
                 if !title_words.is_empty() {
-                    let name_matches: Vec<Credential> = credentials
+                    let name_match_ids: Vec<String> = credentials
                         .iter()
                         .filter(|cred| {
                             // SECURITY: Skip credentials that have a URL defined
@@ -215,13 +216,14 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
                                 false
                             }
                         })
-                        .cloned()
+                        .map(|cred| cred.id.clone())
+                        .take(3)
                         .collect();
 
                     // Return matches from Priority 3 if any found
-                    if !name_matches.is_empty() {
+                    if !name_match_ids.is_empty() {
                         return CredentialMatcherOutput {
-                            credentials: name_matches.into_iter().take(3).collect(),
+                            matched_ids: name_match_ids,
                             matched_priority: 3,
                         };
                     }
@@ -230,7 +232,7 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
 
             // No matches found in Priority 2 or Priority 3
             return CredentialMatcherOutput {
-                credentials: vec![],
+                matched_ids: vec![],
                 matched_priority: 0,
             };
         }
@@ -244,7 +246,7 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
     let search_words = extract_words(&current_url);
 
     if !search_words.is_empty() {
-        let text_matches: Vec<Credential> = credentials
+        let text_match_ids: Vec<String> = credentials
             .iter()
             .filter(|cred| {
                 if let Some(service_name) = &cred.service_name {
@@ -258,12 +260,13 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
                     false
                 }
             })
-            .cloned()
+            .map(|cred| cred.id.clone())
+            .take(3)
             .collect();
 
-        if !text_matches.is_empty() {
+        if !text_match_ids.is_empty() {
             return CredentialMatcherOutput {
-                credentials: text_matches.into_iter().take(3).collect(),
+                matched_ids: text_match_ids,
                 matched_priority: 4,
             };
         }
@@ -271,7 +274,7 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
 
     // No matches found
     CredentialMatcherOutput {
-        credentials: vec![],
+        matched_ids: vec![],
         matched_priority: 0,
     }
 }

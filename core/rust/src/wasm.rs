@@ -78,3 +78,21 @@ pub fn filter_credentials_json_js(input_json: &str) -> Result<String, JsValue> {
     crate::credential_matcher::filter_credentials_json(input_json)
         .map_err(|e| JsValue::from_str(&e))
 }
+
+/// Extract domain from URL.
+///
+/// Handles both full URLs and partial domains, returning normalized domain
+/// without protocol, www prefix, path, query, or fragment.
+#[wasm_bindgen(js_name = extractDomain)]
+pub fn extract_domain_js(url: &str) -> String {
+    crate::credential_matcher::extract_domain(url)
+}
+
+/// Extract root domain from a domain string.
+///
+/// E.g., "sub.example.com" -> "example.com"
+/// E.g., "sub.example.co.uk" -> "example.co.uk"
+#[wasm_bindgen(js_name = extractRootDomain)]
+pub fn extract_root_domain_js(domain: &str) -> String {
+    crate::credential_matcher::extract_root_domain(domain)
+}

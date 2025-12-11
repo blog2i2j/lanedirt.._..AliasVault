@@ -20,14 +20,12 @@ fn create_test_credential(service_name: &str, service_url: &str, username: &str)
     }
 }
 
-/// Simple UUID v4 generator for tests
+/// Simple unique ID generator for tests using atomic counter
 fn uuid_v4() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    format!("{:032x}", nanos)
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let id = COUNTER.fetch_add(1, Ordering::SeqCst);
+    format!("test-id-{:016x}", id)
 }
 
 /// Creates the shared test credential dataset used across all platforms.
@@ -49,14 +47,21 @@ fn create_shared_test_credentials() -> Vec<Credential> {
     ]
 }
 
+/// Helper to filter and return matched credentials by looking up IDs
 fn filter(credentials: Vec<Credential>, current_url: &str, page_title: &str) -> Vec<Credential> {
     let input = CredentialMatcherInput {
-        credentials,
+        credentials: credentials.clone(),
         current_url: current_url.to_string(),
         page_title: page_title.to_string(),
         matching_mode: AutofillMatchingMode::Default,
     };
-    filter_credentials(input).credentials
+    let output = filter_credentials(input);
+
+    // Look up credentials by matched IDs
+    output.matched_ids
+        .iter()
+        .filter_map(|id| credentials.iter().find(|c| c.id == *id).cloned())
+        .collect()
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -349,7 +354,7 @@ fn test_multi_part_tlds() {
 fn test_json_roundtrip() {
     let credentials = create_shared_test_credentials();
     let input = CredentialMatcherInput {
-        credentials,
+        credentials: credentials.clone(),
         current_url: "https://github.com".to_string(),
         page_title: String::new(),
         matching_mode: AutofillMatchingMode::Default,
@@ -359,8 +364,10 @@ fn test_json_roundtrip() {
     let output_json = filter_credentials_json(&json).unwrap();
     let output: CredentialMatcherOutput = serde_json::from_str(&output_json).unwrap();
 
-    assert_eq!(output.credentials.len(), 1);
-    assert_eq!(output.credentials[0].service_name.as_deref(), Some("GitHub"));
+    assert_eq!(output.matched_ids.len(), 1);
+    // Look up the credential by ID to verify it's GitHub
+    let matched = credentials.iter().find(|c| c.id == output.matched_ids[0]).unwrap();
+    assert_eq!(matched.service_name.as_deref(), Some("GitHub"));
 }
 
 /// Test empty URL returns empty results

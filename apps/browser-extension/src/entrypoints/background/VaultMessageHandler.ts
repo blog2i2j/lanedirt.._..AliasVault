@@ -329,7 +329,7 @@ export async function handleGetFilteredCredentials(
     }
 
     // Filter credentials in background to reduce payload size (~95% reduction)
-    const filteredCredentials = filterCredentials(
+    const filteredCredentials = await filterCredentials(
       allCredentials,
       message.currentUrl,
       message.pageTitle,

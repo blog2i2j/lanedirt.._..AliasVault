@@ -221,7 +221,7 @@ export interface CredentialMatcherInput {
 }
 
 export interface CredentialMatcherOutput {
-  credentials: CredentialForMatching[];
+  matched_ids: string[];
   matched_priority: number;
 }
 
@@ -274,14 +274,14 @@ export function merge(input: MergeInput): MergeOutput {
  * @param currentUrl - Current page URL or app package name
  * @param pageTitle - Current page title (optional)
  * @param matchingMode - Matching mode (default, url_exact, url_subdomain)
- * @returns Filtered credentials (max 3)
+ * @returns Array of matched credential IDs (max 3)
  */
 export function filterCredentials(
   credentials: CredentialForMatching[],
   currentUrl: string,
   pageTitle: string = '',
   matchingMode: AutofillMatchingMode = 'default'
-): CredentialForMatching[] {
+): string[] {
   if (!initialized) throw new Error('Call initRustCore() first');
   const input: CredentialMatcherInput = {
     credentials,
@@ -290,7 +290,7 @@ export function filterCredentials(
     matching_mode: matchingMode,
   };
   const output = wasmFilterCredentials(input) as CredentialMatcherOutput;
-  return output.credentials;
+  return output.matched_ids;
 }
 
 export { init, getSyncableTableNames, mergeVaults, wasmFilterCredentials };

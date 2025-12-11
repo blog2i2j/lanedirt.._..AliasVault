@@ -439,7 +439,7 @@ const PasskeyCreate: React.FC = () => {
     if (choice === 'always') {
       // Add to permanent disabled list
       const hostname = new URL(request.origin).hostname;
-      const baseDomain = extractRootDomain(extractDomain(hostname));
+      const baseDomain = await extractRootDomain(await extractDomain(hostname));
 
       const disabledSites = await storage.getItem(PASSKEY_DISABLED_SITES_KEY) as string[] ?? [];
       if (!disabledSites.includes(baseDomain)) {
