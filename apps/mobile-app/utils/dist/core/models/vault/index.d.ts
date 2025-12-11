@@ -360,23 +360,24 @@ type ItemField = {
     DisplayOrder: number;
 };
 /**
- * Field types for rendering and validation
- */
-type FieldType = 'Text' | 'Password' | 'Hidden' | 'Email' | 'URL' | 'Date' | 'Number' | 'Phone' | 'TextArea';
-/**
- * Runtime constants for FieldType values (for type-safe comparisons)
+ * Field types for rendering and validation.
+ * Single source of truth - the type is derived from this constant.
  */
 declare const FieldTypes: {
-    Text: "Text";
-    Password: "Password";
-    Hidden: "Hidden";
-    Email: "Email";
-    URL: "URL";
-    Date: "Date";
-    Number: "Number";
-    Phone: "Phone";
-    TextArea: "TextArea";
+    readonly Text: "Text";
+    readonly Password: "Password";
+    readonly Hidden: "Hidden";
+    readonly Email: "Email";
+    readonly URL: "URL";
+    readonly Date: "Date";
+    readonly Number: "Number";
+    readonly Phone: "Phone";
+    readonly TextArea: "TextArea";
 };
+/**
+ * Field type union derived from FieldTypes constant
+ */
+type FieldType = typeof FieldTypes[keyof typeof FieldTypes];
 /**
  * Tag reference for display within an item
  */
@@ -424,6 +425,21 @@ type ItemTypeFieldConfig = {
     ShowByDefault: boolean;
 };
 /**
+ * Field categories for grouping in UI.
+ * Single source of truth - the type is derived from this constant.
+ */
+declare const FieldCategories: {
+    readonly Primary: "Primary";
+    readonly Login: "Login";
+    readonly Alias: "Alias";
+    readonly Card: "Card";
+    readonly Metadata: "Metadata";
+};
+/**
+ * Field category type derived from FieldCategories constant
+ */
+type FieldCategory = typeof FieldCategories[keyof typeof FieldCategories];
+/**
  * System field definition with metadata.
  * System fields are predefined fields with immutable keys like 'login.username'.
  * Their metadata (label, type, etc.) is defined here in code, not in the database.
@@ -447,7 +463,7 @@ type SystemFieldDefinition = {
     /** Whether to track field value history */
     EnableHistory: boolean;
     /** Category for grouping in UI. 'Primary' fields are shown in the name block. */
-    Category: 'Primary' | 'Login' | 'Alias' | 'Card' | 'Metadata';
+    Category: FieldCategory;
     /** Default display order within category (lower = first) */
     DefaultDisplayOrder: number;
 };
@@ -537,4 +553,4 @@ type FieldHistory = {
  */
 declare const MAX_FIELD_HISTORY_RECORDS = 10;
 
-export { type Alias, type Attachment, type Credential, type EncryptionKey, type FieldHistory, FieldKey, type FieldKeyValue, type FieldType, FieldTypes, type Item, type ItemField, type ItemTag, type ItemTagRef, type ItemType, type ItemTypeFieldConfig, MAX_FIELD_HISTORY_RECORDS, type Passkey, type PasswordSettings, type SystemFieldDefinition, SystemFieldRegistry, type Tag, type TotpCode, fieldAppliesToType, getAllSystemFieldKeys, getDefaultFieldsForItemType, getFieldConfigForType, getFieldValue, getFieldValues, getOptionalFieldsForItemType, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isFieldShownByDefault, isSystemField, isSystemFieldPrefix, itemToCredential };
+export { type Alias, type Attachment, type Credential, type EncryptionKey, FieldCategories, type FieldCategory, type FieldHistory, FieldKey, type FieldKeyValue, type FieldType, FieldTypes, type Item, type ItemField, type ItemTag, type ItemTagRef, type ItemType, type ItemTypeFieldConfig, MAX_FIELD_HISTORY_RECORDS, type Passkey, type PasswordSettings, type SystemFieldDefinition, SystemFieldRegistry, type Tag, type TotpCode, fieldAppliesToType, getAllSystemFieldKeys, getDefaultFieldsForItemType, getFieldConfigForType, getFieldValue, getFieldValues, getOptionalFieldsForItemType, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isFieldShownByDefault, isSystemField, isSystemFieldPrefix, itemToCredential };

@@ -237,6 +237,13 @@ function itemToCredential(item) {
 }
 
 // src/vault/SystemFieldRegistry.ts
+var FieldCategories = {
+  Primary: "Primary",
+  Login: "Login",
+  Alias: "Alias",
+  Card: "Card",
+  Metadata: "Metadata"
+};
 var SystemFieldRegistry = {
   /* =================== LOGIN FIELDS =================== */
   "login.username": {
@@ -250,7 +257,7 @@ var SystemFieldRegistry = {
       Alias: { ShowByDefault: true }
     },
     EnableHistory: true,
-    Category: "Login",
+    Category: FieldCategories.Login,
     DefaultDisplayOrder: 10
   },
   "login.password": {
@@ -264,7 +271,7 @@ var SystemFieldRegistry = {
       Alias: { ShowByDefault: true }
     },
     EnableHistory: true,
-    Category: "Login",
+    Category: FieldCategories.Login,
     DefaultDisplayOrder: 20
   },
   "login.url": {
@@ -278,7 +285,7 @@ var SystemFieldRegistry = {
       Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: "Primary",
+    Category: FieldCategories.Primary,
     DefaultDisplayOrder: 5
   },
   /* =================== ALIAS FIELDS =================== */
@@ -292,7 +299,7 @@ var SystemFieldRegistry = {
       Alias: { ShowByDefault: true }
     },
     EnableHistory: true,
-    Category: "Alias",
+    Category: FieldCategories.Alias,
     DefaultDisplayOrder: 10
   },
   "alias.first_name": {
@@ -305,7 +312,7 @@ var SystemFieldRegistry = {
       Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: "Alias",
+    Category: FieldCategories.Alias,
     DefaultDisplayOrder: 20
   },
   "alias.last_name": {
@@ -318,7 +325,7 @@ var SystemFieldRegistry = {
       Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: "Alias",
+    Category: FieldCategories.Alias,
     DefaultDisplayOrder: 30
   },
   "alias.nickname": {
@@ -331,7 +338,7 @@ var SystemFieldRegistry = {
       Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: "Alias",
+    Category: FieldCategories.Alias,
     DefaultDisplayOrder: 40
   },
   "alias.gender": {
@@ -344,7 +351,7 @@ var SystemFieldRegistry = {
       Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: "Alias",
+    Category: FieldCategories.Alias,
     DefaultDisplayOrder: 50
   },
   "alias.birthdate": {
@@ -357,7 +364,7 @@ var SystemFieldRegistry = {
       Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: "Alias",
+    Category: FieldCategories.Alias,
     DefaultDisplayOrder: 60
   },
   /* =================== CREDIT CARD FIELDS =================== */
@@ -371,7 +378,7 @@ var SystemFieldRegistry = {
       CreditCard: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: "Card",
+    Category: FieldCategories.Card,
     DefaultDisplayOrder: 10
   },
   "card.number": {
@@ -384,7 +391,7 @@ var SystemFieldRegistry = {
       CreditCard: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: "Card",
+    Category: FieldCategories.Card,
     DefaultDisplayOrder: 20
   },
   "card.expiry_month": {
@@ -397,7 +404,7 @@ var SystemFieldRegistry = {
       CreditCard: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: "Card",
+    Category: FieldCategories.Card,
     DefaultDisplayOrder: 30
   },
   "card.expiry_year": {
@@ -410,7 +417,7 @@ var SystemFieldRegistry = {
       CreditCard: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: "Card",
+    Category: FieldCategories.Card,
     DefaultDisplayOrder: 40
   },
   "card.cvv": {
@@ -423,7 +430,7 @@ var SystemFieldRegistry = {
       CreditCard: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: "Card",
+    Category: FieldCategories.Card,
     DefaultDisplayOrder: 50
   },
   "card.pin": {
@@ -436,7 +443,7 @@ var SystemFieldRegistry = {
       CreditCard: { ShowByDefault: false }
     },
     EnableHistory: false,
-    Category: "Card",
+    Category: FieldCategories.Card,
     DefaultDisplayOrder: 60
   },
   /* =================== METADATA FIELDS =================== */
@@ -453,7 +460,7 @@ var SystemFieldRegistry = {
       Note: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: "Metadata",
+    Category: FieldCategories.Metadata,
     DefaultDisplayOrder: 100
   }
 };
@@ -492,6 +499,6 @@ function isSystemFieldPrefix(fieldKey) {
 // src/vault/FieldHistory.ts
 var MAX_FIELD_HISTORY_RECORDS = 10;
 
-export { FieldKey, FieldTypes, MAX_FIELD_HISTORY_RECORDS, SystemFieldRegistry, fieldAppliesToType, getAllSystemFieldKeys, getDefaultFieldsForItemType, getFieldConfigForType, getFieldValue, getFieldValues, getOptionalFieldsForItemType, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isFieldShownByDefault, isSystemField, isSystemFieldPrefix, itemToCredential };
+export { FieldCategories, FieldKey, FieldTypes, MAX_FIELD_HISTORY_RECORDS, SystemFieldRegistry, fieldAppliesToType, getAllSystemFieldKeys, getDefaultFieldsForItemType, getFieldConfigForType, getFieldValue, getFieldValues, getOptionalFieldsForItemType, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isFieldShownByDefault, isSystemField, isSystemFieldPrefix, itemToCredential };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map

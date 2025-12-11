@@ -23,7 +23,7 @@ import useAliasGenerator from '@/entrypoints/popup/hooks/useAliasGenerator';
 import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
 import type { Item, ItemField, ItemType, FieldType, Attachment, TotpCode } from '@/utils/dist/core/models/vault';
-import { FieldTypes, getSystemFieldsForItemType, isFieldShownByDefault } from '@/utils/dist/core/models/vault';
+import { FieldCategories, FieldTypes, getSystemFieldsForItemType, isFieldShownByDefault } from '@/utils/dist/core/models/vault';
 
 // Valid item types from the shared model
 const VALID_ITEM_TYPES: ItemType[] = ['Login', 'Alias', 'CreditCard', 'Note'];
@@ -723,14 +723,12 @@ const ItemAddEdit: React.FC = () => {
    */
   const getCategoryTitle = useCallback((category: string): string => {
     switch (category) {
-      case 'Login':
+      case FieldCategories.Login:
         return t('common.credentials');
-      case 'Alias':
+      case FieldCategories.Alias:
         return t('credentials.alias');
-      case 'Card':
+      case FieldCategories.Card:
         return t('credentials.cardInformation');
-      case 'Identity':
-        return t('credentials.identityInformation');
       default:
         return category;
     }
@@ -741,7 +739,7 @@ const ItemAddEdit: React.FC = () => {
    */
   const renderSectionActions = useCallback((category: string) => {
     // Only show actions for Alias category when alias fields are shown by default
-    if (category === 'Alias' && aliasFieldsShownByDefault) {
+    if (category === FieldCategories.Alias && aliasFieldsShownByDefault) {
       return (
         <>
           {/* Regenerate button */}

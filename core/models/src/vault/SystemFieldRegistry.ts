@@ -10,6 +10,23 @@ export type ItemTypeFieldConfig = {
 };
 
 /**
+ * Field categories for grouping in UI.
+ * Single source of truth - the type is derived from this constant.
+ */
+export const FieldCategories = {
+  Primary: 'Primary',
+  Login: 'Login',
+  Alias: 'Alias',
+  Card: 'Card',
+  Metadata: 'Metadata',
+} as const;
+
+/**
+ * Field category type derived from FieldCategories constant
+ */
+export type FieldCategory = typeof FieldCategories[keyof typeof FieldCategories];
+
+/**
  * System field definition with metadata.
  * System fields are predefined fields with immutable keys like 'login.username'.
  * Their metadata (label, type, etc.) is defined here in code, not in the database.
@@ -33,7 +50,7 @@ export type SystemFieldDefinition = {
   /** Whether to track field value history */
   EnableHistory: boolean;
   /** Category for grouping in UI. 'Primary' fields are shown in the name block. */
-  Category: 'Primary' | 'Login' | 'Alias' | 'Card' | 'Metadata';
+  Category: FieldCategory;
   /** Default display order within category (lower = first) */
   DefaultDisplayOrder: number;
 };
@@ -61,7 +78,7 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
       Alias: { ShowByDefault: true }
     },
     EnableHistory: true,
-    Category: 'Login',
+    Category: FieldCategories.Login,
     DefaultDisplayOrder: 10
   },
   'login.password': {
@@ -75,7 +92,7 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
       Alias: { ShowByDefault: true }
     },
     EnableHistory: true,
-    Category: 'Login',
+    Category: FieldCategories.Login,
     DefaultDisplayOrder: 20
   },
   'login.url': {
@@ -89,7 +106,7 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
       Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: 'Primary',
+    Category: FieldCategories.Primary,
     DefaultDisplayOrder: 5
   },
 
@@ -104,7 +121,7 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
       Alias: { ShowByDefault: true }
     },
     EnableHistory: true,
-    Category: 'Alias',
+    Category: FieldCategories.Alias,
     DefaultDisplayOrder: 10
   },
   'alias.first_name': {
@@ -117,7 +134,7 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
       Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: 'Alias',
+    Category: FieldCategories.Alias,
     DefaultDisplayOrder: 20
   },
   'alias.last_name': {
@@ -130,7 +147,7 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
       Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: 'Alias',
+    Category: FieldCategories.Alias,
     DefaultDisplayOrder: 30
   },
   'alias.nickname': {
@@ -143,7 +160,7 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
       Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: 'Alias',
+    Category: FieldCategories.Alias,
     DefaultDisplayOrder: 40
   },
   'alias.gender': {
@@ -156,7 +173,7 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
       Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: 'Alias',
+    Category: FieldCategories.Alias,
     DefaultDisplayOrder: 50
   },
   'alias.birthdate': {
@@ -169,7 +186,7 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
       Alias: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: 'Alias',
+    Category: FieldCategories.Alias,
     DefaultDisplayOrder: 60
   },
 
@@ -184,7 +201,7 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
       CreditCard: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: 'Card',
+    Category: FieldCategories.Card,
     DefaultDisplayOrder: 10
   },
   'card.number': {
@@ -197,7 +214,7 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
       CreditCard: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: 'Card',
+    Category: FieldCategories.Card,
     DefaultDisplayOrder: 20
   },
   'card.expiry_month': {
@@ -210,7 +227,7 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
       CreditCard: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: 'Card',
+    Category: FieldCategories.Card,
     DefaultDisplayOrder: 30
   },
   'card.expiry_year': {
@@ -223,7 +240,7 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
       CreditCard: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: 'Card',
+    Category: FieldCategories.Card,
     DefaultDisplayOrder: 40
   },
   'card.cvv': {
@@ -236,7 +253,7 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
       CreditCard: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: 'Card',
+    Category: FieldCategories.Card,
     DefaultDisplayOrder: 50
   },
   'card.pin': {
@@ -249,7 +266,7 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
       CreditCard: { ShowByDefault: false }
     },
     EnableHistory: false,
-    Category: 'Card',
+    Category: FieldCategories.Card,
     DefaultDisplayOrder: 60
   },
 
@@ -267,7 +284,7 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
       Note: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: 'Metadata',
+    Category: FieldCategories.Metadata,
     DefaultDisplayOrder: 100
   }
 };
