@@ -153,20 +153,6 @@ distribute_browser() {
 
 Auto-generated from `/core/rust`. Do not edit manually.
 
-## Usage
-
-Import directly from `aliasvault_core.js`:
-
-```typescript
-import init, { mergeVaults, filterCredentials } from './aliasvault_core.js';
-
-// Initialize WASM
-await init(wasmBytes);
-
-// Use functions - define your own TypeScript interfaces as needed
-const result = mergeVaults({ local_tables: [...], server_tables: [...] });
-```
-
 ## Regenerate
 
 ```bash
