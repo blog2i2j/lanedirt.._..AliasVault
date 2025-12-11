@@ -711,20 +711,35 @@ export async function handleGetEncryptedVault(): Promise<string | null> {
 }
 
 /**
- * Store the encrypted vault blob and mark as dirty.
- * Atomically increments mutation sequence for sync coordination.
+ * Store the encrypted vault blob.
+ *
+ * Two modes:
+ * 1. Local mutation (markDirty=true): Always succeeds, increments mutation sequence
+ * 2. Sync operation (expectedMutationSeq provided): Only succeeds if no mutations happened
+ *    since sync started. This prevents sync from overwriting concurrent local changes.
  *
  * @param request Object with:
  *   - vaultBlob: The encrypted vault data
- *   - markDirty: If true, marks vault as dirty and increments mutation sequence
+ *   - markDirty: If true, marks vault as dirty and increments mutation sequence (for local mutations)
  *   - serverRevision: Optional explicit server revision (for sync operations)
+ *   - expectedMutationSeq: If provided, only store if current sequence matches (for sync operations)
+ * @returns { success, mutationSequence } - success=false if expectedMutationSeq didn't match
  */
 export async function handleStoreEncryptedVault(request: {
   vaultBlob: string;
   markDirty?: boolean;
   serverRevision?: number;
-}): Promise<{ mutationSequence: number }> {
+  expectedMutationSeq?: number;
+}): Promise<{ success: boolean; mutationSequence: number }> {
   let mutationSequence = await storage.getItem('local:mutationSequence') as number | null ?? 0;
+
+  /*
+   * If expectedMutationSeq is provided, this is a sync operation.
+   * Reject if mutations happened during sync to avoid overwriting local changes.
+   */
+  if (request.expectedMutationSeq !== undefined && request.expectedMutationSeq !== mutationSequence) {
+    return { success: false, mutationSequence };
+  }
 
   if (request.markDirty) {
     // Increment mutation sequence and mark dirty
@@ -758,7 +773,7 @@ export async function handleStoreEncryptedVault(request: {
   cachedSqliteClient = null;
   cachedVaultBlob = null;
 
-  return { mutationSequence };
+  return { success: true, mutationSequence };
 }
 
 /**

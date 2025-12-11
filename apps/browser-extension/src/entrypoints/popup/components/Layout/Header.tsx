@@ -5,7 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import Logo from '@/entrypoints/popup/components/Logo';
 import { useApp } from '@/entrypoints/popup/context/AppContext';
 
-import OfflineIndicator from './OfflineIndicator';
+import ServerSyncIndicator from './ServerSyncIndicator';
 
 /**
  * Header props.
@@ -106,8 +106,8 @@ const Header: React.FC<HeaderProps> = ({
 
         <div className="flex-grow" />
 
-        {/* Offline mode indicator */}
-        <OfflineIndicator />
+        {/* Server sync indicator */}
+        <ServerSyncIndicator />
 
         <div className="flex items-center gap-2">
           {!app.isLoggedIn ? (

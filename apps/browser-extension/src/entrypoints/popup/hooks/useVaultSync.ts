@@ -15,33 +15,12 @@ import type { VaultUploadResponse } from '@/utils/types/messaging/VaultUploadRes
 import { vaultMergeService } from '@/utils/VaultMergeService';
 
 type VaultSyncOptions = {
-  initialSync?: boolean;
   onSuccess?: (hasNewVault: boolean) => void;
   onError?: (error: string) => void;
   onStatus?: (message: string) => void;
   onOffline?: () => void;
   onUpgradeRequired?: () => void;
 }
-
-/**
- * Utility function to ensure a minimum time has elapsed for an operation
- */
-const withMinimumDelay = async <T>(operation: () => Promise<T>, minDelayMs: number, enableDelay: boolean = true): Promise<T> => {
-  if (!enableDelay) {
-    // If delay is disabled, return the result immediately.
-    return operation();
-  }
-
-  const startTime = Date.now();
-  const result = await operation();
-  const elapsedTime = Date.now() - startTime;
-
-  if (elapsedTime < minDelayMs) {
-    await new Promise(resolve => setTimeout(resolve, minDelayMs - elapsedTime));
-  }
-
-  return result;
-};
 
 /**
  * Hook to sync the vault with the server.
@@ -89,10 +68,7 @@ export const useVaultSync = (): { syncVault: (options?: VaultSyncOptions) => Pro
   }, [dbContext, t]);
 
   const syncVault = useCallback(async (options: VaultSyncOptions = {}) => {
-    const { initialSync = false, onSuccess, onError, onStatus, onOffline, onUpgradeRequired } = options;
-
-    // For the initial sync, we add an artifical delay to various steps which makes it feel more fluid.
-    const enableDelay = initialSync;
+    const { onSuccess, onError, onStatus, onOffline, onUpgradeRequired } = options;
 
     try {
       const isLoggedIn = await app.initializeAuth();
@@ -104,7 +80,19 @@ export const useVaultSync = (): { syncVault: (options?: VaultSyncOptions) => Pro
 
       // Check app status and vault revision
       onStatus?.(t('common.checkingVaultUpdates'));
-      const statusResponse = await withMinimumDelay(() => webApi.getStatus(), 300, enableDelay);
+      const statusResponse = await webApi.getStatus();
+
+      // Get current sync state to check if server has newer vault
+      const syncState = await sendMessage('GET_SYNC_STATE', {}, 'background') as {
+        isDirty: boolean;
+        mutationSequence: number;
+        serverRevision: number;
+      };
+
+      // Set syncing indicator if server has newer vault (actual sync will happen)
+      if (statusResponse.vaultRevision > syncState.serverRevision) {
+        dbContext.setIsSyncing(true);
+      }
 
       // Check if server is actually available, 0.0.0 indicates connection error which triggers offline mode.
       if (statusResponse.serverVersion === '0.0.0') {
@@ -142,95 +130,106 @@ export const useVaultSync = (): { syncVault: (options?: VaultSyncOptions) => Pro
         await dbContext.setIsOffline(false);
       }
 
-      // Get current sync state
-      const syncState = await sendMessage('GET_SYNC_STATE', {}, 'background') as {
-        isDirty: boolean;
-        mutationSequence: number;
-        serverRevision: number;
-      };
-
       if (statusResponse.vaultRevision > syncState.serverRevision) {
         /*
-         * Server has a newer vault. Before overwriting local vault, check if we have
-         * pending local changes that need to be merged.
+         * Server has a newer vault.
          */
         onStatus?.(t('common.syncingUpdatedVault'));
-        const vaultResponseJson = await withMinimumDelay(() => webApi.get<VaultResponse>('Vault'), 1000, enableDelay) as VaultResponse;
+        const vaultResponseJson = await webApi.get<VaultResponse>('Vault');
 
         try {
-          // Get encryption key from background worker
           const encryptionKey = await sendMessage('GET_ENCRYPTION_KEY', {}, 'background') as string;
 
           if (syncState.isDirty) {
             /*
-             * We have local changes that haven't been synced to server.
+             * We have local changes AND server has newer vault.
              * Merge local vault with server vault, then upload the merged result.
              */
             onStatus?.(t('common.mergingVaultChanges'));
             const localEncryptedVault = await sendMessage('GET_ENCRYPTED_VAULT', {}, 'background') as string | null;
 
             if (localEncryptedVault) {
-              // Decrypt both vaults
               const localDecrypted = await EncryptionUtility.symmetricDecrypt(localEncryptedVault, encryptionKey);
               const serverDecrypted = await EncryptionUtility.symmetricDecrypt(vaultResponseJson.vault.blob, encryptionKey);
 
-              // Perform LWW merge
               const mergeResult = await vaultMergeService.merge(localDecrypted, serverDecrypted);
 
               if (mergeResult.success) {
                 console.info('Vault merge during sync completed:', mergeResult.stats);
 
-                // Re-encrypt the merged vault
                 const mergedEncryptedVault = await EncryptionUtility.symmetricEncrypt(
                   mergeResult.mergedVaultBase64,
                   encryptionKey
                 );
 
-                // Update the vault response with the merged blob
-                vaultResponseJson.vault.blob = mergedEncryptedVault;
-
                 /*
-                 * Store the merged vault locally, keeping it dirty since we need to upload.
-                 * Update server revision to track what we merged with.
+                 * Store merged vault. Use expectedMutationSeq to detect if a local mutation
+                 * happened during merge - if so, reject and re-sync.
                  */
-                await sendMessage('STORE_ENCRYPTED_VAULT', {
+                const storeResult = await sendMessage('STORE_ENCRYPTED_VAULT', {
                   vaultBlob: mergedEncryptedVault,
-                  serverRevision: vaultResponseJson.vault.currentRevisionNumber
-                }, 'background');
+                  serverRevision: vaultResponseJson.vault.currentRevisionNumber,
+                  expectedMutationSeq: syncState.mutationSequence
+                }, 'background') as { success: boolean; mutationSequence: number };
 
+                if (!storeResult.success) {
+                  console.info('Mutation detected during merge, re-syncing...');
+                  return syncVault(options);
+                }
+
+                // Upload merged vault to server
                 onStatus?.(t('common.uploadingVault'));
                 const uploadResponse = await sendMessage('UPLOAD_VAULT', {}, 'background') as VaultUploadResponse;
 
                 if (uploadResponse.success && uploadResponse.status === 0) {
-                  // Upload succeeded - try to clear dirty flag
                   await sendMessage('MARK_VAULT_CLEAN', {
                     mutationSeqAtStart: uploadResponse.mutationSeqAtStart,
                     newServerRevision: uploadResponse.newRevisionNumber
                   }, 'background');
-                  await dbContext.refreshSyncState();
+                } else if (uploadResponse.status === 2) {
+                  // Server returned Outdated - another device uploaded. Re-sync.
+                  return syncVault(options);
                 } else {
                   console.error('Failed to upload merged vault:', uploadResponse.error);
                 }
+
+                // Store metadata and load merged vault into memory
+                await sendMessage('STORE_VAULT_METADATA', {
+                  publicEmailDomainList: vaultResponseJson.vault.publicEmailDomainList,
+                  privateEmailDomainList: vaultResponseJson.vault.privateEmailDomainList,
+                  hiddenPrivateEmailDomainList: vaultResponseJson.vault.hiddenPrivateEmailDomainList,
+                }, 'background');
+
+                await dbContext.loadDatabase(mergeResult.mergedVaultBase64);
+                await dbContext.refreshSyncState();
+
+                if (await checkAndHandleUpgrade(onUpgradeRequired)) {
+                  return false;
+                }
+
+                onSuccess?.(true);
+                return true;
               } else {
                 console.error('Vault merge failed during sync, using server vault');
+                // Fall through to use server vault
               }
             }
           }
 
           /*
-           * Persist vault and metadata to local storage.
-           * If merge happened, the merged vault was already stored via STORE_ENCRYPTED_VAULT above.
-           * If no merge (isDirty was false), we store the server vault now.
+           * No local changes (or merge failed) - just use server vault.
+           * Use expectedMutationSeq to detect concurrent mutations.
            */
-          if (!syncState.isDirty) {
-            await sendMessage('STORE_ENCRYPTED_VAULT', {
-              vaultBlob: vaultResponseJson.vault.blob,
-              serverRevision: vaultResponseJson.vault.currentRevisionNumber,
-            }, 'background');
-          }
+          const storeResult = await sendMessage('STORE_ENCRYPTED_VAULT', {
+            vaultBlob: vaultResponseJson.vault.blob,
+            serverRevision: vaultResponseJson.vault.currentRevisionNumber,
+            expectedMutationSeq: syncState.mutationSequence
+          }, 'background') as { success: boolean; mutationSequence: number };
 
-          // Refresh sync state after storing vault
-          await dbContext.refreshSyncState();
+          if (!storeResult.success) {
+            console.info('Mutation detected during sync, re-syncing...');
+            return syncVault(options);
+          }
 
           await sendMessage('STORE_VAULT_METADATA', {
             publicEmailDomainList: vaultResponseJson.vault.publicEmailDomainList,
@@ -238,11 +237,10 @@ export const useVaultSync = (): { syncVault: (options?: VaultSyncOptions) => Pro
             hiddenPrivateEmailDomainList: vaultResponseJson.vault.hiddenPrivateEmailDomainList,
           }, 'background');
 
-          // Decrypt and load the vault into memory
           const decryptedVault = await EncryptionUtility.symmetricDecrypt(vaultResponseJson.vault.blob, encryptionKey);
           await dbContext.loadDatabase(decryptedVault);
+          await dbContext.refreshSyncState();
 
-          // Check if upgrade is required after loading database
           if (await checkAndHandleUpgrade(onUpgradeRequired)) {
             return false;
           }
@@ -250,12 +248,10 @@ export const useVaultSync = (): { syncVault: (options?: VaultSyncOptions) => Pro
           onSuccess?.(true);
           return true;
         } catch (error) {
-          // Check if it's a version-related error (app needs to be updated)
           if (error instanceof VaultVersionIncompatibleError) {
             await app.logout(error.message);
             return false;
           }
-          // Vault could not be decrypted, throw an error
           throw new Error('Vault could not be decrypted, if the problem persists please logout and login again.');
         }
       } else if (statusResponse.vaultRevision === syncState.serverRevision) {
@@ -295,7 +291,7 @@ export const useVaultSync = (): { syncVault: (options?: VaultSyncOptions) => Pro
         return false;
       }
 
-      await withMinimumDelay(() => Promise.resolve(onSuccess?.(false)), 300, enableDelay);
+      onSuccess?.(false);
       return false;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error during vault sync';
@@ -316,6 +312,9 @@ export const useVaultSync = (): { syncVault: (options?: VaultSyncOptions) => Pro
 
       onError?.(errorMessage);
       return false;
+    } finally {
+      // Always clear syncing state when done
+      dbContext.setIsSyncing(false);
     }
   }, [app, dbContext, webApi, t, checkAndHandleUpgrade, enterOfflineMode]);
 

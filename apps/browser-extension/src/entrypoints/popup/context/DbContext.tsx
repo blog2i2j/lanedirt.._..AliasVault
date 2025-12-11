@@ -27,10 +27,18 @@ type DbContextType = {
    */
   isDirty: boolean;
   /**
+   * True if a background sync is in progress.
+   */
+  isSyncing: boolean;
+  /**
    * Current server revision number.
    */
   serverRevision: number;
   setIsOffline: (offline: boolean) => Promise<void>;
+  /**
+   * Set the syncing state.
+   */
+  setIsSyncing: (syncing: boolean) => void;
   /**
    * Load a decrypted vault into memory (SQLite client).
    */
@@ -81,6 +89,11 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
    * Dirty state - true if local vault has unsynced changes.
    */
   const [isDirty, setIsDirty] = useState(false);
+
+  /**
+   * Syncing state - true if a background sync is in progress.
+   */
+  const [isSyncing, setIsSyncing] = useState(false);
 
   /**
    * Server revision number.
@@ -246,8 +259,10 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     dbAvailable,
     isOffline,
     isDirty,
+    isSyncing,
     serverRevision,
     setIsOffline,
+    setIsSyncing,
     loadDatabase,
     loadStoredDatabase,
     storeEncryptionKey,
@@ -256,7 +271,7 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     getVaultMetadata,
     refreshSyncState,
     hasPendingMigrations,
-  }), [sqliteClient, dbInitialized, dbAvailable, isOffline, isDirty, serverRevision, setIsOffline, loadDatabase, loadStoredDatabase, storeEncryptionKey, storeEncryptionKeyDerivationParams, clearDatabase, getVaultMetadata, refreshSyncState, hasPendingMigrations]);
+  }), [sqliteClient, dbInitialized, dbAvailable, isOffline, isDirty, isSyncing, serverRevision, setIsOffline, loadDatabase, loadStoredDatabase, storeEncryptionKey, storeEncryptionKeyDerivationParams, clearDatabase, getVaultMetadata, refreshSyncState, hasPendingMigrations]);
 
   return (
     <DbContext.Provider value={contextValue}>

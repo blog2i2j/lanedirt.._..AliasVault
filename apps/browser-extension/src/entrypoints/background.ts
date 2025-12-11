@@ -40,7 +40,7 @@ export default defineBackground({
     onMessage('STORE_ENCRYPTION_KEY_DERIVATION_PARAMS', ({ data }) => handleStoreEncryptionKeyDerivationParams(data as EncryptionKeyDerivationParams));
 
     onMessage('GET_ENCRYPTED_VAULT', () => handleGetEncryptedVault());
-    onMessage('STORE_ENCRYPTED_VAULT', ({ data }) => handleStoreEncryptedVault(data as { vaultBlob: string; markDirty?: boolean; serverRevision?: number }));
+    onMessage('STORE_ENCRYPTED_VAULT', ({ data }) => handleStoreEncryptedVault(data as { vaultBlob: string; markDirty?: boolean; serverRevision?: number; expectedMutationSeq?: number }));
     onMessage('GET_SYNC_STATE', () => handleGetSyncState());
     onMessage('MARK_VAULT_CLEAN', ({ data }) => handleMarkVaultClean(data as { mutationSeqAtStart: number; newServerRevision: number }));
     onMessage('GET_SERVER_REVISION', () => handleGetServerRevision());
