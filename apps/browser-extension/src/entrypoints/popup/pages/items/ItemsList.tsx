@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 import FolderModal from '@/entrypoints/popup/components/Folders/FolderModal';
 import HeaderButton from '@/entrypoints/popup/components/HeaderButton';
@@ -79,6 +79,7 @@ type FolderWithCount = {
  */
 const ItemsList: React.FC = () => {
   const { t } = useTranslation();
+  const { folderId: folderIdParam } = useParams<{ folderId?: string }>();
   const dbContext = useDb();
   const app = useApp();
   const navigate = useNavigate();
@@ -89,11 +90,22 @@ const ItemsList: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<FilterType>(getStoredFilter());
   const [showFilterMenu, setShowFilterMenu] = useState(false);
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-  const [folderPath, setFolderPath] = useState<string>('');
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [recentlyDeletedCount, setRecentlyDeletedCount] = useState(0);
   const { setIsInitialLoading } = useLoading();
+
+  // Derive current folder from URL params
+  const currentFolderId = folderIdParam ?? null;
+
+  // Get current folder name from database
+  const currentFolderName = useMemo(() => {
+    if (!currentFolderId || !dbContext?.sqliteClient) {
+      return null;
+    }
+    const folders = dbContext.sqliteClient.getAllFolders();
+    const folder = folders.find(f => f.Id === currentFolderId);
+    return folder?.Name ?? null;
+  }, [currentFolderId, dbContext?.sqliteClient]);
 
   /**
    * Loading state with minimum duration for more fluid UX.
@@ -242,8 +254,8 @@ const ItemsList: React.FC = () => {
    * Get the title based on the active filter and current folder
    */
   const getFilterTitle = () : string => {
-    if (currentFolderId && folderPath) {
-      return folderPath;
+    if (currentFolderId && currentFolderName) {
+      return currentFolderName;
     }
 
     switch (filterType) {
@@ -257,21 +269,19 @@ const ItemsList: React.FC = () => {
   };
 
   /**
-   * Navigate into a folder
+   * Navigate into a folder via URL
    */
-  const handleFolderClick = useCallback((folderId: string, folderName: string) => {
-    setCurrentFolderId(folderId);
-    setFolderPath(folderName);
+  const handleFolderClick = useCallback((folderId: string, _folderName: string) => {
     setSearchTerm(''); // Clear search when entering folder
-  }, []);
+    navigate(`/items/folder/${folderId}`);
+  }, [navigate]);
 
   /**
-   * Navigate back to root or parent folder
+   * Navigate back to root (items list)
    */
   const handleBackToRoot = useCallback(() => {
-    setCurrentFolderId(null);
-    setFolderPath('');
-  }, []);
+    navigate('/items');
+  }, [navigate]);
 
   /**
    * Get folders with item counts (only for root level when not searching)
@@ -375,55 +385,28 @@ const ItemsList: React.FC = () => {
     <div>
       <div className="flex justify-between items-center mb-4">
         <div className="relative flex-1">
-          {currentFolderId ? (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleBackToRoot}
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                title={t('common.back')}
-              >
-                <svg
-                  className="w-5 h-5"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M19 12H5M12 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <h2 className="flex items-baseline gap-1.5 text-gray-900 dark:text-white text-xl">
-                {getFilterTitle()}
-                <span className="text-sm text-gray-500 dark:text-gray-400">({filteredItems.length})</span>
-              </h2>
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowFilterMenu(!showFilterMenu)}
-              className="flex items-center gap-1 text-gray-900 dark:text-white text-xl hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none"
+          <button
+            onClick={() => setShowFilterMenu(!showFilterMenu)}
+            className="flex items-center gap-1 text-gray-900 dark:text-white text-xl hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none"
+          >
+            <h2 className="flex items-baseline gap-1.5">
+              {getFilterTitle()}
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                ({filteredItems.length})
+              </span>
+            </h2>
+            <svg
+              className="w-4 h-4 mt-1"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              <h2 className="flex items-baseline gap-1.5">
-                {getFilterTitle()}
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  ({filteredItems.length})
-                </span>
-              </h2>
-              <svg
-                className="w-4 h-4 mt-1"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
-          )}
-
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
           {showFilterMenu && (
             <>
               <div
