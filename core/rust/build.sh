@@ -147,155 +147,6 @@ distribute_browser() {
         cp "$WASM_DIR"/aliasvault_core* "$BROWSER_EXT_DIST/"
         cp "$WASM_DIR"/package.json "$BROWSER_EXT_DIST/"
 
-        # Create TypeScript wrapper
-        cat > "$BROWSER_EXT_DIST/index.ts" << 'TYPESCRIPT_EOF'
-/**
- * Rust Core WASM Module for AliasVault
- *
- * This module provides core functionality via WebAssembly:
- * - Vault merge logic using LWW strategy
- * - Credential filtering for autofill
- */
-
-import init, {
-  getSyncableTableNames,
-  mergeVaults,
-  filterCredentials as wasmFilterCredentials
-} from './aliasvault_core.js';
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Merge Types
-// ═══════════════════════════════════════════════════════════════════════════════
-
-export type Record = { [key: string]: unknown };
-
-export interface TableData {
-  name: string;
-  records: Record[];
-}
-
-export interface MergeInput {
-  local_tables: TableData[];
-  server_tables: TableData[];
-}
-
-export interface TableMergeResult {
-  name: string;
-  updates: Record[];
-  inserts: Record[];
-  kept_local_ids: string[];
-}
-
-export interface MergeStats {
-  tables_processed: number;
-  records_from_local: number;
-  records_from_server: number;
-  records_created_locally: number;
-  conflicts: number;
-}
-
-export interface MergeOutput {
-  success: boolean;
-  tables: TableMergeResult[];
-  stats: MergeStats;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Credential Matcher Types
-// ═══════════════════════════════════════════════════════════════════════════════
-
-export type AutofillMatchingMode = 'default' | 'url_exact' | 'url_subdomain';
-
-export interface CredentialForMatching {
-  Id: string;
-  ServiceName?: string;
-  ServiceUrl?: string;
-  Username?: string;
-}
-
-export interface CredentialMatcherInput {
-  credentials: CredentialForMatching[];
-  current_url: string;
-  page_title: string;
-  matching_mode: AutofillMatchingMode;
-}
-
-export interface CredentialMatcherOutput {
-  matched_ids: string[];
-  matched_priority: number;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Initialization
-// ═══════════════════════════════════════════════════════════════════════════════
-
-let initialized = false;
-
-/**
- * Initialize the WASM module. Must be called before using other functions.
- */
-export async function initRustCore(): Promise<void> {
-  if (initialized) return;
-  await init();
-  initialized = true;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Merge Functions
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/**
- * Get the list of table names that need to be synced.
- */
-export function getTableNames(): string[] {
-  if (!initialized) throw new Error('Call initRustCore() first');
-  return getSyncableTableNames();
-}
-
-/**
- * Merge local and server vault data using LWW strategy.
- *
- * @param input - Local and server table data
- * @returns Merge result with updates and inserts to apply
- */
-export function merge(input: MergeInput): MergeOutput {
-  if (!initialized) throw new Error('Call initRustCore() first');
-  return mergeVaults(input) as MergeOutput;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Credential Matcher Functions
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/**
- * Filter credentials for autofill based on current URL and page context.
- *
- * @param credentials - List of credentials to filter
- * @param currentUrl - Current page URL or app package name
- * @param pageTitle - Current page title (optional)
- * @param matchingMode - Matching mode (default, url_exact, url_subdomain)
- * @returns Array of matched credential IDs (max 3)
- */
-export function filterCredentials(
-  credentials: CredentialForMatching[],
-  currentUrl: string,
-  pageTitle: string = '',
-  matchingMode: AutofillMatchingMode = 'default'
-): string[] {
-  if (!initialized) throw new Error('Call initRustCore() first');
-  const input: CredentialMatcherInput = {
-    credentials,
-    current_url: currentUrl,
-    page_title: pageTitle,
-    matching_mode: matchingMode,
-  };
-  const output = wasmFilterCredentials(input) as CredentialMatcherOutput;
-  return output.matched_ids;
-}
-
-export { init, getSyncableTableNames, mergeVaults, wasmFilterCredentials };
-TYPESCRIPT_EOF
-
         # Create README
         cat > "$BROWSER_EXT_DIST/README.md" << 'README_EOF'
 # Rust Core WASM Module
@@ -304,37 +155,16 @@ Auto-generated from `/core/rust`. Do not edit manually.
 
 ## Usage
 
+Import directly from `aliasvault_core.js`:
+
 ```typescript
-import { initRustCore, merge, getTableNames } from './rust';
+import init, { mergeVaults, filterCredentials } from './aliasvault_core.js';
 
-// Initialize once at startup
-await initRustCore();
+// Initialize WASM
+await init(wasmBytes);
 
-// Get list of tables to sync
-const tableNames = getTableNames();
-
-// Read tables from local and server SQLite databases (using sql.js)
-const localTables = tableNames.map(name => ({
-  name,
-  records: readTableFromDb(localDb, name)
-}));
-const serverTables = tableNames.map(name => ({
-  name,
-  records: readTableFromDb(serverDb, name)
-}));
-
-// Merge using Rust core
-const result = merge({ local_tables: localTables, server_tables: serverTables });
-
-// Apply changes to local database
-for (const table of result.tables) {
-  for (const record of table.updates) {
-    updateRecordInDb(localDb, table.name, record);
-  }
-  for (const record of table.inserts) {
-    insertRecordInDb(localDb, table.name, record);
-  }
-}
+// Use functions - define your own TypeScript interfaces as needed
+const result = mergeVaults({ local_tables: [...], server_tables: [...] });
 ```
 
 ## Regenerate
