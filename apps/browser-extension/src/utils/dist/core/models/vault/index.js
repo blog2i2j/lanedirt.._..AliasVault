@@ -20,6 +20,11 @@ var FieldKey = {
    */
   LoginNotes: "login.notes",
   /**
+   * Login email field
+   * Type: Email
+   */
+  LoginEmail: "login.email",
+  /**
    * Login URL field (multi-value)
    * Type: URL
    */
@@ -120,11 +125,6 @@ var FieldKey = {
    */
   IdentityCountry: "identity.country",
   /**
-   * Alias email field
-   * Type: Email
-   */
-  AliasEmail: "alias.email",
-  /**
    * Alias first name field
    * Type: Text
    */
@@ -202,9 +202,6 @@ function groupFields(item, grouper) {
 }
 function groupFieldsByCategory(item) {
   return groupFields(item, (field) => {
-    if (field.FieldKey === FieldKey.AliasEmail) {
-      return "Login";
-    }
     if (field.FieldKey.startsWith("login.")) {
       return "Login";
     }
@@ -235,7 +232,7 @@ function itemToCredential(item) {
       NickName: getFieldValue(item, FieldKey.AliasNickname),
       BirthDate: getFieldValue(item, FieldKey.AliasBirthdate) || "",
       Gender: getFieldValue(item, FieldKey.AliasGender),
-      Email: getFieldValue(item, FieldKey.AliasEmail)
+      Email: getFieldValue(item, FieldKey.LoginEmail)
     },
     HasPasskey: item.HasPasskey,
     HasAttachment: item.HasAttachment
@@ -278,6 +275,19 @@ var SystemFieldRegistry = {
     Category: FieldCategories.Login,
     DefaultDisplayOrder: 20
   },
+  "login.email": {
+    FieldKey: "login.email",
+    FieldType: "Email",
+    IsHidden: false,
+    IsMultiValue: false,
+    ApplicableToTypes: {
+      Login: { ShowByDefault: false },
+      Alias: { ShowByDefault: true }
+    },
+    EnableHistory: true,
+    Category: FieldCategories.Login,
+    DefaultDisplayOrder: 15
+  },
   "login.url": {
     FieldKey: "login.url",
     FieldType: "URL",
@@ -292,18 +302,6 @@ var SystemFieldRegistry = {
     DefaultDisplayOrder: 5
   },
   /* =================== ALIAS FIELDS =================== */
-  "alias.email": {
-    FieldKey: "alias.email",
-    FieldType: "Email",
-    IsHidden: false,
-    IsMultiValue: false,
-    ApplicableToTypes: {
-      Alias: { ShowByDefault: true }
-    },
-    EnableHistory: true,
-    Category: FieldCategories.Alias,
-    DefaultDisplayOrder: 10
-  },
   "alias.first_name": {
     FieldKey: "alias.first_name",
     FieldType: "Text",

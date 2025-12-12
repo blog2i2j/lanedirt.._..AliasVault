@@ -93,6 +93,9 @@ const ItemAddEdit: React.FC = () => {
   // Track password field visibility (for showing generated passwords)
   const [showPassword, setShowPassword] = useState(false);
 
+  // Track manually added optional fields (fields that are not shown by default but user added)
+  const [manuallyAddedFields, setManuallyAddedFields] = useState<Set<string>>(new Set());
+
   // TOTP codes state
   const [totpCodes, setTotpCodes] = useState<TotpCode[]>([]);
   const [originalTotpCodeIds, setOriginalTotpCodeIds] = useState<string[]>([]);
@@ -129,18 +132,27 @@ const ItemAddEdit: React.FC = () => {
   }, [applicableSystemFields]);
 
   /**
-   * Check if a field should be shown by default for the current item type.
+   * Check if a field should be shown for the current item type.
+   * Returns true if field is shown by default OR was manually added by user.
    */
-  const shouldShowFieldByDefault = useCallback((field: { FieldKey: string }) => {
+  const shouldShowField = useCallback((field: { FieldKey: string }) => {
     if (!item) {
       return false;
+    }
+    // Check if manually added
+    if (manuallyAddedFields.has(field.FieldKey)) {
+      return true;
+    }
+    // Check if has existing value (edit mode)
+    if (fieldValues[field.FieldKey]) {
+      return true;
     }
     const systemField = applicableSystemFields.find(f => f.FieldKey === field.FieldKey);
     if (!systemField) {
       return true; // Custom fields are always shown
     }
     return isFieldShownByDefault(systemField, item.ItemType);
-  }, [item, applicableSystemFields]);
+  }, [item, applicableSystemFields, manuallyAddedFields, fieldValues]);
 
   /**
    * Primary fields (like URL) that should be shown in the name block.
@@ -285,7 +297,7 @@ const ItemAddEdit: React.FC = () => {
     setFieldValues(prev => {
       const currentUsername = (prev['login.username'] as string) || '';
       const currentPassword = (prev['login.password'] as string) || '';
-      const currentEmail = (prev['alias.email'] as string) || '';
+      const currentEmail = (prev['login.email'] as string) || '';
 
       const newValues: Record<string, string | string[]> = {
         ...prev,
@@ -299,7 +311,7 @@ const ItemAddEdit: React.FC = () => {
 
       // Only overwrite email if it's empty or matches the last generated value
       if (!currentEmail || currentEmail === lastGeneratedValues.email) {
-        newValues['alias.email'] = generatedData.email;
+        newValues['login.email'] = generatedData.email;
       }
 
       // Only overwrite username if it's empty or matches the last generated value
@@ -321,12 +333,13 @@ const ItemAddEdit: React.FC = () => {
 
   /**
    * Check if alias fields are shown by default for the current item type.
+   * Uses alias.first_name as the indicator since email is now a login field.
    */
   const aliasFieldsShownByDefault = useMemo(() => {
     if (!item) {
       return false;
     }
-    const aliasField = applicableSystemFields.find(f => f.FieldKey === 'alias.email');
+    const aliasField = applicableSystemFields.find(f => f.FieldKey === 'alias.first_name');
     return aliasField ? isFieldShownByDefault(aliasField, item.ItemType) : false;
   }, [item, applicableSystemFields]);
 
@@ -592,6 +605,13 @@ const ItemAddEdit: React.FC = () => {
     setShowAttachments(true);
   }, []);
 
+  /**
+   * Handle adding an optional system field (e.g., email for Login type).
+   */
+  const handleAddOptionalField = useCallback((fieldKey: string): void => {
+    setManuallyAddedFields(prev => new Set(prev).add(fieldKey));
+  }, []);
+
   // Set header buttons
   useEffect(() => {
     const headerButtonsJSX = (
@@ -830,6 +850,16 @@ const ItemAddEdit: React.FC = () => {
       {/* Render fields grouped by category */}
       {Object.keys(groupedSystemFields).map(category => {
         const categoryFields = groupedSystemFields[category];
+        // Filter fields to only show those that should be visible
+        const visibleFields = categoryFields.filter(field => shouldShowField(field));
+        // Find email field for potential "+ Email" button
+        const emailField = categoryFields.find(f => f.FieldKey === 'login.email');
+        const showEmailAddButton = emailField && !shouldShowField(emailField);
+
+        // Don't render category section if no visible fields
+        if (visibleFields.length === 0 && !showEmailAddButton) {
+          return null;
+        }
 
         return (
           <FormSection
@@ -837,8 +867,8 @@ const ItemAddEdit: React.FC = () => {
             title={getCategoryTitle(category)}
             actions={renderSectionActions(category)}
           >
-            {categoryFields.map(field => (
-              <div key={field.FieldKey}>
+            {visibleFields.map(field => (
+              <React.Fragment key={field.FieldKey}>
                 {renderFieldInput(
                   field.FieldKey,
                   t(`fieldLabels.${field.FieldKey}`, { defaultValue: field.FieldKey }),
@@ -846,7 +876,20 @@ const ItemAddEdit: React.FC = () => {
                   field.IsHidden,
                   field.IsMultiValue
                 )}
-              </div>
+                {/* Show "+ Email" button after username field when email is hidden */}
+                {field.FieldKey === 'login.username' && showEmailAddButton && (
+                  <button
+                    type="button"
+                    onClick={() => handleAddOptionalField('login.email')}
+                    className="mt-1 text-xs text-primary-500 hover:text-primary-600 dark:text-primary-400 dark:hover:text-primary-300 flex items-center gap-1"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    {t('credentials.addEmail')}
+                  </button>
+                )}
+              </React.Fragment>
             ))}
           </FormSection>
         );
@@ -880,7 +923,7 @@ const ItemAddEdit: React.FC = () => {
         <FormSection
           title={t('credentials.notes')}
           actions={
-            !isEditMode && !shouldShowFieldByDefault(notesField) ? (
+            !isEditMode && !shouldShowField(notesField) ? (
               <button
                 type="button"
                 onClick={handleRemoveNotesSection}

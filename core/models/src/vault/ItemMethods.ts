@@ -61,12 +61,6 @@ export function groupFields(
  */
 export function groupFieldsByCategory(item: Item): Record<string, ItemField[]> {
   return groupFields(item, (field) => {
-
-    // Render alias.email as login
-    if (field.FieldKey === FieldKey.AliasEmail) {
-      return 'Login';
-    }
-
     if (field.FieldKey.startsWith('login.')) {
       return 'Login';
     }
@@ -102,7 +96,7 @@ export function itemToCredential(item: Item): Credential {
       NickName: getFieldValue(item, FieldKey.AliasNickname),
       BirthDate: getFieldValue(item, FieldKey.AliasBirthdate) || '',
       Gender: getFieldValue(item, FieldKey.AliasGender),
-      Email: getFieldValue(item, FieldKey.AliasEmail)
+      Email: getFieldValue(item, FieldKey.LoginEmail)
     },
     HasPasskey: item.HasPasskey,
     HasAttachment: item.HasAttachment

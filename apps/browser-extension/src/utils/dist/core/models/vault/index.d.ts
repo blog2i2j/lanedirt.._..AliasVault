@@ -167,6 +167,11 @@ declare const FieldKey: {
      */
     readonly LoginNotes: "login.notes";
     /**
+     * Login email field
+     * Type: Email
+     */
+    readonly LoginEmail: "login.email";
+    /**
      * Login URL field (multi-value)
      * Type: URL
      */
@@ -266,11 +271,6 @@ declare const FieldKey: {
      * Type: Text
      */
     readonly IdentityCountry: "identity.country";
-    /**
-     * Alias email field
-     * Type: Email
-     */
-    readonly AliasEmail: "alias.email";
     /**
      * Alias first name field
      * Type: Text

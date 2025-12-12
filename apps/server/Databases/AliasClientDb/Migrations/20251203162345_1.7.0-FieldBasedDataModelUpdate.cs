@@ -354,7 +354,8 @@ namespace AliasClientDb.Migrations
             // System fields now use FieldKey directly in FieldValues (no FieldDefinitions needed)
 
             // Migrate Items from Credentials
-            // ItemType is 'Alias' if the credential has any alias fields populated, otherwise 'Login'
+            // ItemType is 'Alias' if the credential has identity fields populated (first_name, last_name, nickname, gender, birthdate)
+            // Email alone does not make an item an Alias - it's now a login field
             // Note: BirthDate values starting with '0001-' are DateTime.MinValue (empty/unset)
             migrationBuilder.Sql(@"
                 INSERT INTO Items (Id, Name, ItemType, LogoId, FolderId, CreatedAt, UpdatedAt, IsDeleted)
@@ -363,7 +364,6 @@ namespace AliasClientDb.Migrations
                   s.Name AS Name,
                   CASE
                     WHEN a.Id IS NOT NULL AND (
-                      (a.Email IS NOT NULL AND a.Email != '') OR
                       (a.FirstName IS NOT NULL AND a.FirstName != '') OR
                       (a.LastName IS NOT NULL AND a.LastName != '') OR
                       (a.NickName IS NOT NULL AND a.NickName != '') OR
@@ -491,14 +491,15 @@ namespace AliasClientDb.Migrations
                 WHERE p.IsDeleted = 0;
             ");
 
-            // Migrate alias.email field (system field using FieldKey)
+            // Migrate login.email field (system field using FieldKey)
+            // Email is now a login field, applicable to both Login and Alias types
             migrationBuilder.Sql(@"
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
-                  'alias.email' AS FieldKey,
+                  'login.email' AS FieldKey,
                   a.Email AS Value,
                   0 AS Weight,
                   a.UpdatedAt AS CreatedAt,

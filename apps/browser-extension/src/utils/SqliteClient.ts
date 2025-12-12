@@ -271,7 +271,7 @@ export class SqliteClient {
         NickName: fields[FieldKey.AliasNickname] || undefined,
         BirthDate: fields[FieldKey.AliasBirthdate] || '',
         Gender: fields[FieldKey.AliasGender] || undefined,
-        Email: fields[FieldKey.AliasEmail] || undefined
+        Email: fields[FieldKey.LoginEmail] || undefined
       },
     };
   }
@@ -354,7 +354,7 @@ export class SqliteClient {
           NickName: fields[FieldKey.AliasNickname] || undefined,
           BirthDate: fields[FieldKey.AliasBirthdate] || '',
           Gender: fields[FieldKey.AliasGender] || undefined,
-          Email: fields[FieldKey.AliasEmail] || undefined
+          Email: fields[FieldKey.LoginEmail] || undefined
         }
       };
     });
@@ -362,29 +362,38 @@ export class SqliteClient {
 
   /**
    * Fetch all items with their dynamic fields and tags.
-   * @returns Array of Item objects with field-based data.
+   * @returns Array of Item objects with field-based data (empty array if Items table doesn't exist yet).
    */
   public getAllItems(): Item[] {
-    const query = `
-      SELECT DISTINCT
-        i.Id,
-        i.Name,
-        i.ItemType,
-        i.FolderId,
-        f.Name as FolderPath,
-        l.FileData as Logo,
-        CASE WHEN EXISTS (SELECT 1 FROM Passkeys pk WHERE pk.ItemId = i.Id AND pk.IsDeleted = 0) THEN 1 ELSE 0 END as HasPasskey,
-        CASE WHEN EXISTS (SELECT 1 FROM Attachments att WHERE att.ItemId = i.Id AND att.IsDeleted = 0) THEN 1 ELSE 0 END as HasAttachment,
-        CASE WHEN EXISTS (SELECT 1 FROM TotpCodes tc WHERE tc.ItemId = i.Id AND tc.IsDeleted = 0) THEN 1 ELSE 0 END as HasTotp,
-        i.CreatedAt,
-        i.UpdatedAt
-      FROM Items i
-      LEFT JOIN Logos l ON i.LogoId = l.Id
-      LEFT JOIN Folders f ON i.FolderId = f.Id
-      WHERE i.IsDeleted = 0 AND i.DeletedAt IS NULL
-      ORDER BY i.CreatedAt DESC`;
+    let items;
+    try {
+      const query = `
+        SELECT DISTINCT
+          i.Id,
+          i.Name,
+          i.ItemType,
+          i.FolderId,
+          f.Name as FolderPath,
+          l.FileData as Logo,
+          CASE WHEN EXISTS (SELECT 1 FROM Passkeys pk WHERE pk.ItemId = i.Id AND pk.IsDeleted = 0) THEN 1 ELSE 0 END as HasPasskey,
+          CASE WHEN EXISTS (SELECT 1 FROM Attachments att WHERE att.ItemId = i.Id AND att.IsDeleted = 0) THEN 1 ELSE 0 END as HasAttachment,
+          CASE WHEN EXISTS (SELECT 1 FROM TotpCodes tc WHERE tc.ItemId = i.Id AND tc.IsDeleted = 0) THEN 1 ELSE 0 END as HasTotp,
+          i.CreatedAt,
+          i.UpdatedAt
+        FROM Items i
+        LEFT JOIN Logos l ON i.LogoId = l.Id
+        LEFT JOIN Folders f ON i.FolderId = f.Id
+        WHERE i.IsDeleted = 0 AND i.DeletedAt IS NULL
+        ORDER BY i.CreatedAt DESC`;
 
-    const items = this.executeQuery(query);
+      items = this.executeQuery(query);
+    } catch (error) {
+      // Items table may not exist in older vault versions - return empty array
+      if (error instanceof Error && error.message.includes('no such table')) {
+        return [];
+      }
+      throw error;
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const itemIds = items.map((i: any) => i.Id);
@@ -711,7 +720,7 @@ export class SqliteClient {
         AND i.IsDeleted = 0
     `;
 
-    const results = this.executeQuery(query, [FieldKey.AliasEmail]);
+    const results = this.executeQuery(query, [FieldKey.LoginEmail]);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return results.map((row: any) => row.Email);
@@ -939,7 +948,7 @@ export class SqliteClient {
         { key: FieldKey.AliasNickname, value: credential.Alias?.NickName ?? null },
         { key: FieldKey.AliasBirthdate, value: credential.Alias?.BirthDate ?? null },
         { key: FieldKey.AliasGender, value: credential.Alias?.Gender ?? null },
-        { key: FieldKey.AliasEmail, value: credential.Alias?.Email ?? null },
+        { key: FieldKey.LoginEmail, value: credential.Alias?.Email ?? null },
       ];
 
       for (const field of fieldsToInsert) {
@@ -2773,30 +2782,39 @@ export class SqliteClient {
 
   /**
    * Get all items in "Recently Deleted" (where DeletedAt is set but not permanently deleted).
-   * @returns Array of trashed Item objects
+   * @returns Array of trashed Item objects (empty array if Items table doesn't exist yet)
    */
   public getRecentlyDeletedItems(): Item[] {
-    const query = `
-      SELECT DISTINCT
-        i.Id,
-        i.Name,
-        i.ItemType,
-        i.FolderId,
-        f.Name as FolderPath,
-        l.FileData as Logo,
-        i.DeletedAt,
-        CASE WHEN EXISTS (SELECT 1 FROM Passkeys pk WHERE pk.ItemId = i.Id AND pk.IsDeleted = 0) THEN 1 ELSE 0 END as HasPasskey,
-        CASE WHEN EXISTS (SELECT 1 FROM Attachments att WHERE att.ItemId = i.Id AND att.IsDeleted = 0) THEN 1 ELSE 0 END as HasAttachment,
-        CASE WHEN EXISTS (SELECT 1 FROM TotpCodes tc WHERE tc.ItemId = i.Id AND tc.IsDeleted = 0) THEN 1 ELSE 0 END as HasTotp,
-        i.CreatedAt,
-        i.UpdatedAt
-      FROM Items i
-      LEFT JOIN Logos l ON i.LogoId = l.Id
-      LEFT JOIN Folders f ON i.FolderId = f.Id
-      WHERE i.IsDeleted = 0 AND i.DeletedAt IS NOT NULL
-      ORDER BY i.DeletedAt DESC`;
+    let items;
+    try {
+      const query = `
+        SELECT DISTINCT
+          i.Id,
+          i.Name,
+          i.ItemType,
+          i.FolderId,
+          f.Name as FolderPath,
+          l.FileData as Logo,
+          i.DeletedAt,
+          CASE WHEN EXISTS (SELECT 1 FROM Passkeys pk WHERE pk.ItemId = i.Id AND pk.IsDeleted = 0) THEN 1 ELSE 0 END as HasPasskey,
+          CASE WHEN EXISTS (SELECT 1 FROM Attachments att WHERE att.ItemId = i.Id AND att.IsDeleted = 0) THEN 1 ELSE 0 END as HasAttachment,
+          CASE WHEN EXISTS (SELECT 1 FROM TotpCodes tc WHERE tc.ItemId = i.Id AND tc.IsDeleted = 0) THEN 1 ELSE 0 END as HasTotp,
+          i.CreatedAt,
+          i.UpdatedAt
+        FROM Items i
+        LEFT JOIN Logos l ON i.LogoId = l.Id
+        LEFT JOIN Folders f ON i.FolderId = f.Id
+        WHERE i.IsDeleted = 0 AND i.DeletedAt IS NOT NULL
+        ORDER BY i.DeletedAt DESC`;
 
-    const items = this.executeQuery(query);
+      items = this.executeQuery(query);
+    } catch (error) {
+      // Items table may not exist in older vault versions - return empty array
+      if (error instanceof Error && error.message.includes('no such table')) {
+        return [];
+      }
+      throw error;
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const itemIds = items.map((i: any) => i.Id);
@@ -2896,16 +2914,24 @@ export class SqliteClient {
 
   /**
    * Get count of items in "Recently Deleted".
-   * @returns Number of trashed items
+   * @returns Number of trashed items (0 if Items table doesn't exist yet)
    */
   public getRecentlyDeletedCount(): number {
-    const query = `
-      SELECT COUNT(*) as count
-      FROM Items
-      WHERE IsDeleted = 0 AND DeletedAt IS NOT NULL`;
+    try {
+      const query = `
+        SELECT COUNT(*) as count
+        FROM Items
+        WHERE IsDeleted = 0 AND DeletedAt IS NOT NULL`;
 
-    const result = this.executeQuery<{ count: number }>(query);
-    return result[0]?.count || 0;
+      const result = this.executeQuery<{ count: number }>(query);
+      return result[0]?.count || 0;
+    } catch (error) {
+      // Table may not exist in older vault versions - return 0
+      if (error instanceof Error && error.message.includes('no such table')) {
+        return 0;
+      }
+      throw error;
+    }
   }
 
   /**
@@ -2964,16 +2990,24 @@ export class SqliteClient {
 
   /**
    * Get all folders
-   * @returns Array of folder objects
+   * @returns Array of folder objects (empty array if Folders table doesn't exist yet)
    */
   public getAllFolders(): Array<{ Id: string; Name: string; ParentFolderId: string | null; Weight: number }> {
-    const query = `
-      SELECT Id, Name, ParentFolderId, Weight
-      FROM Folders
-      WHERE IsDeleted = 0
-      ORDER BY Weight, Name`;
+    try {
+      const query = `
+        SELECT Id, Name, ParentFolderId, Weight
+        FROM Folders
+        WHERE IsDeleted = 0
+        ORDER BY Weight, Name`;
 
-    return this.executeQuery(query);
+      return this.executeQuery(query);
+    } catch (error) {
+      // Table may not exist in older vault versions - return empty array
+      if (error instanceof Error && error.message.includes('no such table')) {
+        return [];
+      }
+      throw error;
+    }
   }
 
   /**
@@ -3135,16 +3169,24 @@ export class SqliteClient {
   /**
    * Get folder by ID
    * @param folderId - The ID of the folder to fetch
-   * @returns Folder object or null if not found
+   * @returns Folder object or null if not found (or if Folders table doesn't exist)
    */
   public getFolderById(folderId: string): { Id: string; Name: string; ParentFolderId: string | null } | null {
-    const query = `
-      SELECT Id, Name, ParentFolderId
-      FROM Folders
-      WHERE Id = ? AND IsDeleted = 0`;
+    try {
+      const query = `
+        SELECT Id, Name, ParentFolderId
+        FROM Folders
+        WHERE Id = ? AND IsDeleted = 0`;
 
-    const results = this.executeQuery<{ Id: string; Name: string; ParentFolderId: string | null }>(query, [folderId]);
-    return results.length > 0 ? results[0] : null;
+      const results = this.executeQuery<{ Id: string; Name: string; ParentFolderId: string | null }>(query, [folderId]);
+      return results.length > 0 ? results[0] : null;
+    } catch (error) {
+      // Table may not exist in older vault versions - return null
+      if (error instanceof Error && error.message.includes('no such table')) {
+        return null;
+      }
+      throw error;
+    }
   }
 }
 

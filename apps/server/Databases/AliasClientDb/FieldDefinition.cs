@@ -12,7 +12,7 @@ using AliasClientDb.Abstracts;
 
 /// <summary>
 /// FieldDefinition entity that defines the schema for custom (user-defined) fields.
-/// NOTE: System fields (login.username, alias.email, etc.) do NOT have FieldDefinition rows.
+/// NOTE: System fields (login.username, login.email, etc.) do NOT have FieldDefinition rows.
 /// System field metadata is defined in code (SystemFieldRegistry) and is immutable.
 /// This table is ONLY for custom fields that users create themselves.
 /// Custom fields are always referenced by their GUID (Id), never by FieldKey.

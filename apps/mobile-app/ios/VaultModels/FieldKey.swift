@@ -16,6 +16,9 @@ public struct FieldKey {
     /// Type: Text
     public static let loginNotes = "login.notes"
 
+    /// Type: Email
+    public static let loginEmail = "login.email"
+
     /// Type: URL
     public static let loginUrl = "login.url"
 
@@ -75,9 +78,6 @@ public struct FieldKey {
 
     /// Type: Text
     public static let identityCountry = "identity.country"
-
-    /// Type: Email
-    public static let aliasEmail = "alias.email"
 
     /// Type: Text
     public static let aliasFirstName = "alias.first_name"

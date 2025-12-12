@@ -26,6 +26,11 @@ public static class FieldKey
     public const string LoginNotes = "login.notes";
 
     /// <summary>
+    /// Type: Email
+    /// </summary>
+    public const string LoginEmail = "login.email";
+
+    /// <summary>
     /// Type: URL
     /// </summary>
     public const string LoginUrl = "login.url";
@@ -124,11 +129,6 @@ public static class FieldKey
     /// Type: Text
     /// </summary>
     public const string IdentityCountry = "identity.country";
-
-    /// <summary>
-    /// Type: Email
-    /// </summary>
-    public const string AliasEmail = "alias.email";
 
     /// <summary>
     /// Type: Text

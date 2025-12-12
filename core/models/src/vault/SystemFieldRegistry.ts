@@ -91,6 +91,19 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
     Category: FieldCategories.Login,
     DefaultDisplayOrder: 20
   },
+  'login.email': {
+    FieldKey: 'login.email',
+    FieldType: 'Email',
+    IsHidden: false,
+    IsMultiValue: false,
+    ApplicableToTypes: {
+      Login: { ShowByDefault: false },
+      Alias: { ShowByDefault: true }
+    },
+    EnableHistory: true,
+    Category: FieldCategories.Login,
+    DefaultDisplayOrder: 15
+  },
   'login.url': {
     FieldKey: 'login.url',
     FieldType: 'URL',
@@ -106,18 +119,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
   },
 
   /* =================== ALIAS FIELDS =================== */
-  'alias.email': {
-    FieldKey: 'alias.email',
-    FieldType: 'Email',
-    IsHidden: false,
-    IsMultiValue: false,
-    ApplicableToTypes: {
-      Alias: { ShowByDefault: true }
-    },
-    EnableHistory: true,
-    Category: FieldCategories.Alias,
-    DefaultDisplayOrder: 10
-  },
   'alias.first_name': {
     FieldKey: 'alias.first_name',
     FieldType: 'Text',

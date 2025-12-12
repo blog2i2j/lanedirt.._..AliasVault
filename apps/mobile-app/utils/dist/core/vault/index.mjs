@@ -828,7 +828,6 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
                   s.Name AS Name,
                   CASE
                     WHEN a.Id IS NOT NULL AND (
-                      (a.Email IS NOT NULL AND a.Email != '') OR
                       (a.FirstName IS NOT NULL AND a.FirstName != '') OR
                       (a.LastName IS NOT NULL AND a.LastName != '') OR
                       (a.NickName IS NOT NULL AND a.NickName != '') OR
@@ -956,7 +955,7 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
                   lower(hex(randomblob(16))) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
-                  'alias.email' AS FieldKey,
+                  'login.email' AS FieldKey,
                   a.Email AS Value,
                   0 AS Weight,
                   a.UpdatedAt AS CreatedAt,
@@ -1957,7 +1956,6 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
                   s.Name AS Name,
                   CASE
                     WHEN a.Id IS NOT NULL AND (
-                      (a.Email IS NOT NULL AND a.Email != '') OR
                       (a.FirstName IS NOT NULL AND a.FirstName != '') OR
                       (a.LastName IS NOT NULL AND a.LastName != '') OR
                       (a.NickName IS NOT NULL AND a.NickName != '') OR
@@ -2085,7 +2083,7 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
                   lower(hex(randomblob(16))) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
-                  'alias.email' AS FieldKey,
+                  'login.email' AS FieldKey,
                   a.Email AS Value,
                   0 AS Weight,
                   a.UpdatedAt AS CreatedAt,

@@ -38,6 +38,12 @@ export const FieldKey = {
   LoginNotes: 'login.notes',
 
   /**
+   * Login email field
+   * Type: Email
+   */
+  LoginEmail: 'login.email',
+
+  /**
    * Login URL field (multi-value)
    * Type: URL
    */
@@ -156,12 +162,6 @@ export const FieldKey = {
    * Type: Text
    */
   IdentityCountry: 'identity.country',
-
-  /**
-   * Alias email field
-   * Type: Email
-   */
-  AliasEmail: 'alias.email',
 
   /**
    * Alias first name field

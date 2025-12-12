@@ -37,7 +37,7 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, showFolderPath = false }) => 
 
     // Try to find email field if no username
     if (!returnValue) {
-      const emailField = itm.Fields?.find(f => f.FieldKey === FieldKey.AliasEmail);
+      const emailField = itm.Fields?.find(f => f.FieldKey === FieldKey.LoginEmail);
       if (emailField && emailField.Value) {
         returnValue = Array.isArray(emailField.Value) ? emailField.Value[0] : emailField.Value;
       }

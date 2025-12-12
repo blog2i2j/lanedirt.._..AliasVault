@@ -25,6 +25,11 @@ object FieldKey {
     const val LOGIN_NOTES = "login.notes"
 
     /**
+     * Type: Email.
+     */
+    const val LOGIN_EMAIL = "login.email"
+
+    /**
      * Type: URL.
      */
     const val LOGIN_URL = "login.url"
@@ -123,11 +128,6 @@ object FieldKey {
      * Type: Text.
      */
     const val IDENTITY_COUNTRY = "identity.country"
-
-    /**
-     * Type: Email.
-     */
-    const val ALIAS_EMAIL = "alias.email"
 
     /**
      * Type: Text.

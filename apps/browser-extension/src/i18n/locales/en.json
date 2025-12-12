@@ -236,6 +236,7 @@
     "generateRandomAlias": "Generate Random Alias",
     "clearAliasFields": "Clear Alias Fields",
     "alias": "Alias",
+    "addEmail": "+ Email",
     "firstName": "First Name",
     "lastName": "Last Name",
     "nickName": "Nick Name",
@@ -342,8 +343,8 @@
   "fieldLabels": {
     "login.username": "Username",
     "login.password": "Password",
+    "login.email": "Email",
     "login.url": "Website URL",
-    "alias.email": "Email",
     "alias.first_name": "First Name",
     "alias.last_name": "Last Name",
     "alias.nickname": "Nickname",

@@ -70,10 +70,11 @@ const Upgrade: React.FC = () => {
         setCurrentVersion(current);
         setLatestVersion(latest);
       }
-      setIsInitialLoading(false);
     } catch (error) {
       console.error('Failed to load version information:', error);
       setError(t('upgrade.alerts.unableToGetVersionInfo'));
+    } finally {
+      setIsInitialLoading(false);
     }
   }, [sqliteClient, setIsInitialLoading, t]);
 

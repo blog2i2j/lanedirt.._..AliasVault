@@ -24,10 +24,10 @@ export const FieldKey = {
   CardExpiryYear: 'card.expiry_year',
   CardCvv: 'card.cvv',
   CardPin: 'card.pin',
+  LoginEmail: 'login.email',
   IdentityFirstName: 'identity.first_name',
   IdentityLastName: 'identity.last_name',
   IdentityEmail: 'identity.email',
-  AliasEmail: 'alias.email',
   AliasFirstName: 'alias.first_name',
   AliasLastName: 'alias.last_name',
 } as const;
@@ -69,8 +69,10 @@ export const FieldSelectors = {
   IDENTITY_LAST_NAME: `input#${escapeFieldKey(FieldKey.IdentityLastName)}`,
   IDENTITY_EMAIL: `input#${escapeFieldKey(FieldKey.IdentityEmail)}`,
 
+  // Login email (used for both Login and Alias types)
+  LOGIN_EMAIL: `input#${escapeFieldKey(FieldKey.LoginEmail)}`,
+
   // Alias fields
-  ALIAS_EMAIL: `input#${escapeFieldKey(FieldKey.AliasEmail)}`,
   ALIAS_FIRST_NAME: `input#${escapeFieldKey(FieldKey.AliasFirstName)}`,
   ALIAS_LAST_NAME: `input#${escapeFieldKey(FieldKey.AliasLastName)}`,
 } as const;
