@@ -442,13 +442,15 @@ type FieldCategory = typeof FieldCategories[keyof typeof FieldCategories];
 /**
  * System field definition with metadata.
  * System fields are predefined fields with immutable keys like 'login.username'.
- * Their metadata (label, type, etc.) is defined here in code, not in the database.
+ * Their metadata (type, etc.) is defined here in code, not in the database.
+ *
+ * NOTE: Labels are NOT included here. Each client must implement their own
+ * translations based on the FieldKey. If no translation exists, the FieldKey
+ * can be displayed as a fallback.
  */
 type SystemFieldDefinition = {
     /** Unique system field key (e.g., 'login.username') */
     FieldKey: string;
-    /** Display label for the field */
-    Label: string;
     /** Field type for rendering/validation */
     FieldType: FieldType;
     /** Whether field is hidden/masked by default */

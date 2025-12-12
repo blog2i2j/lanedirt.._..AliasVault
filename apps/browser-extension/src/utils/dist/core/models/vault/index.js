@@ -248,7 +248,6 @@ var SystemFieldRegistry = {
   /* =================== LOGIN FIELDS =================== */
   "login.username": {
     FieldKey: "login.username",
-    Label: "Username",
     FieldType: "Text",
     IsHidden: false,
     IsMultiValue: false,
@@ -262,7 +261,6 @@ var SystemFieldRegistry = {
   },
   "login.password": {
     FieldKey: "login.password",
-    Label: "Password",
     FieldType: "Password",
     IsHidden: true,
     IsMultiValue: false,
@@ -276,7 +274,6 @@ var SystemFieldRegistry = {
   },
   "login.url": {
     FieldKey: "login.url",
-    Label: "URL",
     FieldType: "URL",
     IsHidden: false,
     IsMultiValue: true,
@@ -291,7 +288,6 @@ var SystemFieldRegistry = {
   /* =================== ALIAS FIELDS =================== */
   "alias.email": {
     FieldKey: "alias.email",
-    Label: "Email",
     FieldType: "Email",
     IsHidden: false,
     IsMultiValue: false,
@@ -304,7 +300,6 @@ var SystemFieldRegistry = {
   },
   "alias.first_name": {
     FieldKey: "alias.first_name",
-    Label: "First Name",
     FieldType: "Text",
     IsHidden: false,
     IsMultiValue: false,
@@ -317,7 +312,6 @@ var SystemFieldRegistry = {
   },
   "alias.last_name": {
     FieldKey: "alias.last_name",
-    Label: "Last Name",
     FieldType: "Text",
     IsHidden: false,
     IsMultiValue: false,
@@ -330,7 +324,6 @@ var SystemFieldRegistry = {
   },
   "alias.nickname": {
     FieldKey: "alias.nickname",
-    Label: "Nickname",
     FieldType: "Text",
     IsHidden: false,
     IsMultiValue: false,
@@ -343,7 +336,6 @@ var SystemFieldRegistry = {
   },
   "alias.gender": {
     FieldKey: "alias.gender",
-    Label: "Gender",
     FieldType: "Text",
     IsHidden: false,
     IsMultiValue: false,
@@ -356,7 +348,6 @@ var SystemFieldRegistry = {
   },
   "alias.birthdate": {
     FieldKey: "alias.birthdate",
-    Label: "Birth Date",
     FieldType: "Date",
     IsHidden: false,
     IsMultiValue: false,
@@ -370,7 +361,6 @@ var SystemFieldRegistry = {
   /* =================== CREDIT CARD FIELDS =================== */
   "card.cardholder_name": {
     FieldKey: "card.cardholder_name",
-    Label: "Cardholder Name",
     FieldType: "Text",
     IsHidden: false,
     IsMultiValue: false,
@@ -383,7 +373,6 @@ var SystemFieldRegistry = {
   },
   "card.number": {
     FieldKey: "card.number",
-    Label: "Card Number",
     FieldType: "Hidden",
     IsHidden: true,
     IsMultiValue: false,
@@ -396,7 +385,6 @@ var SystemFieldRegistry = {
   },
   "card.expiry_month": {
     FieldKey: "card.expiry_month",
-    Label: "Expiry Month",
     FieldType: "Text",
     IsHidden: false,
     IsMultiValue: false,
@@ -409,7 +397,6 @@ var SystemFieldRegistry = {
   },
   "card.expiry_year": {
     FieldKey: "card.expiry_year",
-    Label: "Expiry Year",
     FieldType: "Text",
     IsHidden: false,
     IsMultiValue: false,
@@ -422,7 +409,6 @@ var SystemFieldRegistry = {
   },
   "card.cvv": {
     FieldKey: "card.cvv",
-    Label: "CVV",
     FieldType: "Hidden",
     IsHidden: true,
     IsMultiValue: false,
@@ -435,7 +421,6 @@ var SystemFieldRegistry = {
   },
   "card.pin": {
     FieldKey: "card.pin",
-    Label: "PIN",
     FieldType: "Hidden",
     IsHidden: true,
     IsMultiValue: false,
@@ -449,7 +434,6 @@ var SystemFieldRegistry = {
   /* =================== METADATA FIELDS =================== */
   "metadata.notes": {
     FieldKey: "metadata.notes",
-    Label: "Notes",
     FieldType: "TextArea",
     IsHidden: false,
     IsMultiValue: false,

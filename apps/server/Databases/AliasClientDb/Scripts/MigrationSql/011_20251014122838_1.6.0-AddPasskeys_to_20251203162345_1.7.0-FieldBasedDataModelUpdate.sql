@@ -149,14 +149,25 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
                 SELECT
                   c.Id,
                   s.Name AS Name,
-                  'Login' AS ItemType,
+                  CASE
+                    WHEN a.Id IS NOT NULL AND (
+                      (a.Email IS NOT NULL AND a.Email != '') OR
+                      (a.FirstName IS NOT NULL AND a.FirstName != '') OR
+                      (a.LastName IS NOT NULL AND a.LastName != '') OR
+                      (a.NickName IS NOT NULL AND a.NickName != '') OR
+                      (a.Gender IS NOT NULL AND a.Gender != '') OR
+                      (a.BirthDate IS NOT NULL AND a.BirthDate != '' AND a.BirthDate NOT LIKE '0001-%')
+                    ) THEN 'Alias'
+                    ELSE 'Login'
+                  END AS ItemType,
                   NULL AS LogoId,
                   NULL AS FolderId,
                   c.CreatedAt,
                   c.UpdatedAt,
                   c.IsDeleted
                 FROM Credentials c
-                LEFT JOIN Services s ON s.Id = c.ServiceId;
+                LEFT JOIN Services s ON s.Id = c.ServiceId
+                LEFT JOIN Aliases a ON a.Id = c.AliasId;
             
 
 
@@ -361,7 +372,7 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
                   0 AS IsDeleted
                 FROM Credentials c
                 INNER JOIN Aliases a ON a.Id = c.AliasId
-                WHERE a.BirthDate IS NOT NULL AND a.BirthDate != '' AND a.BirthDate != '0001-01-01 00:00:00.000';
+                WHERE a.BirthDate IS NOT NULL AND a.BirthDate != '' AND a.BirthDate NOT LIKE '0001-%';
             
 
 DROP TABLE "Passwords";
