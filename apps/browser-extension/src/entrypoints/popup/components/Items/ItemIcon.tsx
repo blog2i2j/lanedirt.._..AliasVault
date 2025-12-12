@@ -1,7 +1,7 @@
 import React from 'react';
 
 import type { Item } from '@/utils/dist/core/models/vault';
-import { FieldKey } from '@/utils/dist/core/models/vault';
+import { FieldKey, ItemTypes } from '@/utils/dist/core/models/vault';
 import SqliteClient from '@/utils/SqliteClient';
 
 type ItemIconProps = {
@@ -232,12 +232,12 @@ const getCardIcon = (brand: CardBrand): React.FC<{ className?: string }> => {
  */
 const ItemIcon: React.FC<ItemIconProps> = ({ item, className = 'w-8 h-8' }) => {
   // For Note type, always show note icon
-  if (item.ItemType === 'Note') {
+  if (item.ItemType === ItemTypes.Note) {
     return <NoteIcon className={className} />;
   }
 
   // For CreditCard type, detect card brand and show appropriate icon
-  if (item.ItemType === 'CreditCard') {
+  if (item.ItemType === ItemTypes.CreditCard) {
     const cardNumberField = item.Fields?.find(f => f.FieldKey === FieldKey.CardNumber);
     const cardNumber = cardNumberField?.Value
       ? (Array.isArray(cardNumberField.Value) ? cardNumberField.Value[0] : cardNumberField.Value)

@@ -1,19 +1,20 @@
 /**
- * Item types supported by the vault
- * - Login: Username/password credentials with optional notes
- * - Alias: Login with pre-filled alias identity fields (email, name, etc.)
- * - CreditCard: Payment card information
- * - Note: Secure notes
+ * Item types supported by the vault.
  */
-export type ItemType =
-    | 'Login'
-    | 'Alias'
-    | 'CreditCard'
-    | 'Note';
+export const ItemTypes = {
+  Login: 'Login',
+  Alias: 'Alias',
+  CreditCard: 'CreditCard',
+  Note: 'Note',
+} as const;
+
+/**
+ * Item type union derived from ItemTypes constant
+ */
+export type ItemType = typeof ItemTypes[keyof typeof ItemTypes];
 
 /**
  * Item type representing vault entries in the new field-based data model.
- * Replaces the old Credential type.
  */
 export type Item = {
     Id: string;
@@ -45,7 +46,6 @@ export type ItemField = {
 
 /**
  * Field types for rendering and validation.
- * Single source of truth - the type is derived from this constant.
  */
 export const FieldTypes = {
   Text: 'Text',

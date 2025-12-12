@@ -57,6 +57,7 @@
     "next": "Next",
     "use": "Use",
     "delete": "Delete",
+    "undo": "Undo",
     "save": "Save",
     "saving": "Saving...",
     "create": "Create",
@@ -525,7 +526,11 @@
       "selectPasskeyToReplace": "Select a passkey to replace:",
       "createNewPasskey": "Create New Passkey",
       "replacingPasskey": "Replacing passkey: {{displayName}}",
-      "confirmReplace": "Confirm Replace"
+      "confirmReplace": "Confirm Replace",
+      "selectExistingLogin": "Add to existing login:",
+      "selectExistingLoginDescription": "Attach this passkey to an existing login credential for this site.",
+      "attachingToCredential": "Adding passkey to: {{serviceName}}",
+      "attachPasskey": "Add Passkey"
     },
     "settings": {
       "passkeyProvider": "Passkey Provider",

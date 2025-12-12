@@ -152,6 +152,12 @@ var FieldKey = {
 };
 
 // src/vault/Item.ts
+var ItemTypes = {
+  Login: "Login",
+  Alias: "Alias",
+  CreditCard: "CreditCard",
+  Note: "Note"
+};
 var FieldTypes = {
   Text: "Text",
   Password: "Password",
@@ -483,6 +489,6 @@ function isSystemFieldPrefix(fieldKey) {
 // src/vault/FieldHistory.ts
 var MAX_FIELD_HISTORY_RECORDS = 10;
 
-export { FieldCategories, FieldKey, FieldTypes, MAX_FIELD_HISTORY_RECORDS, SystemFieldRegistry, fieldAppliesToType, getAllSystemFieldKeys, getDefaultFieldsForItemType, getFieldConfigForType, getFieldValue, getFieldValues, getOptionalFieldsForItemType, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isFieldShownByDefault, isSystemField, isSystemFieldPrefix, itemToCredential };
+export { FieldCategories, FieldKey, FieldTypes, ItemTypes, MAX_FIELD_HISTORY_RECORDS, SystemFieldRegistry, fieldAppliesToType, getAllSystemFieldKeys, getDefaultFieldsForItemType, getFieldConfigForType, getFieldValue, getFieldValues, getOptionalFieldsForItemType, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isFieldShownByDefault, isSystemField, isSystemFieldPrefix, itemToCredential };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map

@@ -3066,8 +3066,10 @@ export class SqliteClient {
 
       const currentDateTime = dateFormatter.now();
 
-      // 1. Move all items in this folder to trash (set DeletedAt) and clear FolderId
-      // so that when restored, items won't reference a deleted folder
+      /*
+       * 1. Move all items in this folder to trash (set DeletedAt) and clear FolderId
+       * so that when restored, items won't reference a deleted folder
+       */
       const itemsQuery = `
         UPDATE Items
         SET DeletedAt = ?,

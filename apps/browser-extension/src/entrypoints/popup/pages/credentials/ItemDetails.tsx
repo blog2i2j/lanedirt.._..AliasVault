@@ -5,7 +5,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   TotpBlock,
   AttachmentBlock,
-  FieldBlock
+  FieldBlock,
+  PasskeyBlock
 } from '@/entrypoints/popup/components/Credentials/Details';
 import HeaderButton from '@/entrypoints/popup/components/HeaderButton';
 import { HeaderIconType } from '@/entrypoints/popup/components/Icons/HeaderIcons';
@@ -16,6 +17,7 @@ import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 import { PopoutUtility } from '@/entrypoints/popup/utils/PopoutUtility';
 
 import type { Item } from '@/utils/dist/core/models/vault';
+import { ItemTypes } from '@/utils/dist/core/models/vault';
 import { groupFieldsByCategory } from '@/utils/dist/core/models/vault';
 
 /**
@@ -158,8 +160,13 @@ const ItemDetails: React.FC = (): React.ReactElement => {
       </div>
 
       {/* TOTP codes - only for Login and Alias types, shown at top */}
-      {(item.ItemType === 'Login' || item.ItemType === 'Alias') && (
+      {(item.ItemType === ItemTypes.Login || item.ItemType === ItemTypes.Alias) && (
         <TotpBlock itemId={item.Id} />
+      )}
+
+      {/* Passkeys - only for Login and Alias types */}
+      {(item.ItemType === ItemTypes.Login || item.ItemType === ItemTypes.Alias) && item.HasPasskey && (
+        <PasskeyBlock itemId={item.Id} />
       )}
 
       {/* Render fields dynamically by category */}

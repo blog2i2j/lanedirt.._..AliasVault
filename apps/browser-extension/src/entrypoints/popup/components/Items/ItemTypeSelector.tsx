@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { ItemType } from '@/utils/dist/core/models/vault';
+import { ItemTypes } from '@/utils/dist/core/models/vault';
 
 /**
  * Item type option configuration.
@@ -17,7 +18,7 @@ type ItemTypeOption = {
  */
 const ITEM_TYPE_OPTIONS: ItemTypeOption[] = [
   {
-    type: 'Login',
+    type: ItemTypes.Login,
     titleKey: 'itemTypes.login.title',
     iconSvg: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -26,7 +27,7 @@ const ITEM_TYPE_OPTIONS: ItemTypeOption[] = [
     )
   },
   {
-    type: 'Alias',
+    type: ItemTypes.Alias,
     titleKey: 'itemTypes.alias.title',
     iconSvg: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -35,7 +36,7 @@ const ITEM_TYPE_OPTIONS: ItemTypeOption[] = [
     )
   },
   {
-    type: 'CreditCard',
+    type: ItemTypes.CreditCard,
     titleKey: 'itemTypes.creditCard.title',
     iconSvg: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -44,7 +45,7 @@ const ITEM_TYPE_OPTIONS: ItemTypeOption[] = [
     )
   },
   {
-    type: 'Note',
+    type: ItemTypes.Note,
     titleKey: 'itemTypes.note.title',
     iconSvg: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -105,7 +106,7 @@ const ItemTypeSelector: React.FC<ItemTypeSelectorProps> = ({
           </svg>
         </button>
         {/* Regenerate alias button - icon only for flexibility */}
-        {selectedType === 'Alias' && !isEditMode && onRegenerateAlias && (
+        {selectedType === ItemTypes.Alias && !isEditMode && onRegenerateAlias && (
           <button
             type="button"
             onClick={(e) => {

@@ -5,6 +5,8 @@ import FieldBlock from './FieldBlock';
 import HeaderBlock from './HeaderBlock';
 import LoginCredentialsBlock from './LoginCredentialsBlock';
 import NotesBlock from './NotesBlock';
+import PasskeyBlock from './PasskeyBlock';
+import PasskeyEditor from './PasskeyEditor';
 import TotpBlock from './TotpBlock';
 
 export {
@@ -15,5 +17,7 @@ export {
   AliasBlock,
   NotesBlock,
   AttachmentBlock,
-  FieldBlock
+  FieldBlock,
+  PasskeyBlock,
+  PasskeyEditor
 };

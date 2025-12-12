@@ -322,16 +322,20 @@ type ItemTag = {
 };
 
 /**
- * Item types supported by the vault
- * - Login: Username/password credentials with optional notes
- * - Alias: Login with pre-filled alias identity fields (email, name, etc.)
- * - CreditCard: Payment card information
- * - Note: Secure notes
+ * Item types supported by the vault.
  */
-type ItemType = 'Login' | 'Alias' | 'CreditCard' | 'Note';
+declare const ItemTypes: {
+    readonly Login: "Login";
+    readonly Alias: "Alias";
+    readonly CreditCard: "CreditCard";
+    readonly Note: "Note";
+};
+/**
+ * Item type union derived from ItemTypes constant
+ */
+type ItemType = typeof ItemTypes[keyof typeof ItemTypes];
 /**
  * Item type representing vault entries in the new field-based data model.
- * Replaces the old Credential type.
  */
 type Item = {
     Id: string;
@@ -361,7 +365,6 @@ type ItemField = {
 };
 /**
  * Field types for rendering and validation.
- * Single source of truth - the type is derived from this constant.
  */
 declare const FieldTypes: {
     readonly Text: "Text";
@@ -551,4 +554,4 @@ type FieldHistory = {
  */
 declare const MAX_FIELD_HISTORY_RECORDS = 10;
 
-export { type Alias, type Attachment, type Credential, type EncryptionKey, FieldCategories, type FieldCategory, type FieldHistory, FieldKey, type FieldKeyValue, type FieldType, FieldTypes, type Item, type ItemField, type ItemTag, type ItemTagRef, type ItemType, type ItemTypeFieldConfig, MAX_FIELD_HISTORY_RECORDS, type Passkey, type PasswordSettings, type SystemFieldDefinition, SystemFieldRegistry, type Tag, type TotpCode, fieldAppliesToType, getAllSystemFieldKeys, getDefaultFieldsForItemType, getFieldConfigForType, getFieldValue, getFieldValues, getOptionalFieldsForItemType, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isFieldShownByDefault, isSystemField, isSystemFieldPrefix, itemToCredential };
+export { type Alias, type Attachment, type Credential, type EncryptionKey, FieldCategories, type FieldCategory, type FieldHistory, FieldKey, type FieldKeyValue, type FieldType, FieldTypes, type Item, type ItemField, type ItemTag, type ItemTagRef, type ItemType, type ItemTypeFieldConfig, ItemTypes, MAX_FIELD_HISTORY_RECORDS, type Passkey, type PasswordSettings, type SystemFieldDefinition, SystemFieldRegistry, type Tag, type TotpCode, fieldAppliesToType, getAllSystemFieldKeys, getDefaultFieldsForItemType, getFieldConfigForType, getFieldValue, getFieldValues, getOptionalFieldsForItemType, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isFieldShownByDefault, isSystemField, isSystemFieldPrefix, itemToCredential };

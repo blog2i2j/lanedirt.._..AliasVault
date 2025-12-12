@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import AttachmentUploader from '@/entrypoints/popup/components/Credentials/Details/AttachmentUploader';
+import PasskeyEditor from '@/entrypoints/popup/components/Credentials/Details/PasskeyEditor';
 import TotpEditor from '@/entrypoints/popup/components/Credentials/Details/TotpEditor';
 import Modal from '@/entrypoints/popup/components/Dialogs/Modal';
 import AddFieldMenu from '@/entrypoints/popup/components/Forms/AddFieldMenu';
@@ -23,13 +24,13 @@ import useAliasGenerator from '@/entrypoints/popup/hooks/useAliasGenerator';
 import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
 import type { Item, ItemField, ItemType, FieldType, Attachment, TotpCode } from '@/utils/dist/core/models/vault';
-import { FieldCategories, FieldTypes, getSystemFieldsForItemType, isFieldShownByDefault } from '@/utils/dist/core/models/vault';
+import { FieldCategories, FieldTypes, ItemTypes, getSystemFieldsForItemType, isFieldShownByDefault } from '@/utils/dist/core/models/vault';
 
 // Valid item types from the shared model
-const VALID_ITEM_TYPES: ItemType[] = ['Login', 'Alias', 'CreditCard', 'Note'];
+const VALID_ITEM_TYPES: ItemType[] = [ItemTypes.Login, ItemTypes.Alias, ItemTypes.CreditCard, ItemTypes.Note];
 
 // Default item type for new items
-const DEFAULT_ITEM_TYPE: ItemType = 'Login';
+const DEFAULT_ITEM_TYPE: ItemType = ItemTypes.Login;
 
 /**
  * Temporary custom field definition (before persisting to database)
@@ -106,6 +107,9 @@ const ItemAddEdit: React.FC = () => {
   // Attachments state
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [originalAttachmentIds, setOriginalAttachmentIds] = useState<string[]>([]);
+
+  // Passkeys state (only IDs marked for deletion - passkeys cannot be created/edited manually)
+  const [passkeyIdsMarkedForDeletion, setPasskeyIdsMarkedForDeletion] = useState<string[]>([]);
 
   /**
    * Get all applicable system fields for the current item type.
@@ -432,6 +436,13 @@ const ItemAddEdit: React.FC = () => {
             originalTotpCodeIds,
             totpCodes
           );
+
+          // Delete passkeys marked for deletion
+          if (passkeyIdsMarkedForDeletion.length > 0) {
+            for (const passkeyId of passkeyIdsMarkedForDeletion) {
+              await dbContext.sqliteClient!.deletePasskeyById(passkeyId);
+            }
+          }
         } else {
           await dbContext.sqliteClient!.createItem(updatedItem, attachments, totpCodes);
         }
@@ -445,7 +456,7 @@ const ItemAddEdit: React.FC = () => {
     } catch (err) {
       console.error('Error saving item:', err);
     }
-  }, [item, fieldValues, applicableSystemFields, customFields, dbContext, isEditMode, executeVaultMutationAsync, navigate, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes]);
+  }, [item, fieldValues, applicableSystemFields, customFields, dbContext, isEditMode, executeVaultMutationAsync, navigate, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes, passkeyIdsMarkedForDeletion]);
 
   /**
    * Handle delete action.
@@ -806,6 +817,15 @@ const ItemAddEdit: React.FC = () => {
           </div>
         ))}
       </FormSection>
+
+      {/* Passkey Section - only show in edit mode for items with passkeys */}
+      {isEditMode && item.HasPasskey && (
+        <PasskeyEditor
+          itemId={item.Id}
+          passkeyIdsMarkedForDeletion={passkeyIdsMarkedForDeletion}
+          onPasskeyMarkedForDeletion={setPasskeyIdsMarkedForDeletion}
+        />
+      )}
 
       {/* Render fields grouped by category */}
       {Object.keys(groupedSystemFields).map(category => {
