@@ -1751,8 +1751,9 @@ export class SqliteClient {
         i.Name as ServiceName,
         (SELECT fv.Value FROM FieldValues fv WHERE fv.ItemId = i.Id AND fv.FieldKey = '${FieldKey.LoginUsername}' AND fv.IsDeleted = 0 LIMIT 1) as Username
       FROM Passkeys p
-      LEFT JOIN Items i ON p.ItemId = i.Id
+      INNER JOIN Items i ON p.ItemId = i.Id
       WHERE p.RpId = ? AND p.IsDeleted = 0
+        AND i.IsDeleted = 0 AND i.DeletedAt IS NULL
       ORDER BY p.CreatedAt DESC
     `;
 
@@ -1804,8 +1805,9 @@ export class SqliteClient {
         i.Name as ServiceName,
         (SELECT fv.Value FROM FieldValues fv WHERE fv.ItemId = i.Id AND fv.FieldKey = '${FieldKey.LoginUsername}' AND fv.IsDeleted = 0 LIMIT 1) as Username
       FROM Passkeys p
-      LEFT JOIN Items i ON p.ItemId = i.Id
+      INNER JOIN Items i ON p.ItemId = i.Id
       WHERE p.Id = ? AND p.IsDeleted = 0
+        AND i.IsDeleted = 0 AND i.DeletedAt IS NULL
     `;
 
     const results = this.executeQuery(query, [passkeyId]);
