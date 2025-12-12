@@ -210,7 +210,7 @@ const CredentialsList: React.FC = () => {
         (credential.Alias?.LastName && credential.Alias.LastName.trim()) ||
         (credential.Alias?.NickName && credential.Alias.NickName.trim()) ||
         (credential.Alias?.Gender && credential.Alias.Gender.trim()) ||
-        (credential.Alias?.BirthDate && credential.Alias.BirthDate.trim() && credential.Alias.BirthDate.trim().startsWith('0001-01-01') !== true)
+        (credential.Alias?.BirthDate && credential.Alias.BirthDate.trim())
       );
     } else if (filterType === 'userpass') {
       // Show only credentials that have username/password AND do NOT have alias fields AND do NOT have passkey
@@ -219,7 +219,7 @@ const CredentialsList: React.FC = () => {
         (credential.Alias?.LastName && credential.Alias.LastName.trim()) ||
         (credential.Alias?.NickName && credential.Alias.NickName.trim()) ||
         (credential.Alias?.Gender && credential.Alias.Gender.trim()) ||
-        (credential.Alias?.BirthDate && credential.Alias.BirthDate.trim() && credential.Alias.BirthDate.trim().startsWith('0001-01-01') !== true)
+        (credential.Alias?.BirthDate && credential.Alias.BirthDate.trim())
       );
       const hasUsernameOrPassword = !!(
         (credential.Username && credential.Username.trim()) ||

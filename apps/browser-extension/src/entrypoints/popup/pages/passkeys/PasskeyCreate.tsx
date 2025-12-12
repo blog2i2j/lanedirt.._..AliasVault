@@ -326,7 +326,7 @@ const PasskeyCreate: React.FC = () => {
                   FirstName: '',
                   LastName: '',
                   NickName: '',
-                  BirthDate: '0001-01-01 00:00:00',
+                  BirthDate: '',
                   Gender: '',
                   Email: ''
                 },
@@ -406,7 +406,7 @@ const PasskeyCreate: React.FC = () => {
                 FirstName: '',
                 LastName: '',
                 NickName: '',
-                BirthDate: '0001-01-01 00:00:00', // TODO: once birthdate is made nullable in datamodel refactor, remove this.
+                BirthDate: '',
                 Gender: '',
                 Email: ''
               }

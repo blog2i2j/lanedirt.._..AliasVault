@@ -256,8 +256,7 @@ export async function createAutofillPopup(input: HTMLInputElement, credentials: 
           Password: result.customPassword ?? '',
           Alias: {
             NickName: result.customUsername ?? '',
-            // TODO: once birthdate is made nullable in datamodel refactor, remove this.
-            BirthDate: '0001-01-01 00:00:00',
+            BirthDate: '',
             Email: result.customEmail ?? ''
           }
         };
