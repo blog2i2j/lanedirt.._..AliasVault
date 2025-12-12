@@ -20,8 +20,21 @@
 			"path": "../docs"
 		},
 		{
+			"name": "core",
 			"path": "../core"
-		}
+		},
+		{
+			"name": "core/rust",
+			"path": "../core/rust"
+		},
+		{
+			"name": "core/models",
+			"path": "../core/models"
+		},
+		{
+			"name": "core/vault",
+			"path": "../core/vault"
+		},
 	],
 	"settings": {
 		"java.configuration.updateBuildConfiguration": "disabled",
