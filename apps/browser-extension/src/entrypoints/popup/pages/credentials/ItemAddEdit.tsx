@@ -374,7 +374,7 @@ const ItemAddEdit: React.FC = () => {
       // Build the fields array from fieldValues
       const fields: ItemField[] = [];
 
-      // Add system fields
+      /* Add system fields */
       applicableSystemFields.forEach(systemField => {
         const value = fieldValues[systemField.FieldKey];
 
@@ -382,7 +382,7 @@ const ItemAddEdit: React.FC = () => {
         if (value && (Array.isArray(value) ? value.length > 0 : value.trim() !== '')) {
           fields.push({
             FieldKey: systemField.FieldKey,
-            Label: systemField.Label,
+            Label: systemField.FieldKey, // UI translates via fieldLabels.*
             FieldType: systemField.FieldType,
             Value: value,
             IsHidden: systemField.IsHidden,
@@ -798,7 +798,7 @@ const ItemAddEdit: React.FC = () => {
           <div key={field.FieldKey}>
             {renderFieldInput(
               field.FieldKey,
-              field.Label,
+              t(`fieldLabels.${field.FieldKey}`, { defaultValue: field.FieldKey }),
               field.FieldType,
               field.IsHidden,
               field.IsMultiValue
@@ -821,7 +821,7 @@ const ItemAddEdit: React.FC = () => {
               <div key={field.FieldKey}>
                 {renderFieldInput(
                   field.FieldKey,
-                  field.Label,
+                  t(`fieldLabels.${field.FieldKey}`, { defaultValue: field.FieldKey }),
                   field.FieldType,
                   field.IsHidden,
                   field.IsMultiValue
@@ -877,7 +877,7 @@ const ItemAddEdit: React.FC = () => {
         >
           {renderFieldInput(
             notesField.FieldKey,
-            notesField.Label,
+            t(`fieldLabels.${notesField.FieldKey}`, { defaultValue: notesField.FieldKey }),
             notesField.FieldType,
             notesField.IsHidden,
             notesField.IsMultiValue

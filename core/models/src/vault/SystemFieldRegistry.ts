@@ -29,13 +29,11 @@ export type FieldCategory = typeof FieldCategories[keyof typeof FieldCategories]
 /**
  * System field definition with metadata.
  * System fields are predefined fields with immutable keys like 'login.username'.
- * Their metadata (label, type, etc.) is defined here in code, not in the database.
+ * Their metadata (type, etc.) is defined here in code, not in the database.
  */
 export type SystemFieldDefinition = {
   /** Unique system field key (e.g., 'login.username') */
   FieldKey: string;
-  /** Display label for the field */
-  Label: string;
   /** Field type for rendering/validation */
   FieldType: FieldType;
   /** Whether field is hidden/masked by default */
@@ -69,7 +67,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
   /* =================== LOGIN FIELDS =================== */
   'login.username': {
     FieldKey: 'login.username',
-    Label: 'Username',
     FieldType: 'Text',
     IsHidden: false,
     IsMultiValue: false,
@@ -83,7 +80,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
   },
   'login.password': {
     FieldKey: 'login.password',
-    Label: 'Password',
     FieldType: 'Password',
     IsHidden: true,
     IsMultiValue: false,
@@ -97,7 +93,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
   },
   'login.url': {
     FieldKey: 'login.url',
-    Label: 'URL',
     FieldType: 'URL',
     IsHidden: false,
     IsMultiValue: true,
@@ -113,7 +108,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
   /* =================== ALIAS FIELDS =================== */
   'alias.email': {
     FieldKey: 'alias.email',
-    Label: 'Email',
     FieldType: 'Email',
     IsHidden: false,
     IsMultiValue: false,
@@ -126,7 +120,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
   },
   'alias.first_name': {
     FieldKey: 'alias.first_name',
-    Label: 'First Name',
     FieldType: 'Text',
     IsHidden: false,
     IsMultiValue: false,
@@ -139,7 +132,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
   },
   'alias.last_name': {
     FieldKey: 'alias.last_name',
-    Label: 'Last Name',
     FieldType: 'Text',
     IsHidden: false,
     IsMultiValue: false,
@@ -152,7 +144,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
   },
   'alias.nickname': {
     FieldKey: 'alias.nickname',
-    Label: 'Nickname',
     FieldType: 'Text',
     IsHidden: false,
     IsMultiValue: false,
@@ -165,7 +156,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
   },
   'alias.gender': {
     FieldKey: 'alias.gender',
-    Label: 'Gender',
     FieldType: 'Text',
     IsHidden: false,
     IsMultiValue: false,
@@ -178,7 +168,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
   },
   'alias.birthdate': {
     FieldKey: 'alias.birthdate',
-    Label: 'Birth Date',
     FieldType: 'Date',
     IsHidden: false,
     IsMultiValue: false,
@@ -193,7 +182,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
   /* =================== CREDIT CARD FIELDS =================== */
   'card.cardholder_name': {
     FieldKey: 'card.cardholder_name',
-    Label: 'Cardholder Name',
     FieldType: 'Text',
     IsHidden: false,
     IsMultiValue: false,
@@ -206,7 +194,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
   },
   'card.number': {
     FieldKey: 'card.number',
-    Label: 'Card Number',
     FieldType: 'Hidden',
     IsHidden: true,
     IsMultiValue: false,
@@ -219,7 +206,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
   },
   'card.expiry_month': {
     FieldKey: 'card.expiry_month',
-    Label: 'Expiry Month',
     FieldType: 'Text',
     IsHidden: false,
     IsMultiValue: false,
@@ -232,7 +218,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
   },
   'card.expiry_year': {
     FieldKey: 'card.expiry_year',
-    Label: 'Expiry Year',
     FieldType: 'Text',
     IsHidden: false,
     IsMultiValue: false,
@@ -245,7 +230,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
   },
   'card.cvv': {
     FieldKey: 'card.cvv',
-    Label: 'CVV',
     FieldType: 'Hidden',
     IsHidden: true,
     IsMultiValue: false,
@@ -258,7 +242,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
   },
   'card.pin': {
     FieldKey: 'card.pin',
-    Label: 'PIN',
     FieldType: 'Hidden',
     IsHidden: true,
     IsMultiValue: false,
@@ -273,7 +256,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
   /* =================== METADATA FIELDS =================== */
   'metadata.notes': {
     FieldKey: 'metadata.notes',
-    Label: 'Notes',
     FieldType: 'TextArea',
     IsHidden: false,
     IsMultiValue: false,

@@ -36,6 +36,11 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId }) => {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [historyCount, setHistoryCount] = useState<number>(0);
 
+  /* Get translated label for this field. System fields use fieldLabels.* translations, custom fields use their stored label */
+  const label = field.FieldKey.startsWith('custom_')
+    ? (field.Label || field.FieldKey)
+    : t(`fieldLabels.${field.FieldKey}`, { defaultValue: field.FieldKey });
+
   // Check if this field supports history
   const systemField = !field.FieldKey.startsWith('custom_') ? getSystemField(field.FieldKey) : null;
   const hasHistoryEnabled = systemField?.EnableHistory === true;
@@ -67,7 +72,7 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId }) => {
           <FormInputCopyToClipboard
             key={`${field.FieldKey}-${idx}`}
             id={`${field.FieldKey}-${idx}`}
-            label={idx === 0 ? field.Label : `${field.Label} ${idx + 1}`}
+            label={idx === 0 ? label : `${label} ${idx + 1}`}
             value={value}
             type={field.FieldType === 'Password' ? 'password' : 'text'}
           />
@@ -99,7 +104,7 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId }) => {
       onClose={() => setShowHistoryModal(false)}
       itemId={itemId}
       fieldKey={field.FieldKey}
-      fieldLabel={field.Label}
+      fieldLabel={label}
       fieldType={field.FieldType}
       isHidden={field.IsHidden}
     />
@@ -113,7 +118,7 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId }) => {
         <>
           <div>
             <label htmlFor={field.FieldKey} className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-              {field.Label}
+              {label}
               {HistoryButton}
             </label>
             <div className="relative">
@@ -154,7 +159,7 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId }) => {
       return (
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            {field.Label}
+            {label}
           </label>
           <div className="p-4 bg-gray-50 rounded-lg dark:bg-gray-700">
             <p
@@ -176,7 +181,7 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId }) => {
         <>
           <div>
             <label htmlFor={field.FieldKey} className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-              {field.Label}
+              {label}
               {HistoryButton}
             </label>
             <div className="relative">

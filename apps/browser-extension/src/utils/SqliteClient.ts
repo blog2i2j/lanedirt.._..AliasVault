@@ -420,7 +420,7 @@ export class SqliteClient {
       DisplayOrder: number;
     }>(fieldsQuery, itemIds);
 
-    // Process fields - handle system fields vs custom fields
+    /* Process fields - handle system fields vs custom fields. */
     const fields = fieldRows.map(row => {
       // System field: has FieldKey, get metadata from SystemFieldRegistry
       if (row.FieldKey) {
@@ -428,7 +428,7 @@ export class SqliteClient {
         return {
           ItemId: row.ItemId,
           FieldKey: row.FieldKey,
-          Label: systemField?.Label || row.FieldKey,
+          Label: row.FieldKey, // Use FieldKey as label; UI layer translates via fieldLabels.*
           FieldType: systemField?.FieldType || 'Text',
           IsHidden: systemField?.IsHidden ? 1 : 0,
           Value: row.Value,
@@ -615,14 +615,14 @@ export class SqliteClient {
       }
       fieldValuesByKey[fieldKey].push(row.Value);
 
-      // Store field metadata (only once per FieldKey)
+      /* Store field metadata (only once per FieldKey). */
       if (!uniqueFields[fieldKey]) {
         if (row.FieldKey) {
           // System field
           const systemField = getSystemField(row.FieldKey);
           uniqueFields[fieldKey] = {
             FieldKey: row.FieldKey,
-            Label: systemField?.Label || row.FieldKey,
+            Label: row.FieldKey, // Use FieldKey as label; UI layer translates via fieldLabels.*
             FieldType: systemField?.FieldType || 'Text',
             IsHidden: systemField?.IsHidden ? 1 : 0,
             DisplayOrder: row.DisplayOrder
@@ -2825,14 +2825,14 @@ export class SqliteClient {
       DisplayOrder: number;
     }>(fieldsQuery, itemIds);
 
-    // Process fields
+    /* Process fields. System fields use FieldKey for Label (translation happens in UI layer) */
     const fields = fieldRows.map(row => {
       if (row.FieldKey) {
         const systemField = getSystemField(row.FieldKey);
         return {
           ItemId: row.ItemId,
           FieldKey: row.FieldKey,
-          Label: systemField?.Label || row.FieldKey,
+          Label: row.FieldKey, // UI layer translates via fieldLabels.*
           FieldType: systemField?.FieldType || 'Text',
           IsHidden: systemField?.IsHidden ? 1 : 0,
           Value: row.Value,

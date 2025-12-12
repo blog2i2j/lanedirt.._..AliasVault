@@ -330,6 +330,24 @@
       "description": "Encrypted notes and private information"
     }
   },
+  "fieldLabels": {
+    "login.username": "Username",
+    "login.password": "Password",
+    "login.url": "Website URL",
+    "alias.email": "Email",
+    "alias.first_name": "First Name",
+    "alias.last_name": "Last Name",
+    "alias.nickname": "Nickname",
+    "alias.gender": "Gender",
+    "alias.birthdate": "Birth Date",
+    "card.cardholder_name": "Cardholder Name",
+    "card.number": "Card Number",
+    "card.expiry_month": "Expiry Month",
+    "card.expiry_year": "Expiry Year",
+    "card.cvv": "CVV",
+    "card.pin": "PIN",
+    "metadata.notes": "Notes"
+  },
   "totp": {
     "addCode": "Add 2FA Code",
     "instructions": "Enter the secret key shown by the website where you want to add two-factor authentication.",
