@@ -3046,6 +3046,51 @@ export class SqliteClient {
   }
 
   /**
+   * Delete a folder and all items within it (soft delete both folder and items)
+   * Items are moved to "Recently Deleted" (trash)
+   * @param folderId - The ID of the folder to delete
+   * @returns The number of items trashed
+   */
+  public async deleteFolderWithContents(folderId: string): Promise<number> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      this.beginTransaction();
+
+      const currentDateTime = dateFormatter.now();
+
+      // 1. Move all items in this folder to trash (set DeletedAt) and clear FolderId
+      // so that when restored, items won't reference a deleted folder
+      const itemsQuery = `
+        UPDATE Items
+        SET DeletedAt = ?,
+            UpdatedAt = ?,
+            FolderId = NULL
+        WHERE FolderId = ? AND IsDeleted = 0 AND DeletedAt IS NULL`;
+
+      const itemsDeleted = this.executeUpdate(itemsQuery, [currentDateTime, currentDateTime, folderId]);
+
+      // 2. Soft delete the folder
+      const folderQuery = `
+        UPDATE Folders
+        SET IsDeleted = 1,
+            UpdatedAt = ?
+        WHERE Id = ?`;
+
+      this.executeUpdate(folderQuery, [currentDateTime, folderId]);
+
+      await this.commitTransaction();
+      return itemsDeleted;
+    } catch (error) {
+      this.rollbackTransaction();
+      console.error('Error deleting folder with contents:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Move an item to a folder
    * @param itemId - The ID of the item to move
    * @param folderId - The ID of the destination folder (null to remove from folder)

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
+import DeleteFolderModal from '@/entrypoints/popup/components/Folders/DeleteFolderModal';
 import FolderModal from '@/entrypoints/popup/components/Folders/FolderModal';
 import HeaderButton from '@/entrypoints/popup/components/HeaderButton';
 import { HeaderIconType } from '@/entrypoints/popup/components/Icons/HeaderIcons';
@@ -80,6 +81,7 @@ type FolderWithCount = {
 const ItemsList: React.FC = () => {
   const { t } = useTranslation();
   const { folderId: folderIdParam } = useParams<{ folderId?: string }>();
+  const location = useLocation();
   const dbContext = useDb();
   const app = useApp();
   const navigate = useNavigate();
@@ -91,6 +93,7 @@ const ItemsList: React.FC = () => {
   const [filterType, setFilterType] = useState<FilterType>(getStoredFilter());
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [showFolderModal, setShowFolderModal] = useState(false);
+  const [showDeleteFolderModal, setShowDeleteFolderModal] = useState(false);
   const [recentlyDeletedCount, setRecentlyDeletedCount] = useState(0);
   const { setIsInitialLoading } = useLoading();
 
@@ -111,6 +114,20 @@ const ItemsList: React.FC = () => {
    * Loading state with minimum duration for more fluid UX.
    */
   const [isLoading, setIsLoading] = useMinDurationLoading(true, 100);
+
+  /**
+   * Reset search and filter when navigating via the vault tab (with resetFilters state).
+   */
+  useEffect(() => {
+    const state = location.state as { resetFilters?: boolean } | null;
+    if (state?.resetFilters) {
+      setSearchTerm('');
+      setFilterType('all');
+      localStorage.removeItem(FILTER_STORAGE_KEY);
+      // Clear the state to prevent re-triggering on subsequent renders
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, navigate]);
 
   /**
    * Handle add new item.
@@ -144,6 +161,50 @@ const ItemsList: React.FC = () => {
     const results = dbContext.sqliteClient!.getAllItems();
     setItems(results);
   }, [dbContext, currentFolderId, executeVaultMutationAsync]);
+
+  /**
+   * Handle delete folder (keep items, move them to root).
+   */
+  const handleDeleteFolderOnly = useCallback(async () : Promise<void> => {
+    if (!dbContext?.sqliteClient || !currentFolderId) {
+      return;
+    }
+
+    await executeVaultMutationAsync(async () => {
+      await dbContext.sqliteClient!.deleteFolder(currentFolderId);
+    });
+
+    // Refresh items list to reflect changes
+    const results = dbContext.sqliteClient!.getAllItems();
+    setItems(results);
+    const deletedCount = dbContext.sqliteClient!.getRecentlyDeletedCount();
+    setRecentlyDeletedCount(deletedCount);
+
+    // Navigate back to root
+    navigate('/items');
+  }, [dbContext, currentFolderId, executeVaultMutationAsync, navigate]);
+
+  /**
+   * Handle delete folder and all its contents.
+   */
+  const handleDeleteFolderAndContents = useCallback(async () : Promise<void> => {
+    if (!dbContext?.sqliteClient || !currentFolderId) {
+      return;
+    }
+
+    await executeVaultMutationAsync(async () => {
+      await dbContext.sqliteClient!.deleteFolderWithContents(currentFolderId);
+    });
+
+    // Refresh items list to reflect changes
+    const results = dbContext.sqliteClient!.getAllItems();
+    setItems(results);
+    const deletedCount = dbContext.sqliteClient!.getRecentlyDeletedCount();
+    setRecentlyDeletedCount(deletedCount);
+
+    // Navigate back to root
+    navigate('/items');
+  }, [dbContext, currentFolderId, executeVaultMutationAsync, navigate]);
 
   /**
    * Retrieve latest vault and refresh the items list.
@@ -513,11 +574,29 @@ const ItemsList: React.FC = () => {
                 : t('items.noMatchingItems')
             }
           </p>
+          {/* Show help text and delete button when inside an empty folder */}
+          {currentFolderId && (
+            <>
+              <p className="text-sm">
+                {t('items.emptyFolderHint')}
+              </p>
+              <button
+                onClick={() => setShowDeleteFolderModal(true)}
+                className="inline-flex items-center gap-2 px-3 py-2 mt-4 text-sm text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+                {t('items.deleteFolder')}
+              </button>
+            </>
+          )}
         </div>
       ) : (
         <>
           {/* Folders as inline pills (only show at root level when not searching) */}
-          {!currentFolderId && !searchTerm && folders.length > 0 && (
+          {!currentFolderId && !searchTerm && (
             <div className="flex flex-wrap items-center gap-2 mb-4">
               {folders.map(folder => (
                 <FolderPill
@@ -528,13 +607,26 @@ const ItemsList: React.FC = () => {
               ))}
               <button
                 onClick={handleAddFolder}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-full transition-colors focus:outline-none"
+                className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-full transition-colors focus:outline-none ${
+                  folders.length > 0
+                    ? 'text-gray-500 dark:text-gray-400 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                    : 'text-gray-400 dark:text-gray-500 border border-dashed border-gray-300 dark:border-gray-600 hover:border-orange-400 dark:hover:border-orange-500 hover:text-orange-600 dark:hover:text-orange-400'
+                }`}
               >
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                </svg>
+                <svg className="w-3 h-3 -ml-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <line x1="12" y1="5" x2="12" y2="19" />
                   <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
-                {t('items.newFolder')}
+                {folders.length === 0 && (
+                  /**
+                   * Only show text when there are no folders yet
+                   * if there are folders we hide the text to save on UI space
+                   */
+                  <span>{t('items.newFolder')}</span>
+                )}
               </button>
             </div>
           )}
@@ -550,6 +642,20 @@ const ItemsList: React.FC = () => {
                 />
               ))}
             </ul>
+          )}
+
+          {/* Delete folder button (only show when inside a folder) */}
+          {currentFolderId && !searchTerm && (
+            <button
+              onClick={() => setShowDeleteFolderModal(true)}
+              className="w-full mt-4 p-3 flex items-center gap-2 text-left text-red-600 dark:text-red-400 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-300 dark:hover:border-red-700 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
+              <span>{t('items.deleteFolder')}</span>
+            </button>
           )}
 
           {/* Recently Deleted link (only show at root level when not searching) */}
@@ -589,6 +695,16 @@ const ItemsList: React.FC = () => {
         onClose={() => setShowFolderModal(false)}
         onSave={handleSaveFolder}
         mode="create"
+      />
+
+      {/* Delete Folder Modal */}
+      <DeleteFolderModal
+        isOpen={showDeleteFolderModal}
+        onClose={() => setShowDeleteFolderModal(false)}
+        onDeleteFolderOnly={handleDeleteFolderOnly}
+        onDeleteFolderAndContents={handleDeleteFolderAndContents}
+        folderName={currentFolderName || ''}
+        itemCount={filteredItems.length}
       />
     </div>
   );

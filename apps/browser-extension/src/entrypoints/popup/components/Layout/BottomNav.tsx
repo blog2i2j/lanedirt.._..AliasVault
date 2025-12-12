@@ -27,10 +27,16 @@ const BottomNav: React.FC = () => {
 
   /**
    * Handle tab change.
+   * For items tab, pass state to signal the list should reset search/filters.
    */
   const handleTabChange = (tab: TabName) : void => {
     setCurrentTab(tab);
-    navigate(`/${tab}`);
+    if (tab === 'items') {
+      // Navigate with state to signal ItemsList to reset search/filters
+      navigate(`/${tab}`, { state: { resetFilters: true } });
+    } else {
+      navigate(`/${tab}`);
+    }
   };
 
   // Auth pages that don't show bottom navigation but still show header

@@ -31,7 +31,6 @@ const ItemNameInput: React.FC<ItemNameInputProps> = ({
   const [showFolderModal, setShowFolderModal] = useState(false);
 
   const selectedFolder = folders.find(f => f.Id === selectedFolderId);
-  const hasFolders = folders.length > 0;
 
   /**
    * Handle folder selection and close the modal.
@@ -68,7 +67,7 @@ const ItemNameInput: React.FC<ItemNameInputProps> = ({
         <label htmlFor="itemName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
           {t('credentials.itemName')} <span className="text-red-500">*</span>
         </label>
-        <div className="relative">
+        <div className="relative flex items-center">
           <input
             ref={inputRef}
             id="itemName"
@@ -76,31 +75,29 @@ const ItemNameInput: React.FC<ItemNameInputProps> = ({
             value={value}
             onChange={handleNameChange}
             placeholder={t('credentials.itemName')}
-            className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white ${hasFolders ? 'pr-28' : ''}`}
+            className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white ${selectedFolderId ? 'pr-28' : 'pr-10'}`}
             required
           />
-          {/* Folder Button inside input */}
-          {hasFolders && (
-            <button
-              type="button"
-              onClick={handleOpenFolderModal}
-              className={`absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded transition-colors text-xs ${
-                selectedFolderId
-                  ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 hover:bg-primary-200 dark:hover:bg-primary-900/50'
-                  : 'text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600'
-              }`}
-              title={selectedFolder?.Name || t('items.noFolder')}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-              </svg>
-              {selectedFolderId && (
-                <span className="max-w-16 truncate">
-                  {selectedFolder?.Name}
-                </span>
-              )}
-            </button>
-          )}
+          {/* Folder Button inside input - always visible, width adjusts based on whether a folder is selected */}
+          <button
+            type="button"
+            onClick={handleOpenFolderModal}
+            className={`absolute right-1 z-10 flex items-center gap-1 px-2 py-1 rounded transition-colors text-xs ${
+              selectedFolderId
+                ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 hover:bg-primary-200 dark:hover:bg-primary-900/50'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+            }`}
+            title={selectedFolder?.Name || t('items.noFolder')}
+          >
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+            </svg>
+            {selectedFolderId && (
+              <span className="max-w-16 truncate">
+                {selectedFolder?.Name}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
