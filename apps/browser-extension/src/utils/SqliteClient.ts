@@ -863,10 +863,10 @@ export class SqliteClient {
   }
 
   /**
-   * Create a new credential with associated entities
+   * Create a new credential with associated entities (using new field-based schema)
    * @param credential The credential object to insert
    * @param attachments The attachments to insert
-   * @returns The ID of the created credential
+   * @returns The ID of the created item
    */
   public async createCredential(credential: Credential, attachments: Attachment[], totpCodes: TotpCode[] = []): Promise<string> {
     if (!this.db) {
@@ -876,10 +876,14 @@ export class SqliteClient {
     try {
       this.beginTransaction();
 
-      // 1. Insert Service
-      let logoData = null;
-      try {
-        if (credential.Logo) {
+      const currentDateTime = dateFormatter.now();
+      const itemId = crypto.randomUUID().toUpperCase();
+
+      // 1. Handle Logo - insert into Logos table if provided
+      let logoId: string | null = null;
+      if (credential.Logo) {
+        let logoData = null;
+        try {
           // Handle object-like array conversion
           if (typeof credential.Logo === 'object' && !ArrayBuffer.isView(credential.Logo)) {
             const values = Object.values(credential.Logo);
@@ -888,90 +892,19 @@ export class SqliteClient {
           } else if (Array.isArray(credential.Logo) || credential.Logo instanceof ArrayBuffer || credential.Logo instanceof Uint8Array) {
             logoData = new Uint8Array(credential.Logo);
           }
+        } catch (error) {
+          console.warn('Failed to convert logo to Uint8Array:', error);
+          logoData = null;
         }
-      } catch (error) {
-        console.warn('Failed to convert logo to Uint8Array:', error);
-        logoData = null;
-      }
 
-      const serviceQuery = `
-                INSERT INTO Services (Id, Name, Url, Logo, CreatedAt, UpdatedAt, IsDeleted)
-                VALUES (?, ?, ?, ?, ?, ?, ?)`;
-      const serviceId = crypto.randomUUID().toUpperCase();
-      const currentDateTime = dateFormatter.now();
-      this.executeUpdate(serviceQuery, [
-        serviceId,
-        credential.ServiceName,
-        credential.ServiceUrl ?? null,
-        logoData,
-        currentDateTime,
-        currentDateTime,
-        0
-      ]);
-
-      // 2. Insert Alias
-      const aliasQuery = `
-                INSERT INTO Aliases (Id, FirstName, LastName, NickName, BirthDate, Gender, Email, CreatedAt, UpdatedAt, IsDeleted)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-      const aliasId = crypto.randomUUID().toUpperCase();
-      this.executeUpdate(aliasQuery, [
-        aliasId,
-        credential.Alias.FirstName ?? null,
-        credential.Alias.LastName ?? null,
-        credential.Alias.NickName ?? null,
-        credential.Alias.BirthDate ?? null,
-        credential.Alias.Gender ?? null,
-        credential.Alias.Email ?? null,
-        currentDateTime,
-        currentDateTime,
-        0
-      ]);
-
-      // 3. Insert Credential
-      const credentialQuery = `
-                INSERT INTO Credentials (Id, Username, Notes, ServiceId, AliasId, CreatedAt, UpdatedAt, IsDeleted)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-      const credentialId = crypto.randomUUID().toUpperCase();
-      this.executeUpdate(credentialQuery, [
-        credentialId,
-        credential.Username ?? null,
-        credential.Notes ?? null,
-        serviceId,
-        aliasId,
-        currentDateTime,
-        currentDateTime,
-        0
-      ]);
-
-      // 4. Insert Password
-      if (credential.Password) {
-        const passwordQuery = `
-                    INSERT INTO Passwords (Id, Value, CredentialId, CreatedAt, UpdatedAt, IsDeleted)
-                    VALUES (?, ?, ?, ?, ?, ?)`;
-        const passwordId = crypto.randomUUID().toUpperCase();
-        this.executeUpdate(passwordQuery, [
-          passwordId,
-          credential.Password,
-          credentialId,
-          currentDateTime,
-          currentDateTime,
-          0
-        ]);
-      }
-
-      // 5. Insert Attachment
-      if (attachments) {
-        for (const attachment of attachments) {
-          const attachmentQuery = `
-            INSERT INTO Attachments (Id, Filename, Blob, CredentialId, CreatedAt, UpdatedAt, IsDeleted)
-            VALUES (?, ?, ?, ?, ?, ?, ?)`;
-
-          const attachmentId = crypto.randomUUID().toUpperCase();
-          this.executeUpdate(attachmentQuery, [
-            attachmentId,
-            attachment.Filename,
-            attachment.Blob as Uint8Array,
-            credentialId,
+        if (logoData) {
+          logoId = crypto.randomUUID().toUpperCase();
+          const logoQuery = `
+            INSERT INTO Logos (Id, FileData, CreatedAt, UpdatedAt, IsDeleted)
+            VALUES (?, ?, ?, ?, ?)`;
+          this.executeUpdate(logoQuery, [
+            logoId,
+            logoData,
             currentDateTime,
             currentDateTime,
             0
@@ -979,7 +912,81 @@ export class SqliteClient {
         }
       }
 
-      // 6. Insert TOTP codes
+      // 2. Insert Item
+      const itemQuery = `
+        INSERT INTO Items (Id, Name, ItemType, LogoId, FolderId, CreatedAt, UpdatedAt, IsDeleted)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+
+      this.executeUpdate(itemQuery, [
+        itemId,
+        credential.ServiceName ?? null,
+        'Login', // ItemType
+        logoId,
+        null, // FolderId
+        currentDateTime,
+        currentDateTime,
+        0
+      ]);
+
+      // 3. Insert FieldValues for credential fields
+      const fieldsToInsert: Array<{ key: string; value: string | null }> = [
+        { key: FieldKey.LoginUsername, value: credential.Username ?? null },
+        { key: FieldKey.LoginPassword, value: credential.Password ?? null },
+        { key: FieldKey.LoginUrl, value: credential.ServiceUrl ?? null },
+        { key: FieldKey.LoginNotes, value: credential.Notes ?? null },
+        { key: FieldKey.AliasFirstName, value: credential.Alias?.FirstName ?? null },
+        { key: FieldKey.AliasLastName, value: credential.Alias?.LastName ?? null },
+        { key: FieldKey.AliasNickname, value: credential.Alias?.NickName ?? null },
+        { key: FieldKey.AliasBirthdate, value: credential.Alias?.BirthDate ?? null },
+        { key: FieldKey.AliasGender, value: credential.Alias?.Gender ?? null },
+        { key: FieldKey.AliasEmail, value: credential.Alias?.Email ?? null },
+      ];
+
+      for (const field of fieldsToInsert) {
+        // Skip empty fields
+        if (!field.value || (typeof field.value === 'string' && field.value.trim() === '')) {
+          continue;
+        }
+
+        const fieldValueId = crypto.randomUUID().toUpperCase();
+        const fieldQuery = `
+          INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+        this.executeUpdate(fieldQuery, [
+          fieldValueId,
+          itemId,
+          null, // FieldDefinitionId is null for system fields
+          field.key, // FieldKey
+          field.value,
+          0, // Weight
+          currentDateTime,
+          currentDateTime,
+          0
+        ]);
+      }
+
+      // 4. Insert Attachments
+      if (attachments) {
+        for (const attachment of attachments) {
+          const attachmentQuery = `
+            INSERT INTO Attachments (Id, Filename, Blob, ItemId, CreatedAt, UpdatedAt, IsDeleted)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`;
+
+          const attachmentId = crypto.randomUUID().toUpperCase();
+          this.executeUpdate(attachmentQuery, [
+            attachmentId,
+            attachment.Filename,
+            attachment.Blob as Uint8Array,
+            itemId,
+            currentDateTime,
+            currentDateTime,
+            0
+          ]);
+        }
+      }
+
+      // 5. Insert TOTP codes
       if (totpCodes) {
         for (const totpCode of totpCodes) {
           // Skip deleted codes
@@ -988,14 +995,14 @@ export class SqliteClient {
           }
 
           const totpCodeQuery = `
-            INSERT INTO TotpCodes (Id, Name, SecretKey, CredentialId, CreatedAt, UpdatedAt, IsDeleted)
+            INSERT INTO TotpCodes (Id, Name, SecretKey, ItemId, CreatedAt, UpdatedAt, IsDeleted)
             VALUES (?, ?, ?, ?, ?, ?, ?)`;
 
           this.executeUpdate(totpCodeQuery, [
             totpCode.Id || crypto.randomUUID().toUpperCase(),
             totpCode.Name,
             totpCode.SecretKey,
-            credentialId,
+            itemId,
             currentDateTime,
             currentDateTime,
             0
@@ -1004,7 +1011,7 @@ export class SqliteClient {
       }
 
       await this.commitTransaction();
-      return credentialId;
+      return itemId;
 
     } catch (error) {
       this.rollbackTransaction();
@@ -1105,8 +1112,8 @@ export class SqliteClient {
   }
 
   /**
-   * Get TOTP codes for a credential
-   * @param credentialId - The ID of the credential to get TOTP codes for
+   * Get TOTP codes for a credential (alias for getTotpCodesForItem)
+   * @param credentialId - The ID of the item to get TOTP codes for
    * @returns Array of TotpCode objects
    */
   public getTotpCodesForCredential(credentialId: string): TotpCode[] {
@@ -1129,9 +1136,9 @@ export class SqliteClient {
           Id,
           Name,
           SecretKey,
-          CredentialId
+          ItemId
         FROM TotpCodes
-        WHERE CredentialId = ? AND IsDeleted = 0`;
+        WHERE ItemId = ? AND IsDeleted = 0`;
 
       return this.executeQuery<TotpCode>(query, [credentialId]);
     } catch (error) {
@@ -1142,9 +1149,9 @@ export class SqliteClient {
   }
 
   /**
-   * Get attachments for a specific credential
-   * @param credentialId - The ID of the credential
-   * @returns Array of attachments for the credential
+   * Get attachments for a specific credential (alias for getAttachmentsForItem)
+   * @param credentialId - The ID of the item
+   * @returns Array of attachments for the item
    */
   public getAttachmentsForCredential(credentialId: string): Attachment[] {
     if (!this.db) {
@@ -1161,12 +1168,12 @@ export class SqliteClient {
           Id,
           Filename,
           Blob,
-          CredentialId,
+          ItemId,
           CreatedAt,
           UpdatedAt,
           IsDeleted
         FROM Attachments
-        WHERE CredentialId = ? AND IsDeleted = 0`;
+        WHERE ItemId = ? AND IsDeleted = 0`;
       return this.executeQuery<Attachment>(query, [credentialId]);
     } catch (error) {
       console.error('Error getting attachments:', error);
@@ -1284,7 +1291,7 @@ export class SqliteClient {
         UPDATE Passkeys
         SET IsDeleted = 1,
             UpdatedAt = ?
-        WHERE CredentialId = ?`;
+        WHERE ItemId = ?`;
 
       const results = this.executeUpdate(query, [currentDateTime, credentialId]);
       this.executeUpdate(aliasQuery, [currentDateTime, credentialId]);
@@ -1473,7 +1480,7 @@ export class SqliteClient {
           if (!isExistingAttachment) {
             // Insert new attachment
             const insertQuery = `
-              INSERT INTO Attachments (Id, Filename, Blob, CredentialId, CreatedAt, UpdatedAt, IsDeleted)
+              INSERT INTO Attachments (Id, Filename, Blob, ItemId, CreatedAt, UpdatedAt, IsDeleted)
               VALUES (?, ?, ?, ?, ?, ?, ?)`;
             this.executeUpdate(insertQuery, [
               attachment.Id,
@@ -1529,7 +1536,7 @@ export class SqliteClient {
           if (!isExistingTotpCode) {
             // Insert new TOTP code
             const insertQuery = `
-              INSERT INTO TotpCodes (Id, Name, SecretKey, CredentialId, CreatedAt, UpdatedAt, IsDeleted)
+              INSERT INTO TotpCodes (Id, Name, SecretKey, ItemId, CreatedAt, UpdatedAt, IsDeleted)
               VALUES (?, ?, ?, ?, ?, ?, ?)`;
             this.executeUpdate(insertQuery, [
               totpCode.Id || crypto.randomUUID().toUpperCase(),
@@ -1730,7 +1737,7 @@ export class SqliteClient {
     const query = `
       SELECT
         p.Id,
-        p.CredentialId,
+        p.ItemId,
         p.RpId,
         p.UserHandle,
         p.PublicKey,
@@ -1741,11 +1748,10 @@ export class SqliteClient {
         p.CreatedAt,
         p.UpdatedAt,
         p.IsDeleted,
-        c.Username,
-        s.Name as ServiceName
+        i.Name as ServiceName,
+        (SELECT fv.Value FROM FieldValues fv WHERE fv.ItemId = i.Id AND fv.FieldKey = '${FieldKey.LoginUsername}' AND fv.IsDeleted = 0 LIMIT 1) as Username
       FROM Passkeys p
-      LEFT JOIN Credentials c ON p.CredentialId = c.Id
-      LEFT JOIN Services s ON c.ServiceId = s.Id
+      LEFT JOIN Items i ON p.ItemId = i.Id
       WHERE p.RpId = ? AND p.IsDeleted = 0
       ORDER BY p.CreatedAt DESC
     `;
@@ -1755,7 +1761,7 @@ export class SqliteClient {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return results.map((row: any) => ({
       Id: row.Id,
-      CredentialId: row.CredentialId,
+      ItemId: row.ItemId,
       RpId: row.RpId,
       UserHandle: row.UserHandle,
       PublicKey: row.PublicKey,
@@ -1784,7 +1790,7 @@ export class SqliteClient {
     const query = `
       SELECT
         p.Id,
-        p.CredentialId,
+        p.ItemId,
         p.RpId,
         p.UserHandle,
         p.PublicKey,
@@ -1795,11 +1801,10 @@ export class SqliteClient {
         p.CreatedAt,
         p.UpdatedAt,
         p.IsDeleted,
-        c.Username,
-        s.Name as ServiceName
+        i.Name as ServiceName,
+        (SELECT fv.Value FROM FieldValues fv WHERE fv.ItemId = i.Id AND fv.FieldKey = '${FieldKey.LoginUsername}' AND fv.IsDeleted = 0 LIMIT 1) as Username
       FROM Passkeys p
-      LEFT JOIN Credentials c ON p.CredentialId = c.Id
-      LEFT JOIN Services s ON c.ServiceId = s.Id
+      LEFT JOIN Items i ON p.ItemId = i.Id
       WHERE p.Id = ? AND p.IsDeleted = 0
     `;
 
@@ -1813,7 +1818,7 @@ export class SqliteClient {
     const row: any = results[0];
     return {
       Id: row.Id,
-      CredentialId: row.CredentialId,
+      ItemId: row.ItemId,
       RpId: row.RpId,
       UserHandle: row.UserHandle,
       PublicKey: row.PublicKey,
@@ -1830,11 +1835,11 @@ export class SqliteClient {
   }
 
   /**
-   * Get all passkeys for a specific credential
-   * @param credentialId - The credential ID
+   * Get all passkeys for a specific item
+   * @param itemId - The item ID
    * @returns Array of passkey objects
    */
-  public getPasskeysByCredentialId(credentialId: string): Passkey[] {
+  public getPasskeysByItemId(itemId: string): Passkey[] {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
@@ -1842,7 +1847,7 @@ export class SqliteClient {
     const query = `
       SELECT
         p.Id,
-        p.CredentialId,
+        p.ItemId,
         p.RpId,
         p.UserHandle,
         p.PublicKey,
@@ -1854,16 +1859,16 @@ export class SqliteClient {
         p.UpdatedAt,
         p.IsDeleted
       FROM Passkeys p
-      WHERE p.CredentialId = ? AND p.IsDeleted = 0
+      WHERE p.ItemId = ? AND p.IsDeleted = 0
       ORDER BY p.CreatedAt DESC
     `;
 
-    const results = this.executeQuery(query, [credentialId]);
+    const results = this.executeQuery(query, [itemId]);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return results.map((row: any) => ({
       Id: row.Id,
-      CredentialId: row.CredentialId,
+      ItemId: row.ItemId,
       RpId: row.RpId,
       UserHandle: row.UserHandle,
       PublicKey: row.PublicKey,
@@ -1878,7 +1883,7 @@ export class SqliteClient {
   }
 
   /**
-   * Create a new passkey linked to a credential
+   * Create a new passkey linked to an item
    * @param passkey - The passkey object to create
    */
   public async createPasskey(passkey: Omit<Passkey, 'CreatedAt' | 'UpdatedAt' | 'IsDeleted'>): Promise<void> {
@@ -1893,7 +1898,7 @@ export class SqliteClient {
 
       const query = `
         INSERT INTO Passkeys (
-          Id, CredentialId, RpId, UserHandle, PublicKey, PrivateKey,
+          Id, ItemId, RpId, UserHandle, PublicKey, PrivateKey,
           PrfKey, DisplayName, AdditionalData, CreatedAt, UpdatedAt, IsDeleted
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -1913,7 +1918,7 @@ export class SqliteClient {
 
       this.executeUpdate(query, [
         passkey.Id,
-        passkey.CredentialId,
+        passkey.ItemId,
         passkey.RpId,
         userHandleData,
         passkey.PublicKey,
@@ -1968,11 +1973,11 @@ export class SqliteClient {
   }
 
   /**
-   * Delete all passkeys for a specific credential (soft delete)
-   * @param credentialId - The ID of the credential
+   * Delete all passkeys for a specific item (soft delete)
+   * @param itemId - The ID of the item
    * @returns The number of rows updated
    */
-  public async deletePasskeysByCredentialId(credentialId: string): Promise<number> {
+  public async deletePasskeysByItemId(itemId: string): Promise<number> {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
@@ -1986,16 +1991,16 @@ export class SqliteClient {
         UPDATE Passkeys
         SET IsDeleted = 1,
             UpdatedAt = ?
-        WHERE CredentialId = ?
+        WHERE ItemId = ?
       `;
 
-      const result = this.executeUpdate(query, [currentDateTime, credentialId]);
+      const result = this.executeUpdate(query, [currentDateTime, itemId]);
 
       await this.commitTransaction();
       return result;
     } catch (error) {
       this.rollbackTransaction();
-      console.error('Error deleting passkeys for credential:', error);
+      console.error('Error deleting passkeys for item:', error);
       throw error;
     }
   }

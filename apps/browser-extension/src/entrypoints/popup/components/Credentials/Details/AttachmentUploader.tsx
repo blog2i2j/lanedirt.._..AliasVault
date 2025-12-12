@@ -40,7 +40,7 @@ const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
           Id: crypto.randomUUID(),
           Filename: file.name,
           Blob: byteArray,
-          CredentialId: '', // Will be set when saving credential
+          ItemId: '', // Will be set when saving item
           CreatedAt: new Date().toISOString(),
           UpdatedAt: new Date().toISOString(),
           IsDeleted: false,

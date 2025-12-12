@@ -5,7 +5,7 @@ export type Attachment = {
     Id: string;
     Filename: string;
     Blob: Uint8Array | number[];
-    CredentialId: string;
+    ItemId: string;
     CreatedAt: string;
     UpdatedAt: string;
     IsDeleted?: boolean;

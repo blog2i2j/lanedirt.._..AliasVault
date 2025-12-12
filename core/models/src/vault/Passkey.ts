@@ -5,8 +5,8 @@ export type Passkey = {
     /** The ID of the passkey */
     Id: string;
 
-    /** The credential ID foreign key */
-    CredentialId: string;
+    /** The item ID foreign key */
+    ItemId: string;
 
     /** The relying party identifier */
     RpId: string;

@@ -598,7 +598,7 @@ const CredentialAddEdit: React.FC = () => {
 
         // Delete passkeys if marked for deletion
         if (passkeyMarkedForDeletion) {
-          await dbContext.sqliteClient!.deletePasskeysByCredentialId(data.Id);
+          await dbContext.sqliteClient!.deletePasskeysByItemId(data.Id);
         }
       } else {
         const credentialId = await dbContext.sqliteClient!.createCredential(data, attachments, totpCodes);

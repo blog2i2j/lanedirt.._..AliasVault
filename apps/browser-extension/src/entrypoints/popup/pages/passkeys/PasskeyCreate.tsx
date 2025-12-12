@@ -261,13 +261,13 @@ const PasskeyCreate: React.FC = () => {
       // Use vault mutation to store both credential and passkey
       await executeVaultMutationAsync(async () => {
         if (selectedPasskeyToReplace) {
-          // Replace existing passkey: update the credential and passkey
+          // Replace existing passkey: update the item and passkey
           const existingPasskey = dbContext.sqliteClient!.getPasskeyById(selectedPasskeyToReplace);
           if (existingPasskey) {
-            // Update the parent credential with new favicon and user-provided display name
+            // Update the parent item with new favicon and user-provided display name
             await dbContext.sqliteClient!.updateCredentialById(
               {
-                Id: existingPasskey.CredentialId,
+                Id: existingPasskey.ItemId,
                 ServiceName: displayName,
                 ServiceUrl: request.origin,
                 Username: request.publicKey.user.name,
@@ -291,7 +291,7 @@ const PasskeyCreate: React.FC = () => {
             await dbContext.sqliteClient!.deletePasskeyById(selectedPasskeyToReplace);
 
             /**
-             * Create new passkey with same credential
+             * Create new passkey with same item
              * Convert userId from base64 string to byte array for database storage
              */
             let userHandleBytes: Uint8Array | null = null;
@@ -306,7 +306,7 @@ const PasskeyCreate: React.FC = () => {
 
             await dbContext.sqliteClient!.createPasskey({
               Id: newPasskeyGuid,
-              CredentialId: existingPasskey.CredentialId,
+              ItemId: existingPasskey.ItemId,
               RpId: stored.rpId,
               UserHandle: userHandleBytes,
               PublicKey: JSON.stringify(stored.publicKey),
@@ -317,8 +317,8 @@ const PasskeyCreate: React.FC = () => {
             });
           }
         } else {
-          // Create new credential and passkey
-          const credentialId = await dbContext.sqliteClient!.createCredential(
+          // Create new item and passkey
+          const itemId = await dbContext.sqliteClient!.createCredential(
             {
               Id: '',
               ServiceName: displayName,
@@ -340,7 +340,7 @@ const PasskeyCreate: React.FC = () => {
           );
 
           /**
-           * Create the Passkey linked to the credential
+           * Create the Passkey linked to the item
            * Note: We let the database generate a GUID for Id, which we'll convert to base64url for the RP
            * Convert userId from base64 string to byte array for database storage
            */
@@ -356,7 +356,7 @@ const PasskeyCreate: React.FC = () => {
 
           await dbContext.sqliteClient!.createPasskey({
             Id: newPasskeyGuid,
-            CredentialId: credentialId,
+            ItemId: itemId,
             RpId: stored.rpId,
             UserHandle: userHandleBytes,
             PublicKey: JSON.stringify(stored.publicKey),

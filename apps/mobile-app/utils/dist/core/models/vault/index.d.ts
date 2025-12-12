@@ -48,8 +48,8 @@ type TotpCode = {
     Name: string;
     /** The secret key for the TOTP code */
     SecretKey: string;
-    /** The credential ID this TOTP code belongs to */
-    CredentialId: string;
+    /** The item ID this TOTP code belongs to */
+    ItemId: string;
     /** Whether the TOTP code has been deleted (soft delete) */
     IsDeleted?: boolean;
 };
@@ -94,7 +94,7 @@ type Attachment = {
     Id: string;
     Filename: string;
     Blob: Uint8Array | number[];
-    CredentialId: string;
+    ItemId: string;
     CreatedAt: string;
     UpdatedAt: string;
     IsDeleted?: boolean;
@@ -106,8 +106,8 @@ type Attachment = {
 type Passkey = {
     /** The ID of the passkey */
     Id: string;
-    /** The credential ID foreign key */
-    CredentialId: string;
+    /** The item ID foreign key */
+    ItemId: string;
     /** The relying party identifier */
     RpId: string;
     /** The user handle (user ID) provided by the relying party - stored as byte array (BLOB) */
@@ -443,10 +443,6 @@ type FieldCategory = typeof FieldCategories[keyof typeof FieldCategories];
  * System field definition with metadata.
  * System fields are predefined fields with immutable keys like 'login.username'.
  * Their metadata (type, etc.) is defined here in code, not in the database.
- *
- * NOTE: Labels are NOT included here. Each client must implement their own
- * translations based on the FieldKey. If no translation exists, the FieldKey
- * can be displayed as a fallback.
  */
 type SystemFieldDefinition = {
     /** Unique system field key (e.g., 'login.username') */

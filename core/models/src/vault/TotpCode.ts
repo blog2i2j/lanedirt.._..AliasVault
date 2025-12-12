@@ -11,8 +11,8 @@ export type TotpCode = {
     /** The secret key for the TOTP code */
     SecretKey: string;
 
-    /** The credential ID this TOTP code belongs to */
-    CredentialId: string;
+    /** The item ID this TOTP code belongs to */
+    ItemId: string;
 
     /** Whether the TOTP code has been deleted (soft delete) */
     IsDeleted?: boolean;
