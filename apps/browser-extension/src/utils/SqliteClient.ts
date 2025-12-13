@@ -268,7 +268,6 @@ export class SqliteClient {
       Alias: {
         FirstName: fields[FieldKey.AliasFirstName] || undefined,
         LastName: fields[FieldKey.AliasLastName] || undefined,
-        NickName: fields[FieldKey.AliasNickname] || undefined,
         BirthDate: fields[FieldKey.AliasBirthdate] || '',
         Gender: fields[FieldKey.AliasGender] || undefined,
         Email: fields[FieldKey.LoginEmail] || undefined
@@ -351,7 +350,6 @@ export class SqliteClient {
         Alias: {
           FirstName: fields[FieldKey.AliasFirstName] || undefined,
           LastName: fields[FieldKey.AliasLastName] || undefined,
-          NickName: fields[FieldKey.AliasNickname] || undefined,
           BirthDate: fields[FieldKey.AliasBirthdate] || '',
           Gender: fields[FieldKey.AliasGender] || undefined,
           Email: fields[FieldKey.LoginEmail] || undefined
@@ -945,7 +943,6 @@ export class SqliteClient {
         { key: FieldKey.LoginNotes, value: credential.Notes ?? null },
         { key: FieldKey.AliasFirstName, value: credential.Alias?.FirstName ?? null },
         { key: FieldKey.AliasLastName, value: credential.Alias?.LastName ?? null },
-        { key: FieldKey.AliasNickname, value: credential.Alias?.NickName ?? null },
         { key: FieldKey.AliasBirthdate, value: credential.Alias?.BirthDate ?? null },
         { key: FieldKey.AliasGender, value: credential.Alias?.Gender ?? null },
         { key: FieldKey.LoginEmail, value: credential.Alias?.Email ?? null },
@@ -1381,7 +1378,6 @@ export class SqliteClient {
         UPDATE Aliases
         SET FirstName = ?,
             LastName = ?,
-            NickName = ?,
             BirthDate = ?,
             Gender = ?,
             Email = ?,
@@ -1405,7 +1401,6 @@ export class SqliteClient {
       this.executeUpdate(aliasQuery, [
         credential.Alias.FirstName ?? null,
         credential.Alias.LastName ?? null,
-        credential.Alias.NickName ?? null,
         birthDate ?? null,
         credential.Alias.Gender ?? null,
         credential.Alias.Email ?? null,

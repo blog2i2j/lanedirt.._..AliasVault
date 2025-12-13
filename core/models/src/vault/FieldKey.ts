@@ -176,12 +176,6 @@ export const FieldKey = {
   AliasLastName: 'alias.last_name',
 
   /**
-   * Alias nickname field
-   * Type: Text
-   */
-  AliasNickname: 'alias.nickname',
-
-  /**
    * Alias gender field
    * Type: Text
    */

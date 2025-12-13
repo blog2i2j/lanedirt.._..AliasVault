@@ -142,11 +142,6 @@ object FieldKey {
     /**
      * Type: Text.
      */
-    const val ALIAS_NICKNAME = "alias.nickname"
-
-    /**
-     * Type: Text.
-     */
     const val ALIAS_GENDER = "alias.gender"
 
     /**

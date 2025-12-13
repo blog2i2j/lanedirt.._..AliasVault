@@ -81,7 +81,6 @@ type Credential = {
 type Alias = {
     FirstName?: string;
     LastName?: string;
-    NickName?: string;
     BirthDate: string;
     Gender?: string;
     Email?: string;
@@ -281,11 +280,6 @@ declare const FieldKey: {
      * Type: Text
      */
     readonly AliasLastName: "alias.last_name";
-    /**
-     * Alias nickname field
-     * Type: Text
-     */
-    readonly AliasNickname: "alias.nickname";
     /**
      * Alias gender field
      * Type: Text

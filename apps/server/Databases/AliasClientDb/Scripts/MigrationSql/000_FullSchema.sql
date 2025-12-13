@@ -824,7 +824,6 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
                     WHEN a.Id IS NOT NULL AND (
                       (a.FirstName IS NOT NULL AND a.FirstName != '') OR
                       (a.LastName IS NOT NULL AND a.LastName != '') OR
-                      (a.NickName IS NOT NULL AND a.NickName != '') OR
                       (a.Gender IS NOT NULL AND a.Gender != '') OR
                       (a.BirthDate IS NOT NULL AND a.BirthDate != '' AND a.BirthDate NOT LIKE '0001-%')
                     ) THEN 'Alias'
@@ -992,23 +991,6 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
                 FROM Credentials c
                 INNER JOIN Aliases a ON a.Id = c.AliasId
                 WHERE a.LastName IS NOT NULL AND a.LastName != '';
-            
-
-
-                INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
-                SELECT
-                  lower(hex(randomblob(16))) AS Id,
-                  c.Id AS ItemId,
-                  NULL AS FieldDefinitionId,
-                  'alias.nickname' AS FieldKey,
-                  a.NickName AS Value,
-                  0 AS Weight,
-                  a.UpdatedAt AS CreatedAt,
-                  a.UpdatedAt AS UpdatedAt,
-                  0 AS IsDeleted
-                FROM Credentials c
-                INNER JOIN Aliases a ON a.Id = c.AliasId
-                WHERE a.NickName IS NOT NULL AND a.NickName != '';
             
 
 

@@ -208,7 +208,6 @@ const CredentialsList: React.FC = () => {
       passesTypeFilter = !!(
         (credential.Alias?.FirstName && credential.Alias.FirstName.trim()) ||
         (credential.Alias?.LastName && credential.Alias.LastName.trim()) ||
-        (credential.Alias?.NickName && credential.Alias.NickName.trim()) ||
         (credential.Alias?.Gender && credential.Alias.Gender.trim()) ||
         (credential.Alias?.BirthDate && credential.Alias.BirthDate.trim())
       );
@@ -217,7 +216,6 @@ const CredentialsList: React.FC = () => {
       const hasAliasFields = !!(
         (credential.Alias?.FirstName && credential.Alias.FirstName.trim()) ||
         (credential.Alias?.LastName && credential.Alias.LastName.trim()) ||
-        (credential.Alias?.NickName && credential.Alias.NickName.trim()) ||
         (credential.Alias?.Gender && credential.Alias.Gender.trim()) ||
         (credential.Alias?.BirthDate && credential.Alias.BirthDate.trim())
       );

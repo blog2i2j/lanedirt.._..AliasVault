@@ -325,7 +325,6 @@ const PasskeyCreate: React.FC = () => {
                 Alias: {
                   FirstName: '',
                   LastName: '',
-                  NickName: '',
                   BirthDate: '',
                   Gender: '',
                   Email: ''
@@ -405,7 +404,6 @@ const PasskeyCreate: React.FC = () => {
               Alias: {
                 FirstName: '',
                 LastName: '',
-                NickName: '',
                 BirthDate: '',
                 Gender: '',
                 Email: ''

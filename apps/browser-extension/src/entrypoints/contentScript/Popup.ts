@@ -255,7 +255,6 @@ export async function createAutofillPopup(input: HTMLInputElement, credentials: 
           Username: result.customUsername,
           Password: result.customPassword ?? '',
           Alias: {
-            NickName: result.customUsername ?? '',
             BirthDate: '',
             Email: result.customEmail ?? ''
           }
@@ -293,7 +292,6 @@ export async function createAutofillPopup(input: HTMLInputElement, credentials: 
           Alias: {
             FirstName: identity.firstName,
             LastName: identity.lastName,
-            NickName: identity.nickName,
             BirthDate: identity.birthDate.toISOString(),
             Gender: identity.gender,
             Email: `${identity.emailPrefix}@${domain}`

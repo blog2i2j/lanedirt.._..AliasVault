@@ -26,7 +26,6 @@ export type Credential = {
 export type Alias = {
     FirstName?: string;
     LastName?: string;
-    NickName?: string;
     BirthDate: string;
     Gender?: string;
     Email?: string;

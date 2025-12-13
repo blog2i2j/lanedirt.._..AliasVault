@@ -86,9 +86,6 @@ public struct FieldKey {
     public static let aliasLastName = "alias.last_name"
 
     /// Type: Text
-    public static let aliasNickname = "alias.nickname"
-
-    /// Type: Text
     public static let aliasGender = "alias.gender"
 
     /// Type: Date

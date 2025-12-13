@@ -12,7 +12,6 @@ type GeneratedAliasData = {
   email: string;
   firstName: string;
   lastName: string;
-  nickname: string;
   gender: string;
   birthdate: string;
   username: string;
@@ -96,7 +95,6 @@ const useAliasGenerator = (): {
         email,
         firstName: identity.firstName,
         lastName: identity.lastName,
-        nickname: identity.nickName,
         gender: identity.gender,
         birthdate: IdentityHelperUtils.normalizeBirthDateForDisplay(identity.birthDate.toISOString()),
         username: identity.nickName,

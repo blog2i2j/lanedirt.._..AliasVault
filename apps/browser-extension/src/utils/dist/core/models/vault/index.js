@@ -135,11 +135,6 @@ var FieldKey = {
    */
   AliasLastName: "alias.last_name",
   /**
-   * Alias nickname field
-   * Type: Text
-   */
-  AliasNickname: "alias.nickname",
-  /**
    * Alias gender field
    * Type: Text
    */
@@ -229,7 +224,6 @@ function itemToCredential(item) {
     Alias: {
       FirstName: getFieldValue(item, FieldKey.AliasFirstName),
       LastName: getFieldValue(item, FieldKey.AliasLastName),
-      NickName: getFieldValue(item, FieldKey.AliasNickname),
       BirthDate: getFieldValue(item, FieldKey.AliasBirthdate) || "",
       Gender: getFieldValue(item, FieldKey.AliasGender),
       Email: getFieldValue(item, FieldKey.LoginEmail)
@@ -325,18 +319,6 @@ var SystemFieldRegistry = {
     EnableHistory: false,
     Category: FieldCategories.Alias,
     DefaultDisplayOrder: 30
-  },
-  "alias.nickname": {
-    FieldKey: "alias.nickname",
-    FieldType: "Text",
-    IsHidden: false,
-    IsMultiValue: false,
-    ApplicableToTypes: {
-      Alias: { ShowByDefault: true }
-    },
-    EnableHistory: false,
-    Category: FieldCategories.Alias,
-    DefaultDisplayOrder: 40
   },
   "alias.gender": {
     FieldKey: "alias.gender",

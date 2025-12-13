@@ -143,18 +143,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
     Category: FieldCategories.Alias,
     DefaultDisplayOrder: 30
   },
-  'alias.nickname': {
-    FieldKey: 'alias.nickname',
-    FieldType: 'Text',
-    IsHidden: false,
-    IsMultiValue: false,
-    ApplicableToTypes: {
-      Alias: { ShowByDefault: true }
-    },
-    EnableHistory: false,
-    Category: FieldCategories.Alias,
-    DefaultDisplayOrder: 40
-  },
   'alias.gender': {
     FieldKey: 'alias.gender',
     FieldType: 'Text',

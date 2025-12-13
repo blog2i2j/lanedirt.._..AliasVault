@@ -304,7 +304,6 @@ const ItemAddEdit: React.FC = () => {
         // Always update alias identity fields
         'alias.first_name': generatedData.firstName,
         'alias.last_name': generatedData.lastName,
-        'alias.nickname': generatedData.nickname,
         'alias.gender': generatedData.gender,
         'alias.birthdate': generatedData.birthdate
       };
@@ -612,6 +611,25 @@ const ItemAddEdit: React.FC = () => {
     setManuallyAddedFields(prev => new Set(prev).add(fieldKey));
   }, []);
 
+  /**
+   * Handle removing an optional system field (e.g., email for Login type).
+   * Only allowed for fields that were manually added (not shown by default).
+   */
+  const handleRemoveOptionalField = useCallback((fieldKey: string): void => {
+    // Remove from manually added set
+    setManuallyAddedFields(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(fieldKey);
+      return newSet;
+    });
+    // Clear the field value
+    setFieldValues(prev => {
+      const newValues = { ...prev };
+      delete newValues[fieldKey];
+      return newValues;
+    });
+  }, []);
+
   // Set header buttons
   useEffect(() => {
     const headerButtonsJSX = (
@@ -640,8 +658,9 @@ const ItemAddEdit: React.FC = () => {
 
   /**
    * Render a field input based on field type.
+   * @param onRemove - Optional callback to render an X button inside the input for removable fields
    */
-  const renderFieldInput = useCallback((fieldKey: string, label: string, fieldType: FieldType, isHidden: boolean, isMultiValue: boolean): React.ReactNode => {
+  const renderFieldInput = useCallback((fieldKey: string, label: string, fieldType: FieldType, isHidden: boolean, isMultiValue: boolean, onRemove?: () => void): React.ReactNode => {
     const value = fieldValues[fieldKey] || '';
 
     // Handle multi-value fields
@@ -687,9 +706,37 @@ const ItemAddEdit: React.FC = () => {
     // Single-value fields
     const stringValue = Array.isArray(value) ? value[0] || '' : value;
 
+    /**
+     * Wraps an input element with a remove button overlay for removable fields.
+     * @param inputElement - The input element to wrap
+     * @param hasLabel - Whether the input has a label (affects button positioning)
+     * @returns The wrapped element with remove button, or the original element if not removable
+     */
+    const wrapWithRemoveButton = (inputElement: React.ReactNode, hasLabel: boolean = true): React.ReactNode => {
+      if (!onRemove) {
+        return inputElement;
+      }
+      return (
+        <div className="relative">
+          {inputElement}
+          <button
+            type="button"
+            onClick={onRemove}
+            className={`absolute right-2 ${hasLabel ? 'top-[38px]' : 'top-1/2'} -translate-y-1/2 w-6 h-6 flex items-center justify-center text-gray-300 hover:text-red-400 dark:text-gray-500 dark:hover:text-red-400 transition-colors`}
+            title={t('common.delete')}
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      );
+    };
+
     switch (fieldType) {
       case FieldTypes.Password:
-        return (
+        return wrapWithRemoveButton(
           <PasswordField
             id={fieldKey}
             label={label}
@@ -701,7 +748,7 @@ const ItemAddEdit: React.FC = () => {
         );
 
       case FieldTypes.Hidden:
-        return (
+        return wrapWithRemoveButton(
           <HiddenField
             id={fieldKey}
             label={label}
@@ -711,7 +758,7 @@ const ItemAddEdit: React.FC = () => {
         );
 
       case FieldTypes.TextArea:
-        return (
+        return wrapWithRemoveButton(
           <div>
             <label htmlFor={fieldKey} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               {label}
@@ -721,7 +768,7 @@ const ItemAddEdit: React.FC = () => {
               value={stringValue}
               onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
               rows={4}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
+              className={`w-full px-3 py-2 ${onRemove ? 'pr-10' : ''} border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white`}
               placeholder={label}
             />
           </div>
@@ -734,7 +781,7 @@ const ItemAddEdit: React.FC = () => {
       case FieldTypes.Date:
       case FieldTypes.Text:
       default:
-        return (
+        return wrapWithRemoveButton(
           <FormInput
             id={fieldKey}
             label={label}
@@ -746,7 +793,7 @@ const ItemAddEdit: React.FC = () => {
         );
     }
 
-  }, [fieldValues, handleFieldChange, showPassword]);
+  }, [fieldValues, handleFieldChange, showPassword, t]);
 
   /**
    * Handle form submission via Enter key.
@@ -852,45 +899,70 @@ const ItemAddEdit: React.FC = () => {
         const categoryFields = groupedSystemFields[category];
         // Filter fields to only show those that should be visible
         const visibleFields = categoryFields.filter(field => shouldShowField(field));
-        // Find email field for potential "+ Email" button
-        const emailField = categoryFields.find(f => f.FieldKey === 'login.email');
+        // Find email field for potential "+ Email" button (only for Login category)
+        const emailField = category === 'Login' ? categoryFields.find(f => f.FieldKey === 'login.email') : null;
         const showEmailAddButton = emailField && !shouldShowField(emailField);
 
-        // Don't render category section if no visible fields
-        if (visibleFields.length === 0 && !showEmailAddButton) {
+        // Sort login fields: email first, then username, then password, then others
+        const sortedVisibleFields = category === 'Login'
+          ? [...visibleFields].sort((a, b) => {
+            const order: Record<string, number> = {
+              'login.email': 0,
+              'login.username': 1,
+              'login.password': 2
+            };
+            const aOrder = order[a.FieldKey] ?? 99;
+            const bOrder = order[b.FieldKey] ?? 99;
+            return aOrder - bOrder;
+          })
+          : visibleFields;
+
+        // Don't render category section if no visible fields and no add button
+        if (sortedVisibleFields.length === 0 && !showEmailAddButton) {
           return null;
         }
 
         return (
           <FormSection
             key={category}
-            title={getCategoryTitle(category)}
-            actions={renderSectionActions(category)}
-          >
-            {visibleFields.map(field => (
-              <React.Fragment key={field.FieldKey}>
-                {renderFieldInput(
-                  field.FieldKey,
-                  t(`fieldLabels.${field.FieldKey}`, { defaultValue: field.FieldKey }),
-                  field.FieldType,
-                  field.IsHidden,
-                  field.IsMultiValue
-                )}
-                {/* Show "+ Email" button after username field when email is hidden */}
-                {field.FieldKey === 'login.username' && showEmailAddButton && (
+            title={
+              <div className="flex items-center gap-2">
+                <span>{getCategoryTitle(category)}</span>
+                {/* Show "+ Email" pill button next to Credentials header when email is hidden */}
+                {showEmailAddButton && (
                   <button
                     type="button"
                     onClick={() => handleAddOptionalField('login.email')}
-                    className="mt-1 text-xs text-primary-500 hover:text-primary-600 dark:text-primary-400 dark:hover:text-primary-300 flex items-center gap-1"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full transition-colors focus:outline-none text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 border border-dashed border-gray-300 dark:border-gray-600 hover:border-primary-400 dark:hover:border-primary-500"
                   >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    <svg className="w-2.5 h-2.5 -ml-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
                     </svg>
-                    {t('credentials.addEmail')}
+                    <span>{t('common.email')}</span>
                   </button>
                 )}
-              </React.Fragment>
-            ))}
+              </div>
+            }
+            actions={renderSectionActions(category)}
+          >
+            {sortedVisibleFields.map(field => {
+              // Check if this is an optional field that can be removed (manually added, not shown by default)
+              const canRemoveField = item && manuallyAddedFields.has(field.FieldKey) && !isFieldShownByDefault(field, item.ItemType);
+
+              return (
+                <React.Fragment key={field.FieldKey}>
+                  {renderFieldInput(
+                    field.FieldKey,
+                    t(`fieldLabels.${field.FieldKey}`, { defaultValue: field.FieldKey }),
+                    field.FieldType,
+                    field.IsHidden,
+                    field.IsMultiValue,
+                    canRemoveField ? (): void => handleRemoveOptionalField(field.FieldKey) : undefined
+                  )}
+                </React.Fragment>
+              );
+            })}
           </FormSection>
         );
       })}

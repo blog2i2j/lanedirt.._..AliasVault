@@ -69,7 +69,6 @@ const CredentialAddEdit: React.FC = () => {
     Alias: Yup.object().shape({
       FirstName: Yup.string().nullable().optional(),
       LastName: Yup.string().nullable().optional(),
-      NickName: Yup.string().nullable().optional(),
       BirthDate: Yup.string()
         .nullable()
         .optional()
@@ -133,7 +132,6 @@ const CredentialAddEdit: React.FC = () => {
       Alias: {
         FirstName: "",
         LastName: "",
-        NickName: "",
         BirthDate: "",
         Gender: undefined,
         Email: ""
@@ -437,7 +435,6 @@ const CredentialAddEdit: React.FC = () => {
     }
     setValue('Alias.FirstName', identity.firstName);
     setValue('Alias.LastName', identity.lastName);
-    setValue('Alias.NickName', identity.nickName);
     setValue('Alias.Gender', identity.gender);
     setValue('Alias.BirthDate', IdentityHelperUtils.normalizeBirthDateForDisplay(identity.birthDate.toISOString()));
 
@@ -465,13 +462,12 @@ const CredentialAddEdit: React.FC = () => {
   const clearAliasFields = useCallback(() => {
     setValue('Alias.FirstName', '');
     setValue('Alias.LastName', '');
-    setValue('Alias.NickName', '');
     setValue('Alias.Gender', '');
     setValue('Alias.BirthDate', '');
   }, [setValue]);
 
   //  Check if any alias fields have values.
-  const hasAliasValues = !!(watch('Alias.FirstName') || watch('Alias.LastName') || watch('Alias.NickName') || watch('Alias.Gender') || watch('Alias.BirthDate'));
+  const hasAliasValues = !!(watch('Alias.FirstName') || watch('Alias.LastName') || watch('Alias.Gender') || watch('Alias.BirthDate'));
 
   /**
    * Handle the generate random alias button press.
@@ -488,13 +484,12 @@ const CredentialAddEdit: React.FC = () => {
     try {
       const firstName = watch('Alias.FirstName') ?? '';
       const lastName = watch('Alias.LastName') ?? '';
-      const nickName = watch('Alias.NickName') ?? '';
       const birthDate = watch('Alias.BirthDate') ?? '';
 
       let username: string;
 
       // If alias fields are empty, generate a completely random username
-      if (!firstName && !lastName && !nickName && !birthDate) {
+      if (!firstName && !lastName && !birthDate) {
         const { identityGenerator } = await initializeGenerators();
         const genderPreference = dbContext.sqliteClient!.getDefaultIdentityGender();
         const ageRange = dbContext.sqliteClient!.getDefaultIdentityAgeRange();
@@ -521,7 +516,7 @@ const CredentialAddEdit: React.FC = () => {
         const identity: Identity = {
           firstName,
           lastName,
-          nickName,
+          nickName: '', // nickName is auto-generated but no longer stored as a separate alias field
           gender,
           birthDate: parsedBirthDate,
           emailPrefix: watch('Alias.Email') ?? '',
@@ -561,7 +556,6 @@ const CredentialAddEdit: React.FC = () => {
       data.Password = watch('Password');
       data.Alias.FirstName = watch('Alias.FirstName');
       data.Alias.LastName = watch('Alias.LastName');
-      data.Alias.NickName = watch('Alias.NickName');
       data.Alias.BirthDate = watch('Alias.BirthDate');
       data.Alias.Gender = watch('Alias.Gender');
       data.Alias.Email = watch('Alias.Email');
@@ -948,13 +942,6 @@ const CredentialAddEdit: React.FC = () => {
                   value={watch('Alias.LastName') ?? ''}
                   onChange={(value) => setValue('Alias.LastName', value)}
                   error={errors.Alias?.LastName?.message}
-                />
-                <FormInput
-                  id="nickName"
-                  label={t('credentials.nickName')}
-                  value={watch('Alias.NickName') ?? ''}
-                  onChange={(value) => setValue('Alias.NickName', value)}
-                  error={errors.Alias?.NickName?.message}
                 />
                 <FormInput
                   id="gender"

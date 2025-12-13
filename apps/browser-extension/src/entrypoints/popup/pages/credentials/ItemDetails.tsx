@@ -177,7 +177,17 @@ const ItemDetails: React.FC = (): React.ReactElement => {
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 {t('common.credentials')}
               </h2>
-              {groupedFields.Login.map((field) => (
+              {/* Sort login fields: email first, then username, then password, then others */}
+              {[...groupedFields.Login].sort((a, b) => {
+                const order: Record<string, number> = {
+                  'login.email': 0,
+                  'login.username': 1,
+                  'login.password': 2
+                };
+                const aOrder = order[a.FieldKey] ?? 99;
+                const bOrder = order[b.FieldKey] ?? 99;
+                return aOrder - bOrder;
+              }).map((field) => (
                 <FieldBlock key={field.FieldKey} field={field} itemId={item.Id} />
               ))}
             </div>

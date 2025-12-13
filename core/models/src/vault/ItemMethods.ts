@@ -93,7 +93,6 @@ export function itemToCredential(item: Item): Credential {
     Alias: {
       FirstName: getFieldValue(item, FieldKey.AliasFirstName),
       LastName: getFieldValue(item, FieldKey.AliasLastName),
-      NickName: getFieldValue(item, FieldKey.AliasNickname),
       BirthDate: getFieldValue(item, FieldKey.AliasBirthdate) || '',
       Gender: getFieldValue(item, FieldKey.AliasGender),
       Email: getFieldValue(item, FieldKey.LoginEmail)

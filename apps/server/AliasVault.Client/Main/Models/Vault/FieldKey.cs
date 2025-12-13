@@ -143,11 +143,6 @@ public static class FieldKey
     /// <summary>
     /// Type: Text
     /// </summary>
-    public const string AliasNickname = "alias.nickname";
-
-    /// <summary>
-    /// Type: Text
-    /// </summary>
     public const string AliasGender = "alias.gender";
 
     /// <summary>
