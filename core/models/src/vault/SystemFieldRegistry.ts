@@ -18,6 +18,7 @@ export const FieldCategories = {
   Login: 'Login',
   Alias: 'Alias',
   Card: 'Card',
+  Custom: 'Custom',
   Metadata: 'Metadata',
 } as const;
 

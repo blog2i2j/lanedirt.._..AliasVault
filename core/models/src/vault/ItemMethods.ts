@@ -1,6 +1,7 @@
 import type { Item, ItemField } from './Item';
 import type { Credential } from './Credential';
 import { FieldKey } from './FieldKey';
+import { FieldCategories } from './SystemFieldRegistry';
 
 /**
  * Helper functions for working with Item model
@@ -57,23 +58,20 @@ export function groupFields(
 }
 
 /**
- * Group fields by standard categories (Login, Alias, Custom)
+ * Group fields by standard categories (Login, Alias, Card, Custom)
  */
 export function groupFieldsByCategory(item: Item): Record<string, ItemField[]> {
   return groupFields(item, (field) => {
     if (field.FieldKey.startsWith('login.')) {
-      return 'Login';
+      return FieldCategories.Login;
     }
     if (field.FieldKey.startsWith('alias.')) {
-      return 'Alias';
+      return FieldCategories.Alias;
     }
     if (field.FieldKey.startsWith('card.')) {
-      return 'Card';
+      return FieldCategories.Card;
     }
-    if (field.FieldKey.startsWith('identity.')) {
-      return 'Identity';
-    }
-    return 'Custom';
+    return FieldCategories.Custom;
   });
 }
 

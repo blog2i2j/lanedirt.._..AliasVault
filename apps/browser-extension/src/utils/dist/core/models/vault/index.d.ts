@@ -404,7 +404,7 @@ declare function hasField(item: Item, fieldKey: string): boolean;
  */
 declare function groupFields(item: Item, grouper: (field: ItemField) => string): Record<string, ItemField[]>;
 /**
- * Group fields by standard categories (Login, Alias, Custom)
+ * Group fields by standard categories (Login, Alias, Card, Custom)
  */
 declare function groupFieldsByCategory(item: Item): Record<string, ItemField[]>;
 /**
@@ -430,6 +430,7 @@ declare const FieldCategories: {
     readonly Login: "Login";
     readonly Alias: "Alias";
     readonly Card: "Card";
+    readonly Custom: "Custom";
     readonly Metadata: "Metadata";
 };
 /**

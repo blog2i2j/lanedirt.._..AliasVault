@@ -5,7 +5,7 @@ import { FormInputCopyToClipboard } from '@/entrypoints/popup/components/Forms/F
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 
 import type { ItemField } from '@/utils/dist/core/models/vault';
-import { getSystemField } from '@/utils/dist/core/models/vault';
+import { FieldTypes, getSystemField } from '@/utils/dist/core/models/vault';
 
 import FieldHistoryModal from './FieldHistoryModal';
 
@@ -74,7 +74,7 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId }) => {
             id={`${field.FieldKey}-${idx}`}
             label={idx === 0 ? label : `${label} ${idx + 1}`}
             value={value}
-            type={field.FieldType === 'Password' ? 'password' : 'text'}
+            type={field.FieldType === FieldTypes.Password ? 'password' : 'text'}
           />
         ))}
       </div>
@@ -112,8 +112,8 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId }) => {
 
   // Render based on field type
   switch (field.FieldType) {
-    case 'Password':
-    case 'Hidden':
+    case FieldTypes.Password:
+    case FieldTypes.Hidden:
       return (
         <>
           <FormInputCopyToClipboard
@@ -127,7 +127,7 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId }) => {
         </>
       );
 
-    case 'TextArea':
+    case FieldTypes.TextArea:
       // Use NotesBlock-style rendering for multi-line text
       return (
         <div>
@@ -143,12 +143,12 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId }) => {
         </div>
       );
 
-    case 'Email':
-    case 'URL':
-    case 'Phone':
-    case 'Date':
-    case 'Number':
-    case 'Text':
+    case FieldTypes.Email:
+    case FieldTypes.URL:
+    case FieldTypes.Phone:
+    case FieldTypes.Date:
+    case FieldTypes.Number:
+    case FieldTypes.Text:
     default:
       return (
         <>

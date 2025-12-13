@@ -192,7 +192,7 @@ const ItemAddEdit: React.FC = () => {
    * Primary fields (like URL) that should be shown in the name block.
    */
   const primaryFields = useMemo(() => {
-    return applicableSystemFields.filter(field => field.Category === 'Primary');
+    return applicableSystemFields.filter(field => field.Category === FieldCategories.Primary);
   }, [applicableSystemFields]);
 
   /**
@@ -203,15 +203,15 @@ const ItemAddEdit: React.FC = () => {
 
     applicableSystemFields.forEach(field => {
       // Skip metadata fields (notes) - handled separately
-      if (field.Category === 'Metadata') {
+      if (field.Category === FieldCategories.Metadata) {
         return;
       }
       // Skip primary fields - rendered in name block
-      if (field.Category === 'Primary') {
+      if (field.Category === FieldCategories.Primary) {
         return;
       }
 
-      const category = field.Category || 'Other';
+      const category = field.Category;
       if (!groups[category]) {
         groups[category] = [];
       }
@@ -1225,11 +1225,11 @@ const ItemAddEdit: React.FC = () => {
         // Filter fields to only show those that should be visible
         const visibleFields = categoryFields.filter(field => shouldShowField(field));
         // Find email field for potential "+ Email" button (only for Login category)
-        const emailField = category === 'Login' ? categoryFields.find(f => f.FieldKey === 'login.email') : null;
+        const emailField = category === FieldCategories.Login ? categoryFields.find(f => f.FieldKey === 'login.email') : null;
         const showEmailAddButton = emailField && !shouldShowField(emailField);
 
         // Sort login fields: email first, then username, then password, then others
-        const sortedVisibleFields = category === 'Login'
+        const sortedVisibleFields = category === FieldCategories.Login
           ? [...visibleFields].sort((a, b) => {
             const order: Record<string, number> = {
               'login.email': 0,

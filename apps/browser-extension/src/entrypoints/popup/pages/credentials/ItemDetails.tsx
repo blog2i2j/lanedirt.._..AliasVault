@@ -17,7 +17,7 @@ import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 import { PopoutUtility } from '@/entrypoints/popup/utils/PopoutUtility';
 
 import type { Item } from '@/utils/dist/core/models/vault';
-import { ItemTypes } from '@/utils/dist/core/models/vault';
+import { FieldCategories, FieldTypes, ItemTypes } from '@/utils/dist/core/models/vault';
 import { groupFieldsByCategory } from '@/utils/dist/core/models/vault';
 import { EmailPreview } from '../../components/EmailPreview';
 
@@ -103,12 +103,12 @@ const ItemDetails: React.FC = (): React.ReactElement => {
   }
 
   // Extract URL fields for prominent display
-  const urlFields = item.Fields.filter(field => field.FieldType === 'URL' && field.Value);
+  const urlFields = item.Fields.filter(field => field.FieldType === FieldTypes.URL && field.Value);
 
   // Create a modified item without URL fields for grouping
   const itemWithoutUrls = {
     ...item,
-    Fields: item.Fields.filter(field => field.FieldType !== 'URL')
+    Fields: item.Fields.filter(field => field.FieldType !== FieldTypes.URL)
   };
 
   // Group fields by category for organized display (excluding URLs)
@@ -181,13 +181,13 @@ const ItemDetails: React.FC = (): React.ReactElement => {
       {/* Render fields dynamically by category */}
       {Object.keys(groupedFields).length > 0 && (
         <>
-          {groupedFields.Login && groupedFields.Login.length > 0 && (
+          {groupedFields[FieldCategories.Login] && groupedFields[FieldCategories.Login].length > 0 && (
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 {t('common.credentials')}
               </h2>
               {/* Sort login fields: email first, then username, then password, then others */}
-              {[...groupedFields.Login].sort((a, b) => {
+              {[...groupedFields[FieldCategories.Login]].sort((a, b) => {
                 const order: Record<string, number> = {
                   'login.email': 0,
                   'login.username': 1,
@@ -202,45 +202,34 @@ const ItemDetails: React.FC = (): React.ReactElement => {
             </div>
           )}
 
-          {groupedFields.Alias && groupedFields.Alias.length > 0 && (
+          {groupedFields[FieldCategories.Alias] && groupedFields[FieldCategories.Alias].length > 0 && (
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 {t('credentials.alias')}
               </h2>
-              {groupedFields.Alias.map((field) => (
+              {groupedFields[FieldCategories.Alias].map((field) => (
                 <FieldBlock key={field.FieldKey} field={field} itemId={item.Id} />
               ))}
             </div>
           )}
 
-          {groupedFields.Card && groupedFields.Card.length > 0 && (
+          {groupedFields[FieldCategories.Card] && groupedFields[FieldCategories.Card].length > 0 && (
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 {t('credentials.cardInformation')}
               </h2>
-              {groupedFields.Card.map((field) => (
+              {groupedFields[FieldCategories.Card].map((field) => (
                 <FieldBlock key={field.FieldKey} field={field} itemId={item.Id} />
               ))}
             </div>
           )}
 
-          {groupedFields.Identity && groupedFields.Identity.length > 0 && (
-            <div className="space-y-2">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                {t('credentials.identityInformation')}
-              </h2>
-              {groupedFields.Identity.map((field) => (
-                <FieldBlock key={field.FieldKey} field={field} itemId={item.Id} />
-              ))}
-            </div>
-          )}
-
-          {groupedFields.Custom && groupedFields.Custom.length > 0 && (
+          {groupedFields[FieldCategories.Custom] && groupedFields[FieldCategories.Custom].length > 0 && (
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 {t('common.customFields')}
               </h2>
-              {groupedFields.Custom.map((field) => (
+              {groupedFields[FieldCategories.Custom].map((field) => (
                 <FieldBlock key={field.FieldKey} field={field} itemId={item.Id} />
               ))}
             </div>

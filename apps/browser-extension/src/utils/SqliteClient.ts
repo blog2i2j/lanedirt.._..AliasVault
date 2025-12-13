@@ -3,7 +3,7 @@ import initSqlJs, { Database } from 'sql.js';
 import * as dateFormatter from '@/utils/dateFormatter';
 import type { Credential, EncryptionKey, PasswordSettings, TotpCode, Passkey, Item, ItemField, ItemTagRef, FieldType, FieldHistory } from '@/utils/dist/core/models/vault';
 import type { Attachment } from '@/utils/dist/core/models/vault';
-import { FieldKey, getSystemField, MAX_FIELD_HISTORY_RECORDS } from '@/utils/dist/core/models/vault';
+import { FieldKey, FieldTypes, getSystemField, MAX_FIELD_HISTORY_RECORDS } from '@/utils/dist/core/models/vault';
 import type { VaultVersion } from '@/utils/dist/core/vault';
 import { VaultSqlGenerator, checkVersionCompatibility, extractVersionFromMigrationId } from '@/utils/dist/core/vault';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
@@ -436,7 +436,7 @@ export class SqliteClient {
           ItemId: row.ItemId,
           FieldKey: row.FieldKey,
           Label: row.FieldKey, // Use FieldKey as label; UI layer translates via fieldLabels.*
-          FieldType: systemField?.FieldType || 'Text',
+          FieldType: systemField?.FieldType || FieldTypes.Text,
           IsHidden: systemField?.IsHidden ? 1 : 0,
           Value: row.Value,
           DisplayOrder: row.DisplayOrder
@@ -447,7 +447,7 @@ export class SqliteClient {
           ItemId: row.ItemId,
           FieldKey: row.FieldDefinitionId || '', // Use FieldDefinitionId as the key for custom fields
           Label: row.CustomLabel || '',
-          FieldType: row.CustomFieldType || 'Text',
+          FieldType: row.CustomFieldType || FieldTypes.Text,
           IsHidden: row.CustomIsHidden || 0,
           Value: row.Value,
           DisplayOrder: row.DisplayOrder
@@ -630,7 +630,7 @@ export class SqliteClient {
           uniqueFields[fieldKey] = {
             FieldKey: row.FieldKey,
             Label: row.FieldKey, // Use FieldKey as label; UI layer translates via fieldLabels.*
-            FieldType: systemField?.FieldType || 'Text',
+            FieldType: systemField?.FieldType || FieldTypes.Text,
             IsHidden: systemField?.IsHidden ? 1 : 0,
             DisplayOrder: row.DisplayOrder
           };
@@ -639,7 +639,7 @@ export class SqliteClient {
           uniqueFields[fieldKey] = {
             FieldKey: fieldKey,
             Label: row.CustomLabel || '',
-            FieldType: row.CustomFieldType || 'Text',
+            FieldType: row.CustomFieldType || FieldTypes.Text,
             IsHidden: row.CustomIsHidden || 0,
             DisplayOrder: row.DisplayOrder
           };
@@ -3005,7 +3005,7 @@ export class SqliteClient {
           ItemId: row.ItemId,
           FieldKey: row.FieldKey,
           Label: row.FieldKey, // UI layer translates via fieldLabels.*
-          FieldType: systemField?.FieldType || 'Text',
+          FieldType: systemField?.FieldType || FieldTypes.Text,
           IsHidden: systemField?.IsHidden ? 1 : 0,
           Value: row.Value,
           DisplayOrder: row.DisplayOrder
@@ -3015,7 +3015,7 @@ export class SqliteClient {
           ItemId: row.ItemId,
           FieldKey: row.FieldDefinitionId || '',
           Label: row.CustomLabel || '',
-          FieldType: row.CustomFieldType || 'Text',
+          FieldType: row.CustomFieldType || FieldTypes.Text,
           IsHidden: row.CustomIsHidden || 0,
           Value: row.Value,
           DisplayOrder: row.DisplayOrder

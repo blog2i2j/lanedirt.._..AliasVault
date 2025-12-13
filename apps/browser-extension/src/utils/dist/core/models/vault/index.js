@@ -165,80 +165,13 @@ var FieldTypes = {
   TextArea: "TextArea"
 };
 
-// src/vault/ItemMethods.ts
-function getFieldValue(item, fieldKey) {
-  const field = item.Fields.find((f) => f.FieldKey === fieldKey);
-  if (!field) {
-    return void 0;
-  }
-  return Array.isArray(field.Value) ? field.Value[0] : field.Value;
-}
-function getFieldValues(item, fieldKey) {
-  const field = item.Fields.find((f) => f.FieldKey === fieldKey);
-  if (!field) {
-    return [];
-  }
-  return Array.isArray(field.Value) ? field.Value : [field.Value];
-}
-function hasField(item, fieldKey) {
-  const value = getFieldValue(item, fieldKey);
-  return value !== void 0 && value !== "";
-}
-function groupFields(item, grouper) {
-  const groups = {};
-  item.Fields.forEach((field) => {
-    const group = grouper(field);
-    if (!groups[group]) {
-      groups[group] = [];
-    }
-    groups[group].push(field);
-  });
-  return groups;
-}
-function groupFieldsByCategory(item) {
-  return groupFields(item, (field) => {
-    if (field.FieldKey.startsWith("login.")) {
-      return "Login";
-    }
-    if (field.FieldKey.startsWith("alias.")) {
-      return "Alias";
-    }
-    if (field.FieldKey.startsWith("card.")) {
-      return "Card";
-    }
-    if (field.FieldKey.startsWith("identity.")) {
-      return "Identity";
-    }
-    return "Custom";
-  });
-}
-function itemToCredential(item) {
-  return {
-    Id: item.Id,
-    Username: getFieldValue(item, FieldKey.LoginUsername),
-    Password: getFieldValue(item, FieldKey.LoginPassword) || "",
-    ServiceName: item.Name || "",
-    ServiceUrl: getFieldValue(item, FieldKey.LoginUrl),
-    Logo: item.Logo,
-    Notes: getFieldValue(item, FieldKey.LoginNotes),
-    Alias: {
-      FirstName: getFieldValue(item, FieldKey.AliasFirstName),
-      LastName: getFieldValue(item, FieldKey.AliasLastName),
-      BirthDate: getFieldValue(item, FieldKey.AliasBirthdate) || "",
-      Gender: getFieldValue(item, FieldKey.AliasGender),
-      Email: getFieldValue(item, FieldKey.LoginEmail)
-    },
-    HasPasskey: item.HasPasskey,
-    HasAttachment: item.HasAttachment
-  };
-}
-
 // src/vault/SystemFieldRegistry.ts
 var FieldCategories = {
   Primary: "Primary",
   Login: "Login",
   Alias: "Alias",
   Card: "Card",
+  Custom: "Custom",
   Metadata: "Metadata"
 };
 var SystemFieldRegistry = {
@@ -464,6 +397,71 @@ function getAllSystemFieldKeys() {
 }
 function isSystemFieldPrefix(fieldKey) {
   return fieldKey.startsWith("login.") || fieldKey.startsWith("alias.") || fieldKey.startsWith("card.") || fieldKey.startsWith("identity.") || fieldKey.startsWith("api.") || fieldKey.startsWith("note.") || fieldKey.startsWith("metadata.");
+}
+
+// src/vault/ItemMethods.ts
+function getFieldValue(item, fieldKey) {
+  const field = item.Fields.find((f) => f.FieldKey === fieldKey);
+  if (!field) {
+    return void 0;
+  }
+  return Array.isArray(field.Value) ? field.Value[0] : field.Value;
+}
+function getFieldValues(item, fieldKey) {
+  const field = item.Fields.find((f) => f.FieldKey === fieldKey);
+  if (!field) {
+    return [];
+  }
+  return Array.isArray(field.Value) ? field.Value : [field.Value];
+}
+function hasField(item, fieldKey) {
+  const value = getFieldValue(item, fieldKey);
+  return value !== void 0 && value !== "";
+}
+function groupFields(item, grouper) {
+  const groups = {};
+  item.Fields.forEach((field) => {
+    const group = grouper(field);
+    if (!groups[group]) {
+      groups[group] = [];
+    }
+    groups[group].push(field);
+  });
+  return groups;
+}
+function groupFieldsByCategory(item) {
+  return groupFields(item, (field) => {
+    if (field.FieldKey.startsWith("login.")) {
+      return FieldCategories.Login;
+    }
+    if (field.FieldKey.startsWith("alias.")) {
+      return FieldCategories.Alias;
+    }
+    if (field.FieldKey.startsWith("card.")) {
+      return FieldCategories.Card;
+    }
+    return FieldCategories.Custom;
+  });
+}
+function itemToCredential(item) {
+  return {
+    Id: item.Id,
+    Username: getFieldValue(item, FieldKey.LoginUsername),
+    Password: getFieldValue(item, FieldKey.LoginPassword) || "",
+    ServiceName: item.Name || "",
+    ServiceUrl: getFieldValue(item, FieldKey.LoginUrl),
+    Logo: item.Logo,
+    Notes: getFieldValue(item, FieldKey.LoginNotes),
+    Alias: {
+      FirstName: getFieldValue(item, FieldKey.AliasFirstName),
+      LastName: getFieldValue(item, FieldKey.AliasLastName),
+      BirthDate: getFieldValue(item, FieldKey.AliasBirthdate) || "",
+      Gender: getFieldValue(item, FieldKey.AliasGender),
+      Email: getFieldValue(item, FieldKey.LoginEmail)
+    },
+    HasPasskey: item.HasPasskey,
+    HasAttachment: item.HasAttachment
+  };
 }
 
 // src/vault/FieldHistory.ts

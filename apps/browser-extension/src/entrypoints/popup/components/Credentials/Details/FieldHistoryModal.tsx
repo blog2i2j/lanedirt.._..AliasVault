@@ -5,6 +5,7 @@ import { FormInputCopyToClipboard } from '@/entrypoints/popup/components/Forms/F
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 
 import type { FieldHistory, FieldType } from '@/utils/dist/core/models/vault';
+import { FieldTypes } from '@/utils/dist/core/models/vault';
 
 type FieldHistoryModalProps = {
   isOpen: boolean;
@@ -37,7 +38,7 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
   const [loading, setLoading] = useState(true);
 
   // For non-hidden fields, show values by default
-  const shouldMaskByDefault = isHidden || fieldType === 'Password' || fieldType === 'Hidden';
+  const shouldMaskByDefault = isHidden || fieldType === FieldTypes.Password || fieldType === FieldTypes.Hidden;
 
   useEffect(() => {
     if (!isOpen || !dbContext?.sqliteClient) {
