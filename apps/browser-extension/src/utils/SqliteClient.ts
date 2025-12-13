@@ -2155,18 +2155,21 @@ export class SqliteClient {
       const currentDateTime = dateFormatter.now();
       const itemId = item.Id || crypto.randomUUID().toUpperCase();
 
-      // 1. Handle Logo - get or create logo entry
+      // 1. Handle Logo - get or create logo entry, or link to existing logo by source
       let logoId: string | null = null;
+      const urlField = item.Fields?.find(f => f.FieldKey === 'login.url');
+      const urlValue = urlField?.Value;
+      const urlString = Array.isArray(urlValue) ? urlValue[0] : urlValue;
+      const source = SqliteClient.extractSourceFromUrl(urlString);
+
       if (item.Logo) {
         const logoData = SqliteClient.convertLogoToUint8Array(item.Logo);
         if (logoData) {
-          // Extract source from URL field
-          const urlField = item.Fields?.find(f => f.FieldKey === 'login.url');
-          const urlValue = urlField?.Value;
-          const urlString = Array.isArray(urlValue) ? urlValue[0] : urlValue;
-          const source = SqliteClient.extractSourceFromUrl(urlString);
           logoId = this.getOrCreateLogoId(source, logoData, currentDateTime);
         }
+      } else if (source !== 'unknown') {
+        // No new logo provided, but check if an existing logo exists for this source
+        logoId = this.getLogoIdForSource(source);
       }
 
       // 2. Insert Item
@@ -2333,21 +2336,27 @@ export class SqliteClient {
 
       const currentDateTime = dateFormatter.now();
 
-      // 1. Handle Logo - get or create logo entry
+      // 1. Handle Logo - get or create logo entry, or link to existing logo by source
       let logoId: string | null = null;
+      const urlField = item.Fields?.find(f => f.FieldKey === 'login.url');
+      const urlValue = urlField?.Value;
+      const urlString = Array.isArray(urlValue) ? urlValue[0] : urlValue;
+      const source = SqliteClient.extractSourceFromUrl(urlString);
+
       if (item.Logo) {
         const logoData = SqliteClient.convertLogoToUint8Array(item.Logo);
         if (logoData) {
-          // Extract source from URL field
-          const urlField = item.Fields?.find(f => f.FieldKey === 'login.url');
-          const urlValue = urlField?.Value;
-          const urlString = Array.isArray(urlValue) ? urlValue[0] : urlValue;
-          const source = SqliteClient.extractSourceFromUrl(urlString);
           logoId = this.getOrCreateLogoId(source, logoData, currentDateTime);
         }
+      } else if (source !== 'unknown') {
+        /*
+         * No new logo provided, but check if an existing logo exists for this source.
+         * This handles the case where URL was changed to a domain we already have a logo for.
+         */
+        logoId = this.getLogoIdForSource(source);
       }
 
-      // 2. Update Item (including LogoId if a new logo was provided)
+      // 2. Update Item (including LogoId if a new logo was provided or existing one found)
       const itemQuery = `
         UPDATE Items
         SET Name = ?,
@@ -2845,6 +2854,7 @@ export class SqliteClient {
   /**
    * Permanently delete an item - converts to tombstone for sync.
    * Hard deletes all child entities and marks item as IsDeleted=1.
+   * Also cleans up orphaned logos (logos no longer referenced by any item).
    * @param itemId - The ID of the item to permanently delete
    * @returns The number of rows updated
    */
@@ -2858,6 +2868,11 @@ export class SqliteClient {
 
       const currentDateTime = dateFormatter.now();
 
+      // 0. Get the LogoId before we clear it (for orphan cleanup)
+      const logoQuery = `SELECT LogoId FROM Items WHERE Id = ?`;
+      const logoResult = this.executeQuery<{ LogoId: string | null }>(logoQuery, [itemId]);
+      const logoId = logoResult.length > 0 ? logoResult[0].LogoId : null;
+
       // 1. Hard delete all FieldValues for this item
       this.executeUpdate(`DELETE FROM FieldValues WHERE ItemId = ?`, [itemId]);
 
@@ -2870,7 +2885,7 @@ export class SqliteClient {
       // 4. Hard delete all TotpCodes for this item
       this.executeUpdate(`DELETE FROM TotpCodes WHERE ItemId = ?`, [itemId]);
 
-      // 5. Hard delete all Attachments for this item
+      // 5. Hard delete all Attachments for this item (including blob data)
       this.executeUpdate(`DELETE FROM Attachments WHERE ItemId = ?`, [itemId]);
 
       // 6. Hard delete all ItemTags for this item
@@ -2887,6 +2902,21 @@ export class SqliteClient {
         WHERE Id = ?`;
 
       const result = this.executeUpdate(itemQuery, [currentDateTime, itemId]);
+
+      // 8. Clean up orphaned logo if this was the last item using it
+      if (logoId) {
+        const logoUsageQuery = `
+          SELECT COUNT(*) as count FROM Items
+          WHERE LogoId = ? AND IsDeleted = 0`;
+        const usageResult = this.executeQuery<{ count: number }>(logoUsageQuery, [logoId]);
+        const usageCount = usageResult.length > 0 ? usageResult[0].count : 0;
+
+        if (usageCount === 0) {
+          // No other items reference this logo, hard delete it
+          this.executeUpdate(`DELETE FROM Logos WHERE Id = ?`, [logoId]);
+          console.debug(`[SqliteClient] Deleted orphaned logo: ${logoId}`);
+        }
+      }
 
       await this.commitTransaction();
       return result;

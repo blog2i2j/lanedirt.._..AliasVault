@@ -1,5 +1,3 @@
-import { Buffer } from 'buffer';
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -31,8 +29,8 @@ import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 import { SKIP_FORM_RESTORE_KEY } from '@/utils/Constants';
 import type { Item, ItemField, ItemType, FieldType, Attachment, TotpCode } from '@/utils/dist/core/models/vault';
 import { FieldCategories, FieldTypes, ItemTypes, getSystemFieldsForItemType, isFieldShownByDefault } from '@/utils/dist/core/models/vault';
+import { FaviconService } from '@/utils/FaviconService';
 import { ServiceDetectionUtility } from '@/utils/serviceDetection/ServiceDetectionUtility';
-import { SqliteClient } from '@/utils/SqliteClient';
 
 import { browser } from '#imports';
 
@@ -338,8 +336,10 @@ const ItemAddEdit: React.FC = () => {
         ? itemTypeParam
         : DEFAULT_ITEM_TYPE;
 
-      // Get URL parameters for service detection (e.g., from content script popout)
-      // Use searchParams from react-router which handles hash-based routing correctly
+      /*
+       * Get URL parameters for service detection (e.g., from content script popout)
+       * Use searchParams from react-router which handles hash-based routing correctly
+       */
       const serviceNameFromUrl = searchParams.get('serviceName');
       const serviceUrlFromUrl = searchParams.get('serviceUrl');
       const currentUrl = searchParams.get('currentUrl');
@@ -665,53 +665,21 @@ const ItemAddEdit: React.FC = () => {
         }
       });
 
-      const updatedItem: Item = {
+      let updatedItem: Item = {
         ...item,
         Fields: fields,
         UpdatedAt: new Date().toISOString()
       };
 
-      // Extract favicon from URL if the item has one and no logo exists for this source
-      const urlValue = fieldValues['login.url'];
-      const urlList = Array.isArray(urlValue) ? urlValue : urlValue ? [urlValue] : [];
-      // Find the first valid URL (starts with http://, https://, or www.)
-      const validUrl = urlList.find(url => {
-        const trimmed = url?.trim();
-        return trimmed && (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('www.'));
-      });
-      // Normalize URL: prepend https:// if it starts with www.
-      const urlString = validUrl?.startsWith('www.') ? `https://${validUrl}` : validUrl;
-
-      if (urlString && dbContext?.sqliteClient) {
-        // Extract and normalize the source domain from the URL
-        const source = SqliteClient.extractSourceFromUrl(urlString);
-
-        // Check if a logo already exists for this source
-        if (dbContext.sqliteClient.hasLogoForSource(source)) {
-          console.debug(`[Favicon] Logo already exists for source "${source}", skipping fetch`);
-        } else {
-          console.debug(`[Favicon] No logo found for source "${source}", fetching...`);
-          setLocalLoading(true);
-          try {
-            const timeoutPromise = new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('Favicon extraction timed out')), 5000)
-            );
-
-            const faviconPromise = webApi.get<{ image: string }>('Favicon/Extract?url=' + urlString);
-            const faviconResponse = await Promise.race([faviconPromise, timeoutPromise]) as { image: string };
-
-            console.debug('[Favicon] Response received:', faviconResponse?.image ? 'has image' : 'no image');
-
-            if (faviconResponse?.image) {
-              const decodedImage = Uint8Array.from(Buffer.from(faviconResponse.image, 'base64'));
-              updatedItem.Logo = decodedImage;
-              console.debug('[Favicon] Logo decoded and attached to item');
-            }
-          } catch (err) {
-            // Favicon extraction failed or timed out, this is not a critical error so we can ignore it.
-            console.error('[Favicon] Error extracting favicon:', err);
-          }
-        }
+      // Fetch and attach favicon from URL if needed (handles deduplication internally)
+      if (dbContext?.sqliteClient) {
+        setLocalLoading(true);
+        updatedItem = await FaviconService.fetchAndAttachFavicon(
+          updatedItem,
+          fieldValues['login.url'],
+          dbContext.sqliteClient,
+          webApi
+        );
       }
 
       // Save to database and sync vault
