@@ -27,7 +27,7 @@ const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
       return;
     }
 
-    setStatusMessage('Uploading...');
+    setStatusMessage(t('attachmentUploader.uploading'));
 
     try {
       const newAttachments = [...attachments];
@@ -50,13 +50,13 @@ const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
       }
 
       onAttachmentsChange(newAttachments);
-      setStatusMessage('Files uploaded successfully.');
+      setStatusMessage(t('attachmentUploader.uploadSuccess'));
 
       // Clear status message after 3 seconds
       setTimeout(() => setStatusMessage(''), 3000);
     } catch (error) {
       console.error('Error uploading files:', error);
-      setStatusMessage('Error uploading files.');
+      setStatusMessage(t('attachmentUploader.uploadError'));
       setTimeout(() => setStatusMessage(''), 3000);
     }
 
@@ -78,11 +78,11 @@ const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
       }
 
       onAttachmentsChange(updatedAttachments);
-      setStatusMessage('Attachment deleted successfully.');
+      setStatusMessage(t('attachmentUploader.deleteSuccess'));
       setTimeout(() => setStatusMessage(''), 3000);
     } catch (error) {
       console.error('Error deleting attachment:', error);
-      setStatusMessage('Error deleting attachment.');
+      setStatusMessage(t('attachmentUploader.deleteError'));
       setTimeout(() => setStatusMessage(''), 3000);
     }
   };
@@ -108,7 +108,7 @@ const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
 
         {activeAttachments.length > 0 && (
           <div>
-            <h4 className="mb-2 text-md font-medium text-gray-900 dark:text-white">Current attachments:</h4>
+            <h4 className="mb-2 text-md font-medium text-gray-900 dark:text-white">{t('attachmentUploader.currentAttachments')}</h4>
             <div className="space-y-2">
               {activeAttachments.map(attachment => (
                 <div

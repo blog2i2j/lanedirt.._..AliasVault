@@ -184,7 +184,7 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
                           key={idx}
                           className="flex items-center gap-2 mt-2"
                         >
-                          <div className="flex-1 font-mono text-sm bg-white dark:bg-gray-800 rounded px-3 py-2 border border-gray-200 dark:border-gray-600 break-all">
+                          <div className="flex-1 font-mono text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 rounded px-3 py-2 border border-gray-200 dark:border-gray-600 break-all">
                             {shouldMaskByDefault && !isVisible ? '\u2022'.repeat(12) : value}
                           </div>
                           <button

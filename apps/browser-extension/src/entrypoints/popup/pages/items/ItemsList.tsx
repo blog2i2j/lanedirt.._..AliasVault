@@ -258,13 +258,13 @@ const ItemsList: React.FC = () => {
         {!PopoutUtility.isPopup() && (
           <HeaderButton
             onClick={() => PopoutUtility.openInNewPopup()}
-            title="Open in new window"
+            title={t('common.openInNewWindow')}
             iconType={HeaderIconType.EXPAND}
           />
         )}
         <HeaderButton
           onClick={handleAddItem}
-          title="Add new item"
+          title={t('items.addNewItem')}
           iconType={HeaderIconType.PLUS}
         />
       </div>
@@ -272,7 +272,7 @@ const ItemsList: React.FC = () => {
 
     setHeaderButtons(headerButtonsJSX);
     return () => setHeaderButtons(null);
-  }, [setHeaderButtons, handleAddItem]);
+  }, [setHeaderButtons, handleAddItem, t]);
 
   /**
    * Load items list on mount and on sqlite client change.

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 import type { Item } from '@/utils/dist/core/models/vault';
@@ -19,6 +20,7 @@ type ItemCardProps = {
  *
  */
 const ItemCard: React.FC<ItemCardProps> = ({ item, showFolderPath = false }) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   /**
@@ -51,7 +53,7 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, showFolderPath = false }) => 
    * Get the item name, trimming it to maximum length so it doesn't overflow the UI.
    */
   const getItemName = (itm: Item): string => {
-    let returnValue = 'Untitled';
+    let returnValue = t('items.untitled');
 
     if (itm.Name) {
       returnValue = itm.Name;

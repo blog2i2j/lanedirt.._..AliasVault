@@ -121,7 +121,7 @@ const ItemDetails: React.FC = (): React.ReactElement => {
           <ItemIcon item={item} className="w-12 h-12 rounded-lg" />
           <div>
             <h1 className="text-lg font-bold text-gray-900 dark:text-white">
-              {item.Name || 'Untitled Item'}
+              {item.Name || t('items.untitledItem')}
             </h1>
             {/* Display URLs prominently below title */}
             {urlFields.length > 0 && (

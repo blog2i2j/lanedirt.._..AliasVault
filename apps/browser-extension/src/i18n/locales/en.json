@@ -56,6 +56,7 @@
     "back": "Back",
     "next": "Next",
     "use": "Use",
+    "add": "Add",
     "delete": "Delete",
     "undo": "Undo",
     "save": "Save",
@@ -267,6 +268,12 @@
   },
   "items": {
     "title": "Items",
+    "addItem": "Add Item",
+    "addNewItem": "Add new item",
+    "itemDetails": "Item Details",
+    "editItem": "Edit Item",
+    "untitled": "Untitled",
+    "untitledItem": "Untitled Item",
     "folders": "folders",
     "items": "items",
     "newFolder": "New Folder",
@@ -361,9 +368,18 @@
     "nameOptional": "Name (optional)",
     "secretKey": "Secret Key",
     "saveToViewCode": "Save to view code",
+    "defaultName": "Authenticator",
     "errors": {
       "invalidSecretKey": "Invalid secret key format."
     }
+  },
+  "attachmentUploader": {
+    "uploading": "Uploading...",
+    "uploadSuccess": "Files uploaded successfully.",
+    "uploadError": "Error uploading files.",
+    "deleteSuccess": "Attachment deleted successfully.",
+    "deleteError": "Error deleting attachment.",
+    "currentAttachments": "Current attachments:"
   },
   "emails": {
     "title": "Emails",

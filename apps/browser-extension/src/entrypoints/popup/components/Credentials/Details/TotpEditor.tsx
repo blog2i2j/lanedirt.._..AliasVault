@@ -68,7 +68,7 @@ const TotpEditor: React.FC<TotpEditorProps> = ({
       throw new Error(t('totp.errors.invalidSecretKey'));
     }
 
-    return { secretKey, name: name || 'Authenticator' };
+    return { secretKey, name: name || t('totp.defaultName') };
   };
 
   /**
