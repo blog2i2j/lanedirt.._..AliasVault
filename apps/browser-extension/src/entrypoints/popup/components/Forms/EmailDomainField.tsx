@@ -10,6 +10,20 @@ type EmailDomainFieldProps = {
   onChange: (value: string) => void;
   error?: string;
   required?: boolean;
+  /**
+   * When true, defaults to free text mode (custom domain) instead of domain chooser.
+   * Also changes the toggle button labels to "Generate alias email" / "Enter normal email".
+   */
+  defaultToFreeText?: boolean;
+  /**
+   * Callback to remove this field. When provided, shows an X button in the label.
+   */
+  onRemove?: () => void;
+  /**
+   * Callback to generate an alias email. When provided and defaultToFreeText is true,
+   * clicking "Generate alias email" will call this instead of just toggling mode.
+   */
+  onGenerateAlias?: () => void;
 }
 
 // Hardcoded public email domains (same as in AliasVault.Client)
@@ -36,11 +50,14 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
   value,
   onChange,
   error,
-  required = false
+  required = false,
+  defaultToFreeText = false,
+  onRemove,
+  onGenerateAlias
 }) => {
   const { t } = useTranslation();
   const dbContext = useDb();
-  const [isCustomDomain, setIsCustomDomain] = useState(false);
+  const [isCustomDomain, setIsCustomDomain] = useState(defaultToFreeText);
   const [localPart, setLocalPart] = useState('');
   const [selectedDomain, setSelectedDomain] = useState('');
   const [isPopupVisible, setIsPopupVisible] = useState(false);
@@ -153,10 +170,15 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
 
     if (newIsCustom) {
       /*
-       * Switching to custom domain mode
-       * If we have a domain-based value, extract just the local part
+       * Switching to custom domain mode (free text / normal email)
+       * If defaultToFreeText is true (Login type), clear the field so user can enter their own email
+       * Otherwise, extract just the local part from the domain-based value
        */
-      if (value && value.includes('@')) {
+      if (defaultToFreeText) {
+        // Clear the field for Login type - user wants to enter their own email
+        onChange('');
+        setLocalPart('');
+      } else if (value && value.includes('@')) {
         const [local] = value.split('@');
         onChange(local);
         setLocalPart(local);
@@ -176,7 +198,7 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
         onChange(`${value}@${defaultDomain}`);
       }
     }
-  }, [isCustomDomain, value, localPart, showPrivateDomains, privateEmailDomains, onChange]);
+  }, [isCustomDomain, value, localPart, showPrivateDomains, privateEmailDomains, onChange, defaultToFreeText]);
 
   // Handle clicks outside the popup
   useEffect(() => {
@@ -197,12 +219,39 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
     }
   }, [isPopupVisible]);
 
+  /**
+   * Handle the "Generate alias email" button click.
+   * Calls onGenerateAlias if provided, and switches to domain chooser mode.
+   */
+  const handleGenerateAliasClick = useCallback(() => {
+    if (onGenerateAlias) {
+      onGenerateAlias();
+    }
+    // Always switch to domain chooser mode
+    setIsCustomDomain(false);
+  }, [onGenerateAlias]);
+
   return (
     <div className="space-y-2">
-      <label htmlFor={id} className="block font-medium text-gray-700 dark:text-gray-300">
-        {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
-      </label>
+      <div className="flex items-center justify-between">
+        <label htmlFor={id} className="block font-medium text-gray-700 dark:text-gray-300">
+          {label}
+          {required && <span className="text-red-500 ml-1">*</span>}
+        </label>
+        {onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-red-400 dark:text-gray-500 dark:hover:text-red-400 transition-colors"
+            title={t('common.delete')}
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        )}
+      </div>
 
       <div className="relative w-full">
         <div className="flex w-full">
@@ -216,7 +265,7 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
             } focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white`}
             value={isCustomDomain ? value : localPart}
             onChange={handleLocalPartChange}
-            placeholder={isCustomDomain ? t('credentials.enterFullEmail') : t('credentials.enterEmailPrefix')}
+            placeholder={isCustomDomain ? t('credentials.enterRealEmail') : t('credentials.enterEmailPrefix')}
           />
 
           {!isCustomDomain && (
@@ -300,12 +349,12 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
       <div>
         <button
           type="button"
-          onClick={toggleCustomDomain}
+          onClick={isCustomDomain && defaultToFreeText ? handleGenerateAliasClick : toggleCustomDomain}
           className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
         >
           {isCustomDomain
-            ? t('credentials.useDomainChooser')
-            : t('credentials.enterCustomDomain')}
+            ? (defaultToFreeText ? t('credentials.generateAliasEmail') : t('credentials.useDomainChooser'))
+            : (defaultToFreeText ? t('credentials.enterNormalEmail') : t('credentials.enterCustomDomain'))}
         </button>
       </div>
 

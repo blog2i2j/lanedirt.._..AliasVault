@@ -6,7 +6,8 @@ import {
   TotpBlock,
   AttachmentBlock,
   FieldBlock,
-  PasskeyBlock
+  PasskeyBlock,
+  EmailBlock
 } from '@/entrypoints/popup/components/Credentials/Details';
 import HeaderButton from '@/entrypoints/popup/components/HeaderButton';
 import { HeaderIconType } from '@/entrypoints/popup/components/Icons/HeaderIcons';
@@ -158,6 +159,14 @@ const ItemDetails: React.FC = (): React.ReactElement => {
           </div>
         </div>
       </div>
+
+      {/* Email block with recent emails - only for Login and Alias types with email field */}
+      {(item.ItemType === ItemTypes.Login || item.ItemType === ItemTypes.Alias) && ((): React.ReactNode => {
+        const emailField = item.Fields.find(f => f.FieldKey === 'login.email');
+        const emailValue = emailField?.Value;
+        const email = Array.isArray(emailValue) ? emailValue[0] : emailValue;
+        return email ? <EmailBlock email={email} /> : null;
+      })()}
 
       {/* TOTP codes - only for Login and Alias types, shown at top */}
       {(item.ItemType === ItemTypes.Login || item.ItemType === ItemTypes.Alias) && (

@@ -886,36 +886,13 @@ export class SqliteClient {
       const currentDateTime = dateFormatter.now();
       const itemId = crypto.randomUUID().toUpperCase();
 
-      // 1. Handle Logo - insert into Logos table if provided
+      // 1. Handle Logo - get or create logo entry
       let logoId: string | null = null;
       if (credential.Logo) {
-        let logoData = null;
-        try {
-          // Handle object-like array conversion
-          if (typeof credential.Logo === 'object' && !ArrayBuffer.isView(credential.Logo)) {
-            const values = Object.values(credential.Logo);
-            logoData = new Uint8Array(values);
-          // Handle existing array types
-          } else if (Array.isArray(credential.Logo) || credential.Logo instanceof ArrayBuffer || credential.Logo instanceof Uint8Array) {
-            logoData = new Uint8Array(credential.Logo);
-          }
-        } catch (error) {
-          console.warn('Failed to convert logo to Uint8Array:', error);
-          logoData = null;
-        }
-
+        const logoData = SqliteClient.convertLogoToUint8Array(credential.Logo);
         if (logoData) {
-          logoId = crypto.randomUUID().toUpperCase();
-          const logoQuery = `
-            INSERT INTO Logos (Id, FileData, CreatedAt, UpdatedAt, IsDeleted)
-            VALUES (?, ?, ?, ?, ?)`;
-          this.executeUpdate(logoQuery, [
-            logoId,
-            logoData,
-            currentDateTime,
-            currentDateTime,
-            0
-          ]);
+          const source = SqliteClient.extractSourceFromUrl(credential.ServiceUrl);
+          logoId = this.getOrCreateLogoId(source, logoData, currentDateTime);
         }
       }
 
@@ -1601,6 +1578,119 @@ export class SqliteClient {
   }
 
   /**
+   * Check if a logo exists for the given source domain.
+   * @param source The normalized source domain (e.g., 'github.com')
+   * @returns True if a logo exists for this source, false otherwise
+   */
+  public hasLogoForSource(source: string): boolean {
+    const existingLogoQuery = `
+      SELECT Id FROM Logos
+      WHERE Source = ? AND IsDeleted = 0
+      LIMIT 1`;
+    const existingLogos = this.executeQuery<{ Id: string }>(existingLogoQuery, [source]);
+    return existingLogos.length > 0;
+  }
+
+  /**
+   * Get the logo ID for a given source domain if it exists.
+   * @param source The normalized source domain (e.g., 'github.com')
+   * @returns The logo ID if found, null otherwise
+   */
+  public getLogoIdForSource(source: string): string | null {
+    const existingLogoQuery = `
+      SELECT Id FROM Logos
+      WHERE Source = ? AND IsDeleted = 0
+      LIMIT 1`;
+    const existingLogos = this.executeQuery<{ Id: string }>(existingLogoQuery, [source]);
+    return existingLogos.length > 0 ? existingLogos[0].Id : null;
+  }
+
+  /**
+   * Get or create a logo ID for the given source domain.
+   * If a logo for this source already exists, returns its ID.
+   * Otherwise, creates a new logo entry and returns its ID.
+   * @param source The normalized source domain (e.g., 'github.com')
+   * @param logoData The logo image data as Uint8Array
+   * @param currentDateTime The current date/time string for timestamps
+   * @returns The logo ID (existing or newly created)
+   */
+  private getOrCreateLogoId(source: string, logoData: Uint8Array, currentDateTime: string): string {
+    // Check if a logo for this source already exists
+    const existingLogoQuery = `
+      SELECT Id FROM Logos
+      WHERE Source = ? AND IsDeleted = 0
+      LIMIT 1`;
+    const existingLogos = this.executeQuery<{ Id: string }>(existingLogoQuery, [source]);
+
+    if (existingLogos.length > 0) {
+      // Reuse existing logo
+      return existingLogos[0].Id;
+    }
+
+    // Create new logo entry
+    const logoId = crypto.randomUUID().toUpperCase();
+    const logoQuery = `
+      INSERT INTO Logos (Id, Source, FileData, CreatedAt, UpdatedAt, IsDeleted)
+      VALUES (?, ?, ?, ?, ?, ?)`;
+    this.executeUpdate(logoQuery, [
+      logoId,
+      source,
+      logoData,
+      currentDateTime,
+      currentDateTime,
+      0
+    ]);
+
+    return logoId;
+  }
+
+  /**
+   * Extract and normalize source domain from a URL string.
+   * @param urlString The URL to extract the domain from
+   * @returns The normalized source domain (e.g., 'github.com'), or 'unknown' if extraction fails
+   */
+  public static extractSourceFromUrl(urlString: string | undefined | null): string {
+    if (!urlString) {
+      return 'unknown';
+    }
+
+    try {
+      const url = new URL(urlString.startsWith('http') ? urlString : `https://${urlString}`);
+      // Normalize hostname by removing www. prefix
+      return url.hostname.replace(/^www\./i, '');
+    } catch {
+      return 'unknown';
+    }
+  }
+
+  /**
+   * Convert logo data from various formats to Uint8Array.
+   * @param logo The logo data in various possible formats
+   * @returns Uint8Array of logo data, or null if conversion fails
+   */
+  private static convertLogoToUint8Array(logo: unknown): Uint8Array | null {
+    if (!logo) {
+      return null;
+    }
+
+    try {
+      // Handle object-like array conversion (from JSON deserialization)
+      if (typeof logo === 'object' && !ArrayBuffer.isView(logo) && !Array.isArray(logo)) {
+        const values = Object.values(logo as Record<string, number>);
+        return new Uint8Array(values);
+      }
+      // Handle existing array types
+      if (Array.isArray(logo) || logo instanceof ArrayBuffer || logo instanceof Uint8Array) {
+        return new Uint8Array(logo as ArrayLike<number>);
+      }
+    } catch (error) {
+      console.warn('Failed to convert logo to Uint8Array:', error);
+    }
+
+    return null;
+  }
+
+  /**
    * Detect MIME type from file signature (magic numbers)
    */
   private static detectMimeType(bytes: Uint8Array): string {
@@ -2063,7 +2153,21 @@ export class SqliteClient {
       const currentDateTime = dateFormatter.now();
       const itemId = item.Id || crypto.randomUUID().toUpperCase();
 
-      // 1. Insert Item
+      // 1. Handle Logo - get or create logo entry
+      let logoId: string | null = null;
+      if (item.Logo) {
+        const logoData = SqliteClient.convertLogoToUint8Array(item.Logo);
+        if (logoData) {
+          // Extract source from URL field
+          const urlField = item.Fields?.find(f => f.FieldKey === 'login.url');
+          const urlValue = urlField?.Value;
+          const urlString = Array.isArray(urlValue) ? urlValue[0] : urlValue;
+          const source = SqliteClient.extractSourceFromUrl(urlString);
+          logoId = this.getOrCreateLogoId(source, logoData, currentDateTime);
+        }
+      }
+
+      // 2. Insert Item
       const itemQuery = `
         INSERT INTO Items (Id, Name, ItemType, LogoId, FolderId, CreatedAt, UpdatedAt, IsDeleted)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
@@ -2072,14 +2176,14 @@ export class SqliteClient {
         itemId,
         item.Name ?? null,
         item.ItemType,
-        null, // LogoId - handle logo separately if needed
+        logoId,
         item.FolderId ?? null,
         currentDateTime,
         currentDateTime,
         0
       ]);
 
-      // 2. Insert FieldValues for all fields
+      // 3. Insert FieldValues for all fields
       if (item.Fields && item.Fields.length > 0) {
         for (const field of item.Fields) {
           // Skip empty fields
@@ -2227,12 +2331,27 @@ export class SqliteClient {
 
       const currentDateTime = dateFormatter.now();
 
-      // 1. Update Item
+      // 1. Handle Logo - get or create logo entry
+      let logoId: string | null = null;
+      if (item.Logo) {
+        const logoData = SqliteClient.convertLogoToUint8Array(item.Logo);
+        if (logoData) {
+          // Extract source from URL field
+          const urlField = item.Fields?.find(f => f.FieldKey === 'login.url');
+          const urlValue = urlField?.Value;
+          const urlString = Array.isArray(urlValue) ? urlValue[0] : urlValue;
+          const source = SqliteClient.extractSourceFromUrl(urlString);
+          logoId = this.getOrCreateLogoId(source, logoData, currentDateTime);
+        }
+      }
+
+      // 2. Update Item (including LogoId if a new logo was provided)
       const itemQuery = `
         UPDATE Items
         SET Name = ?,
             ItemType = ?,
             FolderId = ?,
+            LogoId = COALESCE(?, LogoId),
             UpdatedAt = ?
         WHERE Id = ?`;
 
@@ -2240,11 +2359,12 @@ export class SqliteClient {
         item.Name ?? null,
         item.ItemType,
         item.FolderId ?? null,
+        logoId,
         currentDateTime,
         item.Id
       ]);
 
-      // 2. Track history for fields that have EnableHistory=true before updating
+      // 3. Track history for fields that have EnableHistory=true before updating
       await this.trackFieldHistory(item.Id, item.Fields, currentDateTime);
 
       // 3. Get existing FieldValues for this item (to update in place, preserving IDs for merge)

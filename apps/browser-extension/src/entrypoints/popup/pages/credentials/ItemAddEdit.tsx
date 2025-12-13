@@ -1,6 +1,9 @@
+import { Buffer } from 'buffer';
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { sendMessage } from 'webext-bridge/popup';
 
 import AttachmentUploader from '@/entrypoints/popup/components/Credentials/Details/AttachmentUploader';
 import PasskeyEditor from '@/entrypoints/popup/components/Credentials/Details/PasskeyEditor';
@@ -8,6 +11,7 @@ import TotpEditor from '@/entrypoints/popup/components/Credentials/Details/TotpE
 import Modal from '@/entrypoints/popup/components/Dialogs/Modal';
 import AddFieldMenu from '@/entrypoints/popup/components/Forms/AddFieldMenu';
 import EditableFieldLabel from '@/entrypoints/popup/components/Forms/EditableFieldLabel';
+import EmailDomainField from '@/entrypoints/popup/components/Forms/EmailDomainField';
 import { FormInput } from '@/entrypoints/popup/components/Forms/FormInput';
 import FormSection from '@/entrypoints/popup/components/Forms/FormSection';
 import HiddenField from '@/entrypoints/popup/components/Forms/HiddenField';
@@ -20,11 +24,17 @@ import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useHeaderButtons } from '@/entrypoints/popup/context/HeaderButtonsContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
+import { useWebApi } from '@/entrypoints/popup/context/WebApiContext';
 import useAliasGenerator from '@/entrypoints/popup/hooks/useAliasGenerator';
 import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
+import { SKIP_FORM_RESTORE_KEY } from '@/utils/Constants';
 import type { Item, ItemField, ItemType, FieldType, Attachment, TotpCode } from '@/utils/dist/core/models/vault';
 import { FieldCategories, FieldTypes, ItemTypes, getSystemFieldsForItemType, isFieldShownByDefault } from '@/utils/dist/core/models/vault';
+import { ServiceDetectionUtility } from '@/utils/serviceDetection/ServiceDetectionUtility';
+import { SqliteClient } from '@/utils/SqliteClient';
+
+import { browser } from '#imports';
 
 // Valid item types from the shared model
 const VALID_ITEM_TYPES: ItemType[] = [ItemTypes.Login, ItemTypes.Alias, ItemTypes.CreditCard, ItemTypes.Note];
@@ -41,6 +51,27 @@ type CustomFieldDefinition = {
   fieldType: FieldType;
   isHidden: boolean;
   displayOrder: number;
+};
+
+/**
+ * Persisted form data type used for JSON serialization.
+ */
+type PersistedFormData = {
+  itemId: string | null;
+  item: Item | null;
+  fieldValues: Record<string, string | string[]>;
+  customFields: CustomFieldDefinition[];
+  totpEditorState?: {
+    isAddFormVisible: boolean;
+    formData: {
+      name: string;
+      secretKey: string;
+    };
+  };
+  showNotes: boolean;
+  show2FA: boolean;
+  showAttachments: boolean;
+  manuallyAddedFields: string[];
 };
 
 /**
@@ -63,6 +94,7 @@ const ItemAddEdit: React.FC = () => {
   const { setHeaderButtons } = useHeaderButtons();
   const { setIsInitialLoading } = useLoading();
   const { generateAlias, lastGeneratedValues } = useAliasGenerator();
+  const webApi = useWebApi();
 
   // Component state
   const [localLoading, setLocalLoading] = useState(true);
@@ -188,7 +220,116 @@ const ItemAddEdit: React.FC = () => {
   }, [applicableSystemFields]);
 
   /**
-   * Load item data if in edit mode.
+   * Persists the current form values to storage.
+   * @returns Promise that resolves when the form values are persisted
+   */
+  const persistFormValues = useCallback(async (): Promise<void> => {
+    if (localLoading) {
+      // Do not persist values if the page is still loading.
+      return;
+    }
+
+    const persistedData: PersistedFormData = {
+      itemId: id || null,
+      item,
+      fieldValues,
+      customFields,
+      totpEditorState,
+      showNotes,
+      show2FA,
+      showAttachments,
+      manuallyAddedFields: Array.from(manuallyAddedFields)
+    };
+    await sendMessage('PERSIST_FORM_VALUES', JSON.stringify(persistedData), 'background');
+  }, [id, item, fieldValues, customFields, totpEditorState, showNotes, show2FA, showAttachments, manuallyAddedFields, localLoading]);
+
+  /**
+   * Loads persisted form values from storage.
+   * @returns Promise that resolves when the form values are loaded
+   */
+  const loadPersistedValues = useCallback(async (): Promise<void> => {
+    const persistedData = await sendMessage('GET_PERSISTED_FORM_VALUES', null, 'background') as string | null;
+
+    try {
+      let persistedDataObject: PersistedFormData | null = null;
+      try {
+        if (persistedData) {
+          persistedDataObject = JSON.parse(persistedData) as PersistedFormData;
+        }
+      } catch (error) {
+        console.error('Error parsing persisted data:', error);
+      }
+
+      if (!persistedDataObject) {
+        return;
+      }
+
+      const isCurrentPage = persistedDataObject.itemId === (id || null);
+      if (persistedDataObject && isCurrentPage) {
+        // Restore item state
+        if (persistedDataObject.item) {
+          setItem(persistedDataObject.item);
+        }
+        // Restore field values
+        if (persistedDataObject.fieldValues) {
+          setFieldValues(persistedDataObject.fieldValues);
+        }
+        // Restore custom fields
+        if (persistedDataObject.customFields) {
+          setCustomFields(persistedDataObject.customFields);
+        }
+        // Restore TOTP editor state
+        if (persistedDataObject.totpEditorState) {
+          setTotpEditorState(persistedDataObject.totpEditorState);
+        }
+        // Restore visibility states
+        if (persistedDataObject.showNotes !== undefined) {
+          setShowNotes(persistedDataObject.showNotes);
+        }
+        if (persistedDataObject.show2FA !== undefined) {
+          setShow2FA(persistedDataObject.show2FA);
+        }
+        if (persistedDataObject.showAttachments !== undefined) {
+          setShowAttachments(persistedDataObject.showAttachments);
+        }
+        // Restore manually added fields
+        if (persistedDataObject.manuallyAddedFields) {
+          setManuallyAddedFields(new Set(persistedDataObject.manuallyAddedFields));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading persisted data:', error);
+    }
+  }, [id]);
+
+  /**
+   * Clears persisted form values from storage.
+   * @returns Promise that resolves when the form values are cleared
+   */
+  const clearPersistedValues = useCallback(async (): Promise<void> => {
+    await sendMessage('CLEAR_PERSISTED_FORM_VALUES', null, 'background');
+  }, []);
+
+  /**
+   * Watch for form changes and persist them.
+   */
+  useEffect(() => {
+    if (!localLoading) {
+      void persistFormValues();
+    }
+  }, [item, fieldValues, customFields, totpEditorState, showNotes, show2FA, showAttachments, manuallyAddedFields, persistFormValues, localLoading]);
+
+  /**
+   * Clear persisted values when the page is unmounted.
+   */
+  useEffect(() => {
+    return (): void => {
+      void clearPersistedValues();
+    };
+  }, [clearPersistedValues]);
+
+  /**
+   * Load item data if in edit mode, or initialize for create mode with service detection.
    */
   useEffect(() => {
     if (!dbContext?.sqliteClient || !id || !isEditMode) {
@@ -197,31 +338,113 @@ const ItemAddEdit: React.FC = () => {
         ? itemTypeParam
         : DEFAULT_ITEM_TYPE;
 
-      setItem({
-        Id: crypto.randomUUID().toUpperCase(),
-        Name: itemNameParam || '',
-        ItemType: effectiveType,
-        FolderId: null,
-        Fields: [],
-        CreatedAt: new Date().toISOString(),
-        UpdatedAt: new Date().toISOString()
-      });
+      // Get URL parameters for service detection (e.g., from content script popout)
+      // Use searchParams from react-router which handles hash-based routing correctly
+      const serviceNameFromUrl = searchParams.get('serviceName');
+      const serviceUrlFromUrl = searchParams.get('serviceUrl');
+      const currentUrl = searchParams.get('currentUrl');
 
-      // Check if notes should be shown by default for this type
-      const typeFields = getSystemFieldsForItemType(effectiveType);
-      const notesFieldDef = typeFields.find(f => f.FieldKey === 'metadata.notes');
-      if (notesFieldDef && isFieldShownByDefault(notesFieldDef, effectiveType)) {
-        setShowNotes(true);
-      }
+      /**
+       * Initialize service detection from URL parameters or current tab.
+       */
+      const initializeWithServiceDetection = async (): Promise<void> => {
+        let detectedName = itemNameParam || '';
+        let detectedUrl = '';
 
-      // Load folders
-      if (dbContext?.sqliteClient) {
-        const allFolders = dbContext.sqliteClient.getAllFolders();
-        setFolders(allFolders);
-      }
+        try {
+          // If URL parameters are present (e.g., from content script popout), use them
+          if (serviceNameFromUrl || serviceUrlFromUrl || currentUrl) {
+            if (serviceNameFromUrl) {
+              detectedName = decodeURIComponent(serviceNameFromUrl);
+            }
+            if (serviceUrlFromUrl) {
+              detectedUrl = decodeURIComponent(serviceUrlFromUrl);
+            }
 
-      setLocalLoading(false);
-      setIsInitialLoading(false);
+            // If we have currentUrl but missing serviceName or serviceUrl, derive them
+            if (currentUrl && (!serviceNameFromUrl || !serviceUrlFromUrl)) {
+              const decodedCurrentUrl = decodeURIComponent(currentUrl);
+              const serviceInfo = ServiceDetectionUtility.getServiceInfoFromTab(decodedCurrentUrl);
+
+              if (!serviceNameFromUrl && serviceInfo.suggestedNames.length > 0) {
+                detectedName = serviceInfo.suggestedNames[0];
+              }
+              if (!serviceUrlFromUrl && serviceInfo.serviceUrl) {
+                detectedUrl = serviceInfo.serviceUrl;
+              }
+            }
+          } else {
+            // Otherwise, detect from current active tab (for dashboard case)
+            const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true });
+
+            if (activeTab?.url) {
+              const serviceInfo = ServiceDetectionUtility.getServiceInfoFromTab(
+                activeTab.url,
+                activeTab.title
+              );
+
+              if (serviceInfo.suggestedNames.length > 0 && !detectedName) {
+                detectedName = serviceInfo.suggestedNames[0];
+              }
+              if (serviceInfo.serviceUrl) {
+                detectedUrl = serviceInfo.serviceUrl;
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error detecting service information:', error);
+        }
+
+        // Create the new item with detected values
+        const newItem: Item = {
+          Id: crypto.randomUUID().toUpperCase(),
+          Name: detectedName,
+          ItemType: effectiveType,
+          FolderId: null,
+          Fields: [],
+          CreatedAt: new Date().toISOString(),
+          UpdatedAt: new Date().toISOString()
+        };
+
+        setItem(newItem);
+
+        // Set the detected URL in field values if we have one
+        if (detectedUrl) {
+          setFieldValues(prev => ({
+            ...prev,
+            'login.url': detectedUrl
+          }));
+        }
+
+        // Check if notes should be shown by default for this type
+        const typeFields = getSystemFieldsForItemType(effectiveType);
+        const notesFieldDef = typeFields.find(f => f.FieldKey === 'metadata.notes');
+        if (notesFieldDef && isFieldShownByDefault(notesFieldDef, effectiveType)) {
+          setShowNotes(true);
+        }
+
+        // Load folders
+        if (dbContext?.sqliteClient) {
+          const allFolders = dbContext.sqliteClient.getAllFolders();
+          setFolders(allFolders);
+        }
+
+        // Check if we should skip form restoration (e.g., when opened from popout button)
+        const result = await browser.storage.local.get([SKIP_FORM_RESTORE_KEY]);
+        if (result[SKIP_FORM_RESTORE_KEY]) {
+          // Clear the flag after using it
+          await browser.storage.local.remove([SKIP_FORM_RESTORE_KEY]);
+          // Don't load persisted values
+        } else {
+          // Load persisted form values normally
+          await loadPersistedValues();
+        }
+
+        setLocalLoading(false);
+        setIsInitialLoading(false);
+      };
+
+      void initializeWithServiceDetection();
       return;
     }
 
@@ -283,7 +506,8 @@ const ItemAddEdit: React.FC = () => {
       setLocalLoading(false);
       setIsInitialLoading(false);
     }
-  }, [dbContext?.sqliteClient, id, isEditMode, itemTypeParam, itemNameParam, navigate, setIsInitialLoading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dbContext?.sqliteClient, id, isEditMode, itemTypeParam, itemNameParam, navigate, setIsInitialLoading, searchParams]);
 
   /**
    * Handle generating alias and populating fields.
@@ -329,6 +553,23 @@ const ItemAddEdit: React.FC = () => {
     // Show the generated password
     setShowPassword(true);
   }, [generateAlias, lastGeneratedValues]);
+
+  /**
+   * Generate only the alias email (for Login type email field).
+   * Generates a random identity and uses it to create an email address.
+   */
+  const handleGenerateAliasEmail = useCallback(async () => {
+    const generatedData = await generateAlias();
+    if (!generatedData) {
+      return;
+    }
+
+    // Only update the email field
+    setFieldValues(prev => ({
+      ...prev,
+      'login.email': generatedData.email
+    }));
+  }, [generateAlias]);
 
   /**
    * Check if alias fields are shown by default for the current item type.
@@ -430,6 +671,49 @@ const ItemAddEdit: React.FC = () => {
         UpdatedAt: new Date().toISOString()
       };
 
+      // Extract favicon from URL if the item has one and no logo exists for this source
+      const urlValue = fieldValues['login.url'];
+      const urlList = Array.isArray(urlValue) ? urlValue : urlValue ? [urlValue] : [];
+      // Find the first valid URL (starts with http://, https://, or www.)
+      const validUrl = urlList.find(url => {
+        const trimmed = url?.trim();
+        return trimmed && (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('www.'));
+      });
+      // Normalize URL: prepend https:// if it starts with www.
+      const urlString = validUrl?.startsWith('www.') ? `https://${validUrl}` : validUrl;
+
+      if (urlString && dbContext?.sqliteClient) {
+        // Extract and normalize the source domain from the URL
+        const source = SqliteClient.extractSourceFromUrl(urlString);
+
+        // Check if a logo already exists for this source
+        if (dbContext.sqliteClient.hasLogoForSource(source)) {
+          console.debug(`[Favicon] Logo already exists for source "${source}", skipping fetch`);
+        } else {
+          console.debug(`[Favicon] No logo found for source "${source}", fetching...`);
+          setLocalLoading(true);
+          try {
+            const timeoutPromise = new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Favicon extraction timed out')), 5000)
+            );
+
+            const faviconPromise = webApi.get<{ image: string }>('Favicon/Extract?url=' + urlString);
+            const faviconResponse = await Promise.race([faviconPromise, timeoutPromise]) as { image: string };
+
+            console.debug('[Favicon] Response received:', faviconResponse?.image ? 'has image' : 'no image');
+
+            if (faviconResponse?.image) {
+              const decodedImage = Uint8Array.from(Buffer.from(faviconResponse.image, 'base64'));
+              updatedItem.Logo = decodedImage;
+              console.debug('[Favicon] Logo decoded and attached to item');
+            }
+          } catch (err) {
+            // Favicon extraction failed or timed out, this is not a critical error so we can ignore it.
+            console.error('[Favicon] Error extracting favicon:', err);
+          }
+        }
+      }
+
       // Save to database and sync vault
       if (!dbContext?.sqliteClient) {
         throw new Error('Database not initialized');
@@ -440,6 +724,8 @@ const ItemAddEdit: React.FC = () => {
        * Sync happens in background, status shown via header indicator.
        */
       await executeVaultMutationAsync(async () => {
+        setLocalLoading(false);
+
         if (isEditMode) {
           await dbContext.sqliteClient!.updateItem(
             updatedItem,
@@ -460,6 +746,9 @@ const ItemAddEdit: React.FC = () => {
         }
       });
 
+      // Clear persisted form values after successful save
+      void clearPersistedValues();
+
       /*
        * Navigate to details page, replacing the add/edit page in history.
        * This way pressing back goes to items list, not back to the edit form.
@@ -468,7 +757,7 @@ const ItemAddEdit: React.FC = () => {
     } catch (err) {
       console.error('Error saving item:', err);
     }
-  }, [item, fieldValues, applicableSystemFields, customFields, dbContext, isEditMode, executeVaultMutationAsync, navigate, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes, passkeyIdsMarkedForDeletion]);
+  }, [item, fieldValues, applicableSystemFields, customFields, dbContext, isEditMode, executeVaultMutationAsync, navigate, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes, passkeyIdsMarkedForDeletion, webApi, clearPersistedValues]);
 
   /**
    * Handle delete action.
@@ -775,6 +1064,23 @@ const ItemAddEdit: React.FC = () => {
         );
 
       case FieldTypes.Email:
+        /*
+         * Use EmailDomainField for email fields to provide domain chooser functionality.
+         * For login.email (Login type), default to free text mode instead of domain chooser.
+         * EmailDomainField handles its own remove button in the label, so don't wrap it.
+         */
+        return (
+          <EmailDomainField
+            id={fieldKey}
+            label={label}
+            value={stringValue}
+            onChange={(value) => handleFieldChange(fieldKey, value)}
+            defaultToFreeText={fieldKey === 'login.email'}
+            onRemove={onRemove}
+            onGenerateAlias={fieldKey === 'login.email' ? handleGenerateAliasEmail : undefined}
+          />
+        );
+
       case FieldTypes.URL:
       case FieldTypes.Phone:
       case FieldTypes.Number:
@@ -793,7 +1099,7 @@ const ItemAddEdit: React.FC = () => {
         );
     }
 
-  }, [fieldValues, handleFieldChange, showPassword, t]);
+  }, [fieldValues, handleFieldChange, showPassword, t, handleGenerateAliasEmail]);
 
   /**
    * Handle form submission via Enter key.
@@ -846,7 +1152,11 @@ const ItemAddEdit: React.FC = () => {
   }, [aliasFieldsShownByDefault, handleGenerateAlias, t]);
 
   if (localLoading || !item) {
-    return <LoadingSpinner />;
+    return (
+      <div className="flex justify-center items-center p-8">
+        <LoadingSpinner />
+      </div>
+    );
   }
 
   return (
