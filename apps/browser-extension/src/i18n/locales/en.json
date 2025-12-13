@@ -236,6 +236,7 @@
     "generateRandomAlias": "Generate Random Alias",
     "clearAliasFields": "Clear Alias Fields",
     "alias": "Alias",
+    "email": "Email",
     "addEmail": "+ Email",
     "firstName": "First Name",
     "lastName": "Last Name",

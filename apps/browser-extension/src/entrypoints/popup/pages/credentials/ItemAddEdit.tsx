@@ -126,6 +126,9 @@ const ItemAddEdit: React.FC = () => {
   // Track manually added optional fields (fields that are not shown by default but user added)
   const [manuallyAddedFields, setManuallyAddedFields] = useState<Set<string>>(new Set());
 
+  // Track fields that had values initially (edit mode) - these stay visible even if value is cleared
+  const [initiallyVisibleFields, setInitiallyVisibleFields] = useState<Set<string>>(new Set());
+
   // TOTP codes state
   const [totpCodes, setTotpCodes] = useState<TotpCode[]>([]);
   const [originalTotpCodeIds, setOriginalTotpCodeIds] = useState<string[]>([]);
@@ -163,7 +166,7 @@ const ItemAddEdit: React.FC = () => {
 
   /**
    * Check if a field should be shown for the current item type.
-   * Returns true if field is shown by default OR was manually added by user.
+   * Returns true if field is shown by default, was manually added, or had initial value (edit mode).
    */
   const shouldShowField = useCallback((field: { FieldKey: string }) => {
     if (!item) {
@@ -173,8 +176,8 @@ const ItemAddEdit: React.FC = () => {
     if (manuallyAddedFields.has(field.FieldKey)) {
       return true;
     }
-    // Check if has existing value (edit mode)
-    if (fieldValues[field.FieldKey]) {
+    // Check if field was initially visible (had value when loaded in edit mode)
+    if (initiallyVisibleFields.has(field.FieldKey)) {
       return true;
     }
     const systemField = applicableSystemFields.find(f => f.FieldKey === field.FieldKey);
@@ -182,7 +185,7 @@ const ItemAddEdit: React.FC = () => {
       return true; // Custom fields are always shown
     }
     return isFieldShownByDefault(systemField, item.ItemType);
-  }, [item, applicableSystemFields, manuallyAddedFields, fieldValues]);
+  }, [item, applicableSystemFields, manuallyAddedFields, initiallyVisibleFields]);
 
   /**
    * Primary fields (like URL) that should be shown in the name block.
@@ -460,9 +463,12 @@ const ItemAddEdit: React.FC = () => {
         // Initialize field values from existing fields
         const initialValues: Record<string, string | string[]> = {};
         const existingCustomFields: CustomFieldDefinition[] = [];
+        const fieldsWithValues = new Set<string>();
 
         result.Fields.forEach(field => {
           initialValues[field.FieldKey] = field.Value;
+          // Track fields that have values so they stay visible even if cleared
+          fieldsWithValues.add(field.FieldKey);
 
           // If field key starts with "custom_", it's a custom field
           if (field.FieldKey.startsWith('custom_')) {
@@ -478,6 +484,7 @@ const ItemAddEdit: React.FC = () => {
 
         setFieldValues(initialValues);
         setCustomFields(existingCustomFields);
+        setInitiallyVisibleFields(fieldsWithValues);
 
         // Load TOTP codes for this item
         const itemTotpCodes = dbContext.sqliteClient.getTotpCodesForItem(id);
@@ -793,17 +800,27 @@ const ItemAddEdit: React.FC = () => {
       return;
     }
 
-    // In create mode, clear all field values when changing type
-    if (!isEditMode) {
-      setFieldValues({});
-      setCustomFields([]);
+    // When switching FROM Alias type to another type, clear alias and login fields (except URL)
+    if (!isEditMode && item.ItemType === ItemTypes.Alias && newType !== ItemTypes.Alias) {
+      setFieldValues(prev => {
+        const newValues: Record<string, string | string[]> = {};
+        // Only preserve non-alias and non-login fields, plus login.url
+        Object.entries(prev).forEach(([key, value]) => {
+          if (key === 'login.url') {
+            newValues[key] = value;
+          } else if (!key.startsWith('alias.') && !key.startsWith('login.')) {
+            newValues[key] = value;
+          }
+        });
+        return newValues;
+      });
     }
 
     // Check field visibility based on model config for the new type
     const newTypeFields = getSystemFieldsForItemType(newType);
 
     // Check if alias fields should be shown by default for the new type (for auto-generation)
-    const newAliasField = newTypeFields.find(f => f.FieldKey === 'alias.email');
+    const newAliasField = newTypeFields.find(f => f.Category === FieldCategories.Alias);
     const aliasShownByDefault = newAliasField ? isFieldShownByDefault(newAliasField, newType) : false;
     if (aliasShownByDefault && !isEditMode) {
       aliasGeneratedRef.current = false;

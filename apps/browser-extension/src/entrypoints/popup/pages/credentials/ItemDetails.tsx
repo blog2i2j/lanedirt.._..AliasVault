@@ -6,8 +6,7 @@ import {
   TotpBlock,
   AttachmentBlock,
   FieldBlock,
-  PasskeyBlock,
-  EmailBlock
+  PasskeyBlock
 } from '@/entrypoints/popup/components/Credentials/Details';
 import HeaderButton from '@/entrypoints/popup/components/HeaderButton';
 import { HeaderIconType } from '@/entrypoints/popup/components/Icons/HeaderIcons';
@@ -20,6 +19,7 @@ import { PopoutUtility } from '@/entrypoints/popup/utils/PopoutUtility';
 import type { Item } from '@/utils/dist/core/models/vault';
 import { ItemTypes } from '@/utils/dist/core/models/vault';
 import { groupFieldsByCategory } from '@/utils/dist/core/models/vault';
+import { EmailPreview } from '../../components/EmailPreview';
 
 /**
  * Item details page with dynamic field rendering.
@@ -165,7 +165,7 @@ const ItemDetails: React.FC = (): React.ReactElement => {
         const emailField = item.Fields.find(f => f.FieldKey === 'login.email');
         const emailValue = emailField?.Value;
         const email = Array.isArray(emailValue) ? emailValue[0] : emailValue;
-        return email ? <EmailBlock email={email} /> : null;
+        return email ? <EmailPreview email={email} /> : null;
       })()}
 
       {/* TOTP codes - only for Login and Alias types, shown at top */}

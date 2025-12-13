@@ -4,7 +4,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import {
   HeaderBlock,
-  EmailBlock,
   TotpBlock,
   LoginCredentialsBlock,
   AliasBlock,
@@ -106,11 +105,6 @@ const CredentialDetails: React.FC = (): React.ReactElement => {
       <div className="flex justify-between items-center">
         <HeaderBlock credential={credential} />
       </div>
-      {credential.Alias?.Email && (
-        <EmailBlock
-          email={credential.Alias.Email}
-        />
-      )}
       <TotpBlock credentialId={credential.Id} />
       <LoginCredentialsBlock credential={credential} />
       <AliasBlock credential={credential} />

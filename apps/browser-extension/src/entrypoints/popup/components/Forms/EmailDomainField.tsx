@@ -87,11 +87,15 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
   // Initialize state from value prop
   useEffect(() => {
     if (!value) {
-      // Set default domain
-      if (showPrivateDomains && privateEmailDomains[0]) {
-        setSelectedDomain(privateEmailDomains[0]);
-      } else if (PUBLIC_EMAIL_DOMAINS[0]) {
-        setSelectedDomain(PUBLIC_EMAIL_DOMAINS[0]);
+      // Value is empty - clear local part but preserve selected domain
+      setLocalPart('');
+      // Only set default domain if none is selected yet (initial load)
+      if (!selectedDomain) {
+        if (showPrivateDomains && privateEmailDomains[0]) {
+          setSelectedDomain(privateEmailDomains[0]);
+        } else if (PUBLIC_EMAIL_DOMAINS[0]) {
+          setSelectedDomain(PUBLIC_EMAIL_DOMAINS[0]);
+        }
       }
       return;
     }
@@ -101,10 +105,11 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
       setLocalPart(local);
       setSelectedDomain(domain);
 
-      // Check if it's a custom domain (including hidden private domains as known domains)
+      // Check if it's a known domain (public, private, or hidden private)
       const isKnownDomain = PUBLIC_EMAIL_DOMAINS.includes(domain) ||
                            privateEmailDomains.includes(domain) ||
                            hiddenPrivateEmailDomains.includes(domain);
+      // Switch to domain chooser mode if domain is recognized
       setIsCustomDomain(!isKnownDomain);
     } else {
       setLocalPart(value);
@@ -121,6 +126,31 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, privateEmailDomains, hiddenPrivateEmailDomains, showPrivateDomains]);
+
+  /*
+   * Re-check domain mode when private domains finish loading.
+   * This handles the case where value was set before domains were loaded.
+   */
+  useEffect(() => {
+    if (!value || !value.includes('@')) {
+      return;
+    }
+
+    const domain = value.split('@')[1];
+    if (!domain) {
+      return;
+    }
+
+    // Check if the domain is now recognized after private domains loaded
+    const isKnownDomain = PUBLIC_EMAIL_DOMAINS.includes(domain) ||
+                         privateEmailDomains.includes(domain) ||
+                         hiddenPrivateEmailDomains.includes(domain);
+
+    // If domain is recognized and we're in custom mode, switch to domain chooser
+    if (isKnownDomain && isCustomDomain) {
+      setIsCustomDomain(false);
+    }
+  }, [privateEmailDomains, hiddenPrivateEmailDomains, value, isCustomDomain]);
 
   // Handle local part changes
   const handleLocalPartChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -234,10 +264,42 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <label htmlFor={id} className="block font-medium text-gray-700 dark:text-gray-300">
-          {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
-        </label>
+        <div className="flex items-center">
+          {/* Tab-style label switcher for defaultToFreeText mode */}
+          {defaultToFreeText ? (
+            <div className="flex items-center">
+              <button
+                type="button"
+                onClick={isCustomDomain ? undefined : toggleCustomDomain}
+                className={`font-medium transition-colors ${
+                  isCustomDomain
+                    ? 'text-gray-700 dark:text-gray-300'
+                    : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 cursor-pointer'
+                }`}
+              >
+                {t('credentials.email')}
+              </button>
+              <span className="mx-1.5 text-gray-400 dark:text-gray-500">/</span>
+              <button
+                type="button"
+                onClick={!isCustomDomain ? undefined : handleGenerateAliasClick}
+                className={`font-medium transition-colors ${
+                  !isCustomDomain
+                    ? 'text-gray-700 dark:text-gray-300'
+                    : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 cursor-pointer'
+                }`}
+              >
+                {t('credentials.alias')}
+              </button>
+              {required && <span className="text-red-500 ml-1">*</span>}
+            </div>
+          ) : (
+            <label htmlFor={id} className="block font-medium text-gray-700 dark:text-gray-300">
+              {label}
+              {required && <span className="text-red-500 ml-1">*</span>}
+            </label>
+          )}
+        </div>
         {onRemove && (
           <button
             type="button"
@@ -345,18 +407,18 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
         )}
       </div>
 
-      {/* Toggle custom domain button */}
-      <div>
-        <button
-          type="button"
-          onClick={isCustomDomain && defaultToFreeText ? handleGenerateAliasClick : toggleCustomDomain}
-          className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
-        >
-          {isCustomDomain
-            ? (defaultToFreeText ? t('credentials.generateAliasEmail') : t('credentials.useDomainChooser'))
-            : (defaultToFreeText ? t('credentials.enterNormalEmail') : t('credentials.enterCustomDomain'))}
-        </button>
-      </div>
+      {/* Toggle custom domain button - only show for non-defaultToFreeText mode */}
+      {!defaultToFreeText && (
+        <div>
+          <button
+            type="button"
+            onClick={toggleCustomDomain}
+            className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
+          >
+            {isCustomDomain ? t('credentials.useDomainChooser') : t('credentials.enterCustomDomain')}
+          </button>
+        </div>
+      )}
 
       {/* Error message */}
       {error && (
