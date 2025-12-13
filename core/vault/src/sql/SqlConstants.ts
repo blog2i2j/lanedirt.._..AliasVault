@@ -852,7 +852,40 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
                 INSERT INTO Logos (Id, Source, FileData, MimeType, FetchedAt, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
-                  s.Url AS Source,
+                  -- Extract and normalize hostname: remove protocol, path, lowercase, and www. prefix
+                  REPLACE(
+                    LOWER(
+                      SUBSTR(
+                        CASE
+                          WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                          WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                          ELSE s.Url
+                        END,
+                        1,
+                        CASE
+                          WHEN INSTR(
+                            CASE
+                              WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                              WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                              ELSE s.Url
+                            END, '/') > 0
+                          THEN INSTR(
+                            CASE
+                              WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                              WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                              ELSE s.Url
+                            END, '/') - 1
+                          ELSE LENGTH(
+                            CASE
+                              WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                              WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                              ELSE s.Url
+                            END)
+                        END
+                      )
+                    ),
+                    'www.', ''
+                  ) AS Source,
                   s.Logo AS FileData,
                   'image/png' AS MimeType,
                   NULL AS FetchedAt,
@@ -861,14 +894,78 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
                   0 AS IsDeleted
                 FROM Services s
                 WHERE s.Logo IS NOT NULL AND s.Url IS NOT NULL AND s.Url != ''
-                GROUP BY s.Url;
+                GROUP BY REPLACE(
+                    LOWER(
+                      SUBSTR(
+                        CASE
+                          WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                          WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                          ELSE s.Url
+                        END,
+                        1,
+                        CASE
+                          WHEN INSTR(
+                            CASE
+                              WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                              WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                              ELSE s.Url
+                            END, '/') > 0
+                          THEN INSTR(
+                            CASE
+                              WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                              WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                              ELSE s.Url
+                            END, '/') - 1
+                          ELSE LENGTH(
+                            CASE
+                              WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                              WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                              ELSE s.Url
+                            END)
+                        END
+                      )
+                    ),
+                    'www.', ''
+                  );
             
 
 
                 UPDATE Items
                 SET LogoId = (
                   SELECT l.Id FROM Logos l
-                  INNER JOIN Services s ON s.Url = l.Source
+                  INNER JOIN Services s ON REPLACE(
+                    LOWER(
+                      SUBSTR(
+                        CASE
+                          WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                          WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                          ELSE s.Url
+                        END,
+                        1,
+                        CASE
+                          WHEN INSTR(
+                            CASE
+                              WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                              WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                              ELSE s.Url
+                            END, '/') > 0
+                          THEN INSTR(
+                            CASE
+                              WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                              WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                              ELSE s.Url
+                            END, '/') - 1
+                          ELSE LENGTH(
+                            CASE
+                              WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                              WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                              ELSE s.Url
+                            END)
+                        END
+                      )
+                    ),
+                    'www.', ''
+                  ) = l.Source
                   INNER JOIN Credentials c ON c.ServiceId = s.Id
                   WHERE c.Id = Items.Id
                   LIMIT 1
@@ -1916,7 +2013,40 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
                 INSERT INTO Logos (Id, Source, FileData, MimeType, FetchedAt, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
                   lower(hex(randomblob(16))) AS Id,
-                  s.Url AS Source,
+                  -- Extract and normalize hostname: remove protocol, path, lowercase, and www. prefix
+                  REPLACE(
+                    LOWER(
+                      SUBSTR(
+                        CASE
+                          WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                          WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                          ELSE s.Url
+                        END,
+                        1,
+                        CASE
+                          WHEN INSTR(
+                            CASE
+                              WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                              WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                              ELSE s.Url
+                            END, '/') > 0
+                          THEN INSTR(
+                            CASE
+                              WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                              WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                              ELSE s.Url
+                            END, '/') - 1
+                          ELSE LENGTH(
+                            CASE
+                              WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                              WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                              ELSE s.Url
+                            END)
+                        END
+                      )
+                    ),
+                    'www.', ''
+                  ) AS Source,
                   s.Logo AS FileData,
                   'image/png' AS MimeType,
                   NULL AS FetchedAt,
@@ -1925,14 +2055,78 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
                   0 AS IsDeleted
                 FROM Services s
                 WHERE s.Logo IS NOT NULL AND s.Url IS NOT NULL AND s.Url != ''
-                GROUP BY s.Url;
+                GROUP BY REPLACE(
+                    LOWER(
+                      SUBSTR(
+                        CASE
+                          WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                          WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                          ELSE s.Url
+                        END,
+                        1,
+                        CASE
+                          WHEN INSTR(
+                            CASE
+                              WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                              WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                              ELSE s.Url
+                            END, '/') > 0
+                          THEN INSTR(
+                            CASE
+                              WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                              WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                              ELSE s.Url
+                            END, '/') - 1
+                          ELSE LENGTH(
+                            CASE
+                              WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                              WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                              ELSE s.Url
+                            END)
+                        END
+                      )
+                    ),
+                    'www.', ''
+                  );
             
 
 
                 UPDATE Items
                 SET LogoId = (
                   SELECT l.Id FROM Logos l
-                  INNER JOIN Services s ON s.Url = l.Source
+                  INNER JOIN Services s ON REPLACE(
+                    LOWER(
+                      SUBSTR(
+                        CASE
+                          WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                          WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                          ELSE s.Url
+                        END,
+                        1,
+                        CASE
+                          WHEN INSTR(
+                            CASE
+                              WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                              WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                              ELSE s.Url
+                            END, '/') > 0
+                          THEN INSTR(
+                            CASE
+                              WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                              WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                              ELSE s.Url
+                            END, '/') - 1
+                          ELSE LENGTH(
+                            CASE
+                              WHEN s.Url LIKE 'https://%' THEN SUBSTR(s.Url, 9)
+                              WHEN s.Url LIKE 'http://%' THEN SUBSTR(s.Url, 8)
+                              ELSE s.Url
+                            END)
+                        END
+                      )
+                    ),
+                    'www.', ''
+                  ) = l.Source
                   INNER JOIN Credentials c ON c.ServiceId = s.Id
                   WHERE c.Id = Items.Id
                   LIMIT 1

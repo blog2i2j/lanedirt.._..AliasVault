@@ -1646,6 +1646,8 @@ export class SqliteClient {
 
   /**
    * Extract and normalize source domain from a URL string.
+   * Uses lowercase and removes www. prefix for case-insensitive matching.
+   * This matches the server-side migration logic for consistent deduplication.
    * @param urlString The URL to extract the domain from
    * @returns The normalized source domain (e.g., 'github.com'), or 'unknown' if extraction fails
    */
@@ -1656,8 +1658,8 @@ export class SqliteClient {
 
     try {
       const url = new URL(urlString.startsWith('http') ? urlString : `https://${urlString}`);
-      // Normalize hostname by removing www. prefix
-      return url.hostname.replace(/^www\./i, '');
+      // Normalize hostname: lowercase and remove www. prefix
+      return url.hostname.toLowerCase().replace(/^www\./, '');
     } catch {
       return 'unknown';
     }
