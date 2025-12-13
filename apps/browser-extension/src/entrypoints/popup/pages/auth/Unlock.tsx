@@ -81,24 +81,34 @@ const Unlock: React.FC = () => {
    * Returns { online: boolean, error: string | null }
    */
   const checkStatus = async () : Promise<{ online: boolean; error: string | null }> => {
-    const statusResponse = await webApi.getStatus();
+    try {
+      const statusResponse = await webApi.getStatus();
 
-    // Server is offline - this is OK for unlock, we can use local vault
-    if (statusResponse.serverVersion === '0.0.0') {
+      // Server is offline (network error) - this is OK for unlock, we can use local vault
+      if (statusResponse.serverVersion === '0.0.0') {
+        setIsInitialLoading(false);
+        await dbContext.setIsOffline(true);
+        return { online: false, error: null };
+      }
+
+      const statusError = webApi.validateStatusResponse(statusResponse);
+      if (statusError !== null) {
+        await app.logout(t('common.errors.' + statusError));
+        return { online: false, error: statusError };
+      }
+
       setIsInitialLoading(false);
-      await dbContext.setIsOffline(true);
-      return { online: false, error: null };
+      await dbContext.setIsOffline(false);
+      return { online: true, error: null };
+    } catch {
+      /**
+       * Non-network errors (e.g., session expired, auth failures) are thrown by getStatus().
+       * The logout event is already emitted by the WebApiService, so we just return an error
+       * and don't set offline mode since the server is reachable.
+       */
+      setIsInitialLoading(false);
+      return { online: false, error: 'sessionExpired' };
     }
-
-    const statusError = webApi.validateStatusResponse(statusResponse);
-    if (statusError !== null) {
-      await app.logout(t('common.errors.' + statusError));
-      return { online: false, error: statusError };
-    }
-
-    setIsInitialLoading(false);
-    await dbContext.setIsOffline(false);
-    return { online: true, error: null };
   };
 
   /**

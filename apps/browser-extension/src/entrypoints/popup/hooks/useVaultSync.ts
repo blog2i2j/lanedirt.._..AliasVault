@@ -9,6 +9,7 @@ import { useWebApi } from '@/entrypoints/popup/context/WebApiContext';
 import type { EncryptionKeyDerivationParams } from '@/utils/dist/core/models/metadata';
 import type { VaultResponse } from '@/utils/dist/core/models/webapi';
 import { EncryptionUtility } from '@/utils/EncryptionUtility';
+import { ApiAuthError } from '@/utils/types/errors/ApiAuthError';
 import { NetworkError } from '@/utils/types/errors/NetworkError';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
 import type { VaultUploadResponse } from '@/utils/types/messaging/VaultUploadResponse';
@@ -300,6 +301,11 @@ export const useVaultSync = (): { syncVault: (options?: VaultSyncOptions) => Pro
       // Check if it's a version-related error (app needs to be updated)
       if (err instanceof VaultVersionIncompatibleError) {
         await app.logout(errorMessage);
+        return false;
+      }
+
+      // Check if it's an auth error (session expired) - logout is already triggered by WebApiService
+      if (err instanceof ApiAuthError) {
         return false;
       }
 

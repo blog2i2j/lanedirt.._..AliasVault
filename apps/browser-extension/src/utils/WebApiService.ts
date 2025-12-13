@@ -3,6 +3,7 @@ import type { StatusResponse } from '@/utils/dist/core/models/webapi';
 import { logoutEventEmitter } from '@/events/LogoutEventEmitter';
 
 import { AppInfo } from "./AppInfo";
+import { ApiAuthError } from './types/errors/ApiAuthError';
 import { NetworkError } from './types/errors/NetworkError';
 
 import { storage } from '#imports';
@@ -72,13 +73,13 @@ export class WebApiService {
           });
 
           if (!retryResponse.ok) {
-            throw new Error('Request failed after token refresh');
+            throw new ApiAuthError('Request failed after token refresh');
           }
 
           return parseJson ? retryResponse.json() : retryResponse as unknown as T;
         } else {
           logoutEventEmitter.emit('auth.errors.sessionExpired');
-          throw new Error('Session expired');
+          throw new ApiAuthError('Session expired');
         }
       }
 
@@ -211,15 +212,21 @@ export class WebApiService {
 
   /**
    * Calls the status endpoint to check if the auth tokens are still valid, app is supported and the vault is up to date.
+   * Returns offline indicator (serverVersion: '0.0.0') for network failures and server errors (5xx, 404, etc.).
+   * Auth errors (ApiAuthError) are re-thrown to be handled appropriately (e.g., trigger logout).
    */
   public async getStatus(): Promise<StatusResponse> {
     try {
       return await this.get<StatusResponse>('Auth/status');
-    } catch {
+    } catch (error) {
       /**
-       * If the status endpoint is not available, return a default status response which will trigger
-       * a logout and error message.
+       * Only re-throw ApiAuthError (session expired, auth failures).
+       * All other errors (NetworkError, HTTP 5xx, 404, etc.) indicate the server
+       * is unreachable or misconfigured, so return offline indicator.
        */
+      if (error instanceof ApiAuthError) {
+        throw error;
+      }
       return {
         clientVersionSupported: true,
         serverVersion: '0.0.0',
