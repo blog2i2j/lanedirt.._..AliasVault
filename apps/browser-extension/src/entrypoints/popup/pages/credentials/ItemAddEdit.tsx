@@ -14,6 +14,7 @@ import { FormInput } from '@/entrypoints/popup/components/Forms/FormInput';
 import FormSection from '@/entrypoints/popup/components/Forms/FormSection';
 import HiddenField from '@/entrypoints/popup/components/Forms/HiddenField';
 import PasswordField from '@/entrypoints/popup/components/Forms/PasswordField';
+import UsernameField from '@/entrypoints/popup/components/Forms/UsernameField';
 import HeaderButton from '@/entrypoints/popup/components/HeaderButton';
 import { HeaderIconType } from '@/entrypoints/popup/components/Icons/HeaderIcons';
 import ItemNameInput from '@/entrypoints/popup/components/Items/ItemNameInput';
@@ -579,6 +580,23 @@ const ItemAddEdit: React.FC = () => {
   }, [generateAlias]);
 
   /**
+   * Generate a random username using the shared alias generator.
+   * Reuses the same logic as full alias generation but only updates the username field.
+   */
+  const generateRandomUsername = useCallback(async () => {
+    const generatedData = await generateAlias();
+    if (!generatedData) {
+      return;
+    }
+
+    // Only update the username field
+    setFieldValues(prev => ({
+      ...prev,
+      'login.username': generatedData.username
+    }));
+  }, [generateAlias]);
+
+  /**
    * Check if alias fields are shown by default for the current item type.
    * Uses alias.first_name as the indicator since email is now a login field.
    */
@@ -1072,6 +1090,18 @@ const ItemAddEdit: React.FC = () => {
       case FieldTypes.Date:
       case FieldTypes.Text:
       default:
+        // Use UsernameField for login.username when alias fields are shown (Alias type)
+        if (fieldKey === 'login.username' && aliasFieldsShownByDefault) {
+          return (
+            <UsernameField
+              id={fieldKey}
+              label={label}
+              value={stringValue}
+              onChange={(value) => handleFieldChange(fieldKey, value)}
+              onRegenerate={generateRandomUsername}
+            />
+          );
+        }
         return wrapWithRemoveButton(
           <FormInput
             id={fieldKey}
@@ -1084,7 +1114,7 @@ const ItemAddEdit: React.FC = () => {
         );
     }
 
-  }, [fieldValues, handleFieldChange, showPassword, t, handleGenerateAliasEmail]);
+  }, [fieldValues, handleFieldChange, showPassword, t, handleGenerateAliasEmail, aliasFieldsShownByDefault, generateRandomUsername]);
 
   /**
    * Handle form submission via Enter key.

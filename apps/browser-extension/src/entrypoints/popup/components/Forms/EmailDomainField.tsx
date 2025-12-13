@@ -271,7 +271,7 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
               <button
                 type="button"
                 onClick={isCustomDomain ? undefined : toggleCustomDomain}
-                className={`font-medium transition-colors ${
+                className={`text-sm font-medium transition-colors ${
                   isCustomDomain
                     ? 'text-gray-700 dark:text-gray-300'
                     : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 cursor-pointer'
@@ -283,7 +283,7 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
               <button
                 type="button"
                 onClick={!isCustomDomain ? undefined : handleGenerateAliasClick}
-                className={`font-medium transition-colors ${
+                className={`text-sm font-medium transition-colors ${
                   !isCustomDomain
                     ? 'text-gray-700 dark:text-gray-300'
                     : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 cursor-pointer'
@@ -294,7 +294,7 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
               {required && <span className="text-red-500 ml-1">*</span>}
             </div>
           ) : (
-            <label htmlFor={id} className="block font-medium text-gray-700 dark:text-gray-300">
+            <label htmlFor={id} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               {label}
               {required && <span className="text-red-500 ml-1">*</span>}
             </label>
@@ -327,7 +327,7 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
             } focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white`}
             value={isCustomDomain ? value : localPart}
             onChange={handleLocalPartChange}
-            placeholder={isCustomDomain ? t('credentials.enterRealEmail') : t('credentials.enterEmailPrefix')}
+            placeholder={isCustomDomain ? t('credentials.enterEmailAddress') : t('credentials.enterEmailPrefix')}
           />
 
           {!isCustomDomain && (

@@ -756,9 +756,9 @@ export class SqliteClient {
    * @returns The default email domain or null if no valid domain is found
    */
   public async getDefaultEmailDomain(): Promise<string | null> {
-    const publicEmailDomains = await storage.getItem('session:publicEmailDomains') as string[] ?? [];
-    const privateEmailDomains = await storage.getItem('session:privateEmailDomains') as string[] ?? [];
-    const hiddenPrivateEmailDomains = await storage.getItem('session:hiddenPrivateEmailDomains') as string[] ?? [];
+    const publicEmailDomains = await storage.getItem('local:publicEmailDomains') as string[] ?? [];
+    const privateEmailDomains = await storage.getItem('local:privateEmailDomains') as string[] ?? [];
+    const hiddenPrivateEmailDomains = await storage.getItem('local:hiddenPrivateEmailDomains') as string[] ?? [];
 
     const defaultEmailDomain = this.getSetting('DefaultEmailDomain');
 
