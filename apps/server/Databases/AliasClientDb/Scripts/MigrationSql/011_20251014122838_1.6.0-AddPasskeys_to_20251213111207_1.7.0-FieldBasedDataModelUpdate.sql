@@ -68,6 +68,7 @@ CREATE TABLE "Items" (
     "Name" TEXT NULL,
     "ItemType" TEXT NOT NULL,
     "LogoId" TEXT NULL,
+    "DeletedAt" TEXT NULL,
     "FolderId" TEXT NULL,
     "CreatedAt" TEXT NOT NULL,
     "UpdatedAt" TEXT NOT NULL,
@@ -79,7 +80,8 @@ CREATE TABLE "Items" (
 CREATE TABLE "FieldHistories" (
     "Id" TEXT NOT NULL CONSTRAINT "PK_FieldHistories" PRIMARY KEY,
     "ItemId" TEXT NOT NULL,
-    "FieldDefinitionId" TEXT NOT NULL,
+    "FieldDefinitionId" TEXT NULL,
+    "FieldKey" TEXT NULL,
     "ValueSnapshot" TEXT NOT NULL,
     "ChangedAt" TEXT NOT NULL,
     "CreatedAt" TEXT NOT NULL,
@@ -447,5 +449,5 @@ CREATE INDEX "IX_TotpCodes_ItemId" ON "TotpCodes" ("ItemId");
 COMMIT;
 
 INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20251203162345_1.7.0-FieldBasedDataModelUpdate', '9.0.4');
+VALUES ('20251213111207_1.7.0-FieldBasedDataModelUpdate', '9.0.4');
 

@@ -777,6 +777,7 @@ CREATE TABLE "Items" (
     "Name" TEXT NULL,
     "ItemType" TEXT NOT NULL,
     "LogoId" TEXT NULL,
+    "DeletedAt" TEXT NULL,
     "FolderId" TEXT NULL,
     "CreatedAt" TEXT NOT NULL,
     "UpdatedAt" TEXT NOT NULL,
@@ -788,7 +789,8 @@ CREATE TABLE "Items" (
 CREATE TABLE "FieldHistories" (
     "Id" TEXT NOT NULL CONSTRAINT "PK_FieldHistories" PRIMARY KEY,
     "ItemId" TEXT NOT NULL,
-    "FieldDefinitionId" TEXT NOT NULL,
+    "FieldDefinitionId" TEXT NULL,
+    "FieldKey" TEXT NULL,
     "ValueSnapshot" TEXT NOT NULL,
     "ChangedAt" TEXT NOT NULL,
     "CreatedAt" TEXT NOT NULL,
@@ -1156,59 +1158,7 @@ CREATE INDEX "IX_TotpCodes_ItemId" ON "TotpCodes" ("ItemId");
 COMMIT;
 
 INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20251203162345_1.7.0-FieldBasedDataModelUpdate', '9.0.4');
-
-BEGIN TRANSACTION;
-ALTER TABLE "FieldHistories" ADD "FieldKey" TEXT NULL;
-
-CREATE TABLE "ef_temp_FieldHistories" (
-    "Id" TEXT NOT NULL CONSTRAINT "PK_FieldHistories" PRIMARY KEY,
-    "ChangedAt" TEXT NOT NULL,
-    "CreatedAt" TEXT NOT NULL,
-    "FieldDefinitionId" TEXT NULL,
-    "FieldKey" TEXT NULL,
-    "IsDeleted" INTEGER NOT NULL,
-    "ItemId" TEXT NOT NULL,
-    "UpdatedAt" TEXT NOT NULL,
-    "ValueSnapshot" TEXT NOT NULL,
-    CONSTRAINT "FK_FieldHistories_FieldDefinitions_FieldDefinitionId" FOREIGN KEY ("FieldDefinitionId") REFERENCES "FieldDefinitions" ("Id") ON DELETE CASCADE,
-    CONSTRAINT "FK_FieldHistories_Items_ItemId" FOREIGN KEY ("ItemId") REFERENCES "Items" ("Id") ON DELETE CASCADE
-);
-
-INSERT INTO "ef_temp_FieldHistories" ("Id", "ChangedAt", "CreatedAt", "FieldDefinitionId", "FieldKey", "IsDeleted", "ItemId", "UpdatedAt", "ValueSnapshot")
-SELECT "Id", "ChangedAt", "CreatedAt", "FieldDefinitionId", "FieldKey", "IsDeleted", "ItemId", "UpdatedAt", "ValueSnapshot"
-FROM "FieldHistories";
-
-COMMIT;
-
-PRAGMA foreign_keys = 0;
-
-BEGIN TRANSACTION;
-DROP TABLE "FieldHistories";
-
-ALTER TABLE "ef_temp_FieldHistories" RENAME TO "FieldHistories";
-
-COMMIT;
-
-PRAGMA foreign_keys = 1;
-
-BEGIN TRANSACTION;
-CREATE INDEX "IX_FieldHistories_FieldDefinitionId" ON "FieldHistories" ("FieldDefinitionId");
-
-CREATE INDEX "IX_FieldHistories_ItemId" ON "FieldHistories" ("ItemId");
-
-COMMIT;
-
-INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20251204142538_1.7.1-MakeFieldHistoryFlexible', '9.0.4');
-
-BEGIN TRANSACTION;
-ALTER TABLE "Items" ADD "DeletedAt" TEXT NULL;
-
-INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20251205212831_1.7.2-AddDeletedAtToItem', '9.0.4');
-
-COMMIT;
+VALUES ('20251213111207_1.7.0-FieldBasedDataModelUpdate', '9.0.4');
 `;
 var MIGRATION_SCRIPTS = {
   1: `\uFEFFBEGIN TRANSACTION;
@@ -1887,6 +1837,7 @@ CREATE TABLE "Items" (
     "Name" TEXT NULL,
     "ItemType" TEXT NOT NULL,
     "LogoId" TEXT NULL,
+    "DeletedAt" TEXT NULL,
     "FolderId" TEXT NULL,
     "CreatedAt" TEXT NOT NULL,
     "UpdatedAt" TEXT NOT NULL,
@@ -1898,7 +1849,8 @@ CREATE TABLE "Items" (
 CREATE TABLE "FieldHistories" (
     "Id" TEXT NOT NULL CONSTRAINT "PK_FieldHistories" PRIMARY KEY,
     "ItemId" TEXT NOT NULL,
-    "FieldDefinitionId" TEXT NOT NULL,
+    "FieldDefinitionId" TEXT NULL,
+    "FieldKey" TEXT NULL,
     "ValueSnapshot" TEXT NOT NULL,
     "ChangedAt" TEXT NOT NULL,
     "CreatedAt" TEXT NOT NULL,
@@ -2266,57 +2218,7 @@ CREATE INDEX "IX_TotpCodes_ItemId" ON "TotpCodes" ("ItemId");
 COMMIT;
 
 INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20251203162345_1.7.0-FieldBasedDataModelUpdate', '9.0.4');`,
-  12: `\uFEFFBEGIN TRANSACTION;
-ALTER TABLE "FieldHistories" ADD "FieldKey" TEXT NULL;
-
-CREATE TABLE "ef_temp_FieldHistories" (
-    "Id" TEXT NOT NULL CONSTRAINT "PK_FieldHistories" PRIMARY KEY,
-    "ChangedAt" TEXT NOT NULL,
-    "CreatedAt" TEXT NOT NULL,
-    "FieldDefinitionId" TEXT NULL,
-    "FieldKey" TEXT NULL,
-    "IsDeleted" INTEGER NOT NULL,
-    "ItemId" TEXT NOT NULL,
-    "UpdatedAt" TEXT NOT NULL,
-    "ValueSnapshot" TEXT NOT NULL,
-    CONSTRAINT "FK_FieldHistories_FieldDefinitions_FieldDefinitionId" FOREIGN KEY ("FieldDefinitionId") REFERENCES "FieldDefinitions" ("Id") ON DELETE CASCADE,
-    CONSTRAINT "FK_FieldHistories_Items_ItemId" FOREIGN KEY ("ItemId") REFERENCES "Items" ("Id") ON DELETE CASCADE
-);
-
-INSERT INTO "ef_temp_FieldHistories" ("Id", "ChangedAt", "CreatedAt", "FieldDefinitionId", "FieldKey", "IsDeleted", "ItemId", "UpdatedAt", "ValueSnapshot")
-SELECT "Id", "ChangedAt", "CreatedAt", "FieldDefinitionId", "FieldKey", "IsDeleted", "ItemId", "UpdatedAt", "ValueSnapshot"
-FROM "FieldHistories";
-
-COMMIT;
-
-PRAGMA foreign_keys = 0;
-
-BEGIN TRANSACTION;
-DROP TABLE "FieldHistories";
-
-ALTER TABLE "ef_temp_FieldHistories" RENAME TO "FieldHistories";
-
-COMMIT;
-
-PRAGMA foreign_keys = 1;
-
-BEGIN TRANSACTION;
-CREATE INDEX "IX_FieldHistories_FieldDefinitionId" ON "FieldHistories" ("FieldDefinitionId");
-
-CREATE INDEX "IX_FieldHistories_ItemId" ON "FieldHistories" ("ItemId");
-
-COMMIT;
-
-INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20251204142538_1.7.1-MakeFieldHistoryFlexible', '9.0.4');`,
-  13: `\uFEFFBEGIN TRANSACTION;
-ALTER TABLE "Items" ADD "DeletedAt" TEXT NULL;
-
-INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-VALUES ('20251205212831_1.7.2-AddDeletedAtToItem', '9.0.4');
-
-COMMIT;`
+VALUES ('20251213111207_1.7.0-FieldBasedDataModelUpdate', '9.0.4');`
 };
 
 // src/sql/VaultVersions.ts
@@ -2402,20 +2304,6 @@ var VAULT_VERSIONS = [
     revision: 12,
     version: "1.7.0",
     description: "Update to Field-Based Data Model",
-    releaseVersion: "0.26.0",
-    compatibleUpToVersion: "0.26.0"
-  },
-  {
-    revision: 13,
-    version: "1.7.1",
-    description: "Make FieldHistory Flexible",
-    releaseVersion: "0.26.0",
-    compatibleUpToVersion: "0.26.0"
-  },
-  {
-    revision: 14,
-    version: "1.7.2",
-    description: "Add DeletedAt to Item for Recently Deleted support",
     releaseVersion: "0.26.0",
     compatibleUpToVersion: "0.26.0"
   }

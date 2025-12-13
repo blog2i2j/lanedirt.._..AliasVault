@@ -11,8 +11,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AliasClientDb.Migrations
 {
     [DbContext(typeof(AliasClientDbContext))]
-    [Migration("20251205212831_1.7.2-AddDeletedAtToItem")]
-    partial class _172AddDeletedAtToItem
+    [Migration("20251213111207_1.7.0-FieldBasedDataModelUpdate")]
+    partial class _170FieldBasedDataModelUpdate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
