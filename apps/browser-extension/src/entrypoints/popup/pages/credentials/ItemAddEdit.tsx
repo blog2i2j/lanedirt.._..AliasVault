@@ -957,7 +957,8 @@ const ItemAddEdit: React.FC = () => {
 
     // Handle multi-value fields
     if (isMultiValue) {
-      const values = Array.isArray(value) ? value : value ? [value] : [''];
+      // Ensure at least one empty input is always shown for multi-value fields
+      const values = Array.isArray(value) && value.length > 0 ? value : value ? [value as string] : [''];
 
       return (
         <div className="space-y-2">
@@ -973,9 +974,12 @@ const ItemAddEdit: React.FC = () => {
                 onChange={(e) => {
                   const newValues = [...values];
                   newValues[idx] = e.target.value;
+                  /*
+                   * Filter empty values but keep raw value for storage (empty array is fine).
+                   * The UI will still show at least one input due to the values initialization above.
+                   */
                   handleFieldChange(fieldKey, newValues.filter(v => v.trim() !== ''));
                 }}
-                placeholder={`${label} ${idx + 1}`}
                 className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
               />
               {idx === values.length - 1 && (
@@ -1061,7 +1065,6 @@ const ItemAddEdit: React.FC = () => {
               onChange={(e) => handleFieldChange(fieldKey, e.target.value)}
               rows={4}
               className={`w-full px-3 py-2 ${onRemove ? 'pr-10' : ''} border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white`}
-              placeholder={label}
             />
           </div>
         );
@@ -1109,7 +1112,6 @@ const ItemAddEdit: React.FC = () => {
             value={stringValue}
             onChange={(value) => handleFieldChange(fieldKey, value)}
             type="text"
-            placeholder={label}
           />
         );
     }
