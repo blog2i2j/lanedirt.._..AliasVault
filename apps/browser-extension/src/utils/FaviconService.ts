@@ -143,11 +143,8 @@ export class FaviconService {
 
     // Check if logo already exists (deduplication)
     if (sqliteClient.hasLogoForSource(source)) {
-      console.debug(`[Favicon] Logo already exists for source "${source}", skipping fetch`);
       return { success: false, skipped: true };
     }
-
-    console.debug(`[Favicon] No logo found for source "${source}", fetching...`);
 
     try {
       // Create timeout promise
@@ -159,11 +156,8 @@ export class FaviconService {
       const faviconPromise = webApi.get<{ image: string }>(`Favicon/Extract?url=${encodeURIComponent(normalizedUrl)}`);
       const faviconResponse = await Promise.race([faviconPromise, timeoutPromise]);
 
-      console.debug('[Favicon] Response received:', faviconResponse?.image ? 'has image' : 'no image');
-
       if (faviconResponse?.image) {
         const decodedImage = Uint8Array.from(Buffer.from(faviconResponse.image, 'base64'));
-        console.debug('[Favicon] Logo decoded successfully');
         return { success: true, imageData: decodedImage };
       }
 
