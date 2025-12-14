@@ -365,13 +365,12 @@ const PasskeyAuthenticate: React.FC = () => {
 
   return (
     <>
-      {showBypassDialog && request && (
-        <PasskeyBypassDialog
-          origin={new URL(request.origin).hostname}
-          onChoice={handleBypassChoice}
-          onCancel={() => setShowBypassDialog(false)}
-        />
-      )}
+      <PasskeyBypassDialog
+        isOpen={showBypassDialog && !!request}
+        origin={request ? new URL(request.origin).hostname : ''}
+        onChoice={handleBypassChoice}
+        onCancel={() => setShowBypassDialog(false)}
+      />
 
       <div className="space-y-6">
         <div className="text-center">

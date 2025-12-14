@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import ModalWrapper from '@/entrypoints/popup/components/Dialogs/ModalWrapper';
+
 import type { FieldType } from '@/utils/dist/core/models/vault';
 
 /**
@@ -204,8 +206,9 @@ const AddFieldMenu: React.FC<AddFieldMenuProps> = ({
         {/* Dropdown Menu */}
         {isOpen && (
           <>
+            {/* Dark overlay backdrop for better visibility */}
             <div
-              className="fixed inset-0 z-10"
+              className="fixed inset-0 z-10 bg-black bg-opacity-50"
               onClick={() => setIsOpen(false)}
             />
             <div className="absolute bottom-full left-0 right-0 mb-1 z-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg overflow-hidden">
@@ -239,69 +242,66 @@ const AddFieldMenu: React.FC<AddFieldMenuProps> = ({
       </div>
 
       {/* Custom Field Modal */}
-      {showCustomFieldModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-96 max-w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              {t('itemTypes.addCustomField')}
-            </h3>
+      <ModalWrapper
+        isOpen={showCustomFieldModal}
+        onClose={handleCloseCustomFieldModal}
+        title={t('itemTypes.addCustomField')}
+        footer={
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={handleAddCustomField}
+              disabled={!customFieldLabel.trim()}
+              className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {t('common.add')}
+            </button>
+            <button
+              type="button"
+              onClick={handleCloseCustomFieldModal}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+            >
+              {t('common.cancel')}
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {t('itemTypes.fieldLabel')}
+            </label>
+            <input
+              type="text"
+              value={customFieldLabel}
+              onChange={(e) => setCustomFieldLabel(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
+              placeholder={t('itemTypes.enterFieldName')}
+              autoFocus
+            />
+          </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {t('itemTypes.fieldLabel')}
-                </label>
-                <input
-                  type="text"
-                  value={customFieldLabel}
-                  onChange={(e) => setCustomFieldLabel(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
-                  placeholder={t('itemTypes.enterFieldName')}
-                  autoFocus
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {t('itemTypes.fieldType')}
-                </label>
-                <select
-                  value={customFieldType}
-                  onChange={(e) => setCustomFieldType(e.target.value as FieldType)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="Text">{t('itemTypes.fieldTypes.text')}</option>
-                  <option value="Hidden">{t('itemTypes.fieldTypes.hidden')}</option>
-                  <option value="Email">{t('itemTypes.fieldTypes.email')}</option>
-                  <option value="URL">{t('itemTypes.fieldTypes.url')}</option>
-                  <option value="Phone">{t('itemTypes.fieldTypes.phone')}</option>
-                  <option value="Number">{t('itemTypes.fieldTypes.number')}</option>
-                  <option value="Date">{t('itemTypes.fieldTypes.date')}</option>
-                  <option value="TextArea">{t('itemTypes.fieldTypes.textArea')}</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                type="button"
-                onClick={handleAddCustomField}
-                disabled={!customFieldLabel.trim()}
-                className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {t('common.add')}
-              </button>
-              <button
-                type="button"
-                onClick={handleCloseCustomFieldModal}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-              >
-                {t('common.cancel')}
-              </button>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {t('itemTypes.fieldType')}
+            </label>
+            <select
+              value={customFieldType}
+              onChange={(e) => setCustomFieldType(e.target.value as FieldType)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
+            >
+              <option value="Text">{t('itemTypes.fieldTypes.text')}</option>
+              <option value="Hidden">{t('itemTypes.fieldTypes.hidden')}</option>
+              <option value="Email">{t('itemTypes.fieldTypes.email')}</option>
+              <option value="URL">{t('itemTypes.fieldTypes.url')}</option>
+              <option value="Phone">{t('itemTypes.fieldTypes.phone')}</option>
+              <option value="Number">{t('itemTypes.fieldTypes.number')}</option>
+              <option value="Date">{t('itemTypes.fieldTypes.date')}</option>
+              <option value="TextArea">{t('itemTypes.fieldTypes.textArea')}</option>
+            </select>
           </div>
         </div>
-      )}
+      </ModalWrapper>
     </>
   );
 };

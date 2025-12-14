@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import ConfirmDeleteModal from '@/entrypoints/popup/components/Dialogs/ConfirmDeleteModal';
 import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useHeaderButtons } from '@/entrypoints/popup/context/HeaderButtonsContext';
@@ -70,19 +71,19 @@ const RecentlyDeleted: React.FC = () => {
   /**
    * Permanently delete an item.
    */
-  const handlePermanentDelete = useCallback(async (itemId: string) => {
-    if (!dbContext?.sqliteClient) {
+  const handlePermanentDelete = useCallback(async () => {
+    if (!dbContext?.sqliteClient || !selectedItemId) {
       return;
     }
 
     await executeVaultMutationAsync(async () => {
-      await dbContext.sqliteClient!.permanentlyDeleteItem(itemId);
+      await dbContext.sqliteClient!.permanentlyDeleteItem(selectedItemId);
     });
 
     loadItems();
     setShowConfirmDelete(false);
     setSelectedItemId(null);
-  }, [dbContext?.sqliteClient, executeVaultMutationAsync, loadItems]);
+  }, [dbContext?.sqliteClient, executeVaultMutationAsync, loadItems, selectedItemId]);
 
   /**
    * Empty all items from Recently Deleted (permanent delete all).
@@ -123,6 +124,14 @@ const RecentlyDeleted: React.FC = () => {
 
     load();
   }, [dbContext?.sqliteClient, setIsLoading, loadItems]);
+
+  /**
+   * Handle closing the delete confirmation modal.
+   */
+  const handleCloseDeleteModal = useCallback(() => {
+    setShowConfirmDelete(false);
+    setSelectedItemId(null);
+  }, []);
 
   if (isLoading) {
     return (
@@ -221,63 +230,24 @@ const RecentlyDeleted: React.FC = () => {
       )}
 
       {/* Confirm Delete Modal */}
-      {showConfirmDelete && selectedItemId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm mx-4">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              {t('recentlyDeleted.confirmDeleteTitle')}
-            </h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-4">
-              {t('recentlyDeleted.confirmDeleteMessage')}
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setShowConfirmDelete(false);
-                  setSelectedItemId(null);
-                }}
-                className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={() => handlePermanentDelete(selectedItemId)}
-                className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700"
-              >
-                {t('recentlyDeleted.deletePermanently')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDeleteModal
+        isOpen={showConfirmDelete && !!selectedItemId}
+        onClose={handleCloseDeleteModal}
+        onConfirm={handlePermanentDelete}
+        title={t('recentlyDeleted.confirmDeleteTitle')}
+        message={t('recentlyDeleted.confirmDeleteMessage')}
+        confirmText={t('recentlyDeleted.deletePermanently')}
+      />
 
       {/* Confirm Empty All Modal */}
-      {showConfirmEmptyAll && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm mx-4">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              {t('recentlyDeleted.confirmEmptyAllTitle')}
-            </h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-4">
-              {t('recentlyDeleted.confirmEmptyAllMessage', { count: items.length })}
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowConfirmEmptyAll(false)}
-                className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={handleEmptyAll}
-                className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700"
-              >
-                {t('recentlyDeleted.emptyAll')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDeleteModal
+        isOpen={showConfirmEmptyAll}
+        onClose={() => setShowConfirmEmptyAll(false)}
+        onConfirm={handleEmptyAll}
+        title={t('recentlyDeleted.confirmEmptyAllTitle')}
+        message={t('recentlyDeleted.confirmEmptyAllMessage', { count: items.length })}
+        confirmText={t('recentlyDeleted.emptyAll')}
+      />
     </div>
   );
 };

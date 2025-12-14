@@ -661,8 +661,8 @@ const CredentialAddEdit: React.FC = () => {
           setShowDeleteModal(false);
           void handleDelete();
         }}
-        title={t('credentials.deleteCredentialTitle')}
-        message={t('credentials.deleteCredentialConfirm')}
+        title={t('credentials.deleteItemTitle')}
+        message={t('credentials.deleteItemConfirm')}
         confirmText={t('common.delete')}
         cancelText={t('common.cancel')}
         variant="danger"

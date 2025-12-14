@@ -1387,8 +1387,8 @@ const ItemAddEdit: React.FC = () => {
         <Modal
           isOpen={showDeleteModal}
           onClose={() => setShowDeleteModal(false)}
-          title={t('credentials.deleteCredentialTitle')}
-          message={t('credentials.deleteCredentialConfirmation')}
+          title={t('credentials.deleteItemTitle')}
+          message={t('credentials.deleteItemConfirm')}
           confirmText={t('common.delete')}
           cancelText={t('common.cancel')}
           onConfirm={handleDelete}

@@ -546,13 +546,12 @@ const PasskeyCreate: React.FC = () => {
 
   return (
     <>
-      {showBypassDialog && request && (
-        <PasskeyBypassDialog
-          origin={new URL(request.origin).hostname}
-          onChoice={handleBypassChoice}
-          onCancel={() => setShowBypassDialog(false)}
-        />
-      )}
+      <PasskeyBypassDialog
+        isOpen={showBypassDialog && !!request}
+        origin={request ? new URL(request.origin).hostname : ''}
+        onChoice={handleBypassChoice}
+        onCancel={() => setShowBypassDialog(false)}
+      />
 
       {localLoading && (
         <div className="fixed inset-0 flex flex-col justify-center items-center bg-white dark:bg-gray-900 bg-opacity-90 dark:bg-opacity-90 z-50">
