@@ -6,11 +6,10 @@ import type { Attachment } from '@/utils/dist/core/models/vault';
 import { FieldKey, FieldTypes, getSystemField, MAX_FIELD_HISTORY_RECORDS } from '@/utils/dist/core/models/vault';
 import type { VaultVersion } from '@/utils/dist/core/vault';
 import { VaultSqlGenerator, checkVersionCompatibility, extractVersionFromMigrationId } from '@/utils/dist/core/vault';
+import { getItemWithFallback } from '@/utils/StorageUtility';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
 
 import { t } from '@/i18n/StandaloneI18n';
-
-import { storage } from '#imports';
 
 /**
  * Placeholder base64 image for credentials without a logo.
@@ -756,9 +755,10 @@ export class SqliteClient {
    * @returns The default email domain or null if no valid domain is found
    */
   public async getDefaultEmailDomain(): Promise<string | null> {
-    const publicEmailDomains = await storage.getItem('local:publicEmailDomains') as string[] ?? [];
-    const privateEmailDomains = await storage.getItem('local:privateEmailDomains') as string[] ?? [];
-    const hiddenPrivateEmailDomains = await storage.getItem('local:hiddenPrivateEmailDomains') as string[] ?? [];
+    // Use fallback for keys migrated from session: to local: in v0.26.0
+    const publicEmailDomains = await getItemWithFallback<string[]>('local:publicEmailDomains') ?? [];
+    const privateEmailDomains = await getItemWithFallback<string[]>('local:privateEmailDomains') ?? [];
+    const hiddenPrivateEmailDomains = await getItemWithFallback<string[]>('local:hiddenPrivateEmailDomains') ?? [];
 
     const defaultEmailDomain = this.getSetting('DefaultEmailDomain');
 

@@ -3,6 +3,7 @@ import { sendMessage } from 'webext-bridge/popup';
 
 import type { EncryptionKeyDerivationParams } from '@/utils/dist/core/models/metadata';
 import SqliteClient from '@/utils/SqliteClient';
+import { getItemWithFallback } from '@/utils/StorageUtility';
 import type { VaultResponse as messageVaultResponse } from '@/utils/types/messaging/VaultResponse';
 
 import { storage } from '#imports';
@@ -175,12 +176,11 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
    */
   const getVaultMetadata = useCallback(async () : Promise<VaultMetadata | null> => {
     try {
-      const [publicEmailDomains, privateEmailDomains, hiddenPrivateEmailDomains, revision] = await Promise.all([
-        storage.getItem('local:publicEmailDomains') as Promise<string[] | null>,
-        storage.getItem('local:privateEmailDomains') as Promise<string[] | null>,
-        storage.getItem('local:hiddenPrivateEmailDomains') as Promise<string[] | null>,
-        storage.getItem('local:serverRevision') as Promise<number | null>
-      ]);
+      // Use fallback for keys migrated from session: to local: in v0.26.0
+      const publicEmailDomains = await getItemWithFallback<string[]>('local:publicEmailDomains');
+      const privateEmailDomains = await getItemWithFallback<string[]>('local:privateEmailDomains');
+      const hiddenPrivateEmailDomains = await getItemWithFallback<string[]>('local:hiddenPrivateEmailDomains');
+      const revision = await storage.getItem('local:serverRevision') as number | null;
 
       if (!publicEmailDomains && !privateEmailDomains) {
         return null;

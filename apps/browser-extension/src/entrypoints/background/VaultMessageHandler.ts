@@ -5,6 +5,7 @@ import type { EncryptionKeyDerivationParams } from '@/utils/dist/core/models/met
 import type { Vault, VaultResponse, VaultPostResponse } from '@/utils/dist/core/models/webapi';
 import { EncryptionUtility } from '@/utils/EncryptionUtility';
 import { SqliteClient } from '@/utils/SqliteClient';
+import { getItemWithFallback } from '@/utils/StorageUtility';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
 import { BoolResponse as messageBoolResponse } from '@/utils/types/messaging/BoolResponse';
 import { CredentialsResponse as messageCredentialsResponse } from '@/utils/types/messaging/CredentialsResponse';
@@ -201,9 +202,10 @@ export async function handleGetVault(
 
     // Read from local: storage for persistent vault access
     const encryptedVault = await storage.getItem('local:encryptedVault') as string;
-    const publicEmailDomains = await storage.getItem('local:publicEmailDomains') as string[];
-    const privateEmailDomains = await storage.getItem('local:privateEmailDomains') as string[];
-    const hiddenPrivateEmailDomains = await storage.getItem('local:hiddenPrivateEmailDomains') as string[] ?? [];
+    // Use fallback for keys migrated from session: to local: in v0.26.0
+    const publicEmailDomains = await getItemWithFallback<string[]>('local:publicEmailDomains');
+    const privateEmailDomains = await getItemWithFallback<string[]>('local:privateEmailDomains');
+    const hiddenPrivateEmailDomains = await getItemWithFallback<string[]>('local:hiddenPrivateEmailDomains') ?? [];
     const serverRevision = await storage.getItem('local:serverRevision') as number | null;
 
     if (!encryptedVault) {
@@ -433,7 +435,7 @@ export async function getEmailAddressesForVault(
   const credentials = sqliteClient.getAllCredentials();
 
   // Get metadata from local: storage
-  const privateEmailDomains = await storage.getItem('local:privateEmailDomains') as string[];
+  const privateEmailDomains = await getItemWithFallback<string[]>('local:privateEmailDomains') ?? [];
 
   const emailAddresses = credentials
     .filter(cred => cred.Alias?.Email != null)
@@ -526,15 +528,8 @@ export async function handleGetEncryptionKey(
  */
 export async function handleGetEncryptionKeyDerivationParams(
 ) : Promise<EncryptionKeyDerivationParams | null> {
-  // Try local: storage first (current location since offline support)
-  let params = await storage.getItem('local:encryptionKeyDerivationParams') as EncryptionKeyDerivationParams | null;
-
-  // Fall back to session: storage for backwards compatibility
-  if (!params) {
-    params = await storage.getItem('session:encryptionKeyDerivationParams') as EncryptionKeyDerivationParams | null;
-  }
-
-  return params;
+  // Get metadata from storage
+  return await getItemWithFallback<EncryptionKeyDerivationParams>('local:encryptionKeyDerivationParams');
 }
 
 /**
