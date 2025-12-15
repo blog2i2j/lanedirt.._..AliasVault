@@ -53,7 +53,7 @@ export const AliasDetails: React.FC<AliasDetailsProps> = ({ credential }) : Reac
       {IdentityHelperUtils.isValidBirthDate(credential.Alias?.BirthDate) && (
         <FormInputCopyToClipboard
           label={t('credentials.birthDate')}
-          value={IdentityHelperUtils.normalizeBirthDateForDisplay(credential.Alias.BirthDate)}
+          value={IdentityHelperUtils.normalizeBirthDate(credential.Alias.BirthDate)}
         />
       )}
     </ThemedView>

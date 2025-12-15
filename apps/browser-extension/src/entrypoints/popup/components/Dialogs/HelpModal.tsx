@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 
 import ModalWrapper from '@/entrypoints/popup/components/Dialogs/ModalWrapper';
 
@@ -14,7 +13,6 @@ type HelpModalProps = {
  * Shows a modal popup with help information when clicked.
  */
 const HelpModal: React.FC<HelpModalProps> = ({ title, content, className = '' }) => {
-  const { t } = useTranslation();
   const [showModal, setShowModal] = useState(false);
 
   return (

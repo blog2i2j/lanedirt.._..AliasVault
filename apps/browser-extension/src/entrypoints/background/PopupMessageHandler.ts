@@ -23,12 +23,12 @@ export function handleOpenPopup() : Promise<BoolResponse> {
 }
 
 /**
- * Handle opening the popup with a credential.
+ * Handle opening the popup with an item.
  */
-export function handlePopupWithCredential(message: any) : Promise<BoolResponse> {
+export function handlePopupWithItem(message: any) : Promise<BoolResponse> {
   return (async () : Promise<BoolResponse> => {
     browser.windows.create({
-      url: browser.runtime.getURL(`/popup.html?expanded=true#/credentials/${message.credentialId}`),
+      url: browser.runtime.getURL(`/popup.html?expanded=true#/credentials/${message.itemId}`),
       type: 'popup',
       width: 400,
       height: 600,

@@ -1,9 +1,10 @@
 /**
- * Credential filtering via Rust WASM. See core/rust/src/credential_matcher for algorithm.
+ * Item filtering via Rust WASM. See core/rust/src/credential_matcher for algorithm.
  */
 import { browser } from 'wxt/browser';
 
-import type { Credential } from '@/utils/dist/core/models/vault';
+import type { Credential, Item } from '@/utils/dist/core/models/vault';
+import { FieldKey } from '@/utils/dist/core/models/vault';
 import init, {
   filterCredentials as wasmFilterCredentials,
   extractDomain as wasmExtractDomain,
@@ -33,26 +34,43 @@ async function ensureInit(): Promise<void> {
 }
 
 /**
- * Filter credentials by URL/title. Returns max 3 matches.
+ * Helper to get field value from an item's fields array.
  */
-export async function filterCredentials(
-  credentials: Credential[],
+function getFieldValue(item: Item, fieldKey: string): string | undefined {
+  const field = item.Fields?.find(f => f.FieldKey === fieldKey);
+  if (!field) {
+    return undefined;
+  }
+  return Array.isArray(field.Value) ? field.Value[0] : field.Value;
+}
+
+/**
+ * Filter items by URL/title. Returns max 3 matches.
+ * Uses the same Rust WASM filtering logic but maps Item fields to the expected structure.
+ */
+export async function filterItems(
+  items: Item[],
   currentUrl: string,
   pageTitle: string,
   matchingMode: AutofillMatchingMode = AutofillMatchingMode.DEFAULT
-): Promise<Credential[]> {
+): Promise<Item[]> {
   await ensureInit();
 
+  // Map Items to the format expected by the WASM filter
   const result = wasmFilterCredentials({
-    credentials: credentials.map(c => ({ Id: c.Id, ServiceName: c.ServiceName, ServiceUrl: c.ServiceUrl })),
+    credentials: items.map(item => ({
+      Id: item.Id,
+      ServiceName: item.Name ?? '',
+      ServiceUrl: getFieldValue(item, FieldKey.LoginUrl)
+    })),
     current_url: currentUrl,
     page_title: pageTitle,
     matching_mode: matchingMode
   }) as { matched_ids: string[] };
 
   return result.matched_ids
-    .map(id => credentials.find(c => c.Id === id))
-    .filter((c): c is Credential => c !== undefined);
+    .map(id => items.find(item => item.Id === id))
+    .filter((item): item is Item => item !== undefined);
 }
 
 /**
@@ -69,4 +87,32 @@ export async function extractDomain(url: string): Promise<string> {
 export async function extractRootDomain(domain: string): Promise<string> {
   await ensureInit();
   return wasmExtractRootDomain(domain);
+}
+
+/**
+ * Filter credentials by URL/title. Returns max 3 matches.
+ * Uses the same Rust WASM filtering logic with the Credential type.
+ */
+export async function filterCredentials(
+  credentials: Credential[],
+  currentUrl: string,
+  pageTitle: string,
+  matchingMode: AutofillMatchingMode = AutofillMatchingMode.DEFAULT
+): Promise<Credential[]> {
+  await ensureInit();
+
+  const result = wasmFilterCredentials({
+    credentials: credentials.map(cred => ({
+      Id: cred.Id,
+      ServiceName: cred.ServiceName ?? '',
+      ServiceUrl: cred.ServiceUrl
+    })),
+    current_url: currentUrl,
+    page_title: pageTitle,
+    matching_mode: matchingMode
+  }) as { matched_ids: string[] };
+
+  return result.matched_ids
+    .map(id => credentials.find(cred => cred.Id === id))
+    .filter((cred): cred is Credential => cred !== undefined);
 }

@@ -19,6 +19,7 @@ import { PopoutUtility } from '@/entrypoints/popup/utils/PopoutUtility';
 import type { Item } from '@/utils/dist/core/models/vault';
 import { FieldCategories, FieldTypes, ItemTypes } from '@/utils/dist/core/models/vault';
 import { groupFieldsByCategory } from '@/utils/dist/core/models/vault';
+
 import { EmailPreview } from '../../components/EmailPreview';
 
 /**

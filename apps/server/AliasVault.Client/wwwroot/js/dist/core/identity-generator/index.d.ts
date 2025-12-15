@@ -153,15 +153,11 @@ declare class IdentityGeneratorDe extends IdentityGenerator {
  */
 declare class IdentityHelperUtils {
     /**
-     * Normalize a birth date for display.
+     * Normalize a birth date to the standard format: "yyyy-MM-dd".
+     * Handles various input formats including ISO strings with time components.
+     * Returns empty string for invalid/empty dates.
      */
-    static normalizeBirthDateForDisplay(birthDate: string | undefined): string;
-    /**
-     * Normalize a birth date for database storage.
-     * Converts any date format to the standard format: "yyyy-MM-dd 00:00:00" (19 characters).
-     * BirthDate fields do not include time or milliseconds, just date with 00:00:00.
-     */
-    static normalizeBirthDateForDb(input: string | undefined): string;
+    static normalizeBirthDate(input: string | undefined): string;
     /**
      * Check if a birth date is valid.
      */

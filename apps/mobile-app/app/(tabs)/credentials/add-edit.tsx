@@ -156,7 +156,7 @@ export default function AddEditCredentialScreen() : React.ReactNode {
     try {
       const existingCredential = await dbContext.sqliteClient!.getCredentialById(id);
       if (existingCredential) {
-        existingCredential.Alias.BirthDate = IdentityHelperUtils.normalizeBirthDateForDisplay(existingCredential.Alias.BirthDate);
+        existingCredential.Alias.BirthDate = IdentityHelperUtils.normalizeBirthDate(existingCredential.Alias.BirthDate);
         Object.entries(existingCredential).forEach(([key, value]) => {
           setValue(key as keyof Credential, value);
         });
@@ -264,7 +264,7 @@ export default function AddEditCredentialScreen() : React.ReactNode {
     setValue('Alias.LastName', identity.lastName);
     setValue('Alias.NickName', identity.nickName);
     setValue('Alias.Gender', identity.gender);
-    setValue('Alias.BirthDate', IdentityHelperUtils.normalizeBirthDateForDisplay(identity.birthDate.toISOString()));
+    setValue('Alias.BirthDate', IdentityHelperUtils.normalizeBirthDate(identity.birthDate.toISOString()));
 
     // Only overwrite username if it's empty or matches the last generated value
     if (!currentUsername || currentUsername === lastGeneratedValues.username) {
@@ -374,7 +374,7 @@ export default function AddEditCredentialScreen() : React.ReactNode {
     }
 
     // Convert user birthdate entry format (yyyy-mm-dd) into valid ISO 8601 format for database storage
-    credentialToSave.Alias.BirthDate = IdentityHelperUtils.normalizeBirthDateForDb(credentialToSave.Alias.BirthDate);
+    credentialToSave.Alias.BirthDate = IdentityHelperUtils.normalizeBirthDate(credentialToSave.Alias.BirthDate);
 
     // Extract favicon from service URL if the credential has one
     if (credentialToSave.ServiceUrl) {

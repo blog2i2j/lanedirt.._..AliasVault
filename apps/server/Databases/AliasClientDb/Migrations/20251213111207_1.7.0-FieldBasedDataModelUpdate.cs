@@ -668,6 +668,7 @@ namespace AliasClientDb.Migrations
 
             // Migrate alias.birthdate field (system field using FieldKey)
             // Exclude DateTime.MinValue (year 0001) which represents empty/unset dates
+            // Strip time portion from old format (yyyy-MM-dd HH:mm:ss or yyyy-MM-ddTHH:mm:ss) to new format (yyyy-MM-dd)
             migrationBuilder.Sql(@"
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
@@ -675,7 +676,7 @@ namespace AliasClientDb.Migrations
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'alias.birthdate' AS FieldKey,
-                  a.BirthDate AS Value,
+                  SUBSTR(a.BirthDate, 1, 10) AS Value,
                   0 AS Weight,
                   a.UpdatedAt AS CreatedAt,
                   a.UpdatedAt AS UpdatedAt,

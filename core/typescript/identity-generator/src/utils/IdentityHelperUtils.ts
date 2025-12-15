@@ -3,25 +3,13 @@
  */
 export class IdentityHelperUtils {
   /**
-   * Normalize a birth date for display.
+   * Normalize a birth date to the standard format: "yyyy-MM-dd".
+   * Handles various input formats including ISO strings with time components.
+   * Returns empty string for invalid/empty dates.
    */
-  public static normalizeBirthDateForDisplay(birthDate: string | undefined): string {
-    if (!birthDate || birthDate.startsWith('0001-01-01')) {
+  public static normalizeBirthDate(input: string | undefined): string {
+    if (!input || input.trim() === '' || input.startsWith('0001-01-01')) {
       return '';
-    }
-
-    // Handle both space and T separators
-    return birthDate.split(/[T ]/)[0]; // Strip time
-  }
-
-  /**
-   * Normalize a birth date for database storage.
-   * Converts any date format to the standard format: "yyyy-MM-dd 00:00:00" (19 characters).
-   * BirthDate fields do not include time or milliseconds, just date with 00:00:00.
-   */
-  public static normalizeBirthDateForDb(input: string | undefined): string {
-    if (!input || input.trim() === '') {
-      return '0001-01-01 00:00:00';
     }
 
     const trimmed = input.trim();
@@ -32,8 +20,8 @@ export class IdentityHelperUtils {
      */
     const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (match) {
-      const [_, y, m, d] = match;
-      return `${y}-${m}-${d} 00:00:00`;
+      const [, y, m, d] = match;
+      return `${y}-${m}-${d}`;
     }
 
     // Fall back to native Date parsing only if regex match fails
@@ -42,10 +30,10 @@ export class IdentityHelperUtils {
       const year = parsedDate.getFullYear().toString().padStart(4, '0');
       const month = (parsedDate.getMonth() + 1).toString().padStart(2, '0');
       const day = parsedDate.getDate().toString().padStart(2, '0');
-      return `${year}-${month}-${day} 00:00:00`;
+      return `${year}-${month}-${day}`;
     }
 
-    return '0001-01-01 00:00:00';
+    return '';
   }
 
   /**

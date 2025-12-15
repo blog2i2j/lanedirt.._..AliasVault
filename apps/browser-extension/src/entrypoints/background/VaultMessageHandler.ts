@@ -8,8 +8,8 @@ import { SqliteClient } from '@/utils/SqliteClient';
 import { getItemWithFallback } from '@/utils/StorageUtility';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
 import { BoolResponse as messageBoolResponse } from '@/utils/types/messaging/BoolResponse';
-import { CredentialsResponse as messageCredentialsResponse } from '@/utils/types/messaging/CredentialsResponse';
 import { IdentitySettingsResponse } from '@/utils/types/messaging/IdentitySettingsResponse';
+import { ItemsResponse as messageItemsResponse } from '@/utils/types/messaging/ItemsResponse';
 import { PasswordSettingsResponse as messagePasswordSettingsResponse } from '@/utils/types/messaging/PasswordSettingsResponse';
 import { StringResponse as stringResponse } from '@/utils/types/messaging/StringResponse';
 import { VaultResponse as messageVaultResponse } from '@/utils/types/messaging/VaultResponse';
@@ -283,124 +283,10 @@ export function handleClearVault(): messageBoolResponse {
 }
 
 /**
- * Get all credentials.
+ * Create a new item in the vault.
+ * Uses the native Item type with field-based structure.
  */
-export async function handleGetCredentials(
-) : Promise<messageCredentialsResponse> {
-  const encryptionKey = await handleGetEncryptionKey();
-
-  if (!encryptionKey) {
-    return { success: false, error: await t('common.errors.vaultIsLocked') };
-  }
-
-  try {
-    const sqliteClient = await createVaultSqliteClient();
-    const credentials = sqliteClient.getAllCredentials();
-    return { success: true, credentials: credentials };
-  } catch (error) {
-    console.error('Error getting credentials:', error);
-    return { success: false, error: await t('common.errors.unknownError') };
-  }
-}
-
-/**
- * Get credentials filtered by URL and page title for autofill performance optimization.
- * Filters credentials in the background script before sending to reduce message payload size.
- * Critical for large vaults (1000+ credentials) to avoid multi-second delays.
- *
- * @param message - Filtering parameters: currentUrl, pageTitle, matchingMode
- */
-export async function handleGetFilteredCredentials(
-  message: { currentUrl: string, pageTitle: string, matchingMode?: string }
-) : Promise<messageCredentialsResponse> {
-  const encryptionKey = await handleGetEncryptionKey();
-
-  if (!encryptionKey) {
-    return { success: false, error: await t('common.errors.vaultIsLocked') };
-  }
-
-  try {
-    const sqliteClient = await createVaultSqliteClient();
-    const allCredentials = sqliteClient.getAllCredentials();
-
-    const { filterCredentials, AutofillMatchingMode } = await import('@/utils/credentialMatcher/CredentialMatcher');
-
-    // Parse matching mode from string
-    let matchingMode = AutofillMatchingMode.DEFAULT;
-    if (message.matchingMode) {
-      matchingMode = message.matchingMode as typeof AutofillMatchingMode[keyof typeof AutofillMatchingMode];
-    }
-
-    // Filter credentials in background to reduce payload size (~95% reduction)
-    const filteredCredentials = await filterCredentials(
-      allCredentials,
-      message.currentUrl,
-      message.pageTitle,
-      matchingMode
-    );
-
-    return { success: true, credentials: filteredCredentials };
-  } catch (error) {
-    console.error('Error getting filtered credentials:', error);
-    return { success: false, error: await t('common.errors.unknownError') };
-  }
-}
-
-/**
- * Get credentials filtered by text search query.
- * Searches across entire vault (service name, username, email, URL) and returns matches.
- *
- * @param message - Search parameters: searchTerm
- */
-export async function handleGetSearchCredentials(
-  message: { searchTerm: string }
-) : Promise<messageCredentialsResponse> {
-  const encryptionKey = await handleGetEncryptionKey();
-
-  if (!encryptionKey) {
-    return { success: false, error: await t('common.errors.vaultIsLocked') };
-  }
-
-  try {
-    const sqliteClient = await createVaultSqliteClient();
-    const allCredentials = sqliteClient.getAllCredentials();
-
-    // If search term is empty, return empty array
-    if (!message.searchTerm || message.searchTerm.trim() === '') {
-      return { success: true, credentials: [] };
-    }
-
-    const searchTerm = message.searchTerm.toLowerCase().trim();
-
-    // Filter credentials by search term across multiple fields
-    const searchResults = allCredentials.filter(cred => {
-      const searchableFields = [
-        cred.ServiceName?.toLowerCase(),
-        cred.Username?.toLowerCase(),
-        cred.Alias?.Email?.toLowerCase(),
-        cred.ServiceUrl?.toLowerCase()
-      ];
-      return searchableFields.some(field => field?.includes(searchTerm));
-    }).sort((a, b) => {
-      // Sort by service name, then username
-      const serviceNameComparison = (a.ServiceName ?? '').localeCompare(b.ServiceName ?? '');
-      if (serviceNameComparison !== 0) {
-        return serviceNameComparison;
-      }
-      return (a.Username ?? '').localeCompare(b.Username ?? '');
-    });
-
-    return { success: true, credentials: searchResults };
-  } catch (error) {
-    console.error('Error searching credentials:', error);
-    return { success: false, error: await t('common.errors.unknownError') };
-  }
-}
-
-/**
- * Create an identity.
- */
-export async function handleCreateIdentity(
+export async function handleCreateItem(
   message: any,
 ) : Promise<messageBoolResponse> {
   const encryptionKey = await handleGetEncryptionKey();
@@ -412,15 +298,119 @@ export async function handleCreateIdentity(
   try {
     const sqliteClient = await createVaultSqliteClient();
 
-    // Add the new credential to the vault/database.
-    await sqliteClient.createCredential(message.credential, message.attachments || []);
+    // Add the new item to the vault/database.
+    await sqliteClient.createItem(message.item, message.attachments || [], message.totpCodes || []);
 
     // Upload the new vault to the server.
     await uploadNewVaultToServer(sqliteClient);
 
     return { success: true };
   } catch (error) {
-    console.error('Failed to create identity:', error);
+    console.error('Failed to create item:', error);
+    return { success: false, error: await t('common.errors.unknownError') };
+  }
+}
+
+/**
+ * Get items filtered by URL matching (for autofill).
+ * Filters items in the background script before sending to reduce message payload size.
+ *
+ * @param message - Filtering parameters: currentUrl, pageTitle, matchingMode
+ */
+export async function handleGetFilteredItems(
+  message: { currentUrl: string, pageTitle: string, matchingMode?: string }
+) : Promise<messageItemsResponse> {
+  const encryptionKey = await handleGetEncryptionKey();
+
+  if (!encryptionKey) {
+    return { success: false, error: await t('common.errors.vaultIsLocked') };
+  }
+
+  try {
+    const sqliteClient = await createVaultSqliteClient();
+    const allItems = sqliteClient.getAllItems();
+
+    const { filterItems, AutofillMatchingMode } = await import('@/utils/credentialMatcher/CredentialMatcher');
+
+    // Parse matching mode from string
+    let matchingMode = AutofillMatchingMode.DEFAULT;
+    if (message.matchingMode) {
+      matchingMode = message.matchingMode as typeof AutofillMatchingMode[keyof typeof AutofillMatchingMode];
+    }
+
+    // Filter items in background to reduce payload size (~95% reduction)
+    const filteredItems = await filterItems(
+      allItems,
+      message.currentUrl,
+      message.pageTitle,
+      matchingMode
+    );
+
+    return { success: true, items: filteredItems };
+  } catch (error) {
+    console.error('Error getting filtered items:', error);
+    return { success: false, error: await t('common.errors.unknownError') };
+  }
+}
+
+/**
+ * Get items filtered by text search query.
+ * Searches across entire vault (name, fields) and returns matches.
+ *
+ * @param message - Search parameters: searchTerm
+ */
+export async function handleGetSearchItems(
+  message: { searchTerm: string }
+) : Promise<messageItemsResponse> {
+  const encryptionKey = await handleGetEncryptionKey();
+
+  if (!encryptionKey) {
+    return { success: false, error: await t('common.errors.vaultIsLocked') };
+  }
+
+  try {
+    const sqliteClient = await createVaultSqliteClient();
+    const allItems = sqliteClient.getAllItems();
+
+    // If search term is empty, return empty array
+    if (!message.searchTerm || message.searchTerm.trim() === '') {
+      return { success: true, items: [] };
+    }
+
+    const searchTerm = message.searchTerm.toLowerCase().trim();
+    const { FieldKey } = await import('@/utils/dist/core/models/vault');
+
+    // Filter items by search term across multiple fields
+    const searchResults = allItems.filter(item => {
+      // Search in item name
+      if (item.Name?.toLowerCase().includes(searchTerm)) {
+        return true;
+      }
+
+      // Search in field values
+      const searchableFieldKeys = [
+        FieldKey.LoginUsername,
+        FieldKey.LoginEmail,
+        FieldKey.LoginUrl,
+        FieldKey.AliasFirstName,
+        FieldKey.AliasLastName
+      ];
+
+      return item.Fields?.some(field => {
+        if (searchableFieldKeys.includes(field.FieldKey as any)) {
+          const value = Array.isArray(field.Value) ? field.Value.join(' ') : field.Value;
+          return value?.toLowerCase().includes(searchTerm);
+        }
+        return false;
+      });
+    }).sort((a, b) => {
+      // Sort by name
+      return (a.Name ?? '').localeCompare(b.Name ?? '');
+    });
+
+    return { success: true, items: searchResults };
+  } catch (error) {
+    console.error('Error searching items:', error);
     return { success: false, error: await t('common.errors.unknownError') };
   }
 }

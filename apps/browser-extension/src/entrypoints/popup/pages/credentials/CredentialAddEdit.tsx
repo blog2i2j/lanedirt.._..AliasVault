@@ -339,7 +339,7 @@ const CredentialAddEdit: React.FC = () => {
       const result = dbContext.sqliteClient.getCredentialById(id);
 
       if (result) {
-        result.Alias.BirthDate = IdentityHelperUtils.normalizeBirthDateForDisplay(result.Alias.BirthDate);
+        result.Alias.BirthDate = IdentityHelperUtils.normalizeBirthDate(result.Alias.BirthDate);
 
         // Set form values
         Object.entries(result).forEach(([key, value]) => {
@@ -436,7 +436,7 @@ const CredentialAddEdit: React.FC = () => {
     setValue('Alias.FirstName', identity.firstName);
     setValue('Alias.LastName', identity.lastName);
     setValue('Alias.Gender', identity.gender);
-    setValue('Alias.BirthDate', IdentityHelperUtils.normalizeBirthDateForDisplay(identity.birthDate.toISOString()));
+    setValue('Alias.BirthDate', IdentityHelperUtils.normalizeBirthDate(identity.birthDate.toISOString()));
 
     // Only overwrite username if it's empty or matches the last generated value
     if (!currentUsername || currentUsername === lastGeneratedValues.username) {
@@ -540,7 +540,7 @@ const CredentialAddEdit: React.FC = () => {
     // Normalize the birth date for database entry.
     let birthdate = data.Alias.BirthDate;
     if (birthdate) {
-      birthdate = IdentityHelperUtils.normalizeBirthDateForDb(birthdate);
+      birthdate = IdentityHelperUtils.normalizeBirthDate(birthdate);
     }
 
     // Clean up empty protocol-only URLs

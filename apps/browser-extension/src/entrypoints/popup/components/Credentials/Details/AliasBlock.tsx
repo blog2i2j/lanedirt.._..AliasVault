@@ -51,7 +51,7 @@ const AliasBlock: React.FC<AliasBlockProps> = ({ credential }) => {
         <FormInputCopyToClipboard
           id="birthDate"
           label={t('common.birthDate')}
-          value={IdentityHelperUtils.normalizeBirthDateForDisplay(credential.Alias?.BirthDate)}
+          value={IdentityHelperUtils.normalizeBirthDate(credential.Alias?.BirthDate)}
         />
       )}
     </div>

@@ -96,7 +96,7 @@ const useAliasGenerator = (): {
         firstName: identity.firstName,
         lastName: identity.lastName,
         gender: identity.gender,
-        birthdate: IdentityHelperUtils.normalizeBirthDateForDisplay(identity.birthDate.toISOString()),
+        birthdate: IdentityHelperUtils.normalizeBirthDate(identity.birthDate.toISOString()),
         username: identity.nickName,
         password
       };
