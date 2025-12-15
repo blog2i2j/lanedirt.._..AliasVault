@@ -161,6 +161,40 @@ const ItemAddEdit: React.FC = () => {
   const [skipFormRestore] = useState(false);
 
   /**
+   * Memoized restore callback for form persistence.
+   * Uses stable setter functions, so empty deps array is safe.
+   */
+  const handleFormRestore = useCallback((data: PersistedFormData) => {
+    if (data.item) {
+      setItem(data.item);
+    }
+    if (data.fieldValues) {
+      setFieldValues(data.fieldValues);
+    }
+    if (data.customFields) {
+      setCustomFields(data.customFields);
+    }
+    if (data.totpEditorState) {
+      setTotpEditorState(data.totpEditorState);
+    }
+    if (data.showNotes !== undefined) {
+      setShowNotes(data.showNotes);
+    }
+    if (data.show2FA !== undefined) {
+      setShow2FA(data.show2FA);
+    }
+    if (data.showAttachments !== undefined) {
+      setShowAttachments(data.showAttachments);
+    }
+    if (data.manuallyAddedFields) {
+      setManuallyAddedFields(new Set(data.manuallyAddedFields));
+    }
+    if (data.isLoginEmailInEmailMode !== undefined) {
+      setIsLoginEmailInEmailMode(data.isLoginEmailInEmailMode);
+    }
+  }, []);
+
+  /**
    * Form persistence hook - handles saving/restoring form state to encrypted storage.
    * The hook auto-persists on state changes and clears on unmount.
    */
@@ -178,39 +212,7 @@ const ItemAddEdit: React.FC = () => {
       manuallyAddedFields: Array.from(manuallyAddedFields),
       isLoginEmailInEmailMode,
     },
-    /**
-     * Restore form state from persisted data.
-     * @param data - The persisted form data to restore
-     */
-    onRestore: (data) => {
-      if (data.item) {
-        setItem(data.item);
-      }
-      if (data.fieldValues) {
-        setFieldValues(data.fieldValues);
-      }
-      if (data.customFields) {
-        setCustomFields(data.customFields);
-      }
-      if (data.totpEditorState) {
-        setTotpEditorState(data.totpEditorState);
-      }
-      if (data.showNotes !== undefined) {
-        setShowNotes(data.showNotes);
-      }
-      if (data.show2FA !== undefined) {
-        setShow2FA(data.show2FA);
-      }
-      if (data.showAttachments !== undefined) {
-        setShowAttachments(data.showAttachments);
-      }
-      if (data.manuallyAddedFields) {
-        setManuallyAddedFields(new Set(data.manuallyAddedFields));
-      }
-      if (data.isLoginEmailInEmailMode !== undefined) {
-        setIsLoginEmailInEmailMode(data.isLoginEmailInEmailMode);
-      }
-    },
+    onRestore: handleFormRestore,
     skipRestore: skipFormRestore,
   });
 
