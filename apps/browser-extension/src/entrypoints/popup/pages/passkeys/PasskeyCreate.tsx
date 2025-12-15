@@ -84,7 +84,7 @@ const PasskeyCreate: React.FC = () => {
 
             // Check for existing passkeys for this RP ID and user
             if (dbContext.sqliteClient && data.publicKey?.rp?.id) {
-              const allPasskeysForRpId = dbContext.sqliteClient.getPasskeysByRpId(data.publicKey.rp.id);
+              const allPasskeysForRpId = dbContext.sqliteClient.passkeys.getByRpId(data.publicKey.rp.id);
 
               /**
                * Filter by user ID and/or username if provided
@@ -93,7 +93,7 @@ const PasskeyCreate: React.FC = () => {
               let filtered = allPasskeysForRpId;
 
               if (data.publicKey.user?.id || data.publicKey.user?.name) {
-                filtered = allPasskeysForRpId.filter(passkey => {
+                filtered = allPasskeysForRpId.filter((passkey) => {
                   /**
                    * Match by user handle if both are available
                    * The request has base64url encoded user.id, passkey has UserHandle as byte array
@@ -131,7 +131,7 @@ const PasskeyCreate: React.FC = () => {
               // If no existing passkeys for this user, check for matching items
               if (filtered.length === 0) {
                 // Get all items and filter for matches
-                const allItems = dbContext.sqliteClient.getAllItems();
+                const allItems = dbContext.sqliteClient.items.getAll();
 
                 /*
                  * Filter items that:
@@ -139,7 +139,7 @@ const PasskeyCreate: React.FC = () => {
                  * 2. Have username/password (are login items)
                  * 3. Don't already have a passkey
                  */
-                const itemsWithoutPasskeys = allItems.filter(item => {
+                const itemsWithoutPasskeys = allItems.filter((item) => {
                   // Must have username or password to be a login item
                   const username = getFieldValue(item, FieldKey.LoginUsername);
                   const password = getFieldValue(item, FieldKey.LoginPassword);
@@ -313,19 +313,19 @@ const PasskeyCreate: React.FC = () => {
       await executeVaultMutationAsync(async () => {
         if (selectedPasskeyToReplace) {
           // Replace existing passkey: update the item and passkey
-          const existingPasskey = dbContext.sqliteClient!.getPasskeyById(selectedPasskeyToReplace);
+          const existingPasskey = dbContext.sqliteClient!.passkeys.getById(selectedPasskeyToReplace);
           if (existingPasskey) {
             // Get existing item to preserve its data
-            const existingItem = dbContext.sqliteClient!.getItemById(existingPasskey.ItemId);
+            const existingItem = dbContext.sqliteClient!.items.getById(existingPasskey.ItemId);
             if (existingItem) {
               // Update the parent item with new favicon and user-provided display name
-              await dbContext.sqliteClient!.updateItem(
+              await dbContext.sqliteClient!.items.update(
                 {
                   ...existingItem,
                   Name: displayName,
                   Logo: faviconLogo ?? existingItem.Logo,
                   Fields: [
-                    ...(existingItem.Fields || []).filter(f => f.FieldKey !== FieldKey.LoginUrl && f.FieldKey !== FieldKey.LoginUsername),
+                    ...(existingItem.Fields || []).filter((f) => f.FieldKey !== FieldKey.LoginUrl && f.FieldKey !== FieldKey.LoginUsername),
                     { FieldKey: FieldKey.LoginUrl, Label: 'URL', FieldType: FieldTypes.URL, Value: request.origin, IsHidden: false, DisplayOrder: 0 },
                     { FieldKey: FieldKey.LoginUsername, Label: 'Username', FieldType: FieldTypes.Text, Value: request.publicKey.user.name, IsHidden: false, DisplayOrder: 1 }
                   ]
@@ -336,7 +336,7 @@ const PasskeyCreate: React.FC = () => {
             }
 
             // Delete the old passkey
-            await dbContext.sqliteClient!.deletePasskeyById(selectedPasskeyToReplace);
+            await dbContext.sqliteClient!.passkeys.deleteById(selectedPasskeyToReplace);
 
             /**
              * Create new passkey with same item
@@ -352,7 +352,7 @@ const PasskeyCreate: React.FC = () => {
               }
             }
 
-            await dbContext.sqliteClient!.createPasskey({
+            await dbContext.sqliteClient!.passkeys.create({
               Id: newPasskeyGuid,
               ItemId: existingPasskey.ItemId,
               RpId: stored.rpId,
@@ -380,7 +380,7 @@ const PasskeyCreate: React.FC = () => {
             }
           }
 
-          await dbContext.sqliteClient!.createPasskey({
+          await dbContext.sqliteClient!.passkeys.create({
             Id: newPasskeyGuid,
             ItemId: selectedItemToAttach,
             RpId: stored.rpId,
@@ -406,7 +406,7 @@ const PasskeyCreate: React.FC = () => {
             UpdatedAt: new Date().toISOString()
           };
 
-          const itemId = await dbContext.sqliteClient!.createItem(newItem, []);
+          const itemId = await dbContext.sqliteClient!.items.create(newItem, []);
 
           /**
            * Create the Passkey linked to the item
@@ -423,7 +423,7 @@ const PasskeyCreate: React.FC = () => {
             }
           }
 
-          await dbContext.sqliteClient!.createPasskey({
+          await dbContext.sqliteClient!.passkeys.create({
             Id: newPasskeyGuid,
             ItemId: itemId,
             RpId: stored.rpId,

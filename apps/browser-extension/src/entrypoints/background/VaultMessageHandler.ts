@@ -2,6 +2,7 @@
 import { storage } from 'wxt/utils/storage';
 
 import type { EncryptionKeyDerivationParams } from '@/utils/dist/core/models/metadata';
+import type { Item } from '@/utils/dist/core/models/vault';
 import type { Vault, VaultResponse, VaultPostResponse } from '@/utils/dist/core/models/webapi';
 import { EncryptionUtility } from '@/utils/EncryptionUtility';
 import { SqliteClient } from '@/utils/SqliteClient';
@@ -299,7 +300,7 @@ export async function handleCreateItem(
     const sqliteClient = await createVaultSqliteClient();
 
     // Add the new item to the vault/database.
-    await sqliteClient.createItem(message.item, message.attachments || [], message.totpCodes || []);
+    await sqliteClient.items.create(message.item, message.attachments || [], message.totpCodes || []);
 
     // Upload the new vault to the server.
     await uploadNewVaultToServer(sqliteClient);
@@ -328,7 +329,7 @@ export async function handleGetFilteredItems(
 
   try {
     const sqliteClient = await createVaultSqliteClient();
-    const allItems = sqliteClient.getAllItems();
+    const allItems = sqliteClient.items.getAll();
 
     const { filterItems, AutofillMatchingMode } = await import('@/utils/credentialMatcher/CredentialMatcher');
 
@@ -370,7 +371,7 @@ export async function handleGetSearchItems(
 
   try {
     const sqliteClient = await createVaultSqliteClient();
-    const allItems = sqliteClient.getAllItems();
+    const allItems = sqliteClient.items.getAll();
 
     // If search term is empty, return empty array
     if (!message.searchTerm || message.searchTerm.trim() === '') {
@@ -381,7 +382,7 @@ export async function handleGetSearchItems(
     const { FieldKey } = await import('@/utils/dist/core/models/vault');
 
     // Filter items by search term across multiple fields
-    const searchResults = allItems.filter(item => {
+    const searchResults = allItems.filter((item: Item) => {
       // Search in item name
       if (item.Name?.toLowerCase().includes(searchTerm)) {
         return true;
@@ -396,14 +397,14 @@ export async function handleGetSearchItems(
         FieldKey.AliasLastName
       ];
 
-      return item.Fields?.some(field => {
-        if (searchableFieldKeys.includes(field.FieldKey as any)) {
+      return item.Fields?.some((field: { FieldKey: string; Value: string | string[] }) => {
+        if ((searchableFieldKeys as string[]).includes(field.FieldKey)) {
           const value = Array.isArray(field.Value) ? field.Value.join(' ') : field.Value;
           return value?.toLowerCase().includes(searchTerm);
         }
         return false;
       });
-    }).sort((a, b) => {
+    }).sort((a: Item, b: Item) => {
       // Sort by name
       return (a.Name ?? '').localeCompare(b.Name ?? '');
     });
@@ -421,7 +422,7 @@ export async function handleGetSearchItems(
 export async function getEmailAddressesForVault(
   sqliteClient: SqliteClient
 ): Promise<string[]> {
-  const emailAddresses = sqliteClient.getAllEmailAddresses();
+  const emailAddresses = sqliteClient.items.getAllEmailAddresses();
 
   // Get metadata from local: storage
   const privateEmailDomains = await getItemWithFallback<string[]>('local:privateEmailDomains') ?? [];
@@ -439,7 +440,7 @@ export function handleGetDefaultEmailDomain(): Promise<stringResponse> {
   return (async (): Promise<stringResponse> => {
     try {
       const sqliteClient = await createVaultSqliteClient();
-      const defaultEmailDomain = await sqliteClient.getDefaultEmailDomain();
+      const defaultEmailDomain = sqliteClient.settings.getDefaultEmailDomain();
 
       return { success: true, value: defaultEmailDomain ?? undefined };
     } catch (error) {
@@ -457,8 +458,8 @@ export async function handleGetDefaultIdentitySettings(
 ) : Promise<IdentitySettingsResponse> {
   try {
     const sqliteClient = await createVaultSqliteClient();
-    const language = await sqliteClient.getEffectiveIdentityLanguage();
-    const gender = sqliteClient.getDefaultIdentityGender();
+    const language = sqliteClient.settings.getEffectiveIdentityLanguage();
+    const gender = sqliteClient.settings.getDefaultIdentityGender();
 
     return {
       success: true,
@@ -480,7 +481,7 @@ export async function handleGetPasswordSettings(
 ) : Promise<messagePasswordSettingsResponse> {
   try {
     const sqliteClient = await createVaultSqliteClient();
-    const passwordSettings = sqliteClient.getPasswordSettings();
+    const passwordSettings = sqliteClient.settings.getPasswordSettings();
 
     return { success: true, settings: passwordSettings };
   } catch (error) {
@@ -623,7 +624,7 @@ async function uploadNewVaultToServer(sqliteClient: SqliteClient) : Promise<Vaul
   const newVault: Vault = {
     blob: encryptedVault,
     createdAt: new Date().toISOString(),
-    credentialsCount: sqliteClient.getAllItems().length,
+    credentialsCount: sqliteClient.items.getAll().length,
     currentRevisionNumber: serverRevision,
     emailAddressList: emailAddresses,
     updatedAt: new Date().toISOString(),

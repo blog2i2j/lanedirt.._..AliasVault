@@ -59,7 +59,7 @@ const ItemDetails: React.FC = (): React.ReactElement => {
     }
 
     try {
-      const result = dbContext.sqliteClient.getItemById(id);
+      const result = dbContext.sqliteClient.items.getById(id);
       if (result) {
         setItem(result);
         setIsInitialLoading(false);

@@ -53,13 +53,13 @@ const useAliasGenerator = (): {
     }
 
     // Get effective identity language (smart default based on UI language if no explicit override)
-    const identityLanguage = await dbContext.sqliteClient.getEffectiveIdentityLanguage();
+    const identityLanguage = dbContext.sqliteClient.settings.getEffectiveIdentityLanguage();
 
     // Initialize identity generator based on language
     const identityGenerator = CreateIdentityGenerator(identityLanguage);
 
     // Initialize password generator with settings from vault
-    const passwordSettings = dbContext.sqliteClient.getPasswordSettings();
+    const passwordSettings = dbContext.sqliteClient.settings.getPasswordSettings();
     const passwordGenerator = CreatePasswordGenerator(passwordSettings);
 
     return { identityGenerator, passwordGenerator };
@@ -78,17 +78,17 @@ const useAliasGenerator = (): {
       const { identityGenerator, passwordGenerator } = await initializeGenerators();
 
       // Get gender preference from database
-      const genderPreference = dbContext.sqliteClient.getDefaultIdentityGender();
+      const genderPreference = dbContext.sqliteClient.settings.getDefaultIdentityGender();
 
       // Get age range preference and convert to birthdate options
-      const ageRange = dbContext.sqliteClient.getDefaultIdentityAgeRange();
+      const ageRange = dbContext.sqliteClient.settings.getDefaultIdentityAgeRange();
       const birthdateOptions = convertAgeRangeToBirthdateOptions(ageRange);
 
       // Generate identity with gender preference and birthdate options
       const identity = identityGenerator.generateRandomIdentity(genderPreference, birthdateOptions);
       const password = passwordGenerator.generateRandomPassword();
 
-      const defaultEmailDomain = await dbContext.sqliteClient.getDefaultEmailDomain();
+      const defaultEmailDomain = dbContext.sqliteClient.settings.getDefaultEmailDomain();
       const email = defaultEmailDomain ? `${identity.emailPrefix}@${defaultEmailDomain}` : identity.emailPrefix;
 
       const generatedData: GeneratedAliasData = {

@@ -48,7 +48,7 @@ const RecentlyDeleted: React.FC = () => {
    */
   const loadItems = useCallback(() => {
     if (dbContext?.sqliteClient) {
-      const results = dbContext.sqliteClient.getRecentlyDeletedItems();
+      const results = dbContext.sqliteClient.items.getRecentlyDeleted();
       setItems(results);
     }
   }, [dbContext?.sqliteClient]);
@@ -62,7 +62,7 @@ const RecentlyDeleted: React.FC = () => {
     }
 
     await executeVaultMutationAsync(async () => {
-      await dbContext.sqliteClient!.restoreItem(itemId);
+      await dbContext.sqliteClient!.items.restore(itemId);
     });
 
     loadItems();
@@ -77,7 +77,7 @@ const RecentlyDeleted: React.FC = () => {
     }
 
     await executeVaultMutationAsync(async () => {
-      await dbContext.sqliteClient!.permanentlyDeleteItem(selectedItemId);
+      await dbContext.sqliteClient!.items.permanentlyDelete(selectedItemId);
     });
 
     loadItems();
@@ -95,7 +95,7 @@ const RecentlyDeleted: React.FC = () => {
 
     await executeVaultMutationAsync(async () => {
       for (const item of items) {
-        await dbContext.sqliteClient!.permanentlyDeleteItem(item.Id);
+        await dbContext.sqliteClient!.items.permanentlyDelete(item.Id);
       }
     });
 

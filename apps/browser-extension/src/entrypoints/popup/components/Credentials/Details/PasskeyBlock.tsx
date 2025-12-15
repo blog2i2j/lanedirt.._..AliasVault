@@ -43,7 +43,7 @@ const PasskeyBlock: React.FC<PasskeyBlockProps> = ({ itemId }) => {
     }
 
     try {
-      const itemPasskeys = dbContext.sqliteClient.getPasskeysByItemId(itemId);
+      const itemPasskeys = dbContext.sqliteClient.passkeys.getByItemId(itemId);
       setPasskeys(itemPasskeys);
     } catch (err) {
       console.error('Error loading passkeys:', err);

@@ -49,7 +49,7 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId }) => {
   useEffect(() => {
     if (hasHistoryEnabled && itemId && dbContext?.sqliteClient) {
       try {
-        const history = dbContext.sqliteClient.getFieldHistory(itemId, field.FieldKey);
+        const history = dbContext.sqliteClient.items.getFieldHistory(itemId, field.FieldKey);
         setHistoryCount(history.length);
       } catch (error) {
         console.error('[FieldBlock] Error checking history:', error);

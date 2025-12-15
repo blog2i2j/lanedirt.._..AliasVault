@@ -60,7 +60,7 @@ const EmailDetails: React.FC = (): React.ReactElement => {
         const response = await webApi.get<Email>(`Email/${id}`);
 
         // Decrypt email locally using public/private key pairs
-        const encryptionKeys = dbContext.sqliteClient.getAllEncryptionKeys();
+        const encryptionKeys = dbContext.sqliteClient.settings.getAllEncryptionKeys();
         const decryptedEmail = await EncryptionUtility.decryptEmail(response, encryptionKeys);
         setEmail(decryptedEmail);
       } catch (err) {
@@ -111,7 +111,7 @@ const EmailDetails: React.FC = (): React.ReactElement => {
       }
 
       // Get encryption keys for decryption
-      const encryptionKeys = dbContext.sqliteClient.getAllEncryptionKeys();
+      const encryptionKeys = dbContext.sqliteClient.settings.getAllEncryptionKeys();
 
       // Decrypt the attachment using raw bytes
       const decryptedBytes = await EncryptionUtility.decryptAttachment(encryptedBytes, email, encryptionKeys);

@@ -47,7 +47,7 @@ const EmailsList: React.FC = () => {
       }
 
       // Get unique email addresses from all credentials.
-      const emailAddresses = dbContext.sqliteClient.getAllEmailAddresses();
+      const emailAddresses = dbContext.sqliteClient.items.getAllEmailAddresses();
 
       try {
         // For now we only show the latest 50 emails. No pagination.
@@ -58,7 +58,7 @@ const EmailsList: React.FC = () => {
         });
 
         // Decrypt emails locally using private key associated with the email address.
-        const encryptionKeys = dbContext.sqliteClient.getAllEncryptionKeys();
+        const encryptionKeys = dbContext.sqliteClient.settings.getAllEncryptionKeys();
 
         // Decrypt emails locally using public/private key pairs.
         const decryptedEmails = await EncryptionUtility.decryptEmailList(data.mails, encryptionKeys);

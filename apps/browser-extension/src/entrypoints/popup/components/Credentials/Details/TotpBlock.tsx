@@ -92,7 +92,7 @@ const TotpBlock: React.FC<TotpBlockProps> = ({ itemId }) => {
       }
 
       try {
-        const codes = dbContext.sqliteClient.getTotpCodesForItem(itemId);
+        const codes = dbContext.sqliteClient.settings.getTotpCodesForItem(itemId);
         setTotpCodes(codes);
       } catch (error) {
         console.error('Error loading TOTP codes:', error);

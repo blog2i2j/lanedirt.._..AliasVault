@@ -24,6 +24,7 @@ import type {
   WebAuthnPublicKeyGetPayload
 } from '@/utils/passkey/types';
 import { SqliteClient } from '@/utils/SqliteClient';
+import type { PasskeyWithItem } from '@/utils/db/mappers/PasskeyMapper';
 
 import { browser, storage } from '#imports';
 
@@ -232,7 +233,7 @@ async function checkForMatchingPasskeys(publicKey: any, origin: string): Promise
     const rpId = publicKey.rpId || new URL(origin).hostname;
 
     // Get passkeys for this rpId
-    const passkeys = sqliteClient.getPasskeysByRpId(rpId);
+    const passkeys = sqliteClient.passkeys.getByRpId(rpId);
 
     // If allowCredentials is specified, filter by those specific credentials
     if (publicKey.allowCredentials && publicKey.allowCredentials.length > 0) {
@@ -249,7 +250,7 @@ async function checkForMatchingPasskeys(publicKey: any, origin: string): Promise
       );
 
       // Check if we have any of the allowed credentials
-      const matchingPasskeys = passkeys.filter(pk => allowedGuids.has(pk.Id));
+      const matchingPasskeys = passkeys.filter((pk: PasskeyWithItem) => allowedGuids.has(pk.Id));
       return matchingPasskeys.length > 0;
     }
 

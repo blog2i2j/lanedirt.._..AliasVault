@@ -429,7 +429,7 @@ const ItemAddEdit: React.FC = () => {
 
         // Load folders
         if (dbContext?.sqliteClient) {
-          const allFolders = dbContext.sqliteClient.getAllFolders();
+          const allFolders = dbContext.sqliteClient.folders.getAll();
           setFolders(allFolders);
         }
 
@@ -453,12 +453,12 @@ const ItemAddEdit: React.FC = () => {
     }
 
     try {
-      const result = dbContext.sqliteClient.getItemById(id);
+      const result = dbContext.sqliteClient.items.getById(id);
       if (result) {
         setItem(result);
 
         // Load folders
-        const allFolders = dbContext.sqliteClient.getAllFolders();
+        const allFolders = dbContext.sqliteClient.folders.getAll();
         setFolders(allFolders);
 
         // Initialize field values from existing fields
@@ -466,7 +466,7 @@ const ItemAddEdit: React.FC = () => {
         const existingCustomFields: CustomFieldDefinition[] = [];
         const fieldsWithValues = new Set<string>();
 
-        result.Fields.forEach(field => {
+        result.Fields.forEach((field) => {
           initialValues[field.FieldKey] = field.Value;
           // Track fields that have values so they stay visible even if cleared
           fieldsWithValues.add(field.FieldKey);
@@ -488,17 +488,17 @@ const ItemAddEdit: React.FC = () => {
         setInitiallyVisibleFields(fieldsWithValues);
 
         // Load TOTP codes for this item
-        const itemTotpCodes = dbContext.sqliteClient.getTotpCodesForItem(id);
+        const itemTotpCodes = dbContext.sqliteClient.settings.getTotpCodesForItem(id);
         setTotpCodes(itemTotpCodes);
-        setOriginalTotpCodeIds(itemTotpCodes.map(tc => tc.Id));
+        setOriginalTotpCodeIds(itemTotpCodes.map((tc) => tc.Id));
         if (itemTotpCodes.length > 0) {
           setShow2FA(true);
         }
 
         // Load attachments for this item
-        const itemAttachments = dbContext.sqliteClient.getAttachmentsForItem(id);
+        const itemAttachments = dbContext.sqliteClient.settings.getAttachmentsForItem(id);
         setAttachments(itemAttachments);
-        setOriginalAttachmentIds(itemAttachments.map(a => a.Id));
+        setOriginalAttachmentIds(itemAttachments.map((a) => a.Id));
         if (itemAttachments.length > 0) {
           setShowAttachments(true);
         }
@@ -720,7 +720,7 @@ const ItemAddEdit: React.FC = () => {
         setLocalLoading(false);
 
         if (isEditMode) {
-          await dbContext.sqliteClient!.updateItem(
+          await dbContext.sqliteClient!.items.update(
             updatedItem,
             originalAttachmentIds,
             attachments,
@@ -731,11 +731,11 @@ const ItemAddEdit: React.FC = () => {
           // Delete passkeys marked for deletion
           if (passkeyIdsMarkedForDeletion.length > 0) {
             for (const passkeyId of passkeyIdsMarkedForDeletion) {
-              await dbContext.sqliteClient!.deletePasskeyById(passkeyId);
+              await dbContext.sqliteClient!.passkeys.deleteById(passkeyId);
             }
           }
         } else {
-          await dbContext.sqliteClient!.createItem(updatedItem, attachments, totpCodes);
+          await dbContext.sqliteClient!.items.create(updatedItem, attachments, totpCodes);
         }
       });
 
@@ -762,7 +762,7 @@ const ItemAddEdit: React.FC = () => {
 
     try {
       await executeVaultMutationAsync(async () => {
-        await dbContext.sqliteClient!.deleteItemById(item.Id);
+        await dbContext.sqliteClient!.items.trash(item.Id);
       });
 
       navigate('/items');

@@ -48,7 +48,7 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
 
     try {
       setLoading(true);
-      const historyRecords = dbContext.sqliteClient.getFieldHistory(itemId, fieldKey);
+      const historyRecords = dbContext.sqliteClient.items.getFieldHistory(itemId, fieldKey);
       setHistory(historyRecords);
     } catch (error) {
       console.error('Error loading field history:', error);

@@ -105,8 +105,8 @@ const ItemsList: React.FC = () => {
     if (!currentFolderId || !dbContext?.sqliteClient) {
       return null;
     }
-    const folders = dbContext.sqliteClient.getAllFolders();
-    const folder = folders.find(f => f.Id === currentFolderId);
+    const folders = dbContext.sqliteClient.folders.getAll();
+    const folder = folders.find((f: { Id: string; Name: string }) => f.Id === currentFolderId);
     return folder?.Name ?? null;
   }, [currentFolderId, dbContext?.sqliteClient]);
 
@@ -154,11 +154,11 @@ const ItemsList: React.FC = () => {
     }
 
     await executeVaultMutationAsync(async () => {
-      await dbContext.sqliteClient!.createFolder(folderName, currentFolderId);
+      await dbContext.sqliteClient!.folders.create(folderName, currentFolderId);
     });
 
     // Refresh items to show the new folder
-    const results = dbContext.sqliteClient!.getAllItems();
+    const results = dbContext.sqliteClient!.items.getAll();
     setItems(results);
   }, [dbContext, currentFolderId, executeVaultMutationAsync]);
 
@@ -171,13 +171,13 @@ const ItemsList: React.FC = () => {
     }
 
     await executeVaultMutationAsync(async () => {
-      await dbContext.sqliteClient!.deleteFolder(currentFolderId);
+      await dbContext.sqliteClient!.folders.delete(currentFolderId);
     });
 
     // Refresh items list to reflect changes
-    const results = dbContext.sqliteClient!.getAllItems();
+    const results = dbContext.sqliteClient!.items.getAll();
     setItems(results);
-    const deletedCount = dbContext.sqliteClient!.getRecentlyDeletedCount();
+    const deletedCount = dbContext.sqliteClient!.items.getRecentlyDeletedCount();
     setRecentlyDeletedCount(deletedCount);
 
     // Navigate back to root
@@ -193,13 +193,13 @@ const ItemsList: React.FC = () => {
     }
 
     await executeVaultMutationAsync(async () => {
-      await dbContext.sqliteClient!.deleteFolderWithContents(currentFolderId);
+      await dbContext.sqliteClient!.folders.deleteWithContents(currentFolderId);
     });
 
     // Refresh items list to reflect changes
-    const results = dbContext.sqliteClient!.getAllItems();
+    const results = dbContext.sqliteClient!.items.getAll();
     setItems(results);
-    const deletedCount = dbContext.sqliteClient!.getRecentlyDeletedCount();
+    const deletedCount = dbContext.sqliteClient!.items.getRecentlyDeletedCount();
     setRecentlyDeletedCount(deletedCount);
 
     // Navigate back to root
@@ -284,10 +284,10 @@ const ItemsList: React.FC = () => {
     const refreshItems = async () : Promise<void> => {
       if (dbContext?.sqliteClient) {
         setIsLoading(true);
-        const results = dbContext.sqliteClient?.getAllItems() ?? [];
+        const results = dbContext.sqliteClient?.items.getAll() ?? [];
         setItems(results);
         // Also get recently deleted count
-        const deletedCount = dbContext.sqliteClient?.getRecentlyDeletedCount() ?? 0;
+        const deletedCount = dbContext.sqliteClient?.items.getRecentlyDeletedCount() ?? 0;
         setRecentlyDeletedCount(deletedCount);
         setIsLoading(false);
         setIsInitialLoading(false);
@@ -336,22 +336,22 @@ const ItemsList: React.FC = () => {
     }
 
     // Get all folders directly from the database
-    const allFolders = dbContext.sqliteClient.getAllFolders();
+    const allFolders = dbContext.sqliteClient.folders.getAll();
 
     // Count items per folder
     const folderCounts = new Map<string, number>();
-    items.forEach(item => {
+    items.forEach((item: Item) => {
       if (item.FolderId) {
         folderCounts.set(item.FolderId, (folderCounts.get(item.FolderId) || 0) + 1);
       }
     });
 
     // Build result with counts
-    const result = allFolders.map(folder => ({
+    const result = allFolders.map((folder: { Id: string; Name: string }) => ({
       id: folder.Id,
       name: folder.Name,
       itemCount: folderCounts.get(folder.Id) || 0
-    })).sort((a, b) => a.name.localeCompare(b.name));
+    })).sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name));
 
     return result;
   };

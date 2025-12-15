@@ -111,7 +111,7 @@ export class FaviconService {
       return false;
     }
 
-    return sqliteClient.hasLogoForSource(source);
+    return sqliteClient.logos.hasLogoForSource(source);
   }
 
   /**
@@ -142,7 +142,7 @@ export class FaviconService {
     }
 
     // Check if logo already exists (deduplication)
-    if (sqliteClient.hasLogoForSource(source)) {
+    if (sqliteClient.logos.hasLogoForSource(source)) {
       return { success: false, skipped: true };
     }
 
