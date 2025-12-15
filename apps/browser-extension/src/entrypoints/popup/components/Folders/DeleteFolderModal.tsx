@@ -88,12 +88,6 @@ const DeleteFolderModal: React.FC<DeleteFolderModalProps> = ({
           {t('items.deleteFolderConfirm', { folderName })}
         </p>
 
-        {itemCount > 0 && (
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t('items.folderContainsItems', { count: itemCount })}
-          </p>
-        )}
-
         {/* Option buttons */}
         <div className="space-y-3 pt-2">
           {/* Delete folder only - move items to root */}
