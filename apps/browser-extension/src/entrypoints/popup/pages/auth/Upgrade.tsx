@@ -169,8 +169,8 @@ const Upgrade: React.FC = () => {
          * Handle successful sync completion.
          */
         onSuccess: () => {
-          // Navigate to credentials page
-          navigate('/credentials');
+          // Navigate to items page
+          navigate('/items');
         },
         /**
          * Handle sync error.
@@ -178,14 +178,14 @@ const Upgrade: React.FC = () => {
          */
         onError: (error: string) => {
           console.error('Sync error after upgrade:', error);
-          // Still navigate to credentials even if sync fails
-          navigate('/credentials');
+          // Still navigate to items even if sync fails
+          navigate('/items');
         }
       });
     } catch (error) {
       console.error('Error during post-upgrade sync:', error);
-      // Navigate to credentials even if sync fails
-      navigate('/credentials');
+      // Navigate to items even if sync fails
+      navigate('/items');
     }
   };
 

@@ -507,7 +507,7 @@ const ItemAddEdit: React.FC = () => {
         setIsInitialLoading(false);
       } else {
         console.error('Item not found');
-        navigate('/credentials');
+        navigate('/items');
       }
     } catch (err) {
       console.error('Error loading item:', err);

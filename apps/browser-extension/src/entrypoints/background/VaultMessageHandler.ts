@@ -421,16 +421,10 @@ export async function handleGetSearchItems(
 export async function getEmailAddressesForVault(
   sqliteClient: SqliteClient
 ): Promise<string[]> {
-  // TODO: create separate query to only get email addresses to avoid loading all credentials.
-  const credentials = sqliteClient.getAllCredentials();
+  const emailAddresses = sqliteClient.getAllEmailAddresses();
 
   // Get metadata from local: storage
   const privateEmailDomains = await getItemWithFallback<string[]>('local:privateEmailDomains') ?? [];
-
-  const emailAddresses = credentials
-    .filter(cred => cred.Alias?.Email != null)
-    .map(cred => cred.Alias.Email ?? '')
-    .filter((email, index, self) => self.indexOf(email) === index);
 
   return emailAddresses.filter(email => {
     const domain = email?.split('@')[1];
@@ -629,7 +623,7 @@ async function uploadNewVaultToServer(sqliteClient: SqliteClient) : Promise<Vaul
   const newVault: Vault = {
     blob: encryptedVault,
     createdAt: new Date().toISOString(),
-    credentialsCount: sqliteClient.getAllCredentials().length,
+    credentialsCount: sqliteClient.getAllItems().length,
     currentRevisionNumber: serverRevision,
     emailAddressList: emailAddresses,
     updatedAt: new Date().toISOString(),

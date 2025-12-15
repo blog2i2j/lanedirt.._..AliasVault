@@ -50,7 +50,7 @@ const ItemDetails: React.FC = (): React.ReactElement => {
 
   useEffect(() => {
     if (PopoutUtility.isPopup()) {
-      window.history.replaceState({}, '', `popup.html#/credentials`);
+      window.history.replaceState({}, '', `popup.html#/items`);
       window.history.pushState({}, '', `popup.html#/items/${id}`);
     }
 
@@ -65,7 +65,7 @@ const ItemDetails: React.FC = (): React.ReactElement => {
         setIsInitialLoading(false);
       } else {
         console.error('Item not found');
-        navigate('/credentials');
+        navigate('/items');
       }
     } catch (err) {
       console.error('Error loading item:', err);
