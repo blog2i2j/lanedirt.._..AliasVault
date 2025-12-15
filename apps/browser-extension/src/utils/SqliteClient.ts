@@ -13,6 +13,7 @@ import {
   SettingsRepository,
   LogoRepository
 } from './db';
+
 import type { IDatabaseClient, SqliteBindValue } from './db/BaseRepository';
 
 /**

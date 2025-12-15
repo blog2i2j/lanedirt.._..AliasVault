@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { sendMessage } from 'webext-bridge/popup';
 
 import AttachmentUploader from '@/entrypoints/popup/components/Credentials/Details/AttachmentUploader';
 import PasskeyEditor from '@/entrypoints/popup/components/Credentials/Details/PasskeyEditor';
@@ -25,13 +24,14 @@ import { useHeaderButtons } from '@/entrypoints/popup/context/HeaderButtonsConte
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 import { useWebApi } from '@/entrypoints/popup/context/WebApiContext';
 import useAliasGenerator from '@/entrypoints/popup/hooks/useAliasGenerator';
+import useFormPersistence from '@/entrypoints/popup/hooks/useFormPersistence';
+import useServiceDetection from '@/entrypoints/popup/hooks/useServiceDetection';
 import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
 import { SKIP_FORM_RESTORE_KEY } from '@/utils/Constants';
 import type { Item, ItemField, ItemType, FieldType, Attachment, TotpCode } from '@/utils/dist/core/models/vault';
 import { FieldCategories, FieldTypes, ItemTypes, getSystemFieldsForItemType, isFieldShownByDefault } from '@/utils/dist/core/models/vault';
 import { FaviconService } from '@/utils/FaviconService';
-import { ServiceDetectionUtility } from '@/utils/serviceDetection/ServiceDetectionUtility';
 
 import { browser } from '#imports';
 
@@ -54,9 +54,9 @@ type CustomFieldDefinition = {
 
 /**
  * Persisted form data type used for JSON serialization.
+ * This is the data portion stored via useFormPersistence hook.
  */
 type PersistedFormData = {
-  itemId: string | null;
   item: Item | null;
   fieldValues: Record<string, string | string[]>;
   customFields: CustomFieldDefinition[];
@@ -71,6 +71,11 @@ type PersistedFormData = {
   show2FA: boolean;
   showAttachments: boolean;
   manuallyAddedFields: string[];
+  /**
+   * Whether the login.email field is in "email" (free text) mode vs "alias" (domain chooser) mode.
+   * Only applicable for Login item type where defaultToFreeText is true.
+   */
+  isLoginEmailInEmailMode?: boolean;
 };
 
 /**
@@ -93,6 +98,7 @@ const ItemAddEdit: React.FC = () => {
   const { setHeaderButtons } = useHeaderButtons();
   const { setIsInitialLoading } = useLoading();
   const { generateAlias, lastGeneratedValues } = useAliasGenerator();
+  const { detectService } = useServiceDetection();
   const webApi = useWebApi();
 
   // Component state
@@ -147,6 +153,66 @@ const ItemAddEdit: React.FC = () => {
 
   // Passkeys state (only IDs marked for deletion - passkeys cannot be created/edited manually)
   const [passkeyIdsMarkedForDeletion, setPasskeyIdsMarkedForDeletion] = useState<string[]>([]);
+
+  // Track email field mode for Login type (true = free text "Email", false = domain chooser "Alias")
+  const [isLoginEmailInEmailMode, setIsLoginEmailInEmailMode] = useState(true);
+
+  // Track whether to skip form restoration (set during initialization)
+  const [skipFormRestore] = useState(false);
+
+  /**
+   * Form persistence hook - handles saving/restoring form state to encrypted storage.
+   * The hook auto-persists on state changes and clears on unmount.
+   */
+  const { loadPersistedValues, clearPersistedValues } = useFormPersistence<PersistedFormData>({
+    formId: id || null,
+    isLoading: localLoading,
+    formData: {
+      item,
+      fieldValues,
+      customFields,
+      totpEditorState,
+      showNotes,
+      show2FA,
+      showAttachments,
+      manuallyAddedFields: Array.from(manuallyAddedFields),
+      isLoginEmailInEmailMode,
+    },
+    /**
+     * Restore form state from persisted data.
+     * @param data - The persisted form data to restore
+     */
+    onRestore: (data) => {
+      if (data.item) {
+        setItem(data.item);
+      }
+      if (data.fieldValues) {
+        setFieldValues(data.fieldValues);
+      }
+      if (data.customFields) {
+        setCustomFields(data.customFields);
+      }
+      if (data.totpEditorState) {
+        setTotpEditorState(data.totpEditorState);
+      }
+      if (data.showNotes !== undefined) {
+        setShowNotes(data.showNotes);
+      }
+      if (data.show2FA !== undefined) {
+        setShow2FA(data.show2FA);
+      }
+      if (data.showAttachments !== undefined) {
+        setShowAttachments(data.showAttachments);
+      }
+      if (data.manuallyAddedFields) {
+        setManuallyAddedFields(new Set(data.manuallyAddedFields));
+      }
+      if (data.isLoginEmailInEmailMode !== undefined) {
+        setIsLoginEmailInEmailMode(data.isLoginEmailInEmailMode);
+      }
+    },
+    skipRestore: skipFormRestore,
+  });
 
   /**
    * Get all applicable system fields for the current item type.
@@ -222,115 +288,6 @@ const ItemAddEdit: React.FC = () => {
   }, [applicableSystemFields]);
 
   /**
-   * Persists the current form values to storage.
-   * @returns Promise that resolves when the form values are persisted
-   */
-  const persistFormValues = useCallback(async (): Promise<void> => {
-    if (localLoading) {
-      // Do not persist values if the page is still loading.
-      return;
-    }
-
-    const persistedData: PersistedFormData = {
-      itemId: id || null,
-      item,
-      fieldValues,
-      customFields,
-      totpEditorState,
-      showNotes,
-      show2FA,
-      showAttachments,
-      manuallyAddedFields: Array.from(manuallyAddedFields)
-    };
-    await sendMessage('PERSIST_FORM_VALUES', JSON.stringify(persistedData), 'background');
-  }, [id, item, fieldValues, customFields, totpEditorState, showNotes, show2FA, showAttachments, manuallyAddedFields, localLoading]);
-
-  /**
-   * Loads persisted form values from storage.
-   * @returns Promise that resolves when the form values are loaded
-   */
-  const loadPersistedValues = useCallback(async (): Promise<void> => {
-    const persistedData = await sendMessage('GET_PERSISTED_FORM_VALUES', null, 'background') as string | null;
-
-    try {
-      let persistedDataObject: PersistedFormData | null = null;
-      try {
-        if (persistedData) {
-          persistedDataObject = JSON.parse(persistedData) as PersistedFormData;
-        }
-      } catch (error) {
-        console.error('Error parsing persisted data:', error);
-      }
-
-      if (!persistedDataObject) {
-        return;
-      }
-
-      const isCurrentPage = persistedDataObject.itemId === (id || null);
-      if (persistedDataObject && isCurrentPage) {
-        // Restore item state
-        if (persistedDataObject.item) {
-          setItem(persistedDataObject.item);
-        }
-        // Restore field values
-        if (persistedDataObject.fieldValues) {
-          setFieldValues(persistedDataObject.fieldValues);
-        }
-        // Restore custom fields
-        if (persistedDataObject.customFields) {
-          setCustomFields(persistedDataObject.customFields);
-        }
-        // Restore TOTP editor state
-        if (persistedDataObject.totpEditorState) {
-          setTotpEditorState(persistedDataObject.totpEditorState);
-        }
-        // Restore visibility states
-        if (persistedDataObject.showNotes !== undefined) {
-          setShowNotes(persistedDataObject.showNotes);
-        }
-        if (persistedDataObject.show2FA !== undefined) {
-          setShow2FA(persistedDataObject.show2FA);
-        }
-        if (persistedDataObject.showAttachments !== undefined) {
-          setShowAttachments(persistedDataObject.showAttachments);
-        }
-        // Restore manually added fields
-        if (persistedDataObject.manuallyAddedFields) {
-          setManuallyAddedFields(new Set(persistedDataObject.manuallyAddedFields));
-        }
-      }
-    } catch (error) {
-      console.error('Error loading persisted data:', error);
-    }
-  }, [id]);
-
-  /**
-   * Clears persisted form values from storage.
-   * @returns Promise that resolves when the form values are cleared
-   */
-  const clearPersistedValues = useCallback(async (): Promise<void> => {
-    await sendMessage('CLEAR_PERSISTED_FORM_VALUES', null, 'background');
-  }, []);
-
-  /**
-   * Watch for form changes and persist them.
-   */
-  useEffect(() => {
-    if (!localLoading) {
-      void persistFormValues();
-    }
-  }, [item, fieldValues, customFields, totpEditorState, showNotes, show2FA, showAttachments, manuallyAddedFields, persistFormValues, localLoading]);
-
-  /**
-   * Clear persisted values when the page is unmounted.
-   */
-  useEffect(() => {
-    return (): void => {
-      void clearPersistedValues();
-    };
-  }, [clearPersistedValues]);
-
-  /**
    * Load item data if in edit mode, or initialize for create mode with service detection.
    */
   useEffect(() => {
@@ -340,69 +297,17 @@ const ItemAddEdit: React.FC = () => {
         ? itemTypeParam
         : DEFAULT_ITEM_TYPE;
 
-      /*
-       * Get URL parameters for service detection (e.g., from content script popout)
-       * Use searchParams from react-router which handles hash-based routing correctly
-       */
-      const serviceNameFromUrl = searchParams.get('serviceName');
-      const serviceUrlFromUrl = searchParams.get('serviceUrl');
-      const currentUrl = searchParams.get('currentUrl');
-
       /**
-       * Initialize service detection from URL parameters or current tab.
+       * Initialize create mode with service detection from URL params or active tab.
        */
-      const initializeWithServiceDetection = async (): Promise<void> => {
-        let detectedName = itemNameParam || '';
-        let detectedUrl = '';
-
-        try {
-          // If URL parameters are present (e.g., from content script popout), use them
-          if (serviceNameFromUrl || serviceUrlFromUrl || currentUrl) {
-            if (serviceNameFromUrl) {
-              detectedName = decodeURIComponent(serviceNameFromUrl);
-            }
-            if (serviceUrlFromUrl) {
-              detectedUrl = decodeURIComponent(serviceUrlFromUrl);
-            }
-
-            // If we have currentUrl but missing serviceName or serviceUrl, derive them
-            if (currentUrl && (!serviceNameFromUrl || !serviceUrlFromUrl)) {
-              const decodedCurrentUrl = decodeURIComponent(currentUrl);
-              const serviceInfo = ServiceDetectionUtility.getServiceInfoFromTab(decodedCurrentUrl);
-
-              if (!serviceNameFromUrl && serviceInfo.suggestedNames.length > 0) {
-                detectedName = serviceInfo.suggestedNames[0];
-              }
-              if (!serviceUrlFromUrl && serviceInfo.serviceUrl) {
-                detectedUrl = serviceInfo.serviceUrl;
-              }
-            }
-          } else {
-            // Otherwise, detect from current active tab (for dashboard case)
-            const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true });
-
-            if (activeTab?.url) {
-              const serviceInfo = ServiceDetectionUtility.getServiceInfoFromTab(
-                activeTab.url,
-                activeTab.title
-              );
-
-              if (serviceInfo.suggestedNames.length > 0 && !detectedName) {
-                detectedName = serviceInfo.suggestedNames[0];
-              }
-              if (serviceInfo.serviceUrl) {
-                detectedUrl = serviceInfo.serviceUrl;
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error detecting service information:', error);
-        }
+      const initializeCreateMode = async (): Promise<void> => {
+        // Use the service detection hook to get name and URL
+        const { serviceName, serviceUrl } = await detectService(itemNameParam);
 
         // Create the new item with detected values
         const newItem: Item = {
           Id: crypto.randomUUID().toUpperCase(),
-          Name: detectedName,
+          Name: serviceName,
           ItemType: effectiveType,
           FolderId: null,
           Fields: [],
@@ -413,10 +318,10 @@ const ItemAddEdit: React.FC = () => {
         setItem(newItem);
 
         // Set the detected URL in field values if we have one
-        if (detectedUrl) {
+        if (serviceUrl) {
           setFieldValues(prev => ({
             ...prev,
-            'login.url': detectedUrl
+            'login.url': serviceUrl
           }));
         }
 
@@ -438,7 +343,6 @@ const ItemAddEdit: React.FC = () => {
         if (result[SKIP_FORM_RESTORE_KEY]) {
           // Clear the flag after using it
           await browser.storage.local.remove([SKIP_FORM_RESTORE_KEY]);
-          // Don't load persisted values
         } else {
           // Load persisted form values normally
           await loadPersistedValues();
@@ -448,7 +352,7 @@ const ItemAddEdit: React.FC = () => {
         setIsInitialLoading(false);
       };
 
-      void initializeWithServiceDetection();
+      void initializeCreateMode();
       return;
     }
 
@@ -514,8 +418,7 @@ const ItemAddEdit: React.FC = () => {
       setLocalLoading(false);
       setIsInitialLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dbContext?.sqliteClient, id, isEditMode, itemTypeParam, itemNameParam, navigate, setIsInitialLoading, searchParams]);
+  }, [dbContext?.sqliteClient, id, isEditMode, itemTypeParam, itemNameParam, navigate, setIsInitialLoading, detectService, loadPersistedValues]);
 
   /**
    * Handle generating alias and populating fields.
@@ -1074,6 +977,7 @@ const ItemAddEdit: React.FC = () => {
          * Use EmailDomainField for email fields to provide domain chooser functionality.
          * For login.email (Login type), default to free text mode instead of domain chooser.
          * EmailDomainField handles its own remove button in the label, so don't wrap it.
+         * For login.email, use controlled mode to persist the email/alias toggle state.
          */
         return (
           <EmailDomainField
@@ -1084,6 +988,8 @@ const ItemAddEdit: React.FC = () => {
             defaultToFreeText={fieldKey === 'login.email'}
             onRemove={onRemove}
             onGenerateAlias={fieldKey === 'login.email' ? handleGenerateAliasEmail : undefined}
+            isEmailMode={fieldKey === 'login.email' ? isLoginEmailInEmailMode : undefined}
+            onEmailModeChange={fieldKey === 'login.email' ? setIsLoginEmailInEmailMode : undefined}
           />
         );
 
@@ -1116,7 +1022,7 @@ const ItemAddEdit: React.FC = () => {
         );
     }
 
-  }, [fieldValues, handleFieldChange, showPassword, t, handleGenerateAliasEmail, aliasFieldsShownByDefault, generateRandomUsername]);
+  }, [fieldValues, handleFieldChange, showPassword, t, handleGenerateAliasEmail, aliasFieldsShownByDefault, generateRandomUsername, isLoginEmailInEmailMode]);
 
   /**
    * Handle form submission via Enter key.

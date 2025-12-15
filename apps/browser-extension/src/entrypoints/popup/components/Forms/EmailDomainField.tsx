@@ -24,6 +24,16 @@ type EmailDomainFieldProps = {
    * clicking "Generate alias email" will call this instead of just toggling mode.
    */
   onGenerateAlias?: () => void;
+  /**
+   * Controlled mode: when provided, this controls whether the field is in "email" (free text) mode.
+   * When true, shows free text input; when false, shows domain chooser.
+   * Use with onEmailModeChange for full controlled behavior.
+   */
+  isEmailMode?: boolean;
+  /**
+   * Callback when the email/alias mode changes. Required when using controlled mode (isEmailMode prop).
+   */
+  onEmailModeChange?: (isEmailMode: boolean) => void;
 }
 
 /**
@@ -39,11 +49,31 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
   required = false,
   defaultToFreeText = false,
   onRemove,
-  onGenerateAlias
+  onGenerateAlias,
+  isEmailMode,
+  onEmailModeChange
 }) => {
   const { t } = useTranslation();
   const dbContext = useDb();
-  const [isCustomDomain, setIsCustomDomain] = useState(defaultToFreeText);
+
+  // Support both controlled and uncontrolled modes
+  const isControlled = isEmailMode !== undefined;
+  const [internalIsCustomDomain, setInternalIsCustomDomain] = useState(defaultToFreeText);
+
+  // Use controlled value if provided, otherwise use internal state
+  const isCustomDomain = isControlled ? isEmailMode : internalIsCustomDomain;
+
+  /**
+   * Update the isCustomDomain state, supporting both controlled and uncontrolled modes.
+   */
+  const setIsCustomDomain = useCallback((newValue: boolean | ((prev: boolean) => boolean)) => {
+    const resolvedValue = typeof newValue === 'function' ? newValue(isCustomDomain) : newValue;
+    if (isControlled && onEmailModeChange) {
+      onEmailModeChange(resolvedValue);
+    } else {
+      setInternalIsCustomDomain(resolvedValue);
+    }
+  }, [isControlled, onEmailModeChange, isCustomDomain]);
   const [localPart, setLocalPart] = useState('');
   const [selectedDomain, setSelectedDomain] = useState('');
   const [isPopupVisible, setIsPopupVisible] = useState(false);
@@ -93,12 +123,18 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
       setLocalPart(local);
       setSelectedDomain(domain);
 
-      // Check if it's a known domain (public, private, or hidden private)
-      const isKnownDomain = publicEmailDomains.includes(domain) ||
-                           privateEmailDomains.includes(domain) ||
-                           hiddenPrivateEmailDomains.includes(domain);
-      // Switch to domain chooser mode if domain is recognized
-      setIsCustomDomain(!isKnownDomain);
+      /*
+       * Only auto-switch modes in uncontrolled mode.
+       * In controlled mode, the parent manages the mode state.
+       */
+      if (!isControlled) {
+        // Check if it's a known domain (public, private, or hidden private)
+        const isKnownDomain = publicEmailDomains.includes(domain) ||
+                             privateEmailDomains.includes(domain) ||
+                             hiddenPrivateEmailDomains.includes(domain);
+        // Switch to domain chooser mode if domain is recognized
+        setIsCustomDomain(!isKnownDomain);
+      }
     } else {
       setLocalPart(value);
       // Don't reset isCustomDomain here - preserve the current mode
@@ -113,13 +149,19 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, privateEmailDomains, hiddenPrivateEmailDomains, showPrivateDomains]);
+  }, [value, privateEmailDomains, hiddenPrivateEmailDomains, showPrivateDomains, isControlled]);
 
   /*
    * Re-check domain mode when private domains finish loading.
    * This handles the case where value was set before domains were loaded.
+   * Only applies in uncontrolled mode - in controlled mode, parent manages the state.
    */
   useEffect(() => {
+    // Skip auto-correction in controlled mode
+    if (isControlled) {
+      return;
+    }
+
     if (!value || !value.includes('@')) {
       return;
     }
@@ -138,7 +180,7 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
     if (isKnownDomain && isCustomDomain) {
       setIsCustomDomain(false);
     }
-  }, [publicEmailDomains, privateEmailDomains, hiddenPrivateEmailDomains, value, isCustomDomain]);
+  }, [publicEmailDomains, privateEmailDomains, hiddenPrivateEmailDomains, value, isCustomDomain, isControlled, setIsCustomDomain]);
 
   // Handle local part changes
   const handleLocalPartChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -165,7 +207,7 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
     } else if (selectedDomain) {
       onChange(`${newLocalPart}@${selectedDomain}`);
     }
-  }, [isCustomDomain, selectedDomain, onChange]);
+  }, [isCustomDomain, selectedDomain, onChange, setIsCustomDomain]);
 
   // Select a domain from the popup
   const selectDomain = useCallback((domain: string) => {
@@ -179,7 +221,7 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
     }
     setIsCustomDomain(false);
     setIsPopupVisible(false);
-  }, [localPart, onChange]);
+  }, [localPart, onChange, setIsCustomDomain]);
 
   // Toggle between custom domain and domain chooser
   const toggleCustomDomain = useCallback(() => {
@@ -216,7 +258,7 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
         onChange(`${value}@${defaultDomain}`);
       }
     }
-  }, [isCustomDomain, value, localPart, showPrivateDomains, publicEmailDomains, privateEmailDomains, onChange, defaultToFreeText]);
+  }, [isCustomDomain, value, localPart, showPrivateDomains, publicEmailDomains, privateEmailDomains, onChange, defaultToFreeText, setIsCustomDomain]);
 
   // Handle clicks outside the popup
   useEffect(() => {
@@ -247,7 +289,7 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
     }
     // Always switch to domain chooser mode
     setIsCustomDomain(false);
-  }, [onGenerateAlias]);
+  }, [onGenerateAlias, setIsCustomDomain]);
 
   return (
     <div className="space-y-2">
@@ -315,7 +357,6 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
             } focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white`}
             value={isCustomDomain ? value : localPart}
             onChange={handleLocalPartChange}
-            placeholder={isCustomDomain ? t('credentials.enterEmailAddress') : t('credentials.enterEmailPrefix')}
           />
 
           {!isCustomDomain && (
