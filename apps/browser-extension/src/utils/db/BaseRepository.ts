@@ -1,6 +1,6 @@
-import type { Database } from 'sql.js';
-
 import * as dateFormatter from '@/utils/dateFormatter';
+
+import type { Database } from 'sql.js';
 
 export type SqliteBindValue = string | number | null | Uint8Array;
 
@@ -21,7 +21,11 @@ export interface IDatabaseClient {
  * Provides transaction handling, soft delete, and other shared functionality.
  */
 export abstract class BaseRepository {
-  constructor(protected client: IDatabaseClient) {}
+  /**
+   * Constructor for the BaseRepository class.
+   * @param client - The database client to use for the repository
+   */
+  protected constructor(protected client: IDatabaseClient) {}
 
   /**
    * Execute a function within a transaction.

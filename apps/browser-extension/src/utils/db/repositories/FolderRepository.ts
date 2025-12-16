@@ -3,7 +3,7 @@ import { BaseRepository } from '../BaseRepository';
 /**
  * Folder entity type.
  */
-export interface Folder {
+export type Folder = {
   Id: string;
   Name: string;
   ParentFolderId: string | null;

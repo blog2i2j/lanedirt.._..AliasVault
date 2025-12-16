@@ -10,6 +10,7 @@ import {
   FieldDefinitionQueries,
   FieldHistoryQueries
 } from '../queries/ItemQueries';
+
 import type { LogoRepository } from './LogoRepository';
 
 /**
@@ -17,7 +18,12 @@ import type { LogoRepository } from './LogoRepository';
  * Handles items, field values, field definitions, and field history.
  */
 export class ItemRepository extends BaseRepository {
-  constructor(
+  /**
+   * Constructor for the ItemRepository class.
+   * @param client - The database client to use for the repository
+   * @param logoRepository - The logo repository to use for the repository
+   */
+  protected constructor(
     client: IDatabaseClient,
     private logoRepository: LogoRepository
   ) {

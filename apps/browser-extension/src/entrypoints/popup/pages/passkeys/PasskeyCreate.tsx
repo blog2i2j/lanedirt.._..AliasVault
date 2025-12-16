@@ -7,7 +7,6 @@ import Alert from '@/entrypoints/popup/components/Alert';
 import Button from '@/entrypoints/popup/components/Button';
 import PasskeyBypassDialog from '@/entrypoints/popup/components/Dialogs/PasskeyBypassDialog';
 import { FormInput } from '@/entrypoints/popup/components/Forms/FormInput';
-import ItemIcon from '@/entrypoints/popup/components/Items/ItemIcon';
 import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';

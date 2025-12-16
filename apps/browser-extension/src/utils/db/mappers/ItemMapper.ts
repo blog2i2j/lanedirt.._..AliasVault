@@ -8,7 +8,7 @@ export type ItemWithDeletedAt = Item & { DeletedAt?: string };
 /**
  * Raw item row from database query.
  */
-export interface ItemRow {
+export type ItemRow = {
   Id: string;
   Name: string;
   ItemType: string;
@@ -26,7 +26,7 @@ export interface ItemRow {
 /**
  * Raw tag row from database query.
  */
-export interface TagRow {
+export type TagRow = {
   ItemId: string;
   Id: string;
   Name: string;

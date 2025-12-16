@@ -3,7 +3,7 @@ import type { Passkey } from '@/utils/dist/core/models/vault';
 /**
  * Raw passkey row from database query.
  */
-export interface PasskeyRow {
+export type PasskeyRow = {
   Id: string;
   ItemId: string;
   RpId: string;
@@ -21,7 +21,7 @@ export interface PasskeyRow {
 /**
  * Extended passkey row with item information.
  */
-export interface PasskeyWithItemRow extends PasskeyRow {
+export type PasskeyWithItemRow = PasskeyRow & {
   Username?: string | null;
   ServiceName?: string | null;
 }

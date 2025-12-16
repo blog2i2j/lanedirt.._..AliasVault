@@ -10,6 +10,7 @@ import {
   PASSKEY_DISABLED_SITES_KEY
 } from '@/utils/Constants';
 import { extractDomain, extractRootDomain } from '@/utils/credentialMatcher/CredentialMatcher';
+import type { PasskeyWithItem } from '@/utils/db/mappers/PasskeyMapper';
 import { EncryptionUtility } from '@/utils/EncryptionUtility';
 import { PasskeyHelper } from '@/utils/passkey/PasskeyHelper';
 import type {
@@ -24,7 +25,6 @@ import type {
   WebAuthnPublicKeyGetPayload
 } from '@/utils/passkey/types';
 import { SqliteClient } from '@/utils/SqliteClient';
-import type { PasskeyWithItem } from '@/utils/db/mappers/PasskeyMapper';
 
 import { browser, storage } from '#imports';
 

@@ -4,7 +4,7 @@ import { FieldTypes, getSystemField } from '@/utils/dist/core/models/vault';
 /**
  * Raw field row from database query.
  */
-export interface FieldRow {
+export type FieldRow = {
   ItemId: string;
   FieldKey: string | null;
   FieldDefinitionId: string | null;
@@ -18,7 +18,7 @@ export interface FieldRow {
 /**
  * Intermediate field representation before grouping.
  */
-interface ProcessedField {
+export type ProcessedField = {
   ItemId: string;
   FieldKey: string;
   Label: string;

@@ -1,5 +1,3 @@
-import { FieldKey } from '@/utils/dist/core/models/vault';
-
 /**
  * SQL query constants for Item operations.
  * Centralizes all item-related queries to avoid duplication.
