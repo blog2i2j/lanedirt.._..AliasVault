@@ -2,7 +2,7 @@ import { sendMessage } from 'webext-bridge/content-script';
 
 import { fillItem } from '@/entrypoints/contentScript/Form';
 
-import { DISABLED_SITES_KEY, TEMPORARY_DISABLED_SITES_KEY, GLOBAL_AUTOFILL_POPUP_ENABLED_KEY, VAULT_LOCKED_DISMISS_UNTIL_KEY, AUTOFILL_MATCHING_MODE_KEY, CUSTOM_EMAIL_HISTORY_KEY, CUSTOM_USERNAME_HISTORY_KEY } from '@/utils/Constants';
+import { DISABLED_SITES_KEY, TEMPORARY_DISABLED_SITES_KEY, GLOBAL_AUTOFILL_POPUP_ENABLED_KEY, VAULT_LOCKED_DISMISS_UNTIL_KEY, AUTOFILL_MATCHING_MODE_KEY, CUSTOM_EMAIL_HISTORY_KEY, CUSTOM_USERNAME_HISTORY_KEY, PLACEHOLDER_ICON_SVG } from '@/utils/Constants';
 import { AutofillMatchingMode } from '@/utils/credentialMatcher/CredentialMatcher';
 import { CreateIdentityGenerator, IdentityHelperUtils } from '@/utils/dist/core/identity-generator';
 import type { Item, ItemField } from '@/utils/dist/core/models/vault';
@@ -727,11 +727,15 @@ function createItemList(items: Item[], input: HTMLInputElement, rootContainer: H
       const itemInfo = document.createElement('div');
       itemInfo.className = 'av-credential-info';
 
-      const imgElement = document.createElement('img');
-      imgElement.className = 'av-credential-logo';
-      imgElement.src = SqliteClient.imgSrcFromBytes(item.Logo);
-
-      itemInfo.appendChild(imgElement);
+      const logoSrc = SqliteClient.imgSrcFromBytes(item.Logo);
+      const logoContainer = document.createElement('div');
+      logoContainer.className = 'av-credential-logo';
+      if (logoSrc) {
+        logoContainer.innerHTML = `<img src="${logoSrc}" alt="" style="width:100%;height:100%;">`;
+      } else {
+        logoContainer.innerHTML = PLACEHOLDER_ICON_SVG;
+      }
+      itemInfo.appendChild(logoContainer);
       const itemTextContainer = document.createElement('div');
       itemTextContainer.className = 'av-credential-text';
 

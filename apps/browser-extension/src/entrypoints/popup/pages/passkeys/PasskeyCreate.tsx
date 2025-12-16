@@ -7,6 +7,7 @@ import Alert from '@/entrypoints/popup/components/Alert';
 import Button from '@/entrypoints/popup/components/Button';
 import PasskeyBypassDialog from '@/entrypoints/popup/components/Dialogs/PasskeyBypassDialog';
 import { FormInput } from '@/entrypoints/popup/components/Forms/FormInput';
+import ItemIcon from '@/entrypoints/popup/components/Items/ItemIcon';
 import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
@@ -21,7 +22,6 @@ import { FieldKey, FieldTypes, ItemTypes, getFieldValue } from '@/utils/dist/cor
 import { PasskeyAuthenticator } from '@/utils/passkey/PasskeyAuthenticator';
 import { PasskeyHelper } from '@/utils/passkey/PasskeyHelper';
 import type { CreateRequest, PasskeyCreateCredentialResponse, PendingPasskeyCreateRequest } from '@/utils/passkey/types';
-import { SqliteClient } from '@/utils/SqliteClient';
 
 import { storage } from "#imports";
 
@@ -683,13 +683,6 @@ const PasskeyCreate: React.FC = () => {
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center flex-1 min-w-0">
-                        {item.Logo && (
-                          <img
-                            src={SqliteClient.imgSrcFromBytes(item.Logo)}
-                            alt=""
-                            className="w-8 h-8 rounded mr-3 flex-shrink-0"
-                          />
-                        )}
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-gray-900 dark:text-white text-sm truncate">
                             {item.Name}

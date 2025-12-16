@@ -1,5 +1,6 @@
 import React from 'react';
 
+import { PLACEHOLDER_ICON_SVG } from '@/utils/Constants';
 import type { Item } from '@/utils/dist/core/models/vault';
 import { FieldKey, ItemTypes } from '@/utils/dist/core/models/vault';
 import SqliteClient from '@/utils/SqliteClient';
@@ -250,22 +251,24 @@ const ItemIcon: React.FC<ItemIconProps> = ({ item, className = 'w-8 h-8' }) => {
   }
 
   // For Login/Alias types, use Logo if available, otherwise placeholder
-  if (item.Logo && item.Logo.length > 0) {
+  const logoSrc = item.Logo && item.Logo.length > 0 ? SqliteClient.imgSrcFromBytes(item.Logo) : null;
+
+  if (logoSrc) {
     return (
       <img
-        src={SqliteClient.imgSrcFromBytes(item.Logo)}
+        src={logoSrc}
         alt={item.Name || 'Item'}
         className={`${className} flex-shrink-0`}
         onError={(e) => {
           // On error, replace with placeholder icon
           const target = e.target as HTMLImageElement;
           target.style.display = 'none';
-          // Insert placeholder SVG (key icon)
           const parent = target.parentElement;
           if (parent) {
             const placeholder = document.createElement('div');
-            placeholder.innerHTML = `<svg class="${className}" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="6.5" stroke="#f49541" stroke-width="2.5"/><circle cx="10" cy="10" r="2.5" stroke="#f49541" stroke-width="2"/><path d="M15 15L27 27" stroke="#f49541" stroke-width="2.5" stroke-linecap="round"/><path d="M19 19L23 15" stroke="#f49541" stroke-width="2.5" stroke-linecap="round"/><path d="M24 24L28 20" stroke="#f49541" stroke-width="2.5" stroke-linecap="round"/></svg>`;
-            parent.insertBefore(placeholder.firstChild!, target);
+            placeholder.className = className;
+            placeholder.innerHTML = PLACEHOLDER_ICON_SVG;
+            parent.insertBefore(placeholder, target);
           }
         }}
       />
