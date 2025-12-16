@@ -675,10 +675,16 @@ const ItemAddEdit: React.FC = () => {
       void clearPersistedValues();
 
       /*
-       * Navigate to details page, replacing the add/edit page in history.
-       * This way pressing back goes to items list, not back to the edit form.
+       * Navigate back after save:
+       * - Edit mode: use navigate(-1) to return to the existing details page in history.
+       *   This avoids creating duplicate history entries.
+       * - Create mode: navigate to the new item's details page, replacing the add page.
        */
-      navigate(`/items/${updatedItem.Id}`, { replace: true });
+      if (isEditMode) {
+        navigate(-1);
+      } else {
+        navigate(`/items/${updatedItem.Id}`, { replace: true });
+      }
     } catch (err) {
       console.error('Error saving item:', err);
     }
