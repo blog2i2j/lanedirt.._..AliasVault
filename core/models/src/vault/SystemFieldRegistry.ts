@@ -19,6 +19,7 @@ export const FieldCategories = {
   Alias: 'Alias',
   Card: 'Card',
   Custom: 'Custom',
+  Notes: 'Notes',
   Metadata: 'Metadata',
 } as const;
 
@@ -243,9 +244,9 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
     DefaultDisplayOrder: 60
   },
 
-  /* =================== METADATA FIELDS =================== */
-  'metadata.notes': {
-    FieldKey: 'metadata.notes',
+  /* =================== NOTES FIELDS =================== */
+  'notes.content': {
+    FieldKey: 'notes.content',
     FieldType: 'TextArea',
     IsHidden: false,
     IsMultiValue: false,
@@ -256,7 +257,7 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
       Note: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: FieldCategories.Metadata,
+    Category: FieldCategories.Notes,
     DefaultDisplayOrder: 100
   }
 };
@@ -348,6 +349,6 @@ export function isSystemFieldPrefix(fieldKey: string): boolean {
          fieldKey.startsWith('card.') ||
          fieldKey.startsWith('identity.') ||
          fieldKey.startsWith('api.') ||
-         fieldKey.startsWith('note.') ||
+         fieldKey.startsWith('notes.') ||
          fieldKey.startsWith('metadata.');
 }

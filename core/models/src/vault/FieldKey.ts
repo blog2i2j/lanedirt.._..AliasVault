@@ -186,6 +186,12 @@ export const FieldKey = {
    * Type: Date
    */
   AliasBirthdate: 'alias.birthdate',
+
+  /**
+   * Notes content field
+   * Type: TextArea
+   */
+  NotesContent: 'notes.content',
 } as const;
 
 /**

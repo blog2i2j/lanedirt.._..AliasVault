@@ -360,7 +360,7 @@
     "card.expiry_year": "Expiry Year",
     "card.cvv": "CVV",
     "card.pin": "PIN",
-    "metadata.notes": "Notes"
+    "notes.content": "Notes"
   },
   "totp": {
     "addCode": "Add 2FA Code",

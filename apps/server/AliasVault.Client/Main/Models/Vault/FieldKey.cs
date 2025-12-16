@@ -149,4 +149,9 @@ public static class FieldKey
     /// Type: Date
     /// </summary>
     public const string AliasBirthdate = "alias.birthdate";
+
+    /// <summary>
+    /// Type: TextArea
+    /// </summary>
+    public const string NotesContent = "notes.content";
 }

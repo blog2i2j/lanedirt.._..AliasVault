@@ -90,4 +90,7 @@ public struct FieldKey {
 
     /// Type: Date
     public static let aliasBirthdate = "alias.birthdate"
+
+    /// Type: TextArea
+    public static let notesContent = "notes.content"
 }

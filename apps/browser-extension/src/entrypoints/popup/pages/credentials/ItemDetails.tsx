@@ -235,6 +235,17 @@ const ItemDetails: React.FC = (): React.ReactElement => {
               ))}
             </div>
           )}
+
+          {groupedFields[FieldCategories.Notes] && groupedFields[FieldCategories.Notes].length > 0 && (
+            groupedFields[FieldCategories.Notes].map((field) => (
+              <div key={field.FieldKey} className="space-y-2">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  {t(`fieldLabels.${field.FieldKey}`, { defaultValue: field.Label || field.FieldKey })}
+                </h2>
+                <FieldBlock field={field} itemId={item.Id} hideLabel />
+              </div>
+            ))
+          )}
         </>
       )}
 

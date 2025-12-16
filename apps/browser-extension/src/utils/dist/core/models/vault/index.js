@@ -143,7 +143,12 @@ var FieldKey = {
    * Alias birth date field
    * Type: Date
    */
-  AliasBirthdate: "alias.birthdate"
+  AliasBirthdate: "alias.birthdate",
+  /**
+   * Notes content field
+   * Type: TextArea
+   */
+  NotesContent: "notes.content"
 };
 
 // src/vault/Item.ts
@@ -172,6 +177,7 @@ var FieldCategories = {
   Alias: "Alias",
   Card: "Card",
   Custom: "Custom",
+  Notes: "Notes",
   Metadata: "Metadata"
 };
 var SystemFieldRegistry = {
@@ -350,9 +356,9 @@ var SystemFieldRegistry = {
     Category: FieldCategories.Card,
     DefaultDisplayOrder: 60
   },
-  /* =================== METADATA FIELDS =================== */
-  "metadata.notes": {
-    FieldKey: "metadata.notes",
+  /* =================== NOTES FIELDS =================== */
+  "notes.content": {
+    FieldKey: "notes.content",
     FieldType: "TextArea",
     IsHidden: false,
     IsMultiValue: false,
@@ -363,7 +369,7 @@ var SystemFieldRegistry = {
       Note: { ShowByDefault: true }
     },
     EnableHistory: false,
-    Category: FieldCategories.Metadata,
+    Category: FieldCategories.Notes,
     DefaultDisplayOrder: 100
   }
 };
@@ -396,7 +402,7 @@ function getAllSystemFieldKeys() {
   return Object.keys(SystemFieldRegistry);
 }
 function isSystemFieldPrefix(fieldKey) {
-  return fieldKey.startsWith("login.") || fieldKey.startsWith("alias.") || fieldKey.startsWith("card.") || fieldKey.startsWith("identity.") || fieldKey.startsWith("api.") || fieldKey.startsWith("note.") || fieldKey.startsWith("metadata.");
+  return fieldKey.startsWith("login.") || fieldKey.startsWith("alias.") || fieldKey.startsWith("card.") || fieldKey.startsWith("identity.") || fieldKey.startsWith("api.") || fieldKey.startsWith("notes.") || fieldKey.startsWith("metadata.");
 }
 
 // src/vault/ItemMethods.ts
@@ -440,6 +446,12 @@ function groupFieldsByCategory(item) {
     if (field.FieldKey.startsWith("card.")) {
       return FieldCategories.Card;
     }
+    if (field.FieldKey.startsWith("notes.")) {
+      return FieldCategories.Notes;
+    }
+    if (field.FieldKey.startsWith("metadata.")) {
+      return FieldCategories.Metadata;
+    }
     return FieldCategories.Custom;
   });
 }
@@ -451,7 +463,7 @@ function itemToCredential(item) {
     ServiceName: item.Name || "",
     ServiceUrl: getFieldValue(item, FieldKey.LoginUrl),
     Logo: item.Logo,
-    Notes: getFieldValue(item, FieldKey.LoginNotes),
+    Notes: getFieldValue(item, FieldKey.NotesContent),
     Alias: {
       FirstName: getFieldValue(item, FieldKey.AliasFirstName),
       LastName: getFieldValue(item, FieldKey.AliasLastName),

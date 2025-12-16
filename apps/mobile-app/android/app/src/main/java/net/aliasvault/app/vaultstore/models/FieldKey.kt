@@ -148,4 +148,9 @@ object FieldKey {
      * Type: Date.
      */
     const val ALIAS_BIRTHDATE = "alias.birthdate"
+
+    /**
+     * Type: TextArea.
+     */
+    const val NOTES_CONTENT = "notes.content"
 }

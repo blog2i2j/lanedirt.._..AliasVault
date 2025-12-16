@@ -58,7 +58,7 @@ export function groupFields(
 }
 
 /**
- * Group fields by standard categories (Login, Alias, Card, Custom)
+ * Group fields by standard categories (Login, Alias, Card, Notes, Custom)
  */
 export function groupFieldsByCategory(item: Item): Record<string, ItemField[]> {
   return groupFields(item, (field) => {
@@ -70,6 +70,12 @@ export function groupFieldsByCategory(item: Item): Record<string, ItemField[]> {
     }
     if (field.FieldKey.startsWith('card.')) {
       return FieldCategories.Card;
+    }
+    if (field.FieldKey.startsWith('notes.')) {
+      return FieldCategories.Notes;
+    }
+    if (field.FieldKey.startsWith('metadata.')) {
+      return FieldCategories.Metadata;
     }
     return FieldCategories.Custom;
   });
@@ -87,7 +93,7 @@ export function itemToCredential(item: Item): Credential {
     ServiceName: item.Name || '',
     ServiceUrl: getFieldValue(item, FieldKey.LoginUrl),
     Logo: item.Logo,
-    Notes: getFieldValue(item, FieldKey.LoginNotes),
+    Notes: getFieldValue(item, FieldKey.NotesContent),
     Alias: {
       FirstName: getFieldValue(item, FieldKey.AliasFirstName),
       LastName: getFieldValue(item, FieldKey.AliasLastName),

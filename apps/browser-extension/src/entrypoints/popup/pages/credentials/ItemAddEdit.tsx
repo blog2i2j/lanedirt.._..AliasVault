@@ -227,10 +227,10 @@ const ItemAddEdit: React.FC = () => {
   }, [item]);
 
   /**
-   * The notes field (metadata.notes) - handled separately for collapsible UI.
+   * The notes field (notes.content) - handled separately for collapsible UI.
    */
   const notesField = useMemo(() => {
-    return applicableSystemFields.find(field => field.FieldKey === 'metadata.notes');
+    return applicableSystemFields.find(field => field.FieldKey === 'notes.content');
   }, [applicableSystemFields]);
 
   /**
@@ -270,7 +270,11 @@ const ItemAddEdit: React.FC = () => {
     const groups: Record<string, typeof applicableSystemFields> = {};
 
     applicableSystemFields.forEach(field => {
-      // Skip metadata fields (notes) - handled separately
+      // Skip notes fields - handled separately
+      if (field.Category === FieldCategories.Notes) {
+        return;
+      }
+      // Skip metadata fields - handled separately
       if (field.Category === FieldCategories.Metadata) {
         return;
       }
@@ -329,7 +333,7 @@ const ItemAddEdit: React.FC = () => {
 
         // Check if notes should be shown by default for this type
         const typeFields = getSystemFieldsForItemType(effectiveType);
-        const notesFieldDef = typeFields.find(f => f.FieldKey === 'metadata.notes');
+        const notesFieldDef = typeFields.find(f => f.FieldKey === 'notes.content');
         if (notesFieldDef && isFieldShownByDefault(notesFieldDef, effectiveType)) {
           setShowNotes(true);
         }
@@ -750,9 +754,9 @@ const ItemAddEdit: React.FC = () => {
     }
 
     // Check if notes should be shown by default for the new type
-    const newNotesField = newTypeFields.find(f => f.FieldKey === 'metadata.notes');
+    const newNotesField = newTypeFields.find(f => f.FieldKey === 'notes.content');
     const notesShownByDefault = newNotesField ? isFieldShownByDefault(newNotesField, newType) : false;
-    setShowNotes(notesShownByDefault || (isEditMode && !!fieldValues['metadata.notes']));
+    setShowNotes(notesShownByDefault || !!fieldValues['notes.content']);
 
     // Update 2FA visibility - supported for types with login fields
     const newTypeHasLoginFields = newTypeFields.some(f => f.FieldKey === 'login.username' || f.FieldKey === 'login.password');
@@ -775,7 +779,7 @@ const ItemAddEdit: React.FC = () => {
   const handleRemoveNotesSection = useCallback(() => {
     setFieldValues(prev => ({
       ...prev,
-      'metadata.notes': ''
+      'notes.content': ''
     }));
     setShowNotes(false);
   }, []);
@@ -961,9 +965,11 @@ const ItemAddEdit: React.FC = () => {
       case FieldTypes.TextArea:
         return wrapWithRemoveButton(
           <div>
-            <label htmlFor={fieldKey} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              {label}
-            </label>
+            {label && (
+              <label htmlFor={fieldKey} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {label}
+              </label>
+            )}
             <textarea
               id={fieldKey}
               value={stringValue}
@@ -1226,7 +1232,7 @@ const ItemAddEdit: React.FC = () => {
       )}
 
       {/* Notes Section */}
-      {notesField && (showNotes || isEditMode || fieldValues['metadata.notes']) && (
+      {notesField && (showNotes || fieldValues['notes.content']) && (
         <FormSection
           title={t('credentials.notes')}
           actions={
@@ -1247,7 +1253,7 @@ const ItemAddEdit: React.FC = () => {
         >
           {renderFieldInput(
             notesField.FieldKey,
-            t(`fieldLabels.${notesField.FieldKey}`, { defaultValue: notesField.FieldKey }),
+            '', // No label - FormSection title is sufficient
             notesField.FieldType,
             notesField.IsHidden,
             notesField.IsMultiValue

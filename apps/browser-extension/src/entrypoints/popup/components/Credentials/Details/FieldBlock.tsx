@@ -12,6 +12,8 @@ import FieldHistoryModal from './FieldHistoryModal';
 type FieldBlockProps = {
   field: ItemField;
   itemId?: string;
+  /** Whether to hide the label (useful when label is already shown as section header) */
+  hideLabel?: boolean;
 }
 
 /**
@@ -30,7 +32,7 @@ const convertUrlsToLinks = (text: string): string => {
  * Dynamic field block component that renders based on field type.
  * Uses the same FormInputCopyToClipboard component as existing credential blocks.
  */
-const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId }) => {
+const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId, hideLabel = false }) => {
   const { t } = useTranslation();
   const dbContext = useDb();
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -131,9 +133,11 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId }) => {
       // Use NotesBlock-style rendering for multi-line text
       return (
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            {label}
-          </label>
+          {!hideLabel && (
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {label}
+            </label>
+          )}
           <div className="p-4 bg-gray-50 rounded-lg dark:bg-gray-700">
             <p
               className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap"

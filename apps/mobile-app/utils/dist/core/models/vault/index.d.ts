@@ -290,6 +290,11 @@ declare const FieldKey: {
      * Type: Date
      */
     readonly AliasBirthdate: "alias.birthdate";
+    /**
+     * Notes content field
+     * Type: TextArea
+     */
+    readonly NotesContent: "notes.content";
 };
 /**
  * Type representing all valid field key values
@@ -404,7 +409,7 @@ declare function hasField(item: Item, fieldKey: string): boolean;
  */
 declare function groupFields(item: Item, grouper: (field: ItemField) => string): Record<string, ItemField[]>;
 /**
- * Group fields by standard categories (Login, Alias, Card, Custom)
+ * Group fields by standard categories (Login, Alias, Card, Notes, Custom)
  */
 declare function groupFieldsByCategory(item: Item): Record<string, ItemField[]>;
 /**
@@ -431,6 +436,7 @@ declare const FieldCategories: {
     readonly Alias: "Alias";
     readonly Card: "Card";
     readonly Custom: "Custom";
+    readonly Notes: "Notes";
     readonly Metadata: "Metadata";
 };
 /**
