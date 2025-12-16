@@ -190,7 +190,7 @@ const RecentlyDeleted: React.FC = () => {
                             />
                           )}
                           <span className="font-medium text-gray-900 dark:text-white truncate">
-                            {item.Name || t('recentlyDeleted.untitledItem')}
+                            {item.Name || t('items.untitled')}
                           </span>
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">

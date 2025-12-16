@@ -70,10 +70,6 @@ type PersistedFormData = {
   show2FA: boolean;
   showAttachments: boolean;
   manuallyAddedFields: string[];
-  /**
-   * Whether the login.email field is in "email" (free text) mode vs "alias" (domain chooser) mode.
-   * Only applicable for Login item type where defaultToFreeText is true.
-   */
   isLoginEmailInEmailMode?: boolean;
 };
 
@@ -868,7 +864,7 @@ const ItemAddEdit: React.FC = () => {
         {isEditMode && (
           <HeaderButton
             onClick={() => setShowDeleteModal(true)}
-            title={t('credentials.deleteCredential')}
+            title={t('items.deleteItemTitle')}
             iconType={HeaderIconType.DELETE}
             variant="danger"
           />
@@ -876,7 +872,7 @@ const ItemAddEdit: React.FC = () => {
         <HeaderButton
           id="save-credential"
           onClick={handleSave}
-          title={t('credentials.saveCredential')}
+          title={t('items.saveItem')}
           iconType={HeaderIconType.SAVE}
         />
       </div>
@@ -1013,9 +1009,7 @@ const ItemAddEdit: React.FC = () => {
       case FieldTypes.Email:
         /*
          * Use EmailDomainField for email fields to provide domain chooser functionality.
-         * For login.email (Login type), default to free text mode instead of domain chooser.
          * EmailDomainField handles its own remove button in the label, so don't wrap it.
-         * For login.email, use controlled mode to persist the email/alias toggle state.
          */
         return (
           <EmailDomainField
@@ -1023,11 +1017,10 @@ const ItemAddEdit: React.FC = () => {
             label={label}
             value={stringValue}
             onChange={(value) => handleFieldChange(fieldKey, value)}
-            defaultToFreeText={fieldKey === 'login.email'}
             onRemove={onRemove}
-            onGenerateAlias={fieldKey === 'login.email' ? handleGenerateAliasEmail : undefined}
-            isEmailMode={fieldKey === 'login.email' ? isLoginEmailInEmailMode : undefined}
-            onEmailModeChange={fieldKey === 'login.email' ? setIsLoginEmailInEmailMode : undefined}
+            onGenerateAlias={handleGenerateAliasEmail}
+            isEmailMode={isLoginEmailInEmailMode}
+            onEmailModeChange={setIsLoginEmailInEmailMode}
           />
         );
 
@@ -1076,11 +1069,11 @@ const ItemAddEdit: React.FC = () => {
   const getCategoryTitle = useCallback((category: string): string => {
     switch (category) {
       case FieldCategories.Login:
-        return t('common.credentials');
+        return t('items.loginCredentials');
       case FieldCategories.Alias:
-        return t('credentials.alias');
+        return t('common.alias');
       case FieldCategories.Card:
-        return t('credentials.cardInformation');
+        return t('items.cardInformation');
       default:
         return category;
     }
@@ -1264,7 +1257,7 @@ const ItemAddEdit: React.FC = () => {
       {/* Notes Section */}
       {notesField && visibleFieldKeys.has('notes.content') && (
         <FormSection
-          title={t('credentials.notes')}
+          title={t('common.notes')}
           actions={
             !shouldShowField(notesField) ? (
               <button
@@ -1327,8 +1320,8 @@ const ItemAddEdit: React.FC = () => {
         <Modal
           isOpen={showDeleteModal}
           onClose={() => setShowDeleteModal(false)}
-          title={t('credentials.deleteItemTitle')}
-          message={t('credentials.deleteItemConfirm')}
+          title={t('items.deleteItemTitle')}
+          message={t('items.deleteItemConfirm')}
           confirmText={t('common.delete')}
           cancelText={t('common.cancel')}
           onConfirm={handleDelete}

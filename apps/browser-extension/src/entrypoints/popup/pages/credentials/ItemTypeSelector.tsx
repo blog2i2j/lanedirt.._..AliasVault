@@ -105,11 +105,11 @@ const ItemTypeSelector: React.FC = () => {
       <div>
         <FormInput
           id="itemName"
-          label={t('credentials.serviceName')}
+          label={t('common.serviceName')}
           value={itemName}
           onChange={setItemName}
           type="text"
-          placeholder={t('credentials.serviceName')}
+          placeholder={t('common.serviceName')}
         />
       </div>
 

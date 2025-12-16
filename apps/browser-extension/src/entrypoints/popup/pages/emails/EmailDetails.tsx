@@ -263,7 +263,7 @@ const EmailDetails: React.FC = (): React.ReactElement => {
         {email.attachments && email.attachments.length > 0 && (
           <div className="p-6 border-t border-gray-200 dark:border-gray-700">
             <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-              {t('emails.attachments')}
+              {t('common.attachments')}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {email.attachments.map((attachment) => (

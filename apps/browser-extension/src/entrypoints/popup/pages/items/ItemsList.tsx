@@ -309,7 +309,7 @@ const ItemsList: React.FC = () => {
       case 'passkeys':
         return t('items.filters.passkeys');
       case 'attachments':
-        return t('items.filters.attachments');
+        return t('common.attachments');
       default:
         return t('items.title');
     }
@@ -492,7 +492,7 @@ const ItemsList: React.FC = () => {
                       filterType === 'attachments' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-gray-300'
                     }`}
                   >
-                    {t('items.filters.attachments')}
+                    {t('common.attachments')}
                   </button>
                   <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
                   <button

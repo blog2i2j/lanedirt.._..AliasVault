@@ -183,7 +183,7 @@ const App: React.FC = () => {
     { path: '/unlock', element: <Unlock />, showBackButton: false, layout: LayoutType.AUTH },
     { path: '/unlock-success', element: <UnlockSuccess />, showBackButton: false },
     { path: '/upgrade', element: <Upgrade />, showBackButton: false },
-    { path: '/auth-settings', element: <AuthSettings />, showBackButton: true, title: t('settings.title') },
+    { path: '/auth-settings', element: <AuthSettings />, showBackButton: true, title: t('common.settings') },
     { path: '/items', element: <ItemsList />, showBackButton: false },
     { path: '/items/folder/:folderId', element: <ItemsList />, showBackButton: true, title: t('items.title') },
     { path: '/items/select-type', element: <ItemTypeSelector />, showBackButton: true, title: t('itemTypes.selectType') },

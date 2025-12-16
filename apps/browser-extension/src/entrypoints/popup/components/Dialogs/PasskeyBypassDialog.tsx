@@ -26,7 +26,7 @@ const PasskeyBypassDialog: React.FC<PasskeyBypassDialogProps> = ({
     <ModalWrapper
       isOpen={isOpen}
       onClose={onCancel}
-      title={t('passkeys.bypass.title')}
+      title={t('passkeys.useBrowserPasskey')}
       showCloseButton={true}
     >
       <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">

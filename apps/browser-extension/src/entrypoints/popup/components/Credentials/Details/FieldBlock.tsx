@@ -91,7 +91,7 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId, hideLabel = fals
       type="button"
       onClick={() => setShowHistoryModal(true)}
       className="ml-2 inline-flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none"
-      title={t('credentials.viewHistory')}
+      title={t('items.viewHistory')}
     >
       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />

@@ -453,7 +453,7 @@ const Login: React.FC = () => {
           </div>
           <div className="mb-4">
             <label className="block text-gray-700 dark:text-gray-200 font-medium mb-2" htmlFor="password">
-              {t('auth.password')}
+              {t('common.password')}
             </label>
             <div className="relative">
               <input

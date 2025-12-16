@@ -85,7 +85,7 @@ const ItemDetails: React.FC = (): React.ReactElement => {
         )}
         <HeaderButton
           onClick={handleEdit}
-          title={t('credentials.editCredential')}
+          title={t('items.editItem')}
           iconType={HeaderIconType.EDIT}
         />
       </div>
@@ -123,7 +123,7 @@ const ItemDetails: React.FC = (): React.ReactElement => {
           <ItemIcon item={item} className="w-12 h-12 rounded-lg" />
           <div>
             <h1 className="text-lg font-bold text-gray-900 dark:text-white">
-              {item.Name || t('items.untitledItem')}
+              {item.Name || t('items.untitled')}
             </h1>
             {/* Display URLs prominently below title */}
             {urlFields.length > 0 && (
@@ -206,7 +206,7 @@ const ItemDetails: React.FC = (): React.ReactElement => {
           {groupedFields[FieldCategories.Alias] && groupedFields[FieldCategories.Alias].length > 0 && (
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                {t('credentials.alias')}
+                {t('common.alias')}
               </h2>
               {groupedFields[FieldCategories.Alias].map((field) => (
                 <FieldBlock key={field.FieldKey} field={field} itemId={item.Id} />
@@ -217,7 +217,7 @@ const ItemDetails: React.FC = (): React.ReactElement => {
           {groupedFields[FieldCategories.Card] && groupedFields[FieldCategories.Card].length > 0 && (
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                {t('credentials.cardInformation')}
+                {t('items.cardInformation')}
               </h2>
               {groupedFields[FieldCategories.Card].map((field) => (
                 <FieldBlock key={field.FieldKey} field={field} itemId={item.Id} />

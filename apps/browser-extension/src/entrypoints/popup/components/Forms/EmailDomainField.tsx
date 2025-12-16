@@ -11,17 +11,11 @@ type EmailDomainFieldProps = {
   error?: string;
   required?: boolean;
   /**
-   * When true, defaults to free text mode (custom domain) instead of domain chooser.
-   * Also changes the toggle button labels to "Generate alias email" / "Enter normal email".
-   */
-  defaultToFreeText?: boolean;
-  /**
    * Callback to remove this field. When provided, shows an X button in the label.
    */
   onRemove?: () => void;
   /**
-   * Callback to generate an alias email. When provided and defaultToFreeText is true,
-   * clicking "Generate alias email" will call this instead of just toggling mode.
+   * Callback to generate an alias email. When provided, clicking "Generate alias email" will call this instead of just toggling mode.
    */
   onGenerateAlias?: () => void;
   /**
@@ -47,7 +41,6 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
   onChange,
   error,
   required = false,
-  defaultToFreeText = false,
   onRemove,
   onGenerateAlias,
   isEmailMode,
@@ -58,7 +51,7 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
 
   // Support both controlled and uncontrolled modes
   const isControlled = isEmailMode !== undefined;
-  const [internalIsCustomDomain, setInternalIsCustomDomain] = useState(defaultToFreeText);
+  const [internalIsCustomDomain, setInternalIsCustomDomain] = useState(true);
 
   // Use controlled value if provided, otherwise use internal state
   const isCustomDomain = isControlled ? isEmailMode : internalIsCustomDomain;
@@ -231,14 +224,9 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
     if (newIsCustom) {
       /*
        * Switching to custom domain mode (free text / normal email)
-       * If defaultToFreeText is true (Login type), clear the field so user can enter their own email
-       * Otherwise, extract just the local part from the domain-based value
+       * Extract just the local part from the domain-based value
        */
-      if (defaultToFreeText) {
-        // Clear the field for Login type - user wants to enter their own email
-        onChange('');
-        setLocalPart('');
-      } else if (value && value.includes('@')) {
+      if (value && value.includes('@')) {
         const [local] = value.split('@');
         onChange(local);
         setLocalPart(local);
@@ -258,7 +246,7 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
         onChange(`${value}@${defaultDomain}`);
       }
     }
-  }, [isCustomDomain, value, localPart, showPrivateDomains, publicEmailDomains, privateEmailDomains, onChange, defaultToFreeText, setIsCustomDomain]);
+  }, [isCustomDomain, value, localPart, showPrivateDomains, publicEmailDomains, privateEmailDomains, onChange, setIsCustomDomain]);
 
   // Handle clicks outside the popup
   useEffect(() => {
@@ -295,40 +283,32 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center">
-          {/* Tab-style label switcher for defaultToFreeText mode */}
-          {defaultToFreeText ? (
-            <div className="flex items-center">
-              <button
-                type="button"
-                onClick={isCustomDomain ? undefined : toggleCustomDomain}
-                className={`text-sm font-medium transition-colors ${
-                  isCustomDomain
-                    ? 'text-gray-700 dark:text-gray-300'
-                    : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 cursor-pointer'
-                }`}
-              >
-                {t('credentials.email')}
-              </button>
-              <span className="mx-1.5 text-gray-400 dark:text-gray-500">/</span>
-              <button
-                type="button"
-                onClick={!isCustomDomain ? undefined : handleGenerateAliasClick}
-                className={`text-sm font-medium transition-colors ${
-                  !isCustomDomain
-                    ? 'text-gray-700 dark:text-gray-300'
-                    : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 cursor-pointer'
-                }`}
-              >
-                {t('credentials.alias')}
-              </button>
-              {required && <span className="text-red-500 ml-1">*</span>}
-            </div>
-          ) : (
-            <label htmlFor={id} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              {label}
-              {required && <span className="text-red-500 ml-1">*</span>}
-            </label>
-          )}
+          <div className="flex items-center">
+            <button
+              type="button"
+              onClick={isCustomDomain ? undefined : toggleCustomDomain}
+              className={`text-sm font-medium transition-colors ${
+                isCustomDomain
+                  ? 'text-gray-700 dark:text-gray-300'
+                  : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 cursor-pointer'
+              }`}
+            >
+              {t('common.email')}
+            </button>
+            <span className="mx-1.5 text-gray-400 dark:text-gray-500">/</span>
+            <button
+              type="button"
+              onClick={!isCustomDomain ? undefined : handleGenerateAliasClick}
+              className={`text-sm font-medium transition-colors ${
+                !isCustomDomain
+                  ? 'text-gray-700 dark:text-gray-300'
+                  : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 cursor-pointer'
+              }`}
+            >
+              {t('common.alias')}
+            </button>
+            {required && <span className="text-red-500 ml-1">*</span>}
+          </div>
         </div>
         {onRemove && (
           <button
@@ -436,20 +416,6 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
         )}
       </div>
 
-      {/* Toggle custom domain button - only show for non-defaultToFreeText mode */}
-      {!defaultToFreeText && (
-        <div>
-          <button
-            type="button"
-            onClick={toggleCustomDomain}
-            className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
-          >
-            {isCustomDomain ? t('credentials.useDomainChooser') : t('credentials.enterCustomDomain')}
-          </button>
-        </div>
-      )}
-
-      {/* Error message */}
       {error && (
         <p className="text-sm text-red-500 mt-1">{error}</p>
       )}

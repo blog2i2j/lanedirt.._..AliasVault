@@ -90,7 +90,7 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
     <ModalWrapper
       isOpen={isOpen}
       onClose={onClose}
-      title={`${fieldLabel} ${t('credentials.history')}`}
+      title={`${fieldLabel} ${t('items.history')}`}
       maxWidth="max-w-2xl"
       bodyClassName="px-4 pb-4 overflow-y-auto max-h-[60vh]"
     >
@@ -100,7 +100,7 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
         </div>
       ) : history.length === 0 ? (
         <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-          {t('credentials.noHistoryAvailable')}
+          {t('items.noHistoryAvailable')}
         </div>
       ) : (
         <div className="space-y-3">

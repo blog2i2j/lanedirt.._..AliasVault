@@ -585,7 +585,7 @@ const PasskeyCreate: React.FC = () => {
               variant="secondary"
               onClick={handleFallback}
             >
-              {t('passkeys.create.useBrowserPasskey')}
+              {t('passkeys.useBrowserPasskey')}
             </Button>
 
             <div className="relative">
@@ -652,7 +652,7 @@ const PasskeyCreate: React.FC = () => {
               variant="secondary"
               onClick={handleFallback}
             >
-              {t('passkeys.create.useBrowserPasskey')}
+              {t('passkeys.useBrowserPasskey')}
             </Button>
 
             <div className="relative">
@@ -770,7 +770,7 @@ const PasskeyCreate: React.FC = () => {
                     variant="secondary"
                     onClick={handleFallback}
                   >
-                    {t('passkeys.create.useBrowserPasskey')}
+                    {t('passkeys.useBrowserPasskey')}
                   </Button>
 
                   <Button

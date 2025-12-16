@@ -432,7 +432,7 @@ const PasskeyAuthenticate: React.FC = () => {
             variant="secondary"
             onClick={handleFallback}
           >
-            {t('passkeys.authenticate.useBrowserPasskey')}
+            {t('passkeys.useBrowserPasskey')}
           </Button>
 
           <Button

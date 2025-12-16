@@ -955,15 +955,15 @@ export async function createAliasCreationPopup(suggestedNames: string[], rootCon
       const manualUsernamePasswordSubtextDropdown = await t('content.manualCredentialDescriptionDropdown');
 
       // Get all translated strings first
-      const serviceNameText = await t('content.serviceName');
+      const serviceNameText = await t('common.serviceName');
       const enterServiceNameText = await t('content.enterServiceName');
-      const cancelText = await t('content.cancel');
+      const cancelText = await t('common.cancel');
       const createAndSaveAliasText = await t('content.createAndSaveAlias');
-      const emailText = await t('content.email');
+      const emailText = await t('common.email');
       const enterEmailAddressText = await t('content.enterEmailAddress');
-      const usernameText = await t('content.username');
+      const usernameText = await t('common.username');
       const enterUsernameText = await t('content.enterUsername');
-      const passwordText = await t('content.password');
+      const passwordText = await t('common.password');
       const generateNewPasswordText = await t('content.generateNewPassword');
       const togglePasswordVisibilityText = await t('content.togglePasswordVisibility');
       const createAndSaveCredentialText = await t('content.createAndSaveCredential');

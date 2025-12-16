@@ -310,7 +310,7 @@ const Upgrade: React.FC = () => {
             className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium py-2"
             disabled={isLoading}
           >
-            {t('upgrade.logout')}
+            {t('common.logout')}
           </button>
         </div>
       </form>
