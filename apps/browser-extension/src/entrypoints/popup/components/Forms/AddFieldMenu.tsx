@@ -3,33 +3,49 @@ import { useTranslation } from 'react-i18next';
 
 import ModalWrapper from '@/entrypoints/popup/components/Dialogs/ModalWrapper';
 
-import type { FieldType } from '@/utils/dist/core/models/vault';
+import type { FieldType, SystemFieldDefinition } from '@/utils/dist/core/models/vault';
+import { FieldCategories } from '@/utils/dist/core/models/vault';
 
 /**
- * Visibility state for optional sections.
+ * Configuration for an optional section (not field-based).
  */
-type SectionVisibility = {
-  showNotes: boolean;
-  show2FA: boolean;
-  showAttachments: boolean;
+type OptionalSection = {
+  /** Unique key for this section */
+  key: string;
+  /** Whether this section is currently visible */
+  isVisible: boolean;
+  /** Callback to add/show this section */
+  onAdd: () => void;
 };
 
 /**
- * Callbacks for adding optional sections.
+ * Callbacks for adding custom fields.
  */
-type SectionCallbacks = {
-  onAddNotes: () => void;
-  onAdd2FA: () => void;
-  onAddAttachments: () => void;
+type AddFieldMenuCallbacks = {
+  /** Callback when a system field is added */
+  onAddSystemField: (fieldKey: string) => void;
+  /** Callback when a custom field is added */
   onAddCustomField: (label: string, fieldType: FieldType) => void;
 };
 
 type AddFieldMenuProps = {
-  isEditMode: boolean;
-  /** Whether 2FA is supported for the current item type (determined by model config) */
-  supports2FA: boolean;
-  visibility: SectionVisibility;
-  callbacks: SectionCallbacks;
+  /**
+   * Optional system fields for the current item type.
+   * These are fields with ShowByDefault: false that can be added via the menu.
+   */
+  optionalSystemFields: SystemFieldDefinition[];
+  /**
+   * Field keys that are currently visible (either have a value or were manually added).
+   */
+  visibleFieldKeys: Set<string>;
+  /**
+   * Optional sections (like 2FA, Attachments) that are not field-based.
+   */
+  optionalSections: OptionalSection[];
+  /**
+   * Callbacks for adding fields.
+   */
+  callbacks: AddFieldMenuCallbacks;
 };
 
 /**
@@ -79,14 +95,40 @@ const PlusIcon: React.FC = () => (
 );
 
 /**
+ * Get icon for a field category.
+ */
+const getFieldIcon = (category: string): React.ReactNode => {
+  switch (category) {
+    case FieldCategories.Notes:
+      return <NotesIcon />;
+    default:
+      return <PlusIcon />;
+  }
+};
+
+/**
+ * Get icon for optional sections.
+ */
+const getSectionIcon = (key: string): React.ReactNode => {
+  switch (key) {
+    case '2fa':
+      return <LockIcon />;
+    case 'attachments':
+      return <AttachmentIcon />;
+    default:
+      return <PlusIcon />;
+  }
+};
+
+/**
  * A dropdown menu for adding optional fields and sections to an item.
- * Includes built-in logic for determining which options to show based on item type.
- * Also includes the custom field modal.
+ * Dynamically determines which options to show based on system field registry
+ * and current field visibility.
  */
 const AddFieldMenu: React.FC<AddFieldMenuProps> = ({
-  isEditMode,
-  supports2FA,
-  visibility,
+  optionalSystemFields,
+  visibleFieldKeys,
+  optionalSections,
   callbacks
 }) => {
   const { t } = useTranslation();
@@ -127,70 +169,53 @@ const AddFieldMenu: React.FC<AddFieldMenuProps> = ({
   }, []);
 
   /**
-   * Handle adding notes and closing menu.
+   * Handle adding a system field and closing menu.
    */
-  const handleAddNotes = useCallback((): void => {
-    callbacks.onAddNotes();
+  const handleAddSystemField = useCallback((fieldKey: string): void => {
+    callbacks.onAddSystemField(fieldKey);
     setIsOpen(false);
   }, [callbacks]);
 
   /**
-   * Handle adding 2FA and closing menu.
+   * Handle adding an optional section and closing menu.
    */
-  const handleAdd2FA = useCallback((): void => {
-    callbacks.onAdd2FA();
+  const handleAddSection = useCallback((onAdd: () => void): void => {
+    onAdd();
     setIsOpen(false);
-  }, [callbacks]);
+  }, []);
 
   /**
-   * Handle adding attachments and closing menu.
-   */
-  const handleAddAttachments = useCallback((): void => {
-    callbacks.onAddAttachments();
-    setIsOpen(false);
-  }, [callbacks]);
-
-  /**
-   * Build menu options based on item type and current visibility.
+   * Build menu options based on optional system fields and sections.
    */
   const menuOptions = useMemo((): MenuOption[] => {
     const options: MenuOption[] = [];
 
-    /*
-     * Notes option - available for all types when not already shown.
-     * In edit mode, notes are always shown if they have content, so we don't need to show the option.
-     */
-    if (!visibility.showNotes && !isEditMode) {
-      options.push({
-        key: 'notes',
-        label: t('credentials.notes'),
-        icon: <NotesIcon />,
-        action: handleAddNotes
-      });
-    }
+    // Add optional system fields that are not currently visible
+    optionalSystemFields.forEach(field => {
+      if (!visibleFieldKeys.has(field.FieldKey)) {
+        options.push({
+          key: field.FieldKey,
+          label: t(`fieldLabels.${field.FieldKey}`, { defaultValue: field.FieldKey }),
+          icon: getFieldIcon(field.Category),
+          action: () => handleAddSystemField(field.FieldKey)
+        });
+      }
+    });
 
-    // 2FA TOTP option - only for types with login fields
-    if (supports2FA && !visibility.show2FA) {
-      options.push({
-        key: '2fa',
-        label: t('common.twoFactorAuthentication'),
-        icon: <LockIcon />,
-        action: handleAdd2FA
-      });
-    }
-
-    // Attachments option - available for all types when not already shown
-    if (!visibility.showAttachments) {
-      options.push({
-        key: 'attachments',
-        label: t('common.attachments'),
-        icon: <AttachmentIcon />,
-        action: handleAddAttachments
-      });
-    }
+    // Add optional sections that are not currently visible
+    optionalSections.forEach(section => {
+      if (!section.isVisible) {
+        options.push({
+          key: section.key,
+          label: t(`common.${section.key === '2fa' ? 'twoFactorAuthentication' : section.key}`),
+          icon: getSectionIcon(section.key),
+          action: () => handleAddSection(section.onAdd)
+        });
+      }
+    });
 
     return options;
-  }, [supports2FA, isEditMode, visibility, t, handleAddNotes, handleAdd2FA, handleAddAttachments]);
+  }, [optionalSystemFields, visibleFieldKeys, optionalSections, t, handleAddSystemField, handleAddSection]);
 
   return (
     <>
@@ -307,3 +332,4 @@ const AddFieldMenu: React.FC<AddFieldMenuProps> = ({
 };
 
 export default AddFieldMenu;
+export type { OptionalSection };

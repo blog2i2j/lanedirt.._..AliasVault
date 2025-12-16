@@ -6,7 +6,7 @@ import AttachmentUploader from '@/entrypoints/popup/components/Credentials/Detai
 import PasskeyEditor from '@/entrypoints/popup/components/Credentials/Details/PasskeyEditor';
 import TotpEditor from '@/entrypoints/popup/components/Credentials/Details/TotpEditor';
 import Modal from '@/entrypoints/popup/components/Dialogs/Modal';
-import AddFieldMenu from '@/entrypoints/popup/components/Forms/AddFieldMenu';
+import AddFieldMenu, { type OptionalSection } from '@/entrypoints/popup/components/Forms/AddFieldMenu';
 import EditableFieldLabel from '@/entrypoints/popup/components/Forms/EditableFieldLabel';
 import EmailDomainField from '@/entrypoints/popup/components/Forms/EmailDomainField';
 import { FormInput } from '@/entrypoints/popup/components/Forms/FormInput';
@@ -30,7 +30,7 @@ import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
 import { SKIP_FORM_RESTORE_KEY } from '@/utils/Constants';
 import type { Item, ItemField, ItemType, FieldType, Attachment, TotpCode } from '@/utils/dist/core/models/vault';
-import { FieldCategories, FieldTypes, ItemTypes, getSystemFieldsForItemType, isFieldShownByDefault } from '@/utils/dist/core/models/vault';
+import { FieldCategories, FieldTypes, ItemTypes, getSystemFieldsForItemType, getOptionalFieldsForItemType, isFieldShownByDefault } from '@/utils/dist/core/models/vault';
 import { FaviconService } from '@/utils/FaviconService';
 
 import { browser } from '#imports';
@@ -67,7 +67,6 @@ type PersistedFormData = {
       secretKey: string;
     };
   };
-  showNotes: boolean;
   show2FA: boolean;
   showAttachments: boolean;
   manuallyAddedFields: string[];
@@ -117,7 +116,6 @@ const ItemAddEdit: React.FC = () => {
 
   // UI visibility state
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
-  const [showNotes, setShowNotes] = useState(false);
   const [show2FA, setShow2FA] = useState(false);
   const [showAttachments, setShowAttachments] = useState(false);
 
@@ -177,9 +175,6 @@ const ItemAddEdit: React.FC = () => {
     if (data.totpEditorState) {
       setTotpEditorState(data.totpEditorState);
     }
-    if (data.showNotes !== undefined) {
-      setShowNotes(data.showNotes);
-    }
     if (data.show2FA !== undefined) {
       setShow2FA(data.show2FA);
     }
@@ -206,7 +201,6 @@ const ItemAddEdit: React.FC = () => {
       fieldValues,
       customFields,
       totpEditorState,
-      showNotes,
       show2FA,
       showAttachments,
       manuallyAddedFields: Array.from(manuallyAddedFields),
@@ -232,6 +226,42 @@ const ItemAddEdit: React.FC = () => {
   const notesField = useMemo(() => {
     return applicableSystemFields.find(field => field.FieldKey === 'notes.content');
   }, [applicableSystemFields]);
+
+  /**
+   * Optional system fields for the current item type.
+   * These are fields with ShowByDefault: false that can be added via the + menu.
+   */
+  const optionalSystemFields = useMemo(() => {
+    if (!item) {
+      return [];
+    }
+    return getOptionalFieldsForItemType(item.ItemType);
+  }, [item]);
+
+  /**
+   * Set of field keys that are currently visible (shown by default, manually added, or have values).
+   */
+  const visibleFieldKeys = useMemo(() => {
+    const keys = new Set<string>();
+    // Add fields that are shown by default
+    applicableSystemFields.forEach(field => {
+      if (item && isFieldShownByDefault(field, item.ItemType)) {
+        keys.add(field.FieldKey);
+      }
+    });
+    // Add manually added fields
+    manuallyAddedFields.forEach(key => keys.add(key));
+    // Add fields that were initially visible (had values)
+    initiallyVisibleFields.forEach(key => keys.add(key));
+    // Add fields with current values
+    Object.keys(fieldValues).forEach(key => {
+      const value = fieldValues[key];
+      if (value && (Array.isArray(value) ? value.length > 0 : value.toString().trim() !== '')) {
+        keys.add(key);
+      }
+    });
+    return keys;
+  }, [item, applicableSystemFields, manuallyAddedFields, initiallyVisibleFields, fieldValues]);
 
   /**
    * Check if a field should be shown for the current item type.
@@ -329,13 +359,6 @@ const ItemAddEdit: React.FC = () => {
             ...prev,
             'login.url': serviceUrl
           }));
-        }
-
-        // Check if notes should be shown by default for this type
-        const typeFields = getSystemFieldsForItemType(effectiveType);
-        const notesFieldDef = typeFields.find(f => f.FieldKey === 'notes.content');
-        if (notesFieldDef && isFieldShownByDefault(notesFieldDef, effectiveType)) {
-          setShowNotes(true);
         }
 
         // Load folders
@@ -743,26 +766,8 @@ const ItemAddEdit: React.FC = () => {
       });
     }
 
-    // Check field visibility based on model config for the new type
-    const newTypeFields = getSystemFieldsForItemType(newType);
-
-    // Check if alias fields should be shown by default for the new type (for auto-generation)
-    const newAliasField = newTypeFields.find(f => f.Category === FieldCategories.Alias);
-    const aliasShownByDefault = newAliasField ? isFieldShownByDefault(newAliasField, newType) : false;
-    if (aliasShownByDefault && !isEditMode) {
-      aliasGeneratedRef.current = false;
-    }
-
-    // Check if notes should be shown by default for the new type
-    const newNotesField = newTypeFields.find(f => f.FieldKey === 'notes.content');
-    const notesShownByDefault = newNotesField ? isFieldShownByDefault(newNotesField, newType) : false;
-    setShowNotes(notesShownByDefault || !!fieldValues['notes.content']);
-
-    // Update 2FA visibility - supported for types with login fields
-    const newTypeHasLoginFields = newTypeFields.some(f => f.FieldKey === 'login.username' || f.FieldKey === 'login.password');
-    if (!newTypeHasLoginFields && show2FA) {
-      setShow2FA(false);
-    }
+    // Reset alias generated flag, so alias fields will be filled (again) if they are shown by the new type
+    aliasGeneratedRef.current = false;
 
     setItem({
       ...item,
@@ -771,24 +776,21 @@ const ItemAddEdit: React.FC = () => {
     });
 
     setShowTypeDropdown(false);
-  }, [item, isEditMode, fieldValues, show2FA]);
+  }, [item, isEditMode]);
 
   /**
-   * Remove notes section - clears value and hides the section.
+   * Remove notes section - clears value and removes from manually added fields.
    */
   const handleRemoveNotesSection = useCallback(() => {
     setFieldValues(prev => ({
       ...prev,
       'notes.content': ''
     }));
-    setShowNotes(false);
-  }, []);
-
-  /**
-   * Handle adding notes section.
-   */
-  const handleAddNotes = useCallback((): void => {
-    setShowNotes(true);
+    setManuallyAddedFields(prev => {
+      const newSet = new Set(prev);
+      newSet.delete('notes.content');
+      return newSet;
+    });
   }, []);
 
   /**
@@ -806,11 +808,33 @@ const ItemAddEdit: React.FC = () => {
   }, []);
 
   /**
-   * Handle adding an optional system field (e.g., email for Login type).
+   * Handle adding an optional system field (e.g., email for Login type, notes).
    */
   const handleAddOptionalField = useCallback((fieldKey: string): void => {
     setManuallyAddedFields(prev => new Set(prev).add(fieldKey));
   }, []);
+
+  /**
+   * Optional sections (non-field-based) for the AddFieldMenu.
+   */
+  const optionalSections = useMemo((): OptionalSection[] => {
+    const sections: OptionalSection[] = [];
+    // 2FA - only for types with login fields
+    if (hasLoginFields) {
+      sections.push({
+        key: '2fa',
+        isVisible: show2FA,
+        onAdd: handleAdd2FA
+      });
+    }
+    // Attachments - always available
+    sections.push({
+      key: 'attachments',
+      isVisible: showAttachments,
+      onAdd: handleAddAttachments
+    });
+    return sections;
+  }, [hasLoginFields, show2FA, showAttachments, handleAdd2FA, handleAddAttachments]);
 
   /**
    * Handle removing an optional system field (e.g., email for Login type).
@@ -1232,11 +1256,11 @@ const ItemAddEdit: React.FC = () => {
       )}
 
       {/* Notes Section */}
-      {notesField && (showNotes || fieldValues['notes.content']) && (
+      {notesField && visibleFieldKeys.has('notes.content') && (
         <FormSection
           title={t('credentials.notes')}
           actions={
-            !isEditMode && !shouldShowField(notesField) ? (
+            !shouldShowField(notesField) ? (
               <button
                 type="button"
                 onClick={handleRemoveNotesSection}
@@ -1283,17 +1307,11 @@ const ItemAddEdit: React.FC = () => {
 
       {/* Add Field Menu */}
       <AddFieldMenu
-        isEditMode={isEditMode}
-        supports2FA={hasLoginFields}
-        visibility={{
-          showNotes,
-          show2FA,
-          showAttachments
-        }}
+        optionalSystemFields={optionalSystemFields}
+        visibleFieldKeys={visibleFieldKeys}
+        optionalSections={optionalSections}
         callbacks={{
-          onAddNotes: handleAddNotes,
-          onAdd2FA: handleAdd2FA,
-          onAddAttachments: handleAddAttachments,
+          onAddSystemField: handleAddOptionalField,
           onAddCustomField: handleAddCustomField
         }}
       />
