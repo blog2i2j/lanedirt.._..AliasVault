@@ -10,6 +10,7 @@ namespace AliasVault.Client.Services.Database;
 using System.Data;
 using System.Net.Http.Json;
 using AliasClientDb;
+using AliasClientDb.Models;
 using AliasVault.Client.Services;
 using AliasVault.Client.Services.Auth;
 using AliasVault.Client.Services.JsInterop.Models;
@@ -477,7 +478,7 @@ public sealed class DbService : IDisposable
         var username = _authService.GetUsername();
         var databaseVersion = await GetCurrentDatabaseVersionAsync();
         var encryptionKey = await GetOrCreateEncryptionKeyAsync();
-        var credentialsCount = await _dbContext.Credentials.Where(x => !x.IsDeleted).CountAsync();
+        var credentialsCount = await _dbContext.Items.Where(x => !x.IsDeleted && x.DeletedAt == null).CountAsync();
         var emailAddresses = await GetEmailClaimListAsync();
         var currentDateTime = DateTime.UtcNow;
         return new Vault
@@ -525,17 +526,19 @@ public sealed class DbService : IDisposable
     }
 
     /// <summary>
-    /// Get a list of private email addresses that are used in aliases by this vault.
+    /// Get a list of private email addresses that are used in items by this vault.
     /// </summary>
     /// <returns>List of email addresses.</returns>
     public async Task<List<string>> GetEmailClaimListAsync()
     {
-        // Send list of email addresses that are used in aliases by this vault, so they can be
+        // Send list of email addresses that are used in items by this vault, so they can be
         // claimed on the server.
-        var emailAddresses = await _dbContext.Aliases
-            .Where(a => a.Email != null)
-            .Where(a => !a.IsDeleted)
-            .Select(a => a.Email)
+        var emailAddresses = await _dbContext.FieldValues
+            .Where(fv => fv.FieldKey == FieldKey.LoginEmail)
+            .Where(fv => fv.Value != null)
+            .Where(fv => !fv.IsDeleted)
+            .Where(fv => !fv.Item.IsDeleted && fv.Item.DeletedAt == null)
+            .Select(fv => fv.Value)
             .Distinct()
             .Select(email => email!)
             .ToListAsync();
@@ -856,9 +859,14 @@ public sealed class DbService : IDisposable
         var cutoffDate = DateTime.UtcNow.AddDays(-7);
         var deleteCount = 0;
 
-        // Hard delete soft-deleted Credentials older than 7 days
-        deleteCount += await _dbContext.Credentials
-            .Where(c => c.IsDeleted && c.UpdatedAt <= cutoffDate)
+        // Hard delete soft-deleted Items older than 7 days
+        deleteCount += await _dbContext.Items
+            .Where(i => i.IsDeleted && i.UpdatedAt <= cutoffDate)
+            .ExecuteDeleteAsync();
+
+        // Hard delete soft-deleted FieldValues older than 7 days
+        deleteCount += await _dbContext.FieldValues
+            .Where(fv => fv.IsDeleted && fv.UpdatedAt <= cutoffDate)
             .ExecuteDeleteAsync();
 
         // Hard delete soft-deleted Passkeys older than 7 days
@@ -869,6 +877,11 @@ public sealed class DbService : IDisposable
         // Hard delete soft-deleted Attachments older than 7 days
         deleteCount += await _dbContext.Attachments
             .Where(a => a.IsDeleted && a.UpdatedAt <= cutoffDate)
+            .ExecuteDeleteAsync();
+
+        // Hard delete soft-deleted TotpCodes older than 7 days
+        deleteCount += await _dbContext.TotpCodes
+            .Where(t => t.IsDeleted && t.UpdatedAt <= cutoffDate)
             .ExecuteDeleteAsync();
 
         if (deleteCount > 0)

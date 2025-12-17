@@ -3,10 +3,12 @@
 @using AliasVault.Client.Resources
 @inherits AliasVault.Client.Main.Pages.MainBase
 @inject IJSRuntime JSRuntime
-@inject CredentialService CredentialService
+@inject ItemService ItemService
 @inject AliasVault.Client.Services.QuickCreateStateService QuickCreateStateService
 @inject LanguageService LanguageService
 @implements IAsyncDisposable
+@using AliasClientDb
+@using AliasClientDb.Models
 
 <button @ref="buttonRef" @onclick="TogglePopup" id="quickIdentityButton" class="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 focus:outline-none dark:from-primary-400 dark:to-primary-500 dark:hover:from-primary-500 dark:hover:to-primary-600 rounded-md shadow-sm transition duration-150 ease-in-out transform hover:scale-105 active:scale-95 focus:shadow-outline">
     @Localizer["NewAliasButtonShort"] <span class="hidden md:inline">@Localizer["NewAliasButtonText"].Value.Substring(1).Trim()</span>
@@ -89,7 +91,7 @@
     /// </summary>
     private void OnFocusUrlInput(FocusEventArgs e)
     {
-        if (Model.ServiceUrl != CredentialService.DefaultServiceUrl)
+        if (Model.ServiceUrl != ItemService.DefaultServiceUrl)
         {
             return;
         }
@@ -97,7 +99,7 @@
         // Use a small delay to ensure the focus is set after the browser's default behavior.
         Task.Delay(1).ContinueWith(_ =>
         {
-            JSRuntime.InvokeVoidAsync("eval", $"document.getElementById('serviceUrl').setSelectionRange({CredentialService.DefaultServiceUrl.Length}, {CredentialService.DefaultServiceUrl.Length})");
+            JSRuntime.InvokeVoidAsync("eval", $"document.getElementById('serviceUrl').setSelectionRange({ItemService.DefaultServiceUrl.Length}, {ItemService.DefaultServiceUrl.Length})");
         });
     }
 
@@ -122,7 +124,7 @@
 
         // Clear the input fields
         Model = new();
-        Model.ServiceUrl = CredentialService.DefaultServiceUrl;
+        Model.ServiceUrl = ItemService.DefaultServiceUrl;
 
         await UpdatePopupStyle();
         await Task.Delay(100); // Give time for the DOM to update
@@ -166,21 +168,26 @@
         GlobalLoadingSpinner.Show(Localizer["CreatingNewAliasMessage"]);
         StateHasChanged();
 
-        var credential = new Credential();
-        credential.Alias = new Alias();
-        credential.Alias.Email = "@" + CredentialService.GetDefaultEmailDomain();
-        credential.Service = new Service();
-        credential.Service.Name = Model.ServiceName;
-
-        if (Model.ServiceUrl != CredentialService.DefaultServiceUrl)
+        var item = new Item
         {
-            credential.Service.Url = Model.ServiceUrl;
+            Name = Model.ServiceName,
+            ItemType = "Login",
+            FieldValues = new List<FieldValue>()
+        };
+
+        // Set email with default domain
+        ItemService.SetFieldValue(item, FieldKey.LoginEmail, "@" + ItemService.GetDefaultEmailDomain());
+
+        // Set URL if provided
+        if (Model.ServiceUrl != ItemService.DefaultServiceUrl)
+        {
+            ItemService.SetFieldValue(item, FieldKey.LoginUrl, Model.ServiceUrl);
         }
 
-        credential.Passwords = new List<Password> { new() };
-        await CredentialService.GenerateRandomIdentityAsync(credential);
+        // Generate random identity
+        await ItemService.GenerateRandomIdentityAsync(item);
 
-        var id = await CredentialService.InsertEntryAsync(credential);
+        var id = await ItemService.InsertEntryAsync(item);
         if (id == Guid.Empty)
         {
             // Error saving.

@@ -161,11 +161,6 @@ declare const FieldKey: {
      */
     readonly LoginPassword: "login.password";
     /**
-     * Login notes field
-     * Type: Text
-     */
-    readonly LoginNotes: "login.notes";
-    /**
      * Login email field
      * Type: Email
      */
@@ -175,11 +170,6 @@ declare const FieldKey: {
      * Type: URL
      */
     readonly LoginUrl: "login.url";
-    /**
-     * Login recovery codes field (multi-value)
-     * Type: Text
-     */
-    readonly LoginRecoveryCodes: "login.recovery_codes";
     /**
      * Credit card number field
      * Type: Text
@@ -210,66 +200,6 @@ declare const FieldKey: {
      * Type: Password
      */
     readonly CardPin: "card.pin";
-    /**
-     * Identity title field (e.g., Mr., Mrs., Dr.)
-     * Type: Text
-     */
-    readonly IdentityTitle: "identity.title";
-    /**
-     * Identity first name field
-     * Type: Text
-     */
-    readonly IdentityFirstName: "identity.first_name";
-    /**
-     * Identity middle name field
-     * Type: Text
-     */
-    readonly IdentityMiddleName: "identity.middle_name";
-    /**
-     * Identity last name field
-     * Type: Text
-     */
-    readonly IdentityLastName: "identity.last_name";
-    /**
-     * Identity email field
-     * Type: Email
-     */
-    readonly IdentityEmail: "identity.email";
-    /**
-     * Identity phone number field (multi-value)
-     * Type: Text
-     */
-    readonly IdentityPhoneNumbers: "identity.phone_numbers";
-    /**
-     * Identity address line 1 field
-     * Type: Text
-     */
-    readonly IdentityAddressLine1: "identity.address_line1";
-    /**
-     * Identity address line 2 field
-     * Type: Text
-     */
-    readonly IdentityAddressLine2: "identity.address_line2";
-    /**
-     * Identity city field
-     * Type: Text
-     */
-    readonly IdentityCity: "identity.city";
-    /**
-     * Identity state/province field
-     * Type: Text
-     */
-    readonly IdentityState: "identity.state";
-    /**
-     * Identity postal code field
-     * Type: Text
-     */
-    readonly IdentityPostalCode: "identity.postal_code";
-    /**
-     * Identity country field
-     * Type: Text
-     */
-    readonly IdentityCountry: "identity.country";
     /**
      * Alias first name field
      * Type: Text

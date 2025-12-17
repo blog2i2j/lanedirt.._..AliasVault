@@ -387,10 +387,15 @@ namespace AliasClientDb.Migrations
             // Extract normalized domain from URL (e.g., 'https://www.github.com/path' -> 'github.com')
             // This matches the browser extension's FaviconService.extractSourceFromUrl() logic
             // Uses LOWER() for case-insensitive www. removal
+            // Note: GUID format must be uppercase with dashes (8-4-4-4-12) to match C# Guid.Parse expectations
             migrationBuilder.Sql(@"
                 INSERT INTO Logos (Id, Source, FileData, MimeType, FetchedAt, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   -- Extract and normalize hostname: remove protocol, path, lowercase, and www. prefix
                   REPLACE(
                     LOWER(
@@ -519,10 +524,15 @@ namespace AliasClientDb.Migrations
             ");
 
             // Migrate login.url field (system field using FieldKey)
+            // Note: GUID format must be uppercase with dashes (8-4-4-4-12) to match C# Guid.Parse expectations
             migrationBuilder.Sql(@"
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'login.url' AS FieldKey,
@@ -537,10 +547,15 @@ namespace AliasClientDb.Migrations
             ");
 
             // Migrate login.username field (system field using FieldKey)
+            // Note: GUID format must be uppercase with dashes (8-4-4-4-12) to match C# Guid.Parse expectations
             migrationBuilder.Sql(@"
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'login.username' AS FieldKey,
@@ -554,10 +569,15 @@ namespace AliasClientDb.Migrations
             ");
 
             // Migrate login.notes field (system field using FieldKey)
+            // Note: GUID format must be uppercase with dashes (8-4-4-4-12) to match C# Guid.Parse expectations
             migrationBuilder.Sql(@"
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'login.notes' AS FieldKey,
@@ -571,10 +591,15 @@ namespace AliasClientDb.Migrations
             ");
 
             // Migrate login.password field (system field using FieldKey) - only most recent password
+            // Note: GUID format must be uppercase with dashes (8-4-4-4-12) to match C# Guid.Parse expectations
             migrationBuilder.Sql(@"
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   p.CredentialId AS ItemId,
                   NULL AS FieldDefinitionId,
                   'login.password' AS FieldKey,
@@ -595,10 +620,15 @@ namespace AliasClientDb.Migrations
 
             // Migrate login.email field (system field using FieldKey)
             // Email is now a login field, applicable to both Login and Alias types
+            // Note: GUID format must be uppercase with dashes (8-4-4-4-12) to match C# Guid.Parse expectations
             migrationBuilder.Sql(@"
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'login.email' AS FieldKey,
@@ -613,10 +643,15 @@ namespace AliasClientDb.Migrations
             ");
 
             // Migrate alias.first_name field (system field using FieldKey)
+            // Note: GUID format must be uppercase with dashes (8-4-4-4-12) to match C# Guid.Parse expectations
             migrationBuilder.Sql(@"
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'alias.first_name' AS FieldKey,
@@ -631,10 +666,15 @@ namespace AliasClientDb.Migrations
             ");
 
             // Migrate alias.last_name field (system field using FieldKey)
+            // Note: GUID format must be uppercase with dashes (8-4-4-4-12) to match C# Guid.Parse expectations
             migrationBuilder.Sql(@"
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'alias.last_name' AS FieldKey,
@@ -649,10 +689,15 @@ namespace AliasClientDb.Migrations
             ");
 
             // Migrate alias.gender field (system field using FieldKey)
+            // Note: GUID format must be uppercase with dashes (8-4-4-4-12) to match C# Guid.Parse expectations
             migrationBuilder.Sql(@"
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'alias.gender' AS FieldKey,
@@ -669,10 +714,15 @@ namespace AliasClientDb.Migrations
             // Migrate alias.birthdate field (system field using FieldKey)
             // Exclude DateTime.MinValue (year 0001) which represents empty/unset dates
             // Strip time portion from old format (yyyy-MM-dd HH:mm:ss or yyyy-MM-ddTHH:mm:ss) to new format (yyyy-MM-dd)
+            // Note: GUID format must be uppercase with dashes (8-4-4-4-12) to match C# Guid.Parse expectations
             migrationBuilder.Sql(@"
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'alias.birthdate' AS FieldKey,

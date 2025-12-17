@@ -87,7 +87,7 @@ builder.Services.AddTransient<AliasVaultApiHandlerService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<UserRegistrationService>();
 builder.Services.AddScoped<AuthenticationStateProvider, AuthStateProvider>();
-builder.Services.AddScoped<CredentialService>();
+builder.Services.AddScoped<ItemService>();
 builder.Services.AddScoped<DbService>();
 builder.Services.AddScoped<GlobalNotificationService>();
 builder.Services.AddScoped<GlobalLoadingService>();

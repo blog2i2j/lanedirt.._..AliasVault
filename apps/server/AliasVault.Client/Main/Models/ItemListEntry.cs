@@ -1,5 +1,5 @@
 //-----------------------------------------------------------------------
-// <copyright file="CredentialListEntry.cs" company="aliasvault">
+// <copyright file="ItemListEntry.cs" company="aliasvault">
 // Copyright (c) aliasvault. All rights reserved.
 // Licensed under the AGPLv3 license. See LICENSE.md file in the project root for full license information.
 // </copyright>
@@ -7,58 +7,60 @@
 
 namespace AliasVault.Client.Main.Models;
 
+using System;
+
 /// <summary>
-/// Alias list entry model. This model is used to represent an alias in a list with simplified properties.
+/// Item list entry model for displaying items in lists.
 /// </summary>
-public sealed class CredentialListEntry
+public sealed class ItemListEntry
 {
     /// <summary>
-    /// Gets or sets the alias id.
+    /// Gets or sets the Item ID.
     /// </summary>
     public Guid Id { get; set; }
 
     /// <summary>
-    /// Gets or sets the alias logo byte array.
+    /// Gets or sets the Logo (favicon) bytes.
     /// </summary>
     public byte[]? Logo { get; set; }
 
     /// <summary>
-    /// Gets or sets the alias service name.
+    /// Gets or sets the Service name.
     /// </summary>
-    public string? Service { get; set; } = string.Empty;
+    public string? Service { get; set; }
 
     /// <summary>
-    /// Gets or sets the alias username.
+    /// Gets or sets the Username.
     /// </summary>
-    public string? Username { get; set; } = string.Empty;
+    public string? Username { get; set; }
 
     /// <summary>
-    /// Gets or sets the alias email.
+    /// Gets or sets the Email.
     /// </summary>
-    public string? Email { get; set; } = string.Empty;
+    public string? Email { get; set; }
 
     /// <summary>
-    /// Gets or sets the alias create date.
+    /// Gets or sets the created timestamp.
     /// </summary>
     public DateTime CreatedAt { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether this credential has a passkey.
+    /// Gets or sets a value indicating whether this item has a passkey.
     /// </summary>
     public bool HasPasskey { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether this credential has alias fields (identity information).
+    /// Gets or sets a value indicating whether this item has alias identity data.
     /// </summary>
     public bool HasAlias { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether this credential has a username or password.
+    /// Gets or sets a value indicating whether this item has a username or password.
     /// </summary>
     public bool HasUsernameOrPassword { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether this credential has one or more attachments.
+    /// Gets or sets a value indicating whether this item has attachments.
     /// </summary>
     public bool HasAttachment { get; set; }
 }

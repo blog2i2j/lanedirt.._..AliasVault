@@ -15,11 +15,6 @@ var FieldKey = {
    */
   LoginPassword: "login.password",
   /**
-   * Login notes field
-   * Type: Text
-   */
-  LoginNotes: "login.notes",
-  /**
    * Login email field
    * Type: Email
    */
@@ -29,11 +24,6 @@ var FieldKey = {
    * Type: URL
    */
   LoginUrl: "login.url",
-  /**
-   * Login recovery codes field (multi-value)
-   * Type: Text
-   */
-  LoginRecoveryCodes: "login.recovery_codes",
   /**
    * Credit card number field
    * Type: Text
@@ -64,66 +54,6 @@ var FieldKey = {
    * Type: Password
    */
   CardPin: "card.pin",
-  /**
-   * Identity title field (e.g., Mr., Mrs., Dr.)
-   * Type: Text
-   */
-  IdentityTitle: "identity.title",
-  /**
-   * Identity first name field
-   * Type: Text
-   */
-  IdentityFirstName: "identity.first_name",
-  /**
-   * Identity middle name field
-   * Type: Text
-   */
-  IdentityMiddleName: "identity.middle_name",
-  /**
-   * Identity last name field
-   * Type: Text
-   */
-  IdentityLastName: "identity.last_name",
-  /**
-   * Identity email field
-   * Type: Email
-   */
-  IdentityEmail: "identity.email",
-  /**
-   * Identity phone number field (multi-value)
-   * Type: Text
-   */
-  IdentityPhoneNumbers: "identity.phone_numbers",
-  /**
-   * Identity address line 1 field
-   * Type: Text
-   */
-  IdentityAddressLine1: "identity.address_line1",
-  /**
-   * Identity address line 2 field
-   * Type: Text
-   */
-  IdentityAddressLine2: "identity.address_line2",
-  /**
-   * Identity city field
-   * Type: Text
-   */
-  IdentityCity: "identity.city",
-  /**
-   * Identity state/province field
-   * Type: Text
-   */
-  IdentityState: "identity.state",
-  /**
-   * Identity postal code field
-   * Type: Text
-   */
-  IdentityPostalCode: "identity.postal_code",
-  /**
-   * Identity country field
-   * Type: Text
-   */
-  IdentityCountry: "identity.country",
   /**
    * Alias first name field
    * Type: Text
@@ -402,7 +332,7 @@ function getAllSystemFieldKeys() {
   return Object.keys(SystemFieldRegistry);
 }
 function isSystemFieldPrefix(fieldKey) {
-  return fieldKey.startsWith("login.") || fieldKey.startsWith("alias.") || fieldKey.startsWith("card.") || fieldKey.startsWith("identity.") || fieldKey.startsWith("api.") || fieldKey.startsWith("notes.") || fieldKey.startsWith("metadata.");
+  return fieldKey.startsWith("login.") || fieldKey.startsWith("alias.") || fieldKey.startsWith("card.") || fieldKey.startsWith("notes.");
 }
 
 // src/vault/ItemMethods.ts

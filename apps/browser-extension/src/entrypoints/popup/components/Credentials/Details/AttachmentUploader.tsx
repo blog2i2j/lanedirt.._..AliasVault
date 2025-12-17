@@ -37,7 +37,7 @@ const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
         const byteArray = new Uint8Array(arrayBuffer);
 
         const attachment: Attachment = {
-          Id: crypto.randomUUID(),
+          Id: crypto.randomUUID().toUpperCase(),
           Filename: file.name,
           Blob: byteArray,
           ItemId: '', // Will be set when saving item

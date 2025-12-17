@@ -882,7 +882,11 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
 
                 INSERT INTO Logos (Id, Source, FileData, MimeType, FetchedAt, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   -- Extract and normalize hostname: remove protocol, path, lowercase, and www. prefix
                   REPLACE(
                     LOWER(
@@ -1011,7 +1015,11 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'login.url' AS FieldKey,
@@ -1028,7 +1036,11 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'login.username' AS FieldKey,
@@ -1044,7 +1056,11 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'login.notes' AS FieldKey,
@@ -1060,7 +1076,11 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   p.CredentialId AS ItemId,
                   NULL AS FieldDefinitionId,
                   'login.password' AS FieldKey,
@@ -1082,7 +1102,11 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'login.email' AS FieldKey,
@@ -1099,7 +1123,11 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'alias.first_name' AS FieldKey,
@@ -1116,7 +1144,11 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'alias.last_name' AS FieldKey,
@@ -1133,7 +1165,11 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'alias.gender' AS FieldKey,
@@ -1150,11 +1186,15 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'alias.birthdate' AS FieldKey,
-                  a.BirthDate AS Value,
+                  SUBSTR(a.BirthDate, 1, 10) AS Value,
                   0 AS Weight,
                   a.UpdatedAt AS CreatedAt,
                   a.UpdatedAt AS UpdatedAt,
@@ -2039,7 +2079,11 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
 
                 INSERT INTO Logos (Id, Source, FileData, MimeType, FetchedAt, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   -- Extract and normalize hostname: remove protocol, path, lowercase, and www. prefix
                   REPLACE(
                     LOWER(
@@ -2168,7 +2212,11 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'login.url' AS FieldKey,
@@ -2185,7 +2233,11 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'login.username' AS FieldKey,
@@ -2201,7 +2253,11 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'login.notes' AS FieldKey,
@@ -2217,7 +2273,11 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   p.CredentialId AS ItemId,
                   NULL AS FieldDefinitionId,
                   'login.password' AS FieldKey,
@@ -2239,7 +2299,11 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'login.email' AS FieldKey,
@@ -2256,7 +2320,11 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'alias.first_name' AS FieldKey,
@@ -2273,7 +2341,11 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'alias.last_name' AS FieldKey,
@@ -2290,7 +2362,11 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'alias.gender' AS FieldKey,
@@ -2307,11 +2383,15 @@ CREATE INDEX "IX_Tags_Name" ON "Tags" ("Name");
 
                 INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
                 SELECT
-                  lower(hex(randomblob(16))) AS Id,
+                  UPPER(SUBSTR(hex(randomblob(4)), 1, 8) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(2)), 1, 4) || '-' ||
+                        SUBSTR(hex(randomblob(6)), 1, 12)) AS Id,
                   c.Id AS ItemId,
                   NULL AS FieldDefinitionId,
                   'alias.birthdate' AS FieldKey,
-                  a.BirthDate AS Value,
+                  SUBSTR(a.BirthDate, 1, 10) AS Value,
                   0 AS Weight,
                   a.UpdatedAt AS CreatedAt,
                   a.UpdatedAt AS UpdatedAt,
