@@ -197,6 +197,9 @@ const AddFieldMenu: React.FC<AddFieldMenuProps> = ({
           key: field.FieldKey,
           label: t(`fieldLabels.${field.FieldKey}`, { defaultValue: field.FieldKey }),
           icon: getFieldIcon(field.Category),
+          /**
+           * Handle adding an optional system field.
+           */
           action: () => handleAddSystemField(field.FieldKey)
         });
       }
@@ -209,6 +212,9 @@ const AddFieldMenu: React.FC<AddFieldMenuProps> = ({
           key: section.key,
           label: t(`common.${section.key === '2fa' ? 'twoFactorAuthentication' : section.key}`),
           icon: getSectionIcon(section.key),
+          /**
+           * Handle adding an optional section.
+           */
           action: () => handleAddSection(section.onAdd)
         });
       }

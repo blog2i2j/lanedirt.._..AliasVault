@@ -8,7 +8,6 @@ type DeleteFolderModalProps = {
   onClose: () => void;
   onDeleteFolderOnly: () => Promise<void>;
   onDeleteFolderAndContents: () => Promise<void>;
-  folderName: string;
   itemCount: number;
 };
 
@@ -20,7 +19,6 @@ const DeleteFolderModal: React.FC<DeleteFolderModalProps> = ({
   onClose,
   onDeleteFolderOnly,
   onDeleteFolderAndContents,
-  folderName,
   itemCount
 }) => {
   const { t } = useTranslation();

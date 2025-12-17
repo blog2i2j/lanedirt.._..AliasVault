@@ -8,6 +8,7 @@ import HeaderButton from '@/entrypoints/popup/components/HeaderButton';
 import { HeaderIconType } from '@/entrypoints/popup/components/Icons/HeaderIcons';
 import FolderPill from '@/entrypoints/popup/components/Items/FolderPill';
 import ItemCard from '@/entrypoints/popup/components/Items/ItemCard';
+import { ITEM_TYPE_OPTIONS } from '@/entrypoints/popup/components/Items/ItemTypeSelector';
 import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
 import ReloadButton from '@/entrypoints/popup/components/ReloadButton';
 import { useApp } from '@/entrypoints/popup/context/AppContext';
@@ -18,11 +19,19 @@ import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 import { useVaultSync } from '@/entrypoints/popup/hooks/useVaultSync';
 import { PopoutUtility } from '@/entrypoints/popup/utils/PopoutUtility';
 
-import type { Item } from '@/utils/dist/core/models/vault';
+import type { Item, ItemType } from '@/utils/dist/core/models/vault';
+import { ItemTypes } from '@/utils/dist/core/models/vault';
 
 import { useMinDurationLoading } from '@/hooks/useMinDurationLoading';
 
-type FilterType = 'all' | 'passkeys' | 'attachments';
+/**
+ * Filter types for the items list.
+ * - 'all': Show all items
+ * - 'passkeys': Show only items with passkeys
+ * - 'attachments': Show only items with attachments
+ * - ItemType values: Filter by specific item type (Login, Alias, CreditCard, Note)
+ */
+type FilterType = 'all' | 'passkeys' | 'attachments' | ItemType;
 
 const FILTER_STORAGE_KEY = 'items-filter';
 const FILTER_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
@@ -64,6 +73,13 @@ const storeFilter = (filter: FilterType): void => {
   } catch {
     // Ignore storage errors
   }
+};
+
+/**
+ * Check if a filter is an item type filter
+ */
+const isItemTypeFilter = (filter: FilterType): filter is ItemType => {
+  return Object.values(ItemTypes).includes(filter as ItemType);
 };
 
 /**
@@ -131,11 +147,16 @@ const ItemsList: React.FC = () => {
 
   /**
    * Handle add new item.
-   * Navigate directly to add item page (defaults to Login type).
+   * Navigate to add item page, pre-selecting the item type if filtering by type.
    */
   const handleAddItem = useCallback(() : void => {
-    navigate('/items/add');
-  }, [navigate]);
+    // If filtering by an item type, pre-select that type for the new item
+    if (isItemTypeFilter(filterType)) {
+      navigate(`/items/add?type=${filterType}`);
+    } else {
+      navigate('/items/add');
+    }
+  }, [navigate, filterType]);
 
   /**
    * Handle add new folder.
@@ -310,7 +331,16 @@ const ItemsList: React.FC = () => {
         return t('items.filters.passkeys');
       case 'attachments':
         return t('common.attachments');
+      case 'all':
+        return t('items.title');
       default:
+        // Check if it's an item type filter
+        if (isItemTypeFilter(filterType)) {
+          const itemTypeOption = ITEM_TYPE_OPTIONS.find(opt => opt.type === filterType);
+          if (itemTypeOption) {
+            return t(itemTypeOption.titleKey);
+          }
+        }
         return t('items.title');
     }
   };
@@ -378,6 +408,9 @@ const ItemsList: React.FC = () => {
       passesTypeFilter = item.HasPasskey === true;
     } else if (filterType === 'attachments') {
       passesTypeFilter = item.HasAttachment === true;
+    } else if (isItemTypeFilter(filterType)) {
+      // Filter by item type (Login, Alias, CreditCard, Note)
+      passesTypeFilter = item.ItemType === filterType;
     }
 
     if (!passesTypeFilter) {
@@ -455,6 +488,7 @@ const ItemsList: React.FC = () => {
               />
               <div className="absolute left-0 mt-2 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20">
                 <div className="py-1">
+                  {/* All items filter */}
                   <button
                     onClick={() => {
                       const newFilter = 'all';
@@ -468,6 +502,29 @@ const ItemsList: React.FC = () => {
                   >
                     {t('items.filters.all')}
                   </button>
+                  <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+                  {/* Item type filters - dynamically generated from ItemTypes */}
+                  {ITEM_TYPE_OPTIONS.map((option) => (
+                    <button
+                      key={option.type}
+                      onClick={() => {
+                        const newFilter = option.type;
+                        setFilterType(newFilter);
+                        storeFilter(newFilter);
+                        setShowFilterMenu(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 ${
+                        filterType === option.type ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400' : 'text-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      <span className={filterType === option.type ? 'text-orange-500 dark:text-orange-400' : 'text-gray-400 dark:text-gray-500'}>
+                        {option.iconSvg}
+                      </span>
+                      {t(option.titleKey)}
+                    </button>
+                  ))}
+                  <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+                  {/* Passkeys filter */}
                   <button
                     onClick={() => {
                       const newFilter = 'passkeys';
@@ -481,6 +538,7 @@ const ItemsList: React.FC = () => {
                   >
                     {t('items.filters.passkeys')}
                   </button>
+                  {/* Attachments filter */}
                   <button
                     onClick={() => {
                       const newFilter = 'attachments';
@@ -495,14 +553,20 @@ const ItemsList: React.FC = () => {
                     {t('common.attachments')}
                   </button>
                   <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+                  {/* Recently deleted link */}
                   <button
                     onClick={() => {
                       setShowFilterMenu(false);
                       navigate('/items/deleted');
                     }}
-                    className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                    className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center justify-between"
                   >
-                    {t('recentlyDeleted.title')}
+                    <span>{t('recentlyDeleted.title')}</span>
+                    {recentlyDeletedCount > 0 && (
+                      <span className="text-gray-400 dark:text-gray-500">
+                        {recentlyDeletedCount}
+                      </span>
+                    )}
                   </button>
                 </div>
               </div>
@@ -571,7 +635,9 @@ const ItemsList: React.FC = () => {
               ? t('items.noPasskeysFound')
               : filterType === 'attachments'
                 ? t('items.noAttachmentsFound')
-                : t('items.noMatchingItems')
+                : isItemTypeFilter(filterType)
+                  ? t('items.noItemsOfTypeFound', { type: getFilterTitle() })
+                  : t('items.noMatchingItems')
             }
           </p>
           {/* Show help text and delete button when inside an empty folder */}
@@ -658,8 +724,8 @@ const ItemsList: React.FC = () => {
             </button>
           )}
 
-          {/* Recently Deleted link (only show at root level when not searching) */}
-          {!currentFolderId && !searchTerm && (
+          {/* Recently Deleted link (only show at root level when not searching and not filtering) */}
+          {!currentFolderId && !searchTerm && filterType === 'all' && (
             <button
               onClick={() => navigate('/items/deleted')}
               className="w-full mt-4 p-3 flex items-center justify-between text-left bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"

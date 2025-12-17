@@ -5,7 +5,6 @@ import { useDb } from '@/entrypoints/popup/context/DbContext';
 
 type EmailDomainFieldProps = {
   id: string;
-  label: string;
   value: string;
   onChange: (value: string) => void;
   error?: string;
@@ -36,7 +35,6 @@ type EmailDomainFieldProps = {
  */
 const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
   id,
-  label,
   value,
   onChange,
   error,

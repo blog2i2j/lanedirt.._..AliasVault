@@ -210,6 +210,7 @@
     "welcomeDescription": "To use the AliasVault browser extension: navigate to a website and use the AliasVault autofill popup to create a new credential.",
     "noPasskeysFound": "No passkeys have been created yet. Passkeys are created by visiting a website that offers passkeys as an authentication method.",
     "noAttachmentsFound": "No items with attachments found",
+    "noItemsOfTypeFound": "No {{type}} items found",
     "noMatchingItems": "No matching items found",
     "emptyFolderHint": "To move items to this folder, edit the item and tap the folder icon in the name field.",
     "deleteFolder": "Delete Folder",
