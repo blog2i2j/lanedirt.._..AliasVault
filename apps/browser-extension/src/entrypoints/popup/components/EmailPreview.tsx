@@ -97,7 +97,7 @@ export const EmailPreview: React.FC<EmailPreviewProps> = ({ email }) => {
           });
 
           if (!response.ok) {
-            setError(t('emails.errors.emailLoadError'));
+            setError(t('common.errors.unknownError'));
             return;
           }
 
@@ -164,13 +164,13 @@ export const EmailPreview: React.FC<EmailPreviewProps> = ({ email }) => {
               return;
             }
           } catch {
-            setError(t('emails.errors.emailLoadError'));
+            setError(t('common.errors.unknownError'));
             return;
           }
         }
       } catch (err) {
         console.error('Error loading emails:', err);
-        setError(t('emails.errors.emailUnexpectedError'));
+        setError(t('common.errors.unknownError'));
       }
       setLoading(false);
     };

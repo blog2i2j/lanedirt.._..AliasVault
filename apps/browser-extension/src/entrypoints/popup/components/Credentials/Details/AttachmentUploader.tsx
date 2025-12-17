@@ -56,7 +56,7 @@ const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
       setTimeout(() => setStatusMessage(''), 3000);
     } catch (error) {
       console.error('Error uploading files:', error);
-      setStatusMessage(t('attachmentUploader.uploadError'));
+      setStatusMessage(t('common.errors.unknownErrorTryAgain'));
       setTimeout(() => setStatusMessage(''), 3000);
     }
 
@@ -82,7 +82,7 @@ const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
       setTimeout(() => setStatusMessage(''), 3000);
     } catch (error) {
       console.error('Error deleting attachment:', error);
-      setStatusMessage(t('attachmentUploader.deleteError'));
+      setStatusMessage(t('common.errors.unknownErrorTryAgain'));
       setTimeout(() => setStatusMessage(''), 3000);
     }
   };

@@ -204,11 +204,8 @@
     "createFolder": "Create Folder",
     "editFolder": "Edit Folder",
     "folderName": "Folder Name",
-    "folderNamePlaceholder": "Enter folder name",
     "folderNameRequired": "Folder name is required",
-    "folderSaveError": "Failed to save folder. Please try again.",
     "folder": "Folder",
-    "noFolder": "No Folder",
     "welcomeTitle": "Welcome to AliasVault!",
     "welcomeDescription": "To use the AliasVault browser extension: navigate to a website and use the AliasVault autofill popup to create a new credential.",
     "noPasskeysFound": "No passkeys have been created yet. Passkeys are created by visiting a website that offers passkeys as an authentication method.",
@@ -216,7 +213,6 @@
     "noMatchingItems": "No matching items found",
     "emptyFolderHint": "To move items to this folder, edit the item and tap the folder icon in the name field.",
     "deleteFolder": "Delete Folder",
-    "deleteFolderConfirm": "How would you like to delete \"{{folderName}}\"?",
     "deleteFolderKeepItems": "Delete folder only",
     "deleteFolderKeepItemsDescription": "Items will be moved back to the main list.",
     "deleteFolderAndItems": "Delete folder and all items",
@@ -266,7 +262,14 @@
   },
   "fieldLabels": {
     "login.url": "Website URL",
+    "login.username": "Username",
+    "login.password": "Password",
+    "alias.first_name": "First Name",
+    "alias.last_name": "Last Name",
     "alias.gender": "Gender",
+    "alias.birthdate": "Birthdate",
+    "login.email": "Email",
+    "notes.content": "Notes",
     "card.cardholder_name": "Cardholder Name",
     "card.number": "Card Number",
     "card.expiry_month": "Expiry Month",
@@ -288,10 +291,7 @@
   "attachmentUploader": {
     "uploading": "Uploading...",
     "uploadSuccess": "Files uploaded successfully.",
-    "uploadError": "Error uploading files.",
-    "deleteSuccess": "Attachment deleted successfully.",
-    "deleteError": "Error deleting attachment.",
-    "currentAttachments": "Current attachments:"
+    "deleteSuccess": "Attachment deleted successfully."
   },
   "emails": {
     "title": "Emails",
@@ -311,10 +311,6 @@
       "hoursAgo_single": "{{count}} hr ago",
       "hoursAgo_plural": "{{count}} hrs ago",
       "yesterday": "yesterday"
-    },
-    "errors": {
-      "emailLoadError": "An error occurred while loading emails. Please try again later.",
-      "emailUnexpectedError": "An unexpected error occurred while loading emails. Please try again later."
     },
     "apiErrors": {
       "CLAIM_DOES_NOT_MATCH_USER": "The current chosen email address is already in use. Please change the email address by editing this credential.",

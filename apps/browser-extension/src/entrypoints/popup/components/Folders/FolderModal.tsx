@@ -52,7 +52,7 @@ const FolderModal: React.FC<FolderModalProps> = ({
       await onSave(trimmedName);
       onClose();
     } catch (err) {
-      setError(t('items.folderSaveError'));
+      setError(t('common.errors.unknownErrorTryAgain'));
       console.error('Error saving folder:', err);
     } finally {
       setIsSubmitting(false);
@@ -102,7 +102,6 @@ const FolderModal: React.FC<FolderModalProps> = ({
           type="text"
           value={folderName}
           onChange={(e) => setFolderName(e.target.value)}
-          placeholder={t('items.folderNamePlaceholder')}
           autoFocus
           className="w-full p-2 border dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-blue-500 focus:border-blue-500"
         />

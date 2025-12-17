@@ -84,10 +84,6 @@ const DeleteFolderModal: React.FC<DeleteFolderModalProps> = ({
       }
     >
       <div className="space-y-4">
-        <p className="text-gray-700 dark:text-gray-300">
-          {t('items.deleteFolderConfirm', { folderName })}
-        </p>
-
         {/* Option buttons */}
         <div className="space-y-3 pt-2">
           {/* Delete folder only - move items to root */}

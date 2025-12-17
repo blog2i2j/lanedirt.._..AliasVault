@@ -66,7 +66,7 @@ const EmailsList: React.FC = () => {
         setEmails(decryptedEmails);
       } catch (error) {
         console.error(error);
-        throw new Error(t('emails.errors.emailLoadError'));
+        throw new Error(t('common.errors.unknownError'));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.errors.unknownError'));
