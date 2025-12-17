@@ -347,8 +347,5 @@ export function isSystemFieldPrefix(fieldKey: string): boolean {
   return fieldKey.startsWith('login.') ||
          fieldKey.startsWith('alias.') ||
          fieldKey.startsWith('card.') ||
-         fieldKey.startsWith('identity.') ||
-         fieldKey.startsWith('api.') ||
-         fieldKey.startsWith('notes.') ||
-         fieldKey.startsWith('metadata.');
+         fieldKey.startsWith('notes.');
 }
