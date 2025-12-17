@@ -176,6 +176,8 @@ export class TestClient {
    */
   async goToVault(): Promise<this> {
     await this.popup.locator('#nav-vault').click();
+    // Wait for the vault list to be ready (items list or add button visible)
+    await this.popup.locator(ButtonSelectors.ADD_NEW_ITEM).waitFor({ state: 'visible', timeout: Timeouts.MEDIUM });
     return this;
   }
 
@@ -249,7 +251,7 @@ export class TestClient {
    */
   async clickCredential(name: string): Promise<this> {
     await this.popup.locator(`text=${name}`).click();
-    await this.popup.locator('button[title="Edit Credential"]').waitFor({ state: 'visible', timeout: Timeouts.SHORT });
+    await this.popup.locator(ButtonSelectors.EDIT_ITEM).waitFor({ state: 'visible', timeout: Timeouts.SHORT });
     return this;
   }
 
@@ -257,7 +259,7 @@ export class TestClient {
    * Open the edit form for the currently viewed credential.
    */
   async openEditForm(): Promise<this> {
-    const editButton = this.popup.locator(ButtonSelectors.EDIT_CREDENTIAL);
+    const editButton = this.popup.locator(ButtonSelectors.EDIT_ITEM);
     await expect(editButton).toBeVisible({ timeout: Timeouts.SHORT });
     await editButton.click();
     await expect(this.popup.locator(FieldSelectors.LOGIN_USERNAME)).toBeVisible({ timeout: Timeouts.MEDIUM });
@@ -297,11 +299,17 @@ export class TestClient {
 
     if (!isVisible) {
       // Click the add field menu button (dashed border button)
-      await this.popup.click(ButtonSelectors.ADD_FIELD_MENU);
-      // Click the Notes option in the dropdown
-      await this.popup.click('button:has-text("Notes")');
+      const addFieldButton = this.popup.locator(ButtonSelectors.ADD_FIELD_MENU);
+      await expect(addFieldButton).toBeVisible({ timeout: Timeouts.SHORT });
+      await addFieldButton.click();
+
+      // Wait for menu to appear and click the Notes option
+      const notesOption = this.popup.locator('button:has-text("Notes")');
+      await expect(notesOption).toBeVisible({ timeout: Timeouts.SHORT });
+      await notesOption.click();
+
       // Wait for notes field to appear
-      await expect(this.popup.locator(FieldSelectors.LOGIN_NOTES)).toBeVisible({ timeout: Timeouts.SHORT });
+      await expect(this.popup.locator(FieldSelectors.LOGIN_NOTES)).toBeVisible({ timeout: Timeouts.MEDIUM });
     }
 
     return this.fillField(FieldSelectors.LOGIN_NOTES, notes);

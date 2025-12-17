@@ -620,6 +620,11 @@ const ItemAddEdit: React.FC = () => {
 
       let updatedItem: Item = {
         ...item,
+        /*
+         * For create mode, always generate a fresh ID to prevent UNIQUE constraint
+         * violations if form persistence restored a previously saved item's ID.
+         */
+        Id: isEditMode ? item.Id : crypto.randomUUID().toUpperCase(),
         Fields: fields,
         UpdatedAt: new Date().toISOString()
       };

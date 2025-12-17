@@ -17,7 +17,7 @@ export const FieldKey = {
   LoginUsername: 'login.username',
   LoginPassword: 'login.password',
   LoginUrl: 'login.url',
-  MetadataNotes: 'metadata.notes',
+  NotesContent: 'notes.content',
   CardNumber: 'card.number',
   CardCardholderName: 'card.cardholder_name',
   CardExpiryMonth: 'card.expiry_month',
@@ -53,8 +53,8 @@ export const FieldSelectors = {
   LOGIN_PASSWORD: `input#${escapeFieldKey(FieldKey.LoginPassword)}`,
   LOGIN_URL: `input#${escapeFieldKey(FieldKey.LoginUrl)}-0`, // Multi-value field uses -0 suffix for first entry
 
-  // Metadata fields (shared across item types)
-  LOGIN_NOTES: `textarea#${escapeFieldKey(FieldKey.MetadataNotes)}`,
+  // Notes field (shared across item types)
+  LOGIN_NOTES: `textarea#${escapeFieldKey(FieldKey.NotesContent)}`,
 
   // Card fields
   CARD_NUMBER: `input#${escapeFieldKey(FieldKey.CardNumber)}`,
@@ -82,7 +82,7 @@ export const FieldSelectors = {
  */
 export const ButtonSelectors = {
   ADD_NEW_ITEM: 'button[title="Add new item"]',
-  EDIT_CREDENTIAL: 'button[title="Edit Credential"]',
+  EDIT_ITEM: 'button[title="Edit Item"]',
   SAVE: 'button#save-credential',
-  ADD_FIELD_MENU: 'button.border-dashed',
+  ADD_FIELD_MENU: 'button#add-field-menu',
 } as const;

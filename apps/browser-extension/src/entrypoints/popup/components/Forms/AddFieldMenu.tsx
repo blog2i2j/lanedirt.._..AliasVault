@@ -228,6 +228,7 @@ const AddFieldMenu: React.FC<AddFieldMenuProps> = ({
       <div className="relative">
         <button
           type="button"
+          id="add-field-menu"
           onClick={() => setIsOpen(!isOpen)}
           className="w-full px-4 py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-md hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors flex items-center justify-center gap-2"
         >
