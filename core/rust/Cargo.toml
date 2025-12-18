@@ -20,6 +20,8 @@ default = []
 uniffi = ["dep:uniffi"]
 # Feature for WASM builds (browser extension)
 wasm = ["dep:wasm-bindgen", "dep:serde-wasm-bindgen", "dep:console_error_panic_hook"]
+# Feature for C FFI exports (.NET P/Invoke)
+ffi = []
 
 [dependencies]
 # Serialization - core dependency for JSON handling

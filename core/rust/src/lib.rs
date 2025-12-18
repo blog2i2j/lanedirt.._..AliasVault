@@ -41,6 +41,10 @@ pub mod wasm;
 #[cfg(feature = "wasm")]
 pub use wasm::*;
 
+// C FFI exports for .NET P/Invoke
+#[cfg(feature = "ffi")]
+pub mod ffi;
+
 // UniFFI scaffolding
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();

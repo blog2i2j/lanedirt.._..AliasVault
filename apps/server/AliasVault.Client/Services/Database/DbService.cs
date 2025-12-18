@@ -9,11 +9,13 @@ namespace AliasVault.Client.Services.Database;
 
 using System.Data;
 using System.Net.Http.Json;
+using System.Text.Json;
 using AliasClientDb;
 using AliasClientDb.Models;
 using AliasVault.Client.Services;
 using AliasVault.Client.Services.Auth;
 using AliasVault.Client.Services.JsInterop.Models;
+using AliasVault.Client.Services.Native;
 using AliasVault.Client.Utilities;
 using AliasVault.Shared.Models.Enums;
 using AliasVault.Shared.Models.WebApi.Vault;
@@ -30,6 +32,7 @@ public sealed class DbService : IDisposable
     private const string _UNKNOWN_VERSION = "Unknown";
     private readonly AuthService _authService;
     private readonly JsInteropService _jsInteropService;
+    private readonly RustCore _rustCore;
     private readonly HttpClient _httpClient;
     private readonly DbServiceState _state = new();
     private readonly Config _config;
@@ -48,14 +51,16 @@ public sealed class DbService : IDisposable
     /// </summary>
     /// <param name="authService">AuthService.</param>
     /// <param name="jsInteropService">JsInteropService.</param>
+    /// <param name="rustCore">RustCore service for WASM interop.</param>
     /// <param name="httpClient">HttpClient.</param>
     /// <param name="config">Config instance.</param>
     /// <param name="globalNotificationService">Global notification service.</param>
     /// <param name="logger">ILogger instance.</param>
-    public DbService(AuthService authService, JsInteropService jsInteropService, HttpClient httpClient, Config config, GlobalNotificationService globalNotificationService, ILogger<DbService> logger)
+    public DbService(AuthService authService, JsInteropService jsInteropService, RustCore rustCore, HttpClient httpClient, Config config, GlobalNotificationService globalNotificationService, ILogger<DbService> logger)
     {
         _authService = authService;
         _jsInteropService = jsInteropService;
+        _rustCore = rustCore;
         _httpClient = httpClient;
         _config = config;
         _globalNotificationService = globalNotificationService;
@@ -113,7 +118,7 @@ public sealed class DbService : IDisposable
     }
 
     /// <summary>
-    /// Merges two or more databases into one.
+    /// Merges two or more databases into one using the Rust WASM merge logic.
     /// </summary>
     /// <returns>Bool which indicates if merging was successful.</returns>
     public async Task<bool> MergeDatabasesAsync()
@@ -128,51 +133,61 @@ public sealed class DbService : IDisposable
                 return false;
             }
 
-            var sqlConnections = new List<SqliteConnection>();
-            _logger.LogInformation("Merging databases...");
+            _logger.LogInformation("Merging databases using Rust WASM...");
 
-            // Decrypt and instantiate each vault as a separate in-memory SQLite database.
+            // Get the list of syncable table names from Rust core.
+            var tableNames = await _rustCore.GetSyncableTableNamesAsync();
+
+            // Read local tables as JSON.
+            var localTables = await ReadTablesAsJsonAsync(_sqlConnection!, tableNames);
+            _logger.LogDebug("Read {Count} local tables.", localTables.Count);
+
+            // Process each vault to merge.
             foreach (var vault in vaultsToMerge.Vaults)
             {
                 // Store username of the loaded vault in memory to send to server as sanity check when updating the vault later.
                 _authService.StoreUsername(vault.Username);
 
                 var decryptedBase64String = await _jsInteropService.SymmetricDecrypt(vault.Blob, _authService.GetEncryptionKeyAsBase64Async());
-
                 _logger.LogInformation("Decrypted vault {VaultUpdatedAt}.", vault.UpdatedAt);
-                var connection = new SqliteConnection("Data Source=:memory:");
-                await connection.OpenAsync();
-                await ImportDbContextFromBase64Async(decryptedBase64String, connection);
-                sqlConnections.Add(connection);
+
+                // Create a temporary in-memory SQLite database for the server vault.
+                await using var serverConnection = new SqliteConnection("Data Source=:memory:");
+                await serverConnection.OpenAsync();
+                await ImportDbContextFromBase64Async(decryptedBase64String, serverConnection);
+
+                // Read server tables as JSON.
+                var serverTables = await ReadTablesAsJsonAsync(serverConnection, tableNames);
+                _logger.LogDebug("Read {Count} server tables.", serverTables.Count);
+
+                // Create the merge input.
+                var mergeInput = new MergeInput
+                {
+                    LocalTables = localTables,
+                    ServerTables = serverTables,
+                };
+
+                // Call Rust WASM merge.
+                var mergeOutput = await _rustCore.MergeVaultsAsync(mergeInput);
+
+                _logger.LogInformation(
+                    "Merge completed: {TablesProcessed} tables, {FromLocal} kept local, {FromServer} from server, {Inserted} inserted, {Conflicts} conflicts.",
+                    mergeOutput.Stats.TablesProcessed,
+                    mergeOutput.Stats.RecordsFromLocal,
+                    mergeOutput.Stats.RecordsFromServer,
+                    mergeOutput.Stats.RecordsInserted,
+                    mergeOutput.Stats.Conflicts);
+
+                // Execute the SQL statements returned by the merge.
+                await ExecuteMergeSqlStatementsAsync(mergeOutput.Statements);
+
+                // Update local tables for the next merge iteration (if there are multiple vaults).
+                localTables = await ReadTablesAsJsonAsync(_sqlConnection!, tableNames);
             }
 
-            // Get all table names from the current base database.
-            var tables = await DbMergeUtility.GetTableNames(_sqlConnection!);
-
-            // Disable foreign key checks on the base connection.
+            // Verify foreign key integrity after merge.
             await using (var command = _sqlConnection!.CreateCommand())
             {
-                command.CommandText = "PRAGMA foreign_keys = OFF;";
-                await command.ExecuteNonQueryAsync();
-            }
-
-            // Merge every remote database into the current database.
-            foreach (var connection in sqlConnections)
-            {
-                foreach (var table in tables)
-                {
-                    _logger.LogInformation("Merging table {Table}.", table);
-                    await DbMergeUtility.MergeTable(_sqlConnection, connection, table, _logger);
-                }
-            }
-
-            // Re-enable foreign key checks and verify integrity.
-            await using (var command = _sqlConnection.CreateCommand())
-            {
-                command.CommandText = "PRAGMA foreign_keys = ON;";
-                await command.ExecuteNonQueryAsync();
-
-                // Verify foreign key integrity.
                 command.CommandText = "PRAGMA foreign_key_check;";
                 await using var reader = await command.ExecuteReaderAsync();
                 if (await reader.ReadAsync())
@@ -185,13 +200,6 @@ public sealed class DbService : IDisposable
 
             // Update the db context with the new merged database.
             _dbContext = new AliasClientDbContext(_sqlConnection, log => _logger.LogDebug("{Message}", log));
-
-            // Clean up other connections.
-            foreach (var connection in sqlConnections)
-            {
-                await connection.CloseAsync();
-                await connection.DisposeAsync();
-            }
 
             // Update the current vault revision number to the highest revision number in the merged database(s).
             // This is important so the server knows that the local client has successfully merged the databases
@@ -672,6 +680,25 @@ public sealed class DbService : IDisposable
     }
 
     /// <summary>
+    /// Converts a JsonElement to its appropriate .NET value for SQLite parameters.
+    /// </summary>
+    /// <param name="element">The JsonElement to convert.</param>
+    /// <returns>The converted value.</returns>
+    private static object? ConvertJsonElementToValue(JsonElement element)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.String => element.GetString(),
+            JsonValueKind.Number => element.TryGetInt64(out var longVal) ? longVal : element.GetDouble(),
+            JsonValueKind.True => 1L, // SQLite stores booleans as integers
+            JsonValueKind.False => 0L,
+            JsonValueKind.Null => null,
+            JsonValueKind.Undefined => null,
+            _ => element.ToString(),
+        };
+    }
+
+    /// <summary>
     /// Checks if there are any pending migrations.
     /// </summary>
     /// <returns>Bool which indicates if there are any pending migrations.</returns>
@@ -891,6 +918,136 @@ public sealed class DbService : IDisposable
             {
                 throw new DataException("Error saving database to server after record deletion.");
             }
+        }
+    }
+
+    /// <summary>
+    /// Reads all specified tables from a SQLite connection as JSON data for the Rust merge.
+    /// </summary>
+    /// <param name="connection">The SQLite connection to read from.</param>
+    /// <param name="tableNames">The names of tables to read.</param>
+    /// <returns>List of TableData objects containing the table records.</returns>
+    private async Task<List<TableData>> ReadTablesAsJsonAsync(SqliteConnection connection, string[] tableNames)
+    {
+        var tables = new List<TableData>();
+
+        foreach (var tableName in tableNames)
+        {
+            var tableData = new TableData { Name = tableName };
+
+            // Check if table exists in the database.
+            await using var checkCommand = connection.CreateCommand();
+            checkCommand.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name=@tableName";
+            checkCommand.Parameters.AddWithValue("@tableName", tableName);
+            var exists = await checkCommand.ExecuteScalarAsync();
+
+            if (exists == null)
+            {
+                // Table doesn't exist, add empty table data.
+                tables.Add(tableData);
+                continue;
+            }
+
+            // Get column names for the table.
+            await using var columnsCommand = connection.CreateCommand();
+            columnsCommand.CommandText = $"PRAGMA table_info({tableName})";
+            var columns = new List<string>();
+            await using (var columnsReader = await columnsCommand.ExecuteReaderAsync())
+            {
+                while (await columnsReader.ReadAsync())
+                {
+                    columns.Add(columnsReader.GetString(1));
+                }
+            }
+
+            // Read all records from the table.
+            await using var selectCommand = connection.CreateCommand();
+            selectCommand.CommandText = $"SELECT * FROM {tableName}";
+            await using var reader = await selectCommand.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                var record = new Dictionary<string, object?>();
+                for (var i = 0; i < columns.Count; i++)
+                {
+                    var value = reader.GetValue(i);
+
+                    // Convert DBNull to null for proper JSON serialization.
+                    record[columns[i]] = value == DBNull.Value ? null : value;
+                }
+
+                tableData.Records.Add(record);
+            }
+
+            tables.Add(tableData);
+        }
+
+        return tables;
+    }
+
+    /// <summary>
+    /// Executes the SQL statements returned by the Rust merge operation.
+    /// </summary>
+    /// <param name="statements">The SQL statements to execute.</param>
+    /// <returns>Task.</returns>
+    private async Task ExecuteMergeSqlStatementsAsync(List<SqlStatement> statements)
+    {
+        if (statements.Count == 0)
+        {
+            _logger.LogDebug("No SQL statements to execute from merge.");
+            return;
+        }
+
+        _logger.LogDebug("Executing {Count} SQL statements from merge.", statements.Count);
+
+        // Disable foreign key checks during merge execution.
+        await using (var pragmaCommand = _sqlConnection!.CreateCommand())
+        {
+            pragmaCommand.CommandText = "PRAGMA foreign_keys = OFF;";
+            await pragmaCommand.ExecuteNonQueryAsync();
+        }
+
+        try
+        {
+            foreach (var statement in statements)
+            {
+                await using var command = _sqlConnection!.CreateCommand();
+                command.CommandText = statement.Sql;
+
+                // Add parameters in order (SQLite uses positional parameters with ?).
+                for (var i = 0; i < statement.Params.Count; i++)
+                {
+                    var value = statement.Params[i];
+
+                    // Handle JsonElement values from deserialization.
+                    if (value is JsonElement jsonElement)
+                    {
+                        value = ConvertJsonElementToValue(jsonElement);
+                    }
+
+                    command.Parameters.AddWithValue($"@p{i}", value ?? DBNull.Value);
+                }
+
+                // Replace ? placeholders with named parameters.
+                var paramIndex = 0;
+                var sql = statement.Sql;
+                while (sql.Contains('?'))
+                {
+                    var pos = sql.IndexOf('?');
+                    sql = sql[..pos] + $"@p{paramIndex}" + sql[(pos + 1)..];
+                    paramIndex++;
+                }
+
+                command.CommandText = sql;
+                await command.ExecuteNonQueryAsync();
+            }
+        }
+        finally
+        {
+            // Re-enable foreign key checks.
+            await using var pragmaCommand = _sqlConnection!.CreateCommand();
+            pragmaCommand.CommandText = "PRAGMA foreign_keys = ON;";
+            await pragmaCommand.ExecuteNonQueryAsync();
         }
     }
 

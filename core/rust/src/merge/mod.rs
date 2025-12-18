@@ -231,29 +231,10 @@ fn merge_table_by_composite_key(
 ) -> Vec<SqlStatement> {
     let mut statements: Vec<SqlStatement> = Vec::new();
 
-    #[cfg(feature = "wasm")]
-    {
-        use crate::wasm::log;
-        log(&format!(
-            "[merge_composite] Processing {} - local={} records, server={} records, key_cols={:?}",
-            table_name,
-            local_records.len(),
-            server_records.len(),
-            key_columns
-        ));
-    }
-
     // Create map of server records by composite key
     let mut server_map: HashMap<String, &Record> = HashMap::new();
     for record in server_records {
         let key = get_composite_key(record, key_columns);
-        #[cfg(feature = "wasm")]
-        {
-            use crate::wasm::log;
-            let value = record.get("Value").and_then(|v| v.as_str()).unwrap_or("(no value)");
-            let updated = record.get("UpdatedAt").and_then(|v| v.as_str()).unwrap_or("(no ts)");
-            log(&format!("[merge_composite] SERVER record: key={}, value={}, updated={}", key, value, updated));
-        }
         // Keep the one with latest UpdatedAt if duplicate keys
         if let Some(existing) = server_map.get(&key) {
             if get_updated_at(record) > get_updated_at(existing) {
@@ -273,14 +254,6 @@ fn merge_table_by_composite_key(
             None => continue,
         };
 
-        #[cfg(feature = "wasm")]
-        {
-            use crate::wasm::log;
-            let value = local_record.get("Value").and_then(|v| v.as_str()).unwrap_or("(no value)");
-            let updated = local_record.get("UpdatedAt").and_then(|v| v.as_str()).unwrap_or("(no ts)");
-            log(&format!("[merge_composite] LOCAL record: key={}, value={}, updated={}", composite_key, value, updated));
-        }
-
         if let Some(server_record) = server_map.get(&composite_key) {
             // Record exists in both - compare UpdatedAt
             let local_ts = get_updated_at(local_record);
@@ -292,44 +265,24 @@ fn merge_table_by_composite_key(
                     stats.conflicts += 1;
                     stats.records_from_server += 1;
                     if let Some(stmt) = generate_update_sql(table_name, server_record, &local_id) {
-                        #[cfg(feature = "wasm")]
-                        {
-                            use crate::wasm::log;
-                            log(&format!("[merge_composite] SERVER WINS: key={}", composite_key));
-                        }
                         statements.push(stmt);
                     }
                 }
                 _ => {
                     // Local wins - no action needed
                     stats.records_from_local += 1;
-                    #[cfg(feature = "wasm")]
-                    {
-                        use crate::wasm::log;
-                        log(&format!("[merge_composite] LOCAL WINS: key={}", composite_key));
-                    }
                 }
             }
             server_map.remove(&composite_key);
         } else {
             // Only in local - no action needed
             stats.records_created_locally += 1;
-            #[cfg(feature = "wasm")]
-            {
-                use crate::wasm::log;
-                log(&format!("[merge_composite] LOCAL ONLY: key={}", composite_key));
-            }
         }
     }
 
     // Server-only records (by composite key) - generate INSERTs
     for (_key, server_record) in &server_map {
         stats.records_inserted += 1;
-        #[cfg(feature = "wasm")]
-        {
-            use crate::wasm::log;
-            log(&format!("[merge_composite] SERVER ONLY (INSERT): key={}", _key));
-        }
         if let Some(stmt) = generate_insert_sql(table_name, server_record) {
             statements.push(stmt);
         }
