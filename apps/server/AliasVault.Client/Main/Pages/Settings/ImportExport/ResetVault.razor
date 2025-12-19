@@ -26,7 +26,7 @@
         <div class="mb-6 text-gray-600 dark:text-gray-400">
             <p class="mb-2">@Localizer["ResetVaultPleaseNote"]</p>
             <ul class="list-disc list-inside space-y-2">
-                <li>@Localizer["ResetVaultCredentialsDeletedNote"]</li>
+                <li>@Localizer["ResetVaultItemsDeletedNote"]</li>
                 <li>@Localizer["ResetVaultEmailAliasesKeptNote"]</li>
                 <li>@Localizer["ResetVaultSettingsKeptNote"]</li>
                 <li>@Localizer["ResetVaultIrreversibleNote"]</li>
@@ -176,8 +176,8 @@
 
             GlobalNotificationService.AddSuccessMessage(Localizer["ResetVaultSuccessMessage"]);
 
-            // Redirect to credentials overview page to show the empty vault
-            NavigationManager.NavigateTo("/credentials");
+            // Redirect to items overview page to show the empty vault
+            NavigationManager.NavigateTo("/items");
         }
         catch (Exception ex)
         {

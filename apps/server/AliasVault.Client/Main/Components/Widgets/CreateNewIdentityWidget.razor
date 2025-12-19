@@ -193,14 +193,14 @@
             // Error saving.
             IsCreating = false;
             GlobalLoadingSpinner.Hide();
-            GlobalNotificationService.AddErrorMessage(Localizer["CreateCredentialErrorMessage"], true);
+            GlobalNotificationService.AddErrorMessage(Localizer["CreateItemErrorMessage"], true);
             return;
         }
 
         // No error, add success message.
-        GlobalNotificationService.AddSuccessMessage(Localizer["CredentialCreatedSuccessMessage"]);
+        GlobalNotificationService.AddSuccessMessage(Localizer["ItemCreatedSuccessMessage"]);
 
-        NavigationManager.NavigateTo("/credentials/" + id);
+        NavigationManager.NavigateTo("/items/" + id);
 
         IsCreating = false;
         GlobalLoadingSpinner.Hide();
@@ -217,7 +217,7 @@
         QuickCreateStateService.ServiceName = Model.ServiceName;
         QuickCreateStateService.ServiceUrl = Model.ServiceUrl;
 
-        NavigationManager.NavigateTo("/credentials/create");
+        NavigationManager.NavigateTo("/items/create");
         ClosePopup();
     }
 

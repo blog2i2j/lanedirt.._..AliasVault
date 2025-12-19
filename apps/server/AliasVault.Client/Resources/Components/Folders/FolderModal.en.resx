@@ -58,48 +58,37 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="NewAliasButtonText" xml:space="preserve">
-    <value>+ New Alias</value>
-    <comment>Text for the new alias button</comment>
+
+  <data name="CreateFolderTitle" xml:space="preserve">
+    <value>Create Folder</value>
+    <comment>Title for create folder modal</comment>
   </data>
-  <data name="NewAliasButtonShort" xml:space="preserve">
-    <value>+</value>
-    <comment>Short text for the new alias button on mobile</comment>
+  <data name="EditFolderTitle" xml:space="preserve">
+    <value>Edit Folder</value>
+    <comment>Title for edit folder modal</comment>
   </data>
-  <data name="CreateNewAliasTitle" xml:space="preserve">
-    <value>Create New Alias</value>
-    <comment>Title of the create new alias popup</comment>
+  <data name="FolderNameLabel" xml:space="preserve">
+    <value>Folder Name</value>
+    <comment>Label for folder name input</comment>
   </data>
-  <data name="ServiceNameLabel" xml:space="preserve">
-    <value>Service Name</value>
-    <comment>Label for service name field</comment>
+  <data name="FolderNamePlaceholder" xml:space="preserve">
+    <value>Enter folder name</value>
+    <comment>Placeholder for folder name input</comment>
   </data>
-  <data name="ServiceNamePlaceholder" xml:space="preserve">
-    <value>E.g. Facebook</value>
-    <comment>Placeholder text for service name field</comment>
-  </data>
-  <data name="ServiceUrlLabel" xml:space="preserve">
-    <value>Service URL</value>
-    <comment>Label for service URL field</comment>
+  <data name="FolderNameRequired" xml:space="preserve">
+    <value>Folder name is required</value>
+    <comment>Error message when folder name is empty</comment>
   </data>
   <data name="CreateButton" xml:space="preserve">
     <value>Create</value>
     <comment>Create button text</comment>
   </data>
-  <data name="AdvancedModeLink" xml:space="preserve">
-    <value>Create via advanced mode</value>
-    <comment>Link text to advanced creation mode</comment>
+  <data name="SaveButton" xml:space="preserve">
+    <value>Save</value>
+    <comment>Save button text</comment>
   </data>
-  <data name="CreatingNewAliasMessage" xml:space="preserve">
-    <value>Creating new alias...</value>
-    <comment>Loading message while creating alias</comment>
-  </data>
-  <data name="CreateItemErrorMessage" xml:space="preserve">
-    <value>Error creating a new item. Please try again (later) or log-out and in again.</value>
-    <comment>Error message when item creation fails</comment>
-  </data>
-  <data name="ItemCreatedSuccessMessage" xml:space="preserve">
-    <value>Item created successfully.</value>
-    <comment>Success message when item is created</comment>
+  <data name="CancelButton" xml:space="preserve">
+    <value>Cancel</value>
+    <comment>Cancel button text</comment>
   </data>
 </root>

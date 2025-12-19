@@ -1,15 +1,15 @@
-@page "/credentials/{id:guid}/delete"
+@page "/items/{id:guid}/delete"
 @inherits MainBase
 @inject ItemService ItemService
 @using Microsoft.Extensions.Localization
 @using AliasClientDb
 
-<LayoutPageTitle>@Localizer["DeleteCredentialPageTitle"]</LayoutPageTitle>
+<LayoutPageTitle>@Localizer["DeleteItemPageTitle"]</LayoutPageTitle>
 
 <PageHeader
     BreadcrumbItems="@BreadcrumbItems"
-    Title="@Localizer["DeleteCredentialTitle"]"
-    Description="@Localizer["DeleteCredentialDescription"]">
+    Title="@Localizer["DeleteItemTitle"]"
+    Description="@Localizer["DeleteItemDescription"]">
 </PageHeader>
 
 @if (IsLoading)
@@ -20,7 +20,7 @@ else
 {
     <div class="mx-4 p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
         <AlertMessageError HasTopMargin="false" Message="@Localizer["DeleteWarningMessage"]" />
-        <h3 class="mt-4 mb-4 text-xl font-semibold dark:text-white">@Localizer["CredentialEntrySection"]</h3>
+        <h3 class="mt-4 mb-4 text-xl font-semibold dark:text-white">@Localizer["ItemEntrySection"]</h3>
         <div class="mb-4">
             <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">@Localizer["IdLabel"]</label>
             <div class="text-gray-900 dark:text-white">@Id</div>
@@ -40,7 +40,7 @@ else
 }
 
 @code {
-    private IStringLocalizer Localizer => LocalizerFactory.Create("Pages.Main.Credentials.Delete", "AliasVault.Client");
+    private IStringLocalizer Localizer => LocalizerFactory.Create("Pages.Main.Items.Delete", "AliasVault.Client");
 
     /// <summary>
     /// Gets or sets the login ID.
@@ -55,8 +55,8 @@ else
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
-        BreadcrumbItems.Add(new BreadcrumbItem { Url = "credentials/" + Id, DisplayName = Localizer["ViewCredentialBreadcrumb"] });
-        BreadcrumbItems.Add(new BreadcrumbItem { DisplayName = Localizer["DeleteCredentialBreadcrumb"] });
+        BreadcrumbItems.Add(new BreadcrumbItem { Url = "items/" + Id, DisplayName = Localizer["ViewItemBreadcrumb"] });
+        BreadcrumbItems.Add(new BreadcrumbItem { DisplayName = Localizer["DeleteItemBreadcrumb"] });
     }
 
     /// <inheritdoc />
@@ -81,11 +81,11 @@ else
     {
         if (Obj is null)
         {
-            GlobalNotificationService.AddErrorMessage(Localizer["DeleteCredentialNotFoundError"], true);
+            GlobalNotificationService.AddErrorMessage(Localizer["DeleteItemNotFoundError"], true);
             return;
         }
 
-        GlobalLoadingSpinner.Show(Localizer["DeletingCredentialMessage"]);
+        GlobalLoadingSpinner.Show(Localizer["DeletingItemMessage"]);
         if (await ItemService.TrashItemAsync(Id))
         {
             GlobalNotificationService.AddSuccessMessage(Localizer["DeleteSuccessMessage"]);
@@ -95,11 +95,11 @@ else
         }
 
         GlobalLoadingSpinner.Hide();
-        NavigationManager.NavigateTo("/credentials");
+        NavigationManager.NavigateTo("/items");
     }
 
     private void Cancel()
     {
-        NavigationManager.NavigateTo("/credentials/" + Id);
+        NavigationManager.NavigateTo("/items/" + Id);
     }
 }

@@ -1,0 +1,168 @@
+@using Microsoft.Extensions.Localization
+
+@* FolderModal component - modal for creating or editing a folder *@
+@if (IsOpen)
+{
+    <div class="fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+            @* Background overlay *@
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity dark:bg-gray-900 dark:bg-opacity-75" @onclick="HandleClose"></div>
+
+            @* Modal panel *@
+            <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg dark:bg-gray-800">
+                <div class="bg-white px-4 pb-4 pt-5 sm:p-6 dark:bg-gray-800">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-orange-100 sm:mx-0 sm:h-10 sm:w-10 dark:bg-orange-900/30">
+                            <svg class="h-6 w-6 text-orange-600 dark:text-orange-400" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/>
+                            </svg>
+                        </div>
+                        <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left flex-1">
+                            <h3 class="text-lg font-semibold leading-6 text-gray-900 dark:text-white">
+                                @(Mode == "create" ? Localizer["CreateFolderTitle"] : Localizer["EditFolderTitle"])
+                            </h3>
+                            <div class="mt-4">
+                                <label for="folder-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    @Localizer["FolderNameLabel"]
+                                </label>
+                                <input
+                                    type="text"
+                                    id="folder-name"
+                                    @bind="FolderName"
+                                    @bind:event="oninput"
+                                    @onkeydown="HandleKeyDown"
+                                    placeholder="@Localizer["FolderNamePlaceholder"]"
+                                    class="block w-full rounded-md border-0 py-2 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-orange-600 sm:text-sm sm:leading-6 dark:bg-gray-700 dark:text-white dark:ring-gray-600 dark:placeholder:text-gray-500 dark:focus:ring-orange-500" />
+                                @if (!string.IsNullOrEmpty(ErrorMessage))
+                                {
+                                    <p class="mt-2 text-sm text-red-600 dark:text-red-400">@ErrorMessage</p>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 gap-2 dark:bg-gray-800/50">
+                    <button
+                        type="button"
+                        @onclick="HandleSave"
+                        disabled="@IsSaving"
+                        class="inline-flex w-full justify-center rounded-md bg-orange-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-500 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed dark:bg-orange-700 dark:hover:bg-orange-600">
+                        @if (IsSaving)
+                        {
+                            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        }
+                        @(Mode == "create" ? Localizer["CreateButton"] : Localizer["SaveButton"])
+                    </button>
+                    <button
+                        type="button"
+                        @onclick="HandleClose"
+                        class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto dark:bg-gray-700 dark:text-white dark:ring-gray-600 dark:hover:bg-gray-600">
+                        @Localizer["CancelButton"]
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Inject]
+    private IStringLocalizerFactory LocalizerFactory { get; set; } = default!;
+
+    private IStringLocalizer Localizer => LocalizerFactory.Create("Components.Folders.FolderModal", "AliasVault.Client");
+
+    /// <summary>
+    /// Gets or sets whether the modal is open.
+    /// </summary>
+    [Parameter]
+    public bool IsOpen { get; set; }
+
+    /// <summary>
+    /// Gets or sets the mode (create or edit).
+    /// </summary>
+    [Parameter]
+    public string Mode { get; set; } = "create";
+
+    /// <summary>
+    /// Gets or sets the initial folder name (for edit mode).
+    /// </summary>
+    [Parameter]
+    public string InitialName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the close callback.
+    /// </summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    /// <summary>
+    /// Gets or sets the save callback.
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnSave { get; set; }
+
+    private string FolderName { get; set; } = string.Empty;
+    private string ErrorMessage { get; set; } = string.Empty;
+    private bool IsSaving { get; set; }
+
+    /// <inheritdoc />
+    protected override void OnParametersSet()
+    {
+        if (IsOpen)
+        {
+            FolderName = InitialName;
+            ErrorMessage = string.Empty;
+            IsSaving = false;
+        }
+    }
+
+    private async Task HandleSave()
+    {
+        var trimmedName = FolderName?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrEmpty(trimmedName))
+        {
+            ErrorMessage = Localizer["FolderNameRequired"];
+            return;
+        }
+
+        IsSaving = true;
+        ErrorMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            await OnSave.InvokeAsync(trimmedName);
+            await OnClose.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleClose()
+    {
+        await OnClose.InvokeAsync();
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await HandleSave();
+        }
+        else if (e.Key == "Escape")
+        {
+            await HandleClose();
+        }
+    }
+}

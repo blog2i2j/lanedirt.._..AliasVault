@@ -58,48 +58,33 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="NewAliasButtonText" xml:space="preserve">
-    <value>+ New Alias</value>
-    <comment>Text for the new alias button</comment>
+
+  <data name="DeleteFolderTitle" xml:space="preserve">
+    <value>Delete Folder</value>
+    <comment>Title for delete folder modal</comment>
   </data>
-  <data name="NewAliasButtonShort" xml:space="preserve">
-    <value>+</value>
-    <comment>Short text for the new alias button on mobile</comment>
+  <data name="DeleteFolderDescription" xml:space="preserve">
+    <value>How would you like to delete the folder "{0}"?</value>
+    <comment>Description for delete folder modal. {0} is the folder name.</comment>
   </data>
-  <data name="CreateNewAliasTitle" xml:space="preserve">
-    <value>Create New Alias</value>
-    <comment>Title of the create new alias popup</comment>
+  <data name="DeleteFolderOnlyTitle" xml:space="preserve">
+    <value>Delete folder only</value>
+    <comment>Title for delete folder only option</comment>
   </data>
-  <data name="ServiceNameLabel" xml:space="preserve">
-    <value>Service Name</value>
-    <comment>Label for service name field</comment>
+  <data name="DeleteFolderOnlyDescription" xml:space="preserve">
+    <value>Items in this folder will be moved to root</value>
+    <comment>Description for delete folder only option</comment>
   </data>
-  <data name="ServiceNamePlaceholder" xml:space="preserve">
-    <value>E.g. Facebook</value>
-    <comment>Placeholder text for service name field</comment>
+  <data name="DeleteFolderAndContentsTitle" xml:space="preserve">
+    <value>Delete folder and contents</value>
+    <comment>Title for delete folder and contents option</comment>
   </data>
-  <data name="ServiceUrlLabel" xml:space="preserve">
-    <value>Service URL</value>
-    <comment>Label for service URL field</comment>
+  <data name="DeleteFolderAndContentsDescription" xml:space="preserve">
+    <value>Move {0} item(s) to trash</value>
+    <comment>Description for delete folder and contents option. {0} is item count.</comment>
   </data>
-  <data name="CreateButton" xml:space="preserve">
-    <value>Create</value>
-    <comment>Create button text</comment>
-  </data>
-  <data name="AdvancedModeLink" xml:space="preserve">
-    <value>Create via advanced mode</value>
-    <comment>Link text to advanced creation mode</comment>
-  </data>
-  <data name="CreatingNewAliasMessage" xml:space="preserve">
-    <value>Creating new alias...</value>
-    <comment>Loading message while creating alias</comment>
-  </data>
-  <data name="CreateItemErrorMessage" xml:space="preserve">
-    <value>Error creating a new item. Please try again (later) or log-out and in again.</value>
-    <comment>Error message when item creation fails</comment>
-  </data>
-  <data name="ItemCreatedSuccessMessage" xml:space="preserve">
-    <value>Item created successfully.</value>
-    <comment>Success message when item is created</comment>
+  <data name="CancelButton" xml:space="preserve">
+    <value>Cancel</value>
+    <comment>Cancel button text</comment>
   </data>
 </root>

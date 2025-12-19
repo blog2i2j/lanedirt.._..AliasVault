@@ -11,6 +11,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using AliasVault.Client.Services.JsInterop.Models;
 using AliasVault.Shared.Core;
+using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
 /// <summary>
@@ -322,6 +323,25 @@ public sealed class JsInteropService(IJSRuntime jsRuntime)
     {
         await jsRuntime.InvokeVoidAsync("window.scrollTo", 0, 0);
     }
+
+    /// <summary>
+    /// Sets up an IntersectionObserver for infinite scrolling.
+    /// </summary>
+    /// <typeparam name="TComponent">Component type.</typeparam>
+    /// <param name="element">The sentinel element to observe.</param>
+    /// <param name="objRef">DotNetObjectReference.</param>
+    /// <returns>Task.</returns>
+    public async Task SetupInfiniteScroll<TComponent>(ElementReference element, DotNetObjectReference<TComponent> objRef)
+        where TComponent : class =>
+        await jsRuntime.InvokeVoidAsync("window.setupInfiniteScroll", element, objRef);
+
+    /// <summary>
+    /// Tears down the IntersectionObserver for infinite scrolling.
+    /// </summary>
+    /// <param name="element">The sentinel element that was observed.</param>
+    /// <returns>Task.</returns>
+    public async Task TeardownInfiniteScroll(ElementReference element) =>
+        await jsRuntime.InvokeVoidAsync("window.teardownInfiniteScroll", element);
 
     /// <summary>
     /// Registers a visibility callback which is invoked when the visibility of component changes in client.

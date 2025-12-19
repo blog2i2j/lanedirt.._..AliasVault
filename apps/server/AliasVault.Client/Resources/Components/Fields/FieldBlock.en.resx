@@ -58,48 +58,72 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="NewAliasButtonText" xml:space="preserve">
-    <value>+ New Alias</value>
-    <comment>Text for the new alias button</comment>
+
+  <!-- Login Field Labels -->
+  <data name="FieldLabel_login_username" xml:space="preserve">
+    <value>Username</value>
+    <comment>Label for username field</comment>
   </data>
-  <data name="NewAliasButtonShort" xml:space="preserve">
-    <value>+</value>
-    <comment>Short text for the new alias button on mobile</comment>
+  <data name="FieldLabel_login_password" xml:space="preserve">
+    <value>Password</value>
+    <comment>Label for password field</comment>
   </data>
-  <data name="CreateNewAliasTitle" xml:space="preserve">
-    <value>Create New Alias</value>
-    <comment>Title of the create new alias popup</comment>
+  <data name="FieldLabel_login_email" xml:space="preserve">
+    <value>Email</value>
+    <comment>Label for email field</comment>
   </data>
-  <data name="ServiceNameLabel" xml:space="preserve">
-    <value>Service Name</value>
-    <comment>Label for service name field</comment>
+  <data name="FieldLabel_login_url" xml:space="preserve">
+    <value>Website</value>
+    <comment>Label for URL field</comment>
   </data>
-  <data name="ServiceNamePlaceholder" xml:space="preserve">
-    <value>E.g. Facebook</value>
-    <comment>Placeholder text for service name field</comment>
+
+  <!-- Alias Field Labels -->
+  <data name="FieldLabel_alias_first_name" xml:space="preserve">
+    <value>First Name</value>
+    <comment>Label for first name field</comment>
   </data>
-  <data name="ServiceUrlLabel" xml:space="preserve">
-    <value>Service URL</value>
-    <comment>Label for service URL field</comment>
+  <data name="FieldLabel_alias_last_name" xml:space="preserve">
+    <value>Last Name</value>
+    <comment>Label for last name field</comment>
   </data>
-  <data name="CreateButton" xml:space="preserve">
-    <value>Create</value>
-    <comment>Create button text</comment>
+  <data name="FieldLabel_alias_gender" xml:space="preserve">
+    <value>Gender</value>
+    <comment>Label for gender field</comment>
   </data>
-  <data name="AdvancedModeLink" xml:space="preserve">
-    <value>Create via advanced mode</value>
-    <comment>Link text to advanced creation mode</comment>
+  <data name="FieldLabel_alias_birthdate" xml:space="preserve">
+    <value>Birth Date</value>
+    <comment>Label for birthdate field</comment>
   </data>
-  <data name="CreatingNewAliasMessage" xml:space="preserve">
-    <value>Creating new alias...</value>
-    <comment>Loading message while creating alias</comment>
+
+  <!-- Card Field Labels -->
+  <data name="FieldLabel_card_number" xml:space="preserve">
+    <value>Card Number</value>
+    <comment>Label for card number field</comment>
   </data>
-  <data name="CreateItemErrorMessage" xml:space="preserve">
-    <value>Error creating a new item. Please try again (later) or log-out and in again.</value>
-    <comment>Error message when item creation fails</comment>
+  <data name="FieldLabel_card_cardholder_name" xml:space="preserve">
+    <value>Cardholder Name</value>
+    <comment>Label for cardholder name field</comment>
   </data>
-  <data name="ItemCreatedSuccessMessage" xml:space="preserve">
-    <value>Item created successfully.</value>
-    <comment>Success message when item is created</comment>
+  <data name="FieldLabel_card_expiry_month" xml:space="preserve">
+    <value>Expiry Month</value>
+    <comment>Label for expiry month field</comment>
+  </data>
+  <data name="FieldLabel_card_expiry_year" xml:space="preserve">
+    <value>Expiry Year</value>
+    <comment>Label for expiry year field</comment>
+  </data>
+  <data name="FieldLabel_card_cvv" xml:space="preserve">
+    <value>CVV</value>
+    <comment>Label for CVV field</comment>
+  </data>
+  <data name="FieldLabel_card_pin" xml:space="preserve">
+    <value>PIN</value>
+    <comment>Label for PIN field</comment>
+  </data>
+
+  <!-- Notes Field Labels -->
+  <data name="FieldLabel_notes_content" xml:space="preserve">
+    <value>Notes</value>
+    <comment>Label for notes content field</comment>
   </data>
 </root>

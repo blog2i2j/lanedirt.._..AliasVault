@@ -1,5 +1,5 @@
-@page "/credentials/create"
-@page "/credentials/{id:guid}/edit"
+@page "/items/create"
+@page "/items/{id:guid}/edit"
 @inherits MainBase
 @inject ItemService ItemService
 @inject IJSRuntime JSRuntime
@@ -12,10 +12,10 @@
 
 <PageHeader
     BreadcrumbItems="@BreadcrumbItems"
-    Title="@(EditMode ? Localizer["EditCredentialTitle"] : Localizer["AddCredentialTitle"])"
-    Description="@(EditMode ? Localizer["EditCredentialDescription"] : Localizer["AddCredentialDescription"])">
+    Title="@(EditMode ? Localizer["EditItemTitle"] : Localizer["AddItemTitle"])"
+    Description="@(EditMode ? Localizer["EditItemDescription"] : Localizer["AddItemDescription"])">
     <CustomActions>
-        <ConfirmButton OnClick="TriggerFormSubmit">@Localizer["SaveCredentialButton"]</ConfirmButton>
+        <ConfirmButton OnClick="TriggerFormSubmit">@Localizer["SaveItemButton"]</ConfirmButton>
         <CancelButton OnClick="Cancel">@SharedLocalizer["Cancel"]</CancelButton>
     </CustomActions>
 </PageHeader>
@@ -81,7 +81,7 @@ else
             </div>
             <div class="col-span-1 md:col-span-1 lg:col-span-2">
                 <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
-                    <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["LoginCredentialsSectionHeader"]</h3>
+                    <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["LoginDetailsSectionHeader"]</h3>
                     <div class="grid gap-6">
                         @if (EditMode && Obj.Passkeys != null && Obj.Passkeys.Any())
                         {
@@ -228,12 +228,12 @@ else
                 </div>
             </div>
         </div>
-        <button type="submit" class="hidden">@Localizer["SaveCredentialButton"]</button>
+        <button type="submit" class="hidden">@Localizer["SaveItemButton"]</button>
     </EditForm>
 }
 
 @code {
-    private IStringLocalizer Localizer => LocalizerFactory.Create("Pages.Main.Credentials.AddEdit", "AliasVault.Client");
+    private IStringLocalizer Localizer => LocalizerFactory.Create("Pages.Main.Items.AddEdit", "AliasVault.Client");
 
     /// <summary>
     /// Gets or sets the Credentials ID.
@@ -286,12 +286,12 @@ else
 
         if (EditMode)
         {
-            BreadcrumbItems.Add(new BreadcrumbItem { DisplayName = Localizer["ViewCredentialBreadcrumb"], Url = $"/credentials/{Id}" });
-            BreadcrumbItems.Add(new BreadcrumbItem { DisplayName = Localizer["EditCredentialBreadcrumb"] });
+            BreadcrumbItems.Add(new BreadcrumbItem { DisplayName = Localizer["ViewItemBreadcrumb"], Url = $"/items/{Id}" });
+            BreadcrumbItems.Add(new BreadcrumbItem { DisplayName = Localizer["EditItemBreadcrumb"] });
         }
         else
         {
-            BreadcrumbItems.Add(new BreadcrumbItem { DisplayName = Localizer["AddNewCredentialBreadcrumb"] });
+            BreadcrumbItems.Add(new BreadcrumbItem { DisplayName = Localizer["AddNewItemBreadcrumb"] });
         }
     }
 
@@ -344,7 +344,7 @@ else
     {
         if (Id is null)
         {
-            NavigateAwayWithError(Localizer["CredentialNotExistError"]);
+            NavigateAwayWithError(Localizer["ItemNotExistError"]);
             return;
         }
 
@@ -352,7 +352,7 @@ else
         var item = await ItemService.LoadEntryAsync(Id.Value);
         if (item is null)
         {
-            NavigateAwayWithError(Localizer["CredentialNotExistError"]);
+            NavigateAwayWithError(Localizer["ItemNotExistError"]);
             return;
         }
 
@@ -400,7 +400,7 @@ else
     private void NavigateAwayWithError(string errorMessage)
     {
         GlobalNotificationService.AddErrorMessage(errorMessage);
-        NavigationManager.NavigateTo("/credentials", false, true);
+        NavigationManager.NavigateTo("/items", false, true);
     }
 
     /// <summary>
@@ -563,7 +563,7 @@ else
     /// </summary>
     private void Cancel()
     {
-        NavigationManager.NavigateTo("/credentials/" + Id);
+        NavigationManager.NavigateTo("/items/" + Id);
     }
 
     /// <summary>
@@ -634,20 +634,20 @@ else
         if (Id is null || Id == Guid.Empty)
         {
             // Error saving.
-            GlobalNotificationService.AddErrorMessage(Localizer["ErrorSavingCredentials"], true);
+            GlobalNotificationService.AddErrorMessage(Localizer["ErrorSavingItem"], true);
             return;
         }
 
         // No error, add success message.
         if (EditMode)
         {
-            GlobalNotificationService.AddSuccessMessage(Localizer["CredentialUpdatedSuccess"]);
+            GlobalNotificationService.AddSuccessMessage(Localizer["ItemUpdatedSuccess"]);
         }
         else
         {
-            GlobalNotificationService.AddSuccessMessage(Localizer["CredentialCreatedSuccess"]);
+            GlobalNotificationService.AddSuccessMessage(Localizer["ItemCreatedSuccess"]);
         }
 
-        NavigationManager.NavigateTo("/credentials/" + Id);
+        NavigationManager.NavigateTo("/items/" + Id);
     }
 }

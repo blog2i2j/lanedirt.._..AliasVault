@@ -20,6 +20,11 @@ public sealed class ItemListEntry
     public Guid Id { get; set; }
 
     /// <summary>
+    /// Gets or sets the item type (Login, Alias, CreditCard, Note).
+    /// </summary>
+    public string ItemType { get; set; } = "Login";
+
+    /// <summary>
     /// Gets or sets the Logo (favicon) bytes.
     /// </summary>
     public byte[]? Logo { get; set; }
@@ -38,6 +43,11 @@ public sealed class ItemListEntry
     /// Gets or sets the Email.
     /// </summary>
     public string? Email { get; set; }
+
+    /// <summary>
+    /// Gets or sets the card number (for CreditCard type, used for brand detection).
+    /// </summary>
+    public string? CardNumber { get; set; }
 
     /// <summary>
     /// Gets or sets the created timestamp.
@@ -63,4 +73,19 @@ public sealed class ItemListEntry
     /// Gets or sets a value indicating whether this item has attachments.
     /// </summary>
     public bool HasAttachment { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this item has TOTP codes.
+    /// </summary>
+    public bool HasTotp { get; set; }
+
+    /// <summary>
+    /// Gets or sets the folder ID this item belongs to.
+    /// </summary>
+    public Guid? FolderId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the folder name this item belongs to.
+    /// </summary>
+    public string? FolderName { get; set; }
 }

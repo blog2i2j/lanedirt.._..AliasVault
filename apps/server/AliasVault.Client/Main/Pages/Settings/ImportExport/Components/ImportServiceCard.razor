@@ -453,7 +453,7 @@
         if (success)
         {
             GlobalNotificationService.AddSuccessMessage($"Successfully imported {ImportedCredentials.Count} credentials.");
-            NavigationManager.NavigateTo("/credentials");
+            NavigationManager.NavigateTo("/items");
         }
         else
         {

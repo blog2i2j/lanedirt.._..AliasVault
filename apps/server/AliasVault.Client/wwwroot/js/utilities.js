@@ -521,3 +521,52 @@ window.unregisterVisibilityCallback = function (dotnetHelper) {
         visibilityChangeHandlers.delete(dotnetHelper);
     }
 };
+
+// Store IntersectionObserver references for cleanup.
+const infiniteScrollObservers = new Map();
+
+/**
+ * Sets up an IntersectionObserver for infinite scrolling.
+ * When the sentinel element becomes visible, it calls the LoadMoreItems method on the .NET component.
+ *
+ * @param {Element} element - The sentinel element to observe.
+ * @param {any} dotnetHelper - The DotNetObjectReference to call back to.
+ */
+window.setupInfiniteScroll = function (element, dotnetHelper) {
+    if (!element) {
+        return;
+    }
+
+    // Create the IntersectionObserver.
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+                dotnetHelper.invokeMethodAsync('LoadMoreItems');
+            }
+        });
+    }, {
+        root: null, // Use viewport as root.
+        rootMargin: '100px', // Trigger 100px before the element is visible.
+        threshold: 0
+    });
+
+    // Start observing the sentinel element.
+    observer.observe(element);
+
+    // Store the observer for cleanup.
+    infiniteScrollObservers.set(element, observer);
+};
+
+/**
+ * Tears down the IntersectionObserver for infinite scrolling.
+ *
+ * @param {Element} element - The sentinel element that was being observed.
+ */
+window.teardownInfiniteScroll = function (element) {
+    const observer = infiniteScrollObservers.get(element);
+
+    if (observer) {
+        observer.disconnect();
+        infiniteScrollObservers.delete(element);
+    }
+};

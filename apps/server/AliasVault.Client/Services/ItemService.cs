@@ -328,8 +328,10 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
         var items = await context.Items
             .Include(x => x.FieldValues.Where(fv => !fv.IsDeleted))
             .Include(x => x.Logo)
+            .Include(x => x.Folder)
             .Include(x => x.Passkeys.Where(p => !p.IsDeleted))
             .Include(x => x.Attachments.Where(a => !a.IsDeleted))
+            .Include(x => x.TotpCodes.Where(t => !t.IsDeleted))
             .AsSplitQuery()
             .Where(x => !x.IsDeleted)
             .Where(x => x.DeletedAt == null) // Exclude items in trash
@@ -339,10 +341,12 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
         return items.Select(x => new ItemListEntry
         {
             Id = x.Id,
+            ItemType = x.ItemType ?? "Login",
             Logo = x.Logo?.FileData,
             Service = x.Name,
             Username = GetFieldValue(x, FieldKey.LoginUsername),
             Email = GetFieldValue(x, FieldKey.LoginEmail),
+            CardNumber = GetFieldValue(x, FieldKey.CardNumber),
             CreatedAt = x.CreatedAt,
             HasPasskey = x.Passkeys != null && x.Passkeys.Any(),
             HasAlias = !string.IsNullOrWhiteSpace(GetFieldValue(x, FieldKey.AliasFirstName)) ||
@@ -352,6 +356,9 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
             HasUsernameOrPassword = !string.IsNullOrWhiteSpace(GetFieldValue(x, FieldKey.LoginUsername)) ||
                                     !string.IsNullOrWhiteSpace(GetFieldValue(x, FieldKey.LoginPassword)),
             HasAttachment = x.Attachments != null && x.Attachments.Any(),
+            HasTotp = x.TotpCodes != null && x.TotpCodes.Any(),
+            FolderId = x.FolderId,
+            FolderName = x.Folder?.Name,
         }).ToList();
     }
 

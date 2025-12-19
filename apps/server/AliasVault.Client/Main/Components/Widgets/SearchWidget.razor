@@ -278,7 +278,7 @@
     private async Task SelectResult(Item item)
     {
         await JsInteropService.BlurElementById("searchWidget");
-        NavigationManager.NavigateTo($"/credentials/{item.Id}");
+        NavigationManager.NavigateTo($"/items/{item.Id}");
     }
 
     private void ResetSearchField(object? sender, LocationChangedEventArgs e)
