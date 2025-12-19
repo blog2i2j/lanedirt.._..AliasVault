@@ -703,9 +703,13 @@ else
         {
             await LoadItemsAsync();
 
-            // Set up IntersectionObserver for infinite scroll
+            // Set up IntersectionObserver for infinite scroll (only if there are more items to load).
+            // The sentinel element only exists when HasMoreItems is true.
             _dotNetRef = DotNetObjectReference.Create(this);
-            await JsInteropService.SetupInfiniteScroll(_scrollSentinel, _dotNetRef);
+            if (HasMoreItems)
+            {
+                await JsInteropService.SetupInfiniteScroll(_scrollSentinel, _dotNetRef);
+            }
         }
     }
 

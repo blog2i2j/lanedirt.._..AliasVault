@@ -533,7 +533,9 @@ const infiniteScrollObservers = new Map();
  * @param {any} dotnetHelper - The DotNetObjectReference to call back to.
  */
 window.setupInfiniteScroll = function (element, dotnetHelper) {
-    if (!element) {
+    // Element reference from Blazor may be an empty object if the element doesn't exist in DOM.
+    // Check if element is a valid DOM Element.
+    if (!element || !(element instanceof Element)) {
         return;
     }
 
@@ -563,6 +565,11 @@ window.setupInfiniteScroll = function (element, dotnetHelper) {
  * @param {Element} element - The sentinel element that was being observed.
  */
 window.teardownInfiniteScroll = function (element) {
+    // Element reference from Blazor may be an empty object if the element doesn't exist in DOM.
+    if (!element || !(element instanceof Element)) {
+        return;
+    }
+
     const observer = infiniteScrollObservers.get(element);
 
     if (observer) {

@@ -97,6 +97,36 @@ public sealed class ItemEdit
     public string AliasBirthDate { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the credit card number.
+    /// </summary>
+    public string CardNumber { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the credit card cardholder name.
+    /// </summary>
+    public string CardCardholderName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the credit card expiry month.
+    /// </summary>
+    public string CardExpiryMonth { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the credit card expiry year.
+    /// </summary>
+    public string CardExpiryYear { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the credit card CVV.
+    /// </summary>
+    public string CardCvv { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the credit card PIN.
+    /// </summary>
+    public string CardPin { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the create date.
     /// </summary>
     public DateTime CreateDate { get; set; }
@@ -122,6 +152,11 @@ public sealed class ItemEdit
     public List<Passkey> Passkeys { get; set; } = [];
 
     /// <summary>
+    /// Gets or sets the custom fields.
+    /// </summary>
+    public List<CustomFieldEdit> CustomFields { get; set; } = [];
+
+    /// <summary>
     /// Creates an ItemEdit instance from an Item entity.
     /// </summary>
     /// <param name="item">The item entity to convert.</param>
@@ -130,7 +165,7 @@ public sealed class ItemEdit
     {
         var birthDate = ItemService.GetFieldValue(item, FieldKey.AliasBirthdate);
 
-        return new ItemEdit
+        var edit = new ItemEdit
         {
             Id = item.Id,
             ItemType = item.ItemType,
@@ -146,12 +181,34 @@ public sealed class ItemEdit
             AliasLastName = ItemService.GetFieldValue(item, FieldKey.AliasLastName) ?? string.Empty,
             AliasGender = ItemService.GetFieldValue(item, FieldKey.AliasGender) ?? string.Empty,
             AliasBirthDate = birthDate ?? string.Empty,
+            CardNumber = ItemService.GetFieldValue(item, FieldKey.CardNumber) ?? string.Empty,
+            CardCardholderName = ItemService.GetFieldValue(item, FieldKey.CardCardholderName) ?? string.Empty,
+            CardExpiryMonth = ItemService.GetFieldValue(item, FieldKey.CardExpiryMonth) ?? string.Empty,
+            CardExpiryYear = ItemService.GetFieldValue(item, FieldKey.CardExpiryYear) ?? string.Empty,
+            CardCvv = ItemService.GetFieldValue(item, FieldKey.CardCvv) ?? string.Empty,
+            CardPin = ItemService.GetFieldValue(item, FieldKey.CardPin) ?? string.Empty,
             Attachments = item.Attachments.Where(a => !a.IsDeleted).ToList(),
             TotpCodes = item.TotpCodes.Where(t => !t.IsDeleted).ToList(),
             Passkeys = item.Passkeys.Where(p => !p.IsDeleted).ToList(),
             CreateDate = item.CreatedAt,
             LastUpdate = item.UpdatedAt,
         };
+
+        // Extract custom fields (non-system fields that have FieldDefinitionId set)
+        foreach (var fv in item.FieldValues.Where(f => !f.IsDeleted && f.FieldDefinitionId != null))
+        {
+            edit.CustomFields.Add(new CustomFieldEdit
+            {
+                Id = fv.Id,
+                FieldDefinitionId = fv.FieldDefinitionId!.Value,
+                Label = fv.FieldDefinition?.Label ?? "Custom Field",
+                FieldType = fv.FieldDefinition?.FieldType ?? "Text",
+                Value = fv.Value ?? string.Empty,
+                IsHidden = fv.FieldDefinition?.IsHidden ?? false,
+            });
+        }
+
+        return edit;
     }
 
     /// <summary>
@@ -217,6 +274,179 @@ public sealed class ItemEdit
             ItemService.SetFieldValue(item, FieldKey.AliasBirthdate, AliasBirthDate);
         }
 
+        // Add card fields
+        if (!string.IsNullOrEmpty(CardNumber))
+        {
+            ItemService.SetFieldValue(item, FieldKey.CardNumber, CardNumber);
+        }
+
+        if (!string.IsNullOrEmpty(CardCardholderName))
+        {
+            ItemService.SetFieldValue(item, FieldKey.CardCardholderName, CardCardholderName);
+        }
+
+        if (!string.IsNullOrEmpty(CardExpiryMonth))
+        {
+            ItemService.SetFieldValue(item, FieldKey.CardExpiryMonth, CardExpiryMonth);
+        }
+
+        if (!string.IsNullOrEmpty(CardExpiryYear))
+        {
+            ItemService.SetFieldValue(item, FieldKey.CardExpiryYear, CardExpiryYear);
+        }
+
+        if (!string.IsNullOrEmpty(CardCvv))
+        {
+            ItemService.SetFieldValue(item, FieldKey.CardCvv, CardCvv);
+        }
+
+        if (!string.IsNullOrEmpty(CardPin))
+        {
+            ItemService.SetFieldValue(item, FieldKey.CardPin, CardPin);
+        }
+
+        // Add custom fields
+        foreach (var customField in CustomFields.Where(cf => !string.IsNullOrEmpty(cf.Value)))
+        {
+            // For new custom fields (TempId set, FieldDefinitionId is empty), create a new FieldDefinition
+            if (customField.FieldDefinitionId == Guid.Empty && !string.IsNullOrEmpty(customField.TempId))
+            {
+                var now = DateTime.UtcNow;
+                var fieldDefinitionId = Guid.NewGuid();
+                var fieldDefinition = new FieldDefinition
+                {
+                    Id = fieldDefinitionId,
+                    FieldType = customField.FieldType,
+                    Label = customField.Label,
+                    IsHidden = customField.IsHidden,
+                    IsMultiValue = false,
+                    EnableHistory = false,
+                    Weight = 0,
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                };
+
+                item.FieldValues.Add(new FieldValue
+                {
+                    Id = Guid.NewGuid(),
+                    ItemId = item.Id,
+                    FieldDefinitionId = fieldDefinitionId,
+                    FieldDefinition = fieldDefinition,
+                    FieldKey = null,
+                    Value = customField.Value,
+                    Weight = 0,
+                });
+            }
+            else
+            {
+                // Existing custom field - update value
+                item.FieldValues.Add(new FieldValue
+                {
+                    Id = customField.Id != Guid.Empty ? customField.Id : Guid.NewGuid(),
+                    ItemId = item.Id,
+                    FieldDefinitionId = customField.FieldDefinitionId,
+                    FieldKey = null,
+                    Value = customField.Value,
+                    Weight = 0,
+                });
+            }
+        }
+
         return item;
+    }
+
+    /// <summary>
+    /// Gets the value of a system field by its field key.
+    /// </summary>
+    /// <param name="fieldKey">The field key.</param>
+    /// <returns>The field value or empty string.</returns>
+    public string GetFieldValue(string fieldKey)
+    {
+        return fieldKey switch
+        {
+            FieldKey.LoginUrl => ServiceUrl ?? string.Empty,
+            FieldKey.LoginUsername => Username,
+            FieldKey.LoginPassword => Password,
+            FieldKey.LoginEmail => Email,
+            FieldKey.NotesContent => Notes,
+            FieldKey.AliasFirstName => AliasFirstName,
+            FieldKey.AliasLastName => AliasLastName,
+            FieldKey.AliasGender => AliasGender,
+            FieldKey.AliasBirthdate => AliasBirthDate,
+            FieldKey.CardNumber => CardNumber,
+            FieldKey.CardCardholderName => CardCardholderName,
+            FieldKey.CardExpiryMonth => CardExpiryMonth,
+            FieldKey.CardExpiryYear => CardExpiryYear,
+            FieldKey.CardCvv => CardCvv,
+            FieldKey.CardPin => CardPin,
+            _ => string.Empty,
+        };
+    }
+
+    /// <summary>
+    /// Sets the value of a system field by its field key.
+    /// </summary>
+    /// <param name="fieldKey">The field key.</param>
+    /// <param name="value">The value to set.</param>
+    public void SetFieldValue(string fieldKey, string value)
+    {
+        switch (fieldKey)
+        {
+            case FieldKey.LoginUrl:
+                ServiceUrl = value;
+                break;
+            case FieldKey.LoginUsername:
+                Username = value;
+                break;
+            case FieldKey.LoginPassword:
+                Password = value;
+                break;
+            case FieldKey.LoginEmail:
+                Email = value;
+                break;
+            case FieldKey.NotesContent:
+                Notes = value;
+                break;
+            case FieldKey.AliasFirstName:
+                AliasFirstName = value;
+                break;
+            case FieldKey.AliasLastName:
+                AliasLastName = value;
+                break;
+            case FieldKey.AliasGender:
+                AliasGender = value;
+                break;
+            case FieldKey.AliasBirthdate:
+                AliasBirthDate = value;
+                break;
+            case FieldKey.CardNumber:
+                CardNumber = value;
+                break;
+            case FieldKey.CardCardholderName:
+                CardCardholderName = value;
+                break;
+            case FieldKey.CardExpiryMonth:
+                CardExpiryMonth = value;
+                break;
+            case FieldKey.CardExpiryYear:
+                CardExpiryYear = value;
+                break;
+            case FieldKey.CardCvv:
+                CardCvv = value;
+                break;
+            case FieldKey.CardPin:
+                CardPin = value;
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Checks if a field has a non-empty value.
+    /// </summary>
+    /// <param name="fieldKey">The field key.</param>
+    /// <returns>True if the field has a value.</returns>
+    public bool HasFieldValue(string fieldKey)
+    {
+        return !string.IsNullOrEmpty(GetFieldValue(fieldKey));
     }
 }

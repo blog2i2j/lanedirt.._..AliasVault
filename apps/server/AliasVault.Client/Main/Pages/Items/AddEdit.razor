@@ -5,6 +5,7 @@
 @inject IJSRuntime JSRuntime
 @inject AliasVault.Client.Services.QuickCreateStateService QuickCreateStateService
 @using AliasVault.Client.Services.JsInterop.Models
+@using AliasVault.Client.Main.Components.Items
 @using Microsoft.Extensions.Localization
 @using AliasClientDb
 @using AliasClientDb.Models
@@ -30,201 +31,353 @@ else
         <DataAnnotationsValidator />
         <div class="grid grid-cols-1 px-4 pt-6 md:grid-cols-2 lg:grid-cols-3 md:gap-4 dark:bg-gray-900">
             <div class="col-span-1 md:col-span-1 lg:col-span-1">
+                @* Item Type Selector *@
+                <ItemTypeSelector
+                    SelectedType="@Obj.ItemType"
+                    SelectedTypeChanged="HandleItemTypeChange"
+                    IsEditMode="@EditMode"
+                    ShowDropdown="@ShowTypeDropdown"
+                    ShowDropdownChanged="@((show) => ShowTypeDropdown = show)"
+                    OnRegenerateAlias="@GenerateRandomAlias" />
+
+                @* Service/Name Section - Always shown *@
                 <div class="p-4 mb-4 bg-white border-2 border-primary-600 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
-                    <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["ServiceSectionHeader"]</h3>
+                    <h3 class="mb-4 text-xl font-semibold dark:text-white">@GetNameSectionTitle()</h3>
                     <div class="grid gap-6">
                         <div class="col-span-6 sm:col-span-3">
                             <EditFormRow Id="service-name" Label="@Localizer["ServiceNameLabel"]" Placeholder="@Localizer["ServiceNamePlaceholder"]" @bind-Value="Obj.ServiceName"></EditFormRow>
                             <ValidationMessage For="() => Obj.ServiceName"/>
                         </div>
-                        <div class="col-span-6 sm:col-span-3">
-                            <EditFormRow Id="service-url" OnFocus="OnFocusUrlInput" Label="@Localizer["ServiceUrlLabel"]" @bind-Value="Obj.ServiceUrl"></EditFormRow>
-                        </div>
-                    </div>
-                </div>
-
-                @if (EditMode && Id.HasValue)
-                {
-                    <div class="col-span-1 md:col-span-1 lg:col-span-1">
-                        <TotpCodes TotpCodeList="@Obj.TotpCodes" TotpCodesChanged="HandleTotpCodesChanged" />
-                    </div>
-                }
-                else
-                {
-                    <div class="col-span-1 md:col-span-1 lg:col-span-1">
-                        <TotpCodes TotpCodeList="@Obj.TotpCodes" TotpCodesChanged="HandleTotpCodesChanged" />
-                    </div>
-                }
-
-                <div class="col-span-1 md:col-span-1 lg:col-span-1">
-                    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
-                        <div class="grid gap-6">
-                            <div class="col-span-6 sm:col-span-3">
-                                <EditFormRow Type="textarea" Id="notes" Label="@Localizer["NotesLabel"]" LabelStyle="EditFormRow.FormLabelStyle.Header" @bind-Value="Obj.Notes"></EditFormRow>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-span-1 md:col-span-1 lg:col-span-1">
-                    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
-                        <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["AttachmentsSectionHeader"]</h3>
-                        <div class="grid gap-6">
-                            <div class="col-span-6 sm:col-span-3">
-                                <AttachmentUploader
-                                    Attachments="@Obj.Attachments"
-                                    AttachmentsChanged="@HandleAttachmentsChanged" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-span-1 md:col-span-1 lg:col-span-2">
-                <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
-                    <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["LoginDetailsSectionHeader"]</h3>
-                    <div class="grid gap-6">
-                        @if (EditMode && Obj.Passkeys != null && Obj.Passkeys.Any())
+                        @* URL field - only for Login and Alias types *@
+                        @if (ShouldShowField(FieldKey.LoginUrl))
                         {
-                            var passkey = Obj.Passkeys.First();
-                            @* With passkey: Username, Passkey, Email, Password *@
-                            <div class="col-span-6">
-                                <EditUsernameFormRow Id="username" Label="@Localizer["UsernameLabel"]" @bind-Value="Obj.Username" OnGenerateNewUsername="GenerateRandomUsername"></EditUsernameFormRow>
+                            <div class="col-span-6 sm:col-span-3">
+                                <EditFormRow Id="service-url" OnFocus="OnFocusUrlInput" Label="@Localizer["ServiceUrlLabel"]" @bind-Value="Obj.ServiceUrl"></EditFormRow>
                             </div>
-                            @if (!PasskeyMarkedForDeletion)
+                        }
+                    </div>
+                </div>
+
+                @* TOTP Codes Section - Only for Login/Alias types when visible *@
+                @if (Show2FA && HasLoginFields())
+                {
+                    <div class="col-span-1 md:col-span-1 lg:col-span-1">
+                        <TotpCodes TotpCodeList="@Obj.TotpCodes" TotpCodesChanged="HandleTotpCodesChanged" />
+                    </div>
+                }
+
+                @* Notes Section - When visible *@
+                @if (ShouldShowField(FieldKey.NotesContent))
+                {
+                    <div class="col-span-1 md:col-span-1 lg:col-span-1">
+                        <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800 relative">
+                            <div class="grid gap-6">
+                                <div class="col-span-6 sm:col-span-3">
+                                    <EditFormRow Type="textarea" Id="notes" Label="@Localizer["NotesLabel"]" LabelStyle="EditFormRow.FormLabelStyle.Header" @bind-Value="Obj.Notes"></EditFormRow>
+                                </div>
+                            </div>
+                            @if (CanRemoveField(FieldKey.NotesContent))
                             {
+                                <button type="button" @onclick="() => RemoveOptionalField(FieldKey.NotesContent)" @onclick:preventDefault="true"
+                                        class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition-colors" title="@Localizer["RemoveField"]">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @* Attachments Section - When visible *@
+                @if (ShowAttachments)
+                {
+                    <div class="col-span-1 md:col-span-1 lg:col-span-1">
+                        <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+                            <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["AttachmentsSectionHeader"]</h3>
+                            <div class="grid gap-6">
+                                <div class="col-span-6 sm:col-span-3">
+                                    <AttachmentUploader
+                                        Attachments="@Obj.Attachments"
+                                        AttachmentsChanged="@HandleAttachmentsChanged" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="col-span-1 md:col-span-1 lg:col-span-2">
+                @* Login Details Section - For Login and Alias types *@
+                @if (HasLoginFields())
+                {
+                    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+                        <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["LoginDetailsSectionHeader"]</h3>
+                        <div class="grid gap-6">
+                            @if (EditMode && Obj.Passkeys != null && Obj.Passkeys.Any())
+                            {
+                                var passkey = Obj.Passkeys.First();
+                                @* With passkey: Username, Passkey, Email, Password *@
                                 <div class="col-span-6">
-                                    <div class="p-3 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
-                                        <div class="flex items-start gap-3">
-                                            <svg class="w-5 h-5 text-gray-600 dark:text-gray-400 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
-                                            </svg>
-                                            <div class="flex-1">
-                                                <div class="mb-1 flex items-center justify-between">
-                                                    <span class="text-sm font-semibold text-gray-900 dark:text-white">@Localizer["PasskeyLabel"]</span>
-                                                    <button type="button" @onclick="MarkPasskeyForDeletion" class="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300" title="@Localizer["DeletePasskeyButton"]">
-                                                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                            <polyline points="3 6 5 6 21 6" />
-                                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                                            <line x1="10" y1="11" x2="10" y2="17" />
-                                                            <line x1="14" y1="11" x2="14" y2="17" />
-                                                        </svg>
-                                                    </button>
+                                    <EditUsernameFormRow Id="username" Label="@Localizer["UsernameLabel"]" @bind-Value="Obj.Username" OnGenerateNewUsername="GenerateRandomUsername"></EditUsernameFormRow>
+                                </div>
+                                @if (!PasskeyMarkedForDeletion)
+                                {
+                                    <div class="col-span-6">
+                                        <div class="p-3 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+                                            <div class="flex items-start gap-3">
+                                                <svg class="w-5 h-5 text-gray-600 dark:text-gray-400 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+                                                </svg>
+                                                <div class="flex-1">
+                                                    <div class="mb-1 flex items-center justify-between">
+                                                        <span class="text-sm font-semibold text-gray-900 dark:text-white">@Localizer["PasskeyLabel"]</span>
+                                                        <button type="button" @onclick="MarkPasskeyForDeletion" class="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300" title="@Localizer["DeletePasskeyButton"]">
+                                                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                <polyline points="3 6 5 6 21 6" />
+                                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                                <line x1="10" y1="11" x2="10" y2="17" />
+                                                                <line x1="14" y1="11" x2="14" y2="17" />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                    <div class="space-y-1 mb-2">
+                                                        @if (!string.IsNullOrWhiteSpace(passkey.RpId))
+                                                        {
+                                                            <div>
+                                                                <span class="text-xs text-gray-500 dark:text-gray-400">@Localizer["PasskeySiteLabel"]: </span>
+                                                                <span class="text-sm text-gray-900 dark:text-white">@passkey.RpId</span>
+                                                            </div>
+                                                        }
+                                                        @if (!string.IsNullOrWhiteSpace(passkey.DisplayName))
+                                                        {
+                                                            <div>
+                                                                <span class="text-xs text-gray-500 dark:text-gray-400">@Localizer["PasskeyDisplayNameLabel"]: </span>
+                                                                <span class="text-sm text-gray-900 dark:text-white">@passkey.DisplayName</span>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                    <p class="text-xs text-gray-600 dark:text-gray-400">
+                                                        @Localizer["PasskeyHelpText"]
+                                                    </p>
                                                 </div>
-                                                <div class="space-y-1 mb-2">
-                                                    @if (!string.IsNullOrWhiteSpace(passkey.RpId))
-                                                    {
-                                                        <div>
-                                                            <span class="text-xs text-gray-500 dark:text-gray-400">@Localizer["PasskeySiteLabel"]: </span>
-                                                            <span class="text-sm text-gray-900 dark:text-white">@passkey.RpId</span>
-                                                        </div>
-                                                    }
-                                                    @if (!string.IsNullOrWhiteSpace(passkey.DisplayName))
-                                                    {
-                                                        <div>
-                                                            <span class="text-xs text-gray-500 dark:text-gray-400">@Localizer["PasskeyDisplayNameLabel"]: </span>
-                                                            <span class="text-sm text-gray-900 dark:text-white">@passkey.DisplayName</span>
-                                                        </div>
-                                                    }
-                                                </div>
-                                                <p class="text-xs text-gray-600 dark:text-gray-400">
-                                                    @Localizer["PasskeyHelpText"]
-                                                </p>
                                             </div>
                                         </div>
                                     </div>
+                                }
+                                else
+                                {
+                                    <div class="col-span-6">
+                                        <div class="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                                            <div class="flex items-start gap-3">
+                                                <svg class="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+                                                </svg>
+                                                <div class="flex-1">
+                                                    <div class="mb-1 flex items-center justify-between">
+                                                        <span class="text-sm font-semibold text-red-900 dark:text-red-100">@Localizer["PasskeyMarkedForDeletion"]</span>
+                                                        <button type="button" @onclick="UndoPasskeyDeletion" class="text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" title="@Localizer["UndoButton"]">
+                                                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                <path d="M3 7v6h6" />
+                                                                <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13" />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                    <p class="text-xs text-red-800 dark:text-red-200">
+                                                        @Localizer["PasskeyWillBeDeleted"]
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                                <div class="col-span-6">
+                                    <EditEmailFormRow Id="email" Label="@Localizer["EmailLabel"]" @bind-Value="Obj.Email"></EditEmailFormRow>
+                                </div>
+                                <div class="col-span-6">
+                                    <EditPasswordFormRow Id="password" Label="@Localizer["PasswordLabel"]" @bind-Value="Obj.Password" ShowPassword="IsPasswordVisible"></EditPasswordFormRow>
                                 </div>
                             }
                             else
                             {
-                                <div class="col-span-6">
-                                    <div class="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                                        <div class="flex items-start gap-3">
-                                            <svg class="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
-                                            </svg>
-                                            <div class="flex-1">
-                                                <div class="mb-1 flex items-center justify-between">
-                                                    <span class="text-sm font-semibold text-red-900 dark:text-red-100">@Localizer["PasskeyMarkedForDeletion"]</span>
-                                                    <button type="button" @onclick="UndoPasskeyDeletion" class="text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" title="@Localizer["UndoButton"]">
-                                                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                            <path d="M3 7v6h6" />
-                                                            <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13" />
-                                                        </svg>
-                                                    </button>
-                                                </div>
-                                                <p class="text-xs text-red-800 dark:text-red-200">
-                                                    @Localizer["PasskeyWillBeDeleted"]
-                                                </p>
-                                            </div>
-                                        </div>
+                                @* Without passkey: Email (optional add for Login), Username, Password *@
+                                @if (ShouldShowField(FieldKey.LoginEmail))
+                                {
+                                    <div class="col-span-6 relative">
+                                        <EditEmailFormRow Id="email" Label="@Localizer["EmailLabel"]" @bind-Value="Obj.Email"></EditEmailFormRow>
+                                        @if (CanRemoveField(FieldKey.LoginEmail))
+                                        {
+                                            <button type="button" @onclick="() => RemoveOptionalField(FieldKey.LoginEmail)" @onclick:preventDefault="true"
+                                                    class="absolute top-0 right-0 text-gray-400 hover:text-red-500 transition-colors" title="@Localizer["RemoveField"]">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        }
                                     </div>
+                                }
+                                else if (Obj.ItemType == ItemTypes.Login && !ManuallyAddedFields.Contains(FieldKey.LoginEmail))
+                                {
+                                    @* Show + Email button for Login type when email is not visible *@
+                                    <div class="col-span-6">
+                                        <button type="button" @onclick="() => AddOptionalField(FieldKey.LoginEmail)" @onclick:preventDefault="true"
+                                                class="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center gap-1">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                            </svg>
+                                            @Localizer["AddEmailField"]
+                                        </button>
+                                    </div>
+                                }
+
+                                <div class="col-span-6">
+                                    <EditUsernameFormRow Id="username" Label="@Localizer["UsernameLabel"]" @bind-Value="Obj.Username" OnGenerateNewUsername="GenerateRandomUsername"></EditUsernameFormRow>
+                                </div>
+                                <div class="col-span-6">
+                                    <EditPasswordFormRow Id="password" Label="@Localizer["PasswordLabel"]" @bind-Value="Obj.Password" ShowPassword="IsPasswordVisible"></EditPasswordFormRow>
                                 </div>
                             }
-                            <div class="col-span-6">
-                                <EditEmailFormRow Id="email" Label="@Localizer["EmailLabel"]" @bind-Value="Obj.Email"></EditEmailFormRow>
-                            </div>
-                            <div class="col-span-6">
-                                <EditPasswordFormRow Id="password" Label="@Localizer["PasswordLabel"]" @bind-Value="Obj.Password" ShowPassword="IsPasswordVisible"></EditPasswordFormRow>
-                            </div>
-                        }
-                        else
-                        {
-                            @* Without passkey: Email, Username, Password *@
-                            <div class="col-span-6">
-                                <EditEmailFormRow Id="email" Label="@Localizer["EmailLabel"]" @bind-Value="Obj.Email"></EditEmailFormRow>
-                            </div>
-                            <div class="col-span-6">
-                                <EditUsernameFormRow Id="username" Label="@Localizer["UsernameLabel"]" @bind-Value="Obj.Username" OnGenerateNewUsername="GenerateRandomUsername"></EditUsernameFormRow>
-                            </div>
-                            <div class="col-span-6">
-                                <EditPasswordFormRow Id="password" Label="@Localizer["PasswordLabel"]" @bind-Value="Obj.Password" ShowPassword="IsPasswordVisible"></EditPasswordFormRow>
-                            </div>
-                        }
+                        </div>
                     </div>
-                </div>
+                }
 
-                <div class="col-span-1 md:col-span-1 lg:col-span-2">
-                    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
-                        <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["AliasSectionHeader"]</h3>
-                        <div class="mb-4">
-                            <Button OnClick="HandleGenerateOrClearAlias" Color="@(HasAliasValues() ? "secondary" : "primary")" AdditionalClasses="@GetToggleButtonClasses()">
-                                <svg class='w-5 h-5 inline-block' viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                    @if (HasAliasValues())
-                                    {
-                                        <path d="M18 6L6 18M6 6l12 12"/>
-                                    }
-                                    else
-                                    {
-                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                                        <circle cx="8" cy="8" r="1"/>
-                                        <circle cx="16" cy="8" r="1"/>
-                                        <circle cx="12" cy="12" r="1"/>
-                                        <circle cx="8" cy="16" r="1"/>
-                                        <circle cx="16" cy="16" r="1"/>
-                                    }
-                                </svg>
-                                @(HasAliasValues() ? Localizer["ClearAliasFieldsButton"] : Localizer["GenerateRandomAliasButton"])
-                            </Button>
-                        </div>
-                        <div class="grid gap-6">
-                            <div class="col-span-6 sm:col-span-3">
-                                <EditFormRow Id="first-name" Label="@Localizer["FirstNameLabel"]" @bind-Value="Obj.AliasFirstName"></EditFormRow>
+                @* Alias Identity Section - For Alias type *@
+                @if (Obj.ItemType == ItemTypes.Alias)
+                {
+                    <div class="col-span-1 md:col-span-1 lg:col-span-2">
+                        <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+                            <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["AliasSectionHeader"]</h3>
+                            <div class="mb-4">
+                                <Button OnClick="HandleGenerateOrClearAlias" Color="@(HasAliasValues() ? "secondary" : "primary")" AdditionalClasses="@GetToggleButtonClasses()">
+                                    <svg class='w-5 h-5 inline-block' viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                        @if (HasAliasValues())
+                                        {
+                                            <path d="M18 6L6 18M6 6l12 12"/>
+                                        }
+                                        else
+                                        {
+                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                            <circle cx="8" cy="8" r="1"/>
+                                            <circle cx="16" cy="8" r="1"/>
+                                            <circle cx="12" cy="12" r="1"/>
+                                            <circle cx="8" cy="16" r="1"/>
+                                            <circle cx="16" cy="16" r="1"/>
+                                        }
+                                    </svg>
+                                    @(HasAliasValues() ? Localizer["ClearAliasFieldsButton"] : Localizer["GenerateRandomAliasButton"])
+                                </Button>
                             </div>
-                            <div class="col-span-6 sm:col-span-3">
-                                <EditFormRow Id="last-name" Label="@Localizer["LastNameLabel"]" @bind-Value="Obj.AliasLastName"></EditFormRow>
-                            </div>
-                            <div class="col-span-6 sm:col-span-3">
-                                <EditFormRow Id="nickname" Label="@Localizer["NickNameLabel"]" @bind-Value="Obj.Username"></EditFormRow>
-                            </div>
-                            <div class="col-span-6 sm:col-span-3">
-                                <EditFormRow Id="gender" Label="@Localizer["GenderLabel"]" @bind-Value="Obj.AliasGender"></EditFormRow>
-                            </div>
-                            <div class="col-span-6 sm:col-span-3">
-                                <EditFormRow Id="birthdate" Label="@Localizer["BirthDateLabel"]" @bind-Value="Obj.AliasBirthDate"></EditFormRow>
-                                <ValidationMessage For="() => Obj.AliasBirthDate"/>
+                            <div class="grid gap-6">
+                                <div class="col-span-6 sm:col-span-3">
+                                    <EditFormRow Id="first-name" Label="@Localizer["FirstNameLabel"]" @bind-Value="Obj.AliasFirstName"></EditFormRow>
+                                </div>
+                                <div class="col-span-6 sm:col-span-3">
+                                    <EditFormRow Id="last-name" Label="@Localizer["LastNameLabel"]" @bind-Value="Obj.AliasLastName"></EditFormRow>
+                                </div>
+                                <div class="col-span-6 sm:col-span-3">
+                                    <EditFormRow Id="nickname" Label="@Localizer["NickNameLabel"]" @bind-Value="Obj.Username"></EditFormRow>
+                                </div>
+                                <div class="col-span-6 sm:col-span-3">
+                                    <EditFormRow Id="gender" Label="@Localizer["GenderLabel"]" @bind-Value="Obj.AliasGender"></EditFormRow>
+                                </div>
+                                <div class="col-span-6 sm:col-span-3">
+                                    <EditFormRow Id="birthdate" Label="@Localizer["BirthDateLabel"]" @bind-Value="Obj.AliasBirthDate"></EditFormRow>
+                                    <ValidationMessage For="() => Obj.AliasBirthDate"/>
+                                </div>
                             </div>
                         </div>
                     </div>
+                }
+
+                @* Credit Card Section - For CreditCard type *@
+                @if (Obj.ItemType == ItemTypes.CreditCard)
+                {
+                    <div class="col-span-1 md:col-span-1 lg:col-span-2">
+                        <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+                            <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["CardDetailsSectionHeader"]</h3>
+                            <div class="grid gap-6">
+                                <div class="col-span-6">
+                                    <EditFormRow Id="cardholder-name" Label="@Localizer["CardholderNameLabel"]" @bind-Value="Obj.CardCardholderName"></EditFormRow>
+                                </div>
+                                <div class="col-span-6">
+                                    <EditPasswordFormRow Id="card-number" Label="@Localizer["CardNumberLabel"]" @bind-Value="Obj.CardNumber" ShowPassword="false"></EditPasswordFormRow>
+                                </div>
+                                <div class="col-span-3">
+                                    <EditFormRow Id="expiry-month" Label="@Localizer["ExpiryMonthLabel"]" Placeholder="MM" @bind-Value="Obj.CardExpiryMonth"></EditFormRow>
+                                </div>
+                                <div class="col-span-3">
+                                    <EditFormRow Id="expiry-year" Label="@Localizer["ExpiryYearLabel"]" Placeholder="YYYY" @bind-Value="Obj.CardExpiryYear"></EditFormRow>
+                                </div>
+                                <div class="col-span-6 sm:col-span-3">
+                                    <EditPasswordFormRow Id="card-cvv" Label="@Localizer["CardCvvLabel"]" @bind-Value="Obj.CardCvv" ShowPassword="false"></EditPasswordFormRow>
+                                </div>
+                                @if (ShouldShowField(FieldKey.CardPin))
+                                {
+                                    <div class="col-span-6 sm:col-span-3 relative">
+                                        <EditPasswordFormRow Id="card-pin" Label="@Localizer["CardPinLabel"]" @bind-Value="Obj.CardPin" ShowPassword="false"></EditPasswordFormRow>
+                                        @if (CanRemoveField(FieldKey.CardPin))
+                                        {
+                                            <button type="button" @onclick="() => RemoveOptionalField(FieldKey.CardPin)" @onclick:preventDefault="true"
+                                                    class="absolute top-0 right-0 text-gray-400 hover:text-red-500 transition-colors" title="@Localizer["RemoveField"]">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @* Custom Fields Section *@
+                @if (Obj.CustomFields.Any())
+                {
+                    <div class="col-span-1 md:col-span-1 lg:col-span-2">
+                        <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+                            <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["CustomFieldsSectionHeader"]</h3>
+                            <div class="grid gap-6">
+                                @foreach (var customField in Obj.CustomFields)
+                                {
+                                    <div class="col-span-6 relative">
+                                        @if (customField.FieldType == "TextArea")
+                                        {
+                                            <EditFormRow Type="textarea" Id="@($"custom-{customField.TempId ?? customField.Id.ToString()}")" Label="@customField.Label" @bind-Value="customField.Value"></EditFormRow>
+                                        }
+                                        else if (customField.IsHidden || customField.FieldType == "Hidden" || customField.FieldType == "Password")
+                                        {
+                                            <EditPasswordFormRow Id="@($"custom-{customField.TempId ?? customField.Id.ToString()}")" Label="@customField.Label" @bind-Value="customField.Value" ShowPassword="false"></EditPasswordFormRow>
+                                        }
+                                        else
+                                        {
+                                            <EditFormRow Id="@($"custom-{customField.TempId ?? customField.Id.ToString()}")" Label="@customField.Label" @bind-Value="customField.Value"></EditFormRow>
+                                        }
+                                        <button type="button" @onclick="() => RemoveCustomField(customField)" @onclick:preventDefault="true"
+                                                class="absolute top-0 right-0 text-gray-400 hover:text-red-500 transition-colors" title="@Localizer["RemoveField"]">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @* Add Field Menu *@
+                <div class="col-span-1 md:col-span-1 lg:col-span-2 mb-4">
+                    <AddFieldMenu
+                        OptionalSystemFields="@GetOptionalSystemFields()"
+                        VisibleFieldKeys="@GetVisibleFieldKeys()"
+                        Show2FA="@Show2FA"
+                        ShowAttachments="@ShowAttachments"
+                        HasLoginFields="@HasLoginFields()"
+                        OnAddSystemField="AddOptionalField"
+                        OnAddCustomField="AddCustomField"
+                        OnAdd2FA="() => Show2FA = true"
+                        OnAddAttachments="() => ShowAttachments = true" />
                 </div>
             </div>
         </div>
@@ -246,8 +399,21 @@ else
     private bool Loading { get; set; } = true;
     private bool IsPasswordVisible { get; set; } = false;
     private bool PasskeyMarkedForDeletion { get; set; } = false;
+    private bool ShowTypeDropdown { get; set; } = false;
+    private bool Show2FA { get; set; } = false;
+    private bool ShowAttachments { get; set; } = false;
     private ItemEdit Obj { get; set; } = new();
     private IJSObjectReference? Module;
+
+    /// <summary>
+    /// Fields that were manually added via the + menu.
+    /// </summary>
+    private HashSet<string> ManuallyAddedFields { get; set; } = [];
+
+    /// <summary>
+    /// Fields that initially had values when loaded (for edit mode).
+    /// </summary>
+    private HashSet<string> InitiallyVisibleFields { get; set; } = [];
 
     // Track last generated values to protect manual entries
     private string? LastGeneratedUsername { get; set; }
@@ -269,12 +435,10 @@ else
     {
         if (Id.HasValue)
         {
-            // Edit mode
             EditMode = true;
         }
         else
         {
-            // Add mode
             EditMode = false;
         }
     }
@@ -331,10 +495,200 @@ else
 
             if (!EditMode)
             {
-                // When creating a new alias: start with focus on the service name input.
                 await JsInteropService.FocusElementById("service-name");
             }
         }
+    }
+
+    /// <summary>
+    /// Gets the title for the name/service section based on item type.
+    /// </summary>
+    private string GetNameSectionTitle()
+    {
+        return Obj.ItemType switch
+        {
+            ItemTypes.CreditCard => Localizer["CardNameSectionHeader"],
+            ItemTypes.Note => Localizer["NoteTitleSectionHeader"],
+            _ => Localizer["ServiceSectionHeader"]
+        };
+    }
+
+    /// <summary>
+    /// Checks if the current item type has login-related fields.
+    /// </summary>
+    private bool HasLoginFields()
+    {
+        return Obj.ItemType == ItemTypes.Login || Obj.ItemType == ItemTypes.Alias;
+    }
+
+    /// <summary>
+    /// Determines if a field should be shown based on item type and visibility rules.
+    /// </summary>
+    private bool ShouldShowField(string fieldKey)
+    {
+        // Check if field applies to current item type
+        var fieldDef = SystemFieldRegistry.GetSystemField(fieldKey);
+        if (fieldDef == null || !SystemFieldRegistry.FieldAppliesToType(fieldDef, Obj.ItemType))
+        {
+            return false;
+        }
+
+        // Check if manually added
+        if (ManuallyAddedFields.Contains(fieldKey))
+        {
+            return true;
+        }
+
+        // Check if initially visible (edit mode)
+        if (InitiallyVisibleFields.Contains(fieldKey))
+        {
+            return true;
+        }
+
+        // Check if it has a value
+        if (Obj.HasFieldValue(fieldKey))
+        {
+            return true;
+        }
+
+        // Check if shown by default for this item type
+        var config = fieldDef.ApplicableToTypes.GetValueOrDefault(Obj.ItemType);
+        return config?.ShowByDefault ?? false;
+    }
+
+    /// <summary>
+    /// Determines if a field can be removed (was manually added).
+    /// </summary>
+    private bool CanRemoveField(string fieldKey)
+    {
+        // A field can be removed if it was manually added via the + menu
+        return ManuallyAddedFields.Contains(fieldKey);
+    }
+
+    /// <summary>
+    /// Gets the optional system fields for the current item type.
+    /// </summary>
+    private IEnumerable<SystemFieldDefinition> GetOptionalSystemFields()
+    {
+        return SystemFieldRegistry.GetOptionalFieldsForItemType(Obj.ItemType);
+    }
+
+    /// <summary>
+    /// Gets the currently visible field keys.
+    /// </summary>
+    private HashSet<string> GetVisibleFieldKeys()
+    {
+        var keys = new HashSet<string>();
+
+        foreach (var field in SystemFieldRegistry.GetFieldsForItemType(Obj.ItemType))
+        {
+            if (ShouldShowField(field.FieldKey))
+            {
+                keys.Add(field.FieldKey);
+            }
+        }
+
+        return keys;
+    }
+
+    /// <summary>
+    /// Adds an optional field.
+    /// </summary>
+    private void AddOptionalField(string fieldKey)
+    {
+        ManuallyAddedFields.Add(fieldKey);
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Removes an optional field.
+    /// </summary>
+    private void RemoveOptionalField(string fieldKey)
+    {
+        ManuallyAddedFields.Remove(fieldKey);
+        Obj.SetFieldValue(fieldKey, string.Empty);
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Adds a custom field.
+    /// </summary>
+    private void AddCustomField((string Label, string FieldType) args)
+    {
+        var tempId = $"custom_{Guid.NewGuid()}";
+        Obj.CustomFields.Add(new CustomFieldEdit
+        {
+            TempId = tempId,
+            Label = args.Label,
+            FieldType = args.FieldType,
+            IsHidden = args.FieldType == "Hidden" || args.FieldType == "Password",
+            Value = string.Empty
+        });
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Removes a custom field.
+    /// </summary>
+    private void RemoveCustomField(CustomFieldEdit field)
+    {
+        Obj.CustomFields.Remove(field);
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Handles item type change.
+    /// </summary>
+    private async Task HandleItemTypeChange(string newType)
+    {
+        if (Obj.ItemType == newType)
+        {
+            return;
+        }
+
+        var oldType = Obj.ItemType;
+        Obj.ItemType = newType;
+
+        // Clear fields that don't apply to the new type
+        if (oldType == ItemTypes.Alias && newType != ItemTypes.Alias)
+        {
+            // Clear alias fields when switching away from Alias
+            Obj.AliasFirstName = string.Empty;
+            Obj.AliasLastName = string.Empty;
+            Obj.AliasGender = string.Empty;
+            Obj.AliasBirthDate = string.Empty;
+        }
+
+        if (oldType == ItemTypes.CreditCard && newType != ItemTypes.CreditCard)
+        {
+            // Clear card fields when switching away from CreditCard
+            Obj.CardNumber = string.Empty;
+            Obj.CardCardholderName = string.Empty;
+            Obj.CardExpiryMonth = string.Empty;
+            Obj.CardExpiryYear = string.Empty;
+            Obj.CardCvv = string.Empty;
+            Obj.CardPin = string.Empty;
+        }
+
+        // Clear manually added fields that don't apply to new type
+        var fieldsToRemove = ManuallyAddedFields
+            .Where(fk => {
+                var def = SystemFieldRegistry.GetSystemField(fk);
+                return def != null && !SystemFieldRegistry.FieldAppliesToType(def, newType);
+            })
+            .ToList();
+        foreach (var fk in fieldsToRemove)
+        {
+            ManuallyAddedFields.Remove(fk);
+        }
+
+        // Generate alias for Alias type in create mode
+        if (newType == ItemTypes.Alias && !EditMode && !HasAliasValues())
+        {
+            await GenerateRandomAlias();
+        }
+
+        StateHasChanged();
     }
 
     /// <summary>
@@ -348,7 +702,6 @@ else
             return;
         }
 
-        // Load existing Obj, retrieve from service
         var item = await ItemService.LoadEntryAsync(Id.Value);
         if (item is null)
         {
@@ -357,6 +710,19 @@ else
         }
 
         Obj = ItemEdit.FromEntity(item);
+
+        // Track initially visible fields
+        foreach (var fieldDef in SystemFieldRegistry.GetFieldsForItemType(Obj.ItemType))
+        {
+            if (Obj.HasFieldValue(fieldDef.FieldKey))
+            {
+                InitiallyVisibleFields.Add(fieldDef.FieldKey);
+            }
+        }
+
+        // Show sections that have content
+        Show2FA = Obj.TotpCodes.Any();
+        ShowAttachments = Obj.Attachments.Any();
 
         if (Obj.ServiceUrl is null)
         {
@@ -404,7 +770,7 @@ else
     }
 
     /// <summary>
-    /// When the URL input is focused, place cursor at the end of the default URL to allow for easy typing.
+    /// When the URL input is focused, place cursor at the end of the default URL.
     /// </summary>
     private void OnFocusUrlInput(FocusEventArgs e)
     {
@@ -413,7 +779,6 @@ else
             return;
         }
 
-        // Use a small delay to ensure the focus is set after the browser's default behavior.
         Task.Delay(1).ContinueWith(_ =>
         {
             JSRuntime.InvokeVoidAsync("eval", $"document.getElementById('service-url').setSelectionRange({ItemService.DefaultServiceUrl.Length}, {ItemService.DefaultServiceUrl.Length})");
@@ -474,34 +839,28 @@ else
 
     private async Task GenerateRandomAlias()
     {
-        // Store current values BEFORE generating, as the service might modify them
         string currentUsername = Obj.Username ?? string.Empty;
         string currentPassword = Obj.Password ?? string.Empty;
         string currentEmail = Obj.Email ?? string.Empty;
 
-        // Generate random identity
         var generatedItem = await ItemService.GenerateRandomIdentityAsync(Obj.ToEntity());
         var generatedObj = ItemEdit.FromEntity(generatedItem);
 
-        // Restore the original values to prevent service calls above from modifying them
         Obj.Username = currentUsername;
         Obj.Password = currentPassword;
         Obj.Email = currentEmail;
 
-        // Apply generated values, respecting manual entries
         Obj.AliasFirstName = generatedObj.AliasFirstName;
         Obj.AliasLastName = generatedObj.AliasLastName;
         Obj.AliasGender = generatedObj.AliasGender;
         Obj.AliasBirthDate = generatedObj.AliasBirthDate;
 
-        // Only overwrite username if it's empty or matches the last generated value
         if (string.IsNullOrWhiteSpace(currentUsername) || currentUsername == LastGeneratedUsername)
         {
             Obj.Username = generatedObj.Username;
             LastGeneratedUsername = generatedObj.Username;
         }
 
-        // Only overwrite password if it's empty or matches the last generated value
         if (string.IsNullOrWhiteSpace(currentPassword) || currentPassword == LastGeneratedPassword)
         {
             Obj.Password = generatedObj.Password;
@@ -509,7 +868,6 @@ else
             IsPasswordVisible = true;
         }
 
-        // Only overwrite email if it's empty or (for new credentials) matches the last generated value or starts with @ which is the default email pattern
         if (string.IsNullOrWhiteSpace(currentEmail) || currentEmail == LastGeneratedEmail || currentEmail.StartsWith("@"))
         {
             Obj.Email = generatedObj.Email;
@@ -520,16 +878,13 @@ else
     }
 
     /// <summary>
-    /// Generate a new random username based on existing identity, or if no identity is present,
-    /// generate a new random identity.
+    /// Generate a new random username.
     /// </summary>
     private async Task GenerateRandomUsername()
     {
-        // If current object is null, then we create a new random identity.
         AliasVaultIdentity identity;
         if (string.IsNullOrWhiteSpace(Obj.AliasFirstName) && string.IsNullOrWhiteSpace(Obj.AliasLastName) && string.IsNullOrWhiteSpace(Obj.AliasBirthDate))
         {
-            // Create new Item object to avoid modifying the original object
             var randomIdentity = await ItemService.GenerateRandomIdentityAsync(CreateNewItemObject());
             var randomIdentityEdit = ItemEdit.FromEntity(randomIdentity);
 
@@ -544,7 +899,6 @@ else
         }
         else
         {
-            // Assemble identity model with the current values
             identity = new AliasVaultIdentity
             {
                 FirstName = Obj.AliasFirstName ?? string.Empty,
@@ -559,7 +913,7 @@ else
     }
 
     /// <summary>
-    /// Cancel the edit operation and navigate back to the credentials view.
+    /// Cancel the edit operation.
     /// </summary>
     private void Cancel()
     {
@@ -633,12 +987,10 @@ else
 
         if (Id is null || Id == Guid.Empty)
         {
-            // Error saving.
             GlobalNotificationService.AddErrorMessage(Localizer["ErrorSavingItem"], true);
             return;
         }
 
-        // No error, add success message.
         if (EditMode)
         {
             GlobalNotificationService.AddSuccessMessage(Localizer["ItemUpdatedSuccess"]);

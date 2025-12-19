@@ -176,13 +176,30 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
         item.CreatedAt = currentDateTime;
         item.UpdatedAt = currentDateTime;
 
-        // Set timestamps on all field values
+        // Set timestamps on all field values and their FieldDefinitions
         foreach (var fv in item.FieldValues)
         {
             fv.Id = Guid.NewGuid();
             fv.ItemId = item.Id;
             fv.CreatedAt = currentDateTime;
             fv.UpdatedAt = currentDateTime;
+
+            // If this field value has a new FieldDefinition (custom field), ensure its timestamps are set
+            if (fv.FieldDefinition != null)
+            {
+                if (fv.FieldDefinition.CreatedAt == default)
+                {
+                    fv.FieldDefinition.CreatedAt = currentDateTime;
+                }
+
+                if (fv.FieldDefinition.UpdatedAt == default)
+                {
+                    fv.FieldDefinition.UpdatedAt = currentDateTime;
+                }
+
+                // Add the FieldDefinition explicitly to ensure it's tracked
+                context.FieldDefinitions.Add(fv.FieldDefinition);
+            }
         }
 
         // Set timestamps on attachments
@@ -574,50 +591,108 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
         // Get existing field values
         var existingFields = existingItem.FieldValues.Where(fv => !fv.IsDeleted).ToList();
 
-        // Track which fields we've processed
+        // Track which fields we've processed (by FieldKey for system fields, by FieldDefinitionId for custom fields)
         var processedFieldKeys = new HashSet<string>();
+        var processedFieldDefinitionIds = new HashSet<Guid>();
 
         // Process new field values
         foreach (var newField in newItem.FieldValues.Where(fv => !fv.IsDeleted))
         {
-            var fieldKey = newField.FieldKey;
-            if (fieldKey == null)
+            // Handle system fields (those with FieldKey)
+            if (newField.FieldKey != null)
             {
-                continue;
-            }
+                processedFieldKeys.Add(newField.FieldKey);
 
-            processedFieldKeys.Add(fieldKey);
-
-            var existingField = existingFields.FirstOrDefault(fv => fv.FieldKey == fieldKey);
-            if (existingField != null)
-            {
-                // Update existing field
-                if (existingField.Value != newField.Value)
+                var existingField = existingFields.FirstOrDefault(fv => fv.FieldKey == newField.FieldKey);
+                if (existingField != null)
                 {
-                    existingField.Value = newField.Value;
-                    existingField.UpdatedAt = updateDateTime;
+                    // Update existing field
+                    if (existingField.Value != newField.Value)
+                    {
+                        existingField.Value = newField.Value;
+                        existingField.UpdatedAt = updateDateTime;
+                    }
+                }
+                else
+                {
+                    // Add new field
+                    existingItem.FieldValues.Add(new FieldValue
+                    {
+                        Id = Guid.NewGuid(),
+                        ItemId = existingItem.Id,
+                        FieldKey = newField.FieldKey,
+                        Value = newField.Value,
+                        Weight = newField.Weight,
+                        CreatedAt = updateDateTime,
+                        UpdatedAt = updateDateTime,
+                    });
                 }
             }
-            else
+            else if (newField.FieldDefinitionId != null)
             {
-                // Add new field
-                existingItem.FieldValues.Add(new FieldValue
+                // Handle custom fields (those with FieldDefinitionId)
+                processedFieldDefinitionIds.Add(newField.FieldDefinitionId.Value);
+
+                var existingField = existingFields.FirstOrDefault(fv => fv.FieldDefinitionId == newField.FieldDefinitionId);
+                if (existingField != null)
                 {
-                    Id = Guid.NewGuid(),
-                    ItemId = existingItem.Id,
-                    FieldKey = fieldKey,
-                    Value = newField.Value,
-                    Weight = newField.Weight,
-                    CreatedAt = updateDateTime,
-                    UpdatedAt = updateDateTime,
-                });
+                    // Update existing field
+                    if (existingField.Value != newField.Value)
+                    {
+                        existingField.Value = newField.Value;
+                        existingField.UpdatedAt = updateDateTime;
+                    }
+                }
+                else
+                {
+                    // Add new custom field - must also add FieldDefinition if it's new
+                    if (newField.FieldDefinition != null)
+                    {
+                        // Ensure timestamps are set on the FieldDefinition
+                        if (newField.FieldDefinition.CreatedAt == default)
+                        {
+                            newField.FieldDefinition.CreatedAt = updateDateTime;
+                        }
+
+                        if (newField.FieldDefinition.UpdatedAt == default)
+                        {
+                            newField.FieldDefinition.UpdatedAt = updateDateTime;
+                        }
+
+                        // Add the FieldDefinition to the context
+                        context.Set<FieldDefinition>().Add(newField.FieldDefinition);
+                    }
+
+                    existingItem.FieldValues.Add(new FieldValue
+                    {
+                        Id = Guid.NewGuid(),
+                        ItemId = existingItem.Id,
+                        FieldKey = null,
+                        FieldDefinitionId = newField.FieldDefinitionId,
+                        FieldDefinition = newField.FieldDefinition,
+                        Value = newField.Value,
+                        Weight = newField.Weight,
+                        CreatedAt = updateDateTime,
+                        UpdatedAt = updateDateTime,
+                    });
+                }
             }
         }
 
-        // Soft-delete removed fields
-        foreach (var existingField in existingFields)
+        // Soft-delete removed system fields
+        foreach (var existingField in existingFields.Where(f => f.FieldKey != null))
         {
-            if (existingField.FieldKey != null && !processedFieldKeys.Contains(existingField.FieldKey))
+            if (!processedFieldKeys.Contains(existingField.FieldKey!))
+            {
+                existingField.IsDeleted = true;
+                existingField.UpdatedAt = updateDateTime;
+            }
+        }
+
+        // Soft-delete removed custom fields
+        foreach (var existingField in existingFields.Where(f => f.FieldDefinitionId != null))
+        {
+            if (!processedFieldDefinitionIds.Contains(existingField.FieldDefinitionId!.Value))
             {
                 existingField.IsDeleted = true;
                 existingField.UpdatedAt = updateDateTime;
