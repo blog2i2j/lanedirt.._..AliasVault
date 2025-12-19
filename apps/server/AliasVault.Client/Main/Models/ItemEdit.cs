@@ -56,6 +56,11 @@ public sealed class ItemEdit
     public byte[]? ServiceLogo { get; set; }
 
     /// <summary>
+    /// Gets or sets the folder ID.
+    /// </summary>
+    public Guid? FolderId { get; set; }
+
+    /// <summary>
     /// Gets or sets the username field.
     /// </summary>
     public string Username { get; set; } = string.Empty;
@@ -173,6 +178,7 @@ public sealed class ItemEdit
             ServiceUrl = ItemService.GetFieldValue(item, FieldKey.LoginUrl),
             LogoId = item.LogoId,
             ServiceLogo = item.Logo?.FileData,
+            FolderId = item.FolderId,
             Username = ItemService.GetFieldValue(item, FieldKey.LoginUsername) ?? string.Empty,
             Password = ItemService.GetFieldValue(item, FieldKey.LoginPassword) ?? string.Empty,
             Email = ItemService.GetFieldValue(item, FieldKey.LoginEmail) ?? string.Empty,
@@ -223,6 +229,7 @@ public sealed class ItemEdit
             Name = ServiceName,
             ItemType = ItemType,
             LogoId = LogoId,
+            FolderId = FolderId,
             Attachments = Attachments,
             TotpCodes = TotpCodes,
         };

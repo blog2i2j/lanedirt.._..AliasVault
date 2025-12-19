@@ -1,6 +1,7 @@
 @page "/items/{id:guid}"
 @inherits MainBase
 @inject ItemService ItemService
+@inject FolderService FolderService
 @implements IAsyncDisposable
 @using Microsoft.Extensions.Localization
 @using AliasClientDb
@@ -62,6 +63,15 @@ else
                                     <span class="text-gray-700 break-all dark:text-gray-300">@url</span>
                                 }
                             </div>
+                        }
+                        @if (Folder != null)
+                        {
+                            <a href="/items/folder/@Folder.Id" class="inline-flex items-center gap-2 mt-2 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                                <svg class="w-4 h-4 text-orange-500" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/>
+                                </svg>
+                                <span>@Folder.Name</span>
+                            </a>
                         }
                     </div>
                 </div>
@@ -245,6 +255,7 @@ else
 
     private bool IsLoading { get; set; } = true;
     private Item? Item { get; set; } = new();
+    private Folder? Folder { get; set; }
     private Dictionary<FieldCategory, List<DisplayField>> GroupedFields { get; set; } = new();
     private List<string> UrlValues { get; set; } = new();
 
@@ -252,7 +263,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
-        BreadcrumbItems.Add(new BreadcrumbItem { DisplayName = Localizer["ViewItemBreadcrumb"] });
+        // Breadcrumb items are added dynamically in LoadEntryAsync after folder is loaded
     }
 
     /// <inheritdoc />
@@ -280,6 +291,21 @@ else
             NavigationManager.NavigateTo("/items", false, true);
             return;
         }
+
+        // Load the folder if the item is in one
+        Folder = null;
+        if (Item.FolderId.HasValue)
+        {
+            Folder = await FolderService.GetByIdAsync(Item.FolderId.Value);
+        }
+
+        // Add breadcrumb items - Home is already added by MainBase, add folder if present
+        if (Folder != null)
+        {
+            BreadcrumbItems.Add(new BreadcrumbItem { DisplayName = Folder.Name, Url = $"/items/folder/{Folder.Id}" });
+        }
+
+        BreadcrumbItems.Add(new BreadcrumbItem { DisplayName = Localizer["ViewItemBreadcrumb"] });
 
         // Group fields by category for display
         GroupedFields = FieldGrouper.GroupByCategory(Item);

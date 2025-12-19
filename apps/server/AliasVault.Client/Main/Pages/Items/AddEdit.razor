@@ -40,6 +40,9 @@ else
                     ShowDropdownChanged="@((show) => ShowTypeDropdown = show)"
                     OnRegenerateAlias="@GenerateRandomAlias" />
 
+                @* Folder Selector *@
+                <FolderSelector @bind-SelectedFolderId="Obj.FolderId" />
+
                 @* Service/Name Section - Always shown *@
                 <div class="p-4 mb-4 bg-white border-2 border-primary-600 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
                     <h3 class="mb-4 text-xl font-semibold dark:text-white">@GetNameSectionTitle()</h3>
