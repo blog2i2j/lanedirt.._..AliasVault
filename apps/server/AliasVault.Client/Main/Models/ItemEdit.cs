@@ -346,8 +346,8 @@ public sealed class ItemEdit
             }
             else
             {
-                // Existing custom field - update value
-                item.FieldValues.Add(new FieldValue
+                // Existing custom field - update value and include FieldDefinition with updated label
+                var fieldValue = new FieldValue
                 {
                     Id = customField.Id != Guid.Empty ? customField.Id : Guid.NewGuid(),
                     ItemId = item.Id,
@@ -355,7 +355,24 @@ public sealed class ItemEdit
                     FieldKey = null,
                     Value = customField.Value,
                     Weight = 0,
-                });
+                };
+
+                // Include FieldDefinition with potentially updated label for update logic
+                if (customField.FieldDefinitionId != Guid.Empty)
+                {
+                    fieldValue.FieldDefinition = new FieldDefinition
+                    {
+                        Id = customField.FieldDefinitionId,
+                        Label = customField.Label,
+                        FieldType = customField.FieldType,
+                        IsHidden = customField.IsHidden,
+                        IsMultiValue = false,
+                        EnableHistory = false,
+                        Weight = 0,
+                    };
+                }
+
+                item.FieldValues.Add(fieldValue);
             }
         }
 

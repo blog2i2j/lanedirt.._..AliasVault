@@ -308,6 +308,7 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
 
         var item = await context.Items
             .Include(x => x.FieldValues.Where(fv => !fv.IsDeleted))
+                .ThenInclude(fv => fv.FieldDefinition)
             .Include(x => x.Logo)
             .Include(x => x.Attachments.Where(a => !a.IsDeleted))
             .Include(x => x.TotpCodes.Where(t => !t.IsDeleted))
@@ -330,6 +331,7 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
 
         var items = await context.Items
             .Include(x => x.FieldValues.Where(fv => !fv.IsDeleted))
+                .ThenInclude(fv => fv.FieldDefinition)
             .Include(x => x.Logo)
             .Include(x => x.Attachments.Where(a => !a.IsDeleted))
             .Include(x => x.TotpCodes.Where(t => !t.IsDeleted))
@@ -656,12 +658,22 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
 
                 if (existingByFieldDefId.TryGetValue(newField.FieldDefinitionId.Value, out var existingField))
                 {
-                    // Update existing
+                    // Update existing field value
                     if (existingField.Value != newField.Value || existingField.Weight != newField.Weight)
                     {
                         existingField.Value = newField.Value;
                         existingField.Weight = newField.Weight;
                         existingField.UpdatedAt = updateDateTime;
+                    }
+
+                    // Also update the FieldDefinition label if it has changed
+                    if (newField.FieldDefinition != null && existingField.FieldDefinition != null)
+                    {
+                        if (existingField.FieldDefinition.Label != newField.FieldDefinition.Label)
+                        {
+                            existingField.FieldDefinition.Label = newField.FieldDefinition.Label;
+                            existingField.FieldDefinition.UpdatedAt = updateDateTime;
+                        }
                     }
                 }
                 else

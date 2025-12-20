@@ -340,25 +340,28 @@ else
                             <div class="grid gap-6">
                                 @foreach (var customField in Obj.CustomFields)
                                 {
-                                    <div class="col-span-6 relative">
+                                    <div class="col-span-6">
+                                        <EditableFieldLabel
+                                            HtmlFor="@($"custom-{customField.TempId ?? customField.Id.ToString()}")"
+                                            Label="@customField.Label"
+                                            LabelChanged="@((newLabel) => UpdateCustomFieldLabel(customField, newLabel))"
+                                            OnDelete="@(() => RemoveCustomField(customField))" />
                                         @if (customField.FieldType == "TextArea")
                                         {
-                                            <EditFormRow Type="textarea" Id="@($"custom-{customField.TempId ?? customField.Id.ToString()}")" Label="@customField.Label" @bind-Value="customField.Value"></EditFormRow>
+                                            <div class="relative">
+                                                <textarea id="@($"custom-{customField.TempId ?? customField.Id.ToString()}")" style="height: 200px;" class="outline-0 shadow-sm bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" @bind="customField.Value"></textarea>
+                                            </div>
                                         }
                                         else if (customField.IsHidden || customField.FieldType == "Hidden" || customField.FieldType == "Password")
                                         {
-                                            <EditPasswordFormRow Id="@($"custom-{customField.TempId ?? customField.Id.ToString()}")" Label="@customField.Label" @bind-Value="customField.Value" ShowPassword="false"></EditPasswordFormRow>
+                                            <EditPasswordFormRow Id="@($"custom-{customField.TempId ?? customField.Id.ToString()}")" Label="" @bind-Value="customField.Value" ShowPassword="false"></EditPasswordFormRow>
                                         }
                                         else
                                         {
-                                            <EditFormRow Id="@($"custom-{customField.TempId ?? customField.Id.ToString()}")" Label="@customField.Label" @bind-Value="customField.Value"></EditFormRow>
+                                            <div class="relative">
+                                                <input type="text" id="@($"custom-{customField.TempId ?? customField.Id.ToString()}")" autocomplete="off" class="outline-0 shadow-sm bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" @bind="customField.Value" autocapitalize="off" autocorrect="off">
+                                            </div>
                                         }
-                                        <button type="button" @onclick="() => RemoveCustomField(customField)" @onclick:preventDefault="true"
-                                                class="absolute top-0 right-0 text-gray-400 hover:text-red-500 transition-colors" title="@Localizer["RemoveField"]">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                        </button>
                                     </div>
                                 }
                             </div>
@@ -633,6 +636,15 @@ else
     private void RemoveCustomField(CustomFieldEdit field)
     {
         Obj.CustomFields.Remove(field);
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Updates the label of a custom field.
+    /// </summary>
+    private void UpdateCustomFieldLabel(CustomFieldEdit field, string newLabel)
+    {
+        field.Label = newLabel;
         StateHasChanged();
     }
 
