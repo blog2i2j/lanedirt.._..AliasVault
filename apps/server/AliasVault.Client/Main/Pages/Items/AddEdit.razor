@@ -6,6 +6,7 @@
 @inject AliasVault.Client.Services.QuickCreateStateService QuickCreateStateService
 @using AliasVault.Client.Services.JsInterop.Models
 @using AliasVault.Client.Main.Components.Items
+@using AliasVault.Client.Main.Components.Forms
 @using Microsoft.Extensions.Localization
 @using AliasClientDb
 @using AliasClientDb.Models
@@ -65,7 +66,7 @@ else
                 @if (Show2FA && HasLoginFields())
                 {
                     <div class="col-span-1 md:col-span-1 lg:col-span-1">
-                        <TotpCodes TotpCodeList="@Obj.TotpCodes" TotpCodesChanged="HandleTotpCodesChanged" />
+                        <TotpCodes TotpCodeList="@Obj.TotpCodes" TotpCodesChanged="HandleTotpCodesChanged" CanRemove="@CanRemove2FASection()" OnRemove="Remove2FASection" />
                     </div>
                 }
 
@@ -73,22 +74,11 @@ else
                 @if (ShouldShowField(FieldKey.NotesContent))
                 {
                     <div class="col-span-1 md:col-span-1 lg:col-span-1">
-                        <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800 relative">
-                            <div class="grid gap-6">
-                                <div class="col-span-6 sm:col-span-3">
-                                    <EditFormRow Type="textarea" Id="notes" Label="@Localizer["NotesLabel"]" LabelStyle="EditFormRow.FormLabelStyle.Header" @bind-Value="Obj.Notes"></EditFormRow>
-                                </div>
+                        <RemovableSection CanRemove="@CanRemoveField(FieldKey.NotesContent)" OnRemove="() => RemoveOptionalField(FieldKey.NotesContent)">
+                            <div class="col-span-6 sm:col-span-3">
+                                <EditFormRow Type="textarea" Id="notes" Label="@Localizer["NotesLabel"]" LabelStyle="EditFormRow.FormLabelStyle.Header" @bind-Value="Obj.Notes"></EditFormRow>
                             </div>
-                            @if (CanRemoveField(FieldKey.NotesContent))
-                            {
-                                <button type="button" @onclick="() => RemoveOptionalField(FieldKey.NotesContent)" @onclick:preventDefault="true"
-                                        class="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition-colors" title="@Localizer["RemoveField"]">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            }
-                        </div>
+                        </RemovableSection>
                     </div>
                 }
 
@@ -96,16 +86,13 @@ else
                 @if (ShowAttachments)
                 {
                     <div class="col-span-1 md:col-span-1 lg:col-span-1">
-                        <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
-                            <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["AttachmentsSectionHeader"]</h3>
-                            <div class="grid gap-6">
-                                <div class="col-span-6 sm:col-span-3">
-                                    <AttachmentUploader
-                                        Attachments="@Obj.Attachments"
-                                        AttachmentsChanged="@HandleAttachmentsChanged" />
-                                </div>
+                        <RemovableSection Title="@Localizer["AttachmentsSectionHeader"]" CanRemove="@CanRemoveAttachmentsSection()" OnRemove="RemoveAttachmentsSection">
+                            <div class="col-span-6 sm:col-span-3">
+                                <AttachmentUploader
+                                    Attachments="@Obj.Attachments"
+                                    AttachmentsChanged="@HandleAttachmentsChanged" />
                             </div>
-                        </div>
+                        </RemovableSection>
                     </div>
                 }
             </div>
@@ -300,7 +287,7 @@ else
                                     <EditFormRow Id="cardholder-name" Label="@Localizer["CardholderNameLabel"]" @bind-Value="Obj.CardCardholderName"></EditFormRow>
                                 </div>
                                 <div class="col-span-6">
-                                    <EditPasswordFormRow Id="card-number" Label="@Localizer["CardNumberLabel"]" @bind-Value="Obj.CardNumber" ShowPassword="false"></EditPasswordFormRow>
+                                    <EditPasswordFormRow Id="card-number" Label="@Localizer["CardNumberLabel"]" @bind-Value="Obj.CardNumber" ShowPassword="false" ShowGenerateButtons="false"></EditPasswordFormRow>
                                 </div>
                                 <div class="col-span-3">
                                     <EditFormRow Id="expiry-month" Label="@Localizer["ExpiryMonthLabel"]" Placeholder="MM" @bind-Value="Obj.CardExpiryMonth"></EditFormRow>
@@ -309,7 +296,7 @@ else
                                     <EditFormRow Id="expiry-year" Label="@Localizer["ExpiryYearLabel"]" Placeholder="YYYY" @bind-Value="Obj.CardExpiryYear"></EditFormRow>
                                 </div>
                                 <div class="col-span-6 sm:col-span-3">
-                                    <EditPasswordFormRow Id="card-cvv" Label="@Localizer["CardCvvLabel"]" @bind-Value="Obj.CardCvv" ShowPassword="false"></EditPasswordFormRow>
+                                    <EditPasswordFormRow Id="card-cvv" Label="@Localizer["CardCvvLabel"]" @bind-Value="Obj.CardCvv" ShowPassword="false" ShowGenerateButtons="false"></EditPasswordFormRow>
                                 </div>
                                 @if (ShouldShowField(FieldKey.CardPin))
                                 {
@@ -379,8 +366,8 @@ else
                         HasLoginFields="@HasLoginFields()"
                         OnAddSystemField="AddOptionalField"
                         OnAddCustomField="AddCustomField"
-                        OnAdd2FA="() => Show2FA = true"
-                        OnAddAttachments="() => ShowAttachments = true" />
+                        OnAdd2FA="Add2FASection"
+                        OnAddAttachments="AddAttachmentsSection" />
                 </div>
             </div>
         </div>
@@ -405,6 +392,8 @@ else
     private bool ShowTypeDropdown { get; set; } = false;
     private bool Show2FA { get; set; } = false;
     private bool ShowAttachments { get; set; } = false;
+    private bool Show2FAAddedManually { get; set; } = false;
+    private bool ShowAttachmentsAddedManually { get; set; } = false;
     private ItemEdit Obj { get; set; } = new();
     private IJSObjectReference? Module;
 
@@ -560,12 +549,20 @@ else
     }
 
     /// <summary>
-    /// Determines if a field can be removed (was manually added).
+    /// Determines if a field can be removed (is an optional field).
     /// </summary>
     private bool CanRemoveField(string fieldKey)
     {
-        // A field can be removed if it was manually added via the + menu
-        return ManuallyAddedFields.Contains(fieldKey);
+        // A field can be removed if it's an optional field for the current item type
+        var fieldDef = SystemFieldRegistry.GetSystemField(fieldKey);
+        if (fieldDef == null)
+        {
+            return false;
+        }
+
+        // Check if it's an optional field (not shown by default)
+        var config = fieldDef.ApplicableToTypes.GetValueOrDefault(Obj.ItemType);
+        return config != null && !config.ShowByDefault;
     }
 
     /// <summary>
@@ -604,13 +601,126 @@ else
     }
 
     /// <summary>
-    /// Removes an optional field.
+    /// Removes an optional field (hides it and clears the value).
     /// </summary>
     private void RemoveOptionalField(string fieldKey)
     {
         ManuallyAddedFields.Remove(fieldKey);
+        InitiallyVisibleFields.Remove(fieldKey);
         Obj.SetFieldValue(fieldKey, string.Empty);
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// Adds the 2FA section.
+    /// </summary>
+    private void Add2FASection()
+    {
+        Show2FA = true;
+        Show2FAAddedManually = true;
+
+        // Restore any soft-deleted TOTP codes (undo previous removal)
+        foreach (var totpCode in Obj.TotpCodes)
+        {
+            if (totpCode.IsDeleted)
+            {
+                totpCode.IsDeleted = false;
+                totpCode.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Removes the 2FA section and marks existing TOTP codes for deletion.
+    /// </summary>
+    private void Remove2FASection()
+    {
+        Show2FA = false;
+        Show2FAAddedManually = false;
+
+        // Mark all TOTP codes for deletion (soft delete for existing, remove new ones)
+        foreach (var totpCode in Obj.TotpCodes.ToList())
+        {
+            if (totpCode.Id != Guid.Empty)
+            {
+                // Existing code - mark for soft delete
+                totpCode.IsDeleted = true;
+                totpCode.UpdatedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                // New code - just remove from list
+                Obj.TotpCodes.Remove(totpCode);
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Checks if the 2FA section can be removed (always true when visible).
+    /// </summary>
+    private bool CanRemove2FASection()
+    {
+        return true;
+    }
+
+    /// <summary>
+    /// Adds the attachments section.
+    /// </summary>
+    private void AddAttachmentsSection()
+    {
+        ShowAttachments = true;
+        ShowAttachmentsAddedManually = true;
+
+        // Restore any soft-deleted attachments (undo previous removal)
+        foreach (var attachment in Obj.Attachments)
+        {
+            if (attachment.IsDeleted)
+            {
+                attachment.IsDeleted = false;
+                attachment.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Removes the attachments section and marks existing attachments for deletion.
+    /// </summary>
+    private void RemoveAttachmentsSection()
+    {
+        ShowAttachments = false;
+        ShowAttachmentsAddedManually = false;
+
+        // Mark all attachments for deletion (soft delete for existing, remove new ones)
+        foreach (var attachment in Obj.Attachments.ToList())
+        {
+            if (attachment.Id != Guid.Empty)
+            {
+                // Existing attachment - mark for soft delete
+                attachment.IsDeleted = true;
+                attachment.UpdatedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                // New attachment - just remove from list
+                Obj.Attachments.Remove(attachment);
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Checks if the attachments section can be removed (always true when visible).
+    /// </summary>
+    private bool CanRemoveAttachmentsSection()
+    {
+        return true;
     }
 
     /// <summary>
@@ -652,6 +762,7 @@ else
 
     /// <summary>
     /// Handles item type change.
+    /// Clears field values that don't apply to the new item type.
     /// </summary>
     private async Task HandleItemTypeChange(string newType)
     {
@@ -663,25 +774,13 @@ else
         var oldType = Obj.ItemType;
         Obj.ItemType = newType;
 
-        // Clear fields that don't apply to the new type
-        if (oldType == ItemTypes.Alias && newType != ItemTypes.Alias)
+        // Clear all system fields that don't apply to the new type
+        foreach (var fieldDef in SystemFieldRegistry.Fields.Values)
         {
-            // Clear alias fields when switching away from Alias
-            Obj.AliasFirstName = string.Empty;
-            Obj.AliasLastName = string.Empty;
-            Obj.AliasGender = string.Empty;
-            Obj.AliasBirthDate = string.Empty;
-        }
-
-        if (oldType == ItemTypes.CreditCard && newType != ItemTypes.CreditCard)
-        {
-            // Clear card fields when switching away from CreditCard
-            Obj.CardNumber = string.Empty;
-            Obj.CardCardholderName = string.Empty;
-            Obj.CardExpiryMonth = string.Empty;
-            Obj.CardExpiryYear = string.Empty;
-            Obj.CardCvv = string.Empty;
-            Obj.CardPin = string.Empty;
+            if (!SystemFieldRegistry.FieldAppliesToType(fieldDef, newType))
+            {
+                Obj.SetFieldValue(fieldDef.FieldKey, string.Empty);
+            }
         }
 
         // Clear manually added fields that don't apply to new type
@@ -694,6 +793,18 @@ else
         foreach (var fk in fieldsToRemove)
         {
             ManuallyAddedFields.Remove(fk);
+        }
+
+        // Clear initially visible fields that don't apply to new type
+        var initialFieldsToRemove = InitiallyVisibleFields
+            .Where(fk => {
+                var def = SystemFieldRegistry.GetSystemField(fk);
+                return def != null && !SystemFieldRegistry.FieldAppliesToType(def, newType);
+            })
+            .ToList();
+        foreach (var fk in initialFieldsToRemove)
+        {
+            InitiallyVisibleFields.Remove(fk);
         }
 
         // Generate alias for Alias type in create mode

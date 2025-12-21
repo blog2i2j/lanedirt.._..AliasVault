@@ -30,7 +30,7 @@ import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
 import { SKIP_FORM_RESTORE_KEY } from '@/utils/Constants';
 import type { Item, ItemField, ItemType, FieldType, Attachment, TotpCode } from '@/utils/dist/core/models/vault';
-import { FieldCategories, FieldTypes, ItemTypes, getSystemFieldsForItemType, getOptionalFieldsForItemType, isFieldShownByDefault } from '@/utils/dist/core/models/vault';
+import { FieldCategories, FieldTypes, ItemTypes, getSystemFieldsForItemType, getOptionalFieldsForItemType, isFieldShownByDefault, getSystemField, fieldAppliesToType } from '@/utils/dist/core/models/vault';
 import { FaviconService } from '@/utils/FaviconService';
 
 import { browser } from '#imports';
@@ -758,25 +758,57 @@ const ItemAddEdit: React.FC = () => {
 
   /**
    * Handle item type change from dropdown.
+   * Clears field values that don't apply to the new item type.
    */
   const handleTypeChange = useCallback((newType: ItemType) => {
     if (!item) {
       return;
     }
 
-    // When switching FROM Alias type to another type, clear alias and login fields (except URL)
-    if (!isEditMode && item.ItemType === ItemTypes.Alias && newType !== ItemTypes.Alias) {
+    const oldType = item.ItemType;
+
+    // Clear field values that don't apply to the new type
+    if (!isEditMode && oldType !== newType) {
       setFieldValues(prev => {
         const newValues: Record<string, string | string[]> = {};
-        // Only preserve non-alias and non-login fields, plus login.url
         Object.entries(prev).forEach(([key, value]) => {
-          if (key === 'login.url') {
-            newValues[key] = value;
-          } else if (!key.startsWith('alias.') && !key.startsWith('login.')) {
+          // Check if this field applies to the new type
+          const systemField = getSystemField(key);
+          if (systemField) {
+            // Keep the field only if it applies to the new type
+            if (fieldAppliesToType(systemField, newType)) {
+              newValues[key] = value;
+            }
+          } else {
+            // Custom fields are always kept
             newValues[key] = value;
           }
         });
         return newValues;
+      });
+
+      // Clear manually added fields that don't apply to new type
+      setManuallyAddedFields(prev => {
+        const newSet = new Set<string>();
+        prev.forEach(fieldKey => {
+          const systemField = getSystemField(fieldKey);
+          if (!systemField || fieldAppliesToType(systemField, newType)) {
+            newSet.add(fieldKey);
+          }
+        });
+        return newSet;
+      });
+
+      // Clear initially visible fields that don't apply to new type
+      setInitiallyVisibleFields(prev => {
+        const newSet = new Set<string>();
+        prev.forEach(fieldKey => {
+          const systemField = getSystemField(fieldKey);
+          if (!systemField || fieldAppliesToType(systemField, newType)) {
+            newSet.add(fieldKey);
+          }
+        });
+        return newSet;
       });
     }
 
