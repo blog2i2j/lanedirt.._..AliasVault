@@ -10,16 +10,15 @@ namespace AliasVault.Client.Main.Models;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Globalization;
 using System.Linq;
 using AliasClientDb;
 using AliasClientDb.Models;
-using AliasVault.Client.Main.Models.FormValidation;
 using AliasVault.Client.Resources;
 using AliasVault.Client.Services;
 
 /// <summary>
 /// Item edit model for add/edit forms.
+/// Uses a dynamic fields-based approach for flexibility when adding new system fields.
 /// </summary>
 public sealed class ItemEdit
 {
@@ -41,11 +40,6 @@ public sealed class ItemEdit
     public string ServiceName { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the URL of the service.
-    /// </summary>
-    public string? ServiceUrl { get; set; }
-
-    /// <summary>
     /// Gets or sets the logo ID.
     /// </summary>
     public Guid? LogoId { get; set; }
@@ -61,77 +55,6 @@ public sealed class ItemEdit
     public Guid? FolderId { get; set; }
 
     /// <summary>
-    /// Gets or sets the username field.
-    /// </summary>
-    public string Username { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the password field.
-    /// </summary>
-    public string Password { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the email field.
-    /// </summary>
-    public string Email { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the notes field.
-    /// </summary>
-    public string Notes { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the Alias first name.
-    /// </summary>
-    public string AliasFirstName { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the Alias last name.
-    /// </summary>
-    public string AliasLastName { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the Alias gender.
-    /// </summary>
-    public string AliasGender { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the Alias BirthDate. Can be empty string or a date in yyyy-MM-dd format.
-    /// </summary>
-    [StringDateFormat("yyyy-MM-dd", AllowEmpty = true)]
-    public string AliasBirthDate { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the credit card number.
-    /// </summary>
-    public string CardNumber { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the credit card cardholder name.
-    /// </summary>
-    public string CardCardholderName { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the credit card expiry month.
-    /// </summary>
-    public string CardExpiryMonth { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the credit card expiry year.
-    /// </summary>
-    public string CardExpiryYear { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the credit card CVV.
-    /// </summary>
-    public string CardCvv { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the credit card PIN.
-    /// </summary>
-    public string CardPin { get; set; } = string.Empty;
-
-    /// <summary>
     /// Gets or sets the create date.
     /// </summary>
     public DateTime CreateDate { get; set; }
@@ -140,6 +63,11 @@ public sealed class ItemEdit
     /// Gets or sets the last update date.
     /// </summary>
     public DateTime LastUpdate { get; set; }
+
+    /// <summary>
+    /// Gets or sets the dynamic fields list (both system and custom fields).
+    /// </summary>
+    public List<SystemFieldEdit> Fields { get; set; } = [];
 
     /// <summary>
     /// Gets or sets the Attachment list.
@@ -157,42 +85,20 @@ public sealed class ItemEdit
     public List<Passkey> Passkeys { get; set; } = [];
 
     /// <summary>
-    /// Gets or sets the custom fields.
-    /// </summary>
-    public List<CustomFieldEdit> CustomFields { get; set; } = [];
-
-    /// <summary>
     /// Creates an ItemEdit instance from an Item entity.
     /// </summary>
     /// <param name="item">The item entity to convert.</param>
     /// <returns>A new ItemEdit instance.</returns>
     public static ItemEdit FromEntity(Item item)
     {
-        var birthDate = ItemService.GetFieldValue(item, FieldKey.AliasBirthdate);
-
         var edit = new ItemEdit
         {
             Id = item.Id,
             ItemType = item.ItemType,
             ServiceName = item.Name ?? string.Empty,
-            ServiceUrl = ItemService.GetFieldValue(item, FieldKey.LoginUrl),
             LogoId = item.LogoId,
             ServiceLogo = item.Logo?.FileData,
             FolderId = item.FolderId,
-            Username = ItemService.GetFieldValue(item, FieldKey.LoginUsername) ?? string.Empty,
-            Password = ItemService.GetFieldValue(item, FieldKey.LoginPassword) ?? string.Empty,
-            Email = ItemService.GetFieldValue(item, FieldKey.LoginEmail) ?? string.Empty,
-            Notes = ItemService.GetFieldValue(item, FieldKey.NotesContent) ?? string.Empty,
-            AliasFirstName = ItemService.GetFieldValue(item, FieldKey.AliasFirstName) ?? string.Empty,
-            AliasLastName = ItemService.GetFieldValue(item, FieldKey.AliasLastName) ?? string.Empty,
-            AliasGender = ItemService.GetFieldValue(item, FieldKey.AliasGender) ?? string.Empty,
-            AliasBirthDate = birthDate ?? string.Empty,
-            CardNumber = ItemService.GetFieldValue(item, FieldKey.CardNumber) ?? string.Empty,
-            CardCardholderName = ItemService.GetFieldValue(item, FieldKey.CardCardholderName) ?? string.Empty,
-            CardExpiryMonth = ItemService.GetFieldValue(item, FieldKey.CardExpiryMonth) ?? string.Empty,
-            CardExpiryYear = ItemService.GetFieldValue(item, FieldKey.CardExpiryYear) ?? string.Empty,
-            CardCvv = ItemService.GetFieldValue(item, FieldKey.CardCvv) ?? string.Empty,
-            CardPin = ItemService.GetFieldValue(item, FieldKey.CardPin) ?? string.Empty,
             Attachments = item.Attachments.Where(a => !a.IsDeleted).ToList(),
             TotpCodes = item.TotpCodes.Where(t => !t.IsDeleted).ToList(),
             Passkeys = item.Passkeys.Where(p => !p.IsDeleted).ToList(),
@@ -200,17 +106,34 @@ public sealed class ItemEdit
             LastUpdate = item.UpdatedAt,
         };
 
-        // Extract custom fields (non-system fields that have FieldDefinitionId set)
-        foreach (var fv in item.FieldValues.Where(f => !f.IsDeleted && f.FieldDefinitionId != null))
+        // Convert all field values to SystemFieldEdit
+        foreach (var fv in item.FieldValues.Where(f => !f.IsDeleted))
         {
-            edit.CustomFields.Add(new CustomFieldEdit
+            var isCustomField = fv.FieldDefinitionId != null && string.IsNullOrEmpty(fv.FieldKey);
+            var systemField = !string.IsNullOrEmpty(fv.FieldKey) ? SystemFieldRegistry.GetSystemField(fv.FieldKey) : null;
+
+            edit.Fields.Add(new SystemFieldEdit
             {
-                Id = fv.Id,
-                FieldDefinitionId = fv.FieldDefinitionId!.Value,
-                Label = fv.FieldDefinition?.Label ?? "Custom Field",
-                FieldType = fv.FieldDefinition?.FieldType ?? "Text",
+                FieldKey = fv.FieldKey ?? fv.FieldDefinitionId?.ToString() ?? string.Empty,
+                FieldValueId = fv.Id,
+                FieldDefinitionId = fv.FieldDefinitionId,
+                Label = isCustomField
+                    ? fv.FieldDefinition?.Label ?? "Custom Field"
+                    : fv.FieldKey ?? string.Empty,
+                FieldType = isCustomField
+                    ? fv.FieldDefinition?.FieldType ?? "Text"
+                    : systemField?.FieldType ?? "Text",
                 Value = fv.Value ?? string.Empty,
-                IsHidden = fv.FieldDefinition?.IsHidden ?? false,
+                IsCustomField = isCustomField,
+                IsHidden = isCustomField
+                    ? fv.FieldDefinition?.IsHidden ?? false
+                    : systemField?.IsHidden ?? false,
+                EnableHistory = isCustomField
+                    ? fv.FieldDefinition?.EnableHistory ?? false
+                    : systemField?.EnableHistory ?? false,
+                DisplayOrder = systemField?.DefaultDisplayOrder ?? fv.Weight,
+                Category = GetCategoryFromFieldKey(fv.FieldKey),
+                IsMultiValue = systemField?.IsMultiValue ?? false,
             });
         }
 
@@ -234,152 +157,77 @@ public sealed class ItemEdit
             TotpCodes = TotpCodes,
         };
 
-        // Add login fields
-        if (!string.IsNullOrEmpty(ServiceUrl))
+        // Convert all fields to FieldValue entities
+        foreach (var field in Fields.Where(f => !string.IsNullOrEmpty(f.Value)))
         {
-            ItemService.SetFieldValue(item, FieldKey.LoginUrl, ServiceUrl);
-        }
-
-        if (!string.IsNullOrEmpty(Username))
-        {
-            ItemService.SetFieldValue(item, FieldKey.LoginUsername, Username);
-        }
-
-        if (!string.IsNullOrEmpty(Password))
-        {
-            ItemService.SetFieldValue(item, FieldKey.LoginPassword, Password);
-        }
-
-        if (!string.IsNullOrEmpty(Email))
-        {
-            ItemService.SetFieldValue(item, FieldKey.LoginEmail, Email);
-        }
-
-        if (!string.IsNullOrEmpty(Notes))
-        {
-            ItemService.SetFieldValue(item, FieldKey.NotesContent, Notes);
-        }
-
-        // Add alias fields
-        if (!string.IsNullOrEmpty(AliasFirstName))
-        {
-            ItemService.SetFieldValue(item, FieldKey.AliasFirstName, AliasFirstName);
-        }
-
-        if (!string.IsNullOrEmpty(AliasLastName))
-        {
-            ItemService.SetFieldValue(item, FieldKey.AliasLastName, AliasLastName);
-        }
-
-        if (!string.IsNullOrEmpty(AliasGender))
-        {
-            ItemService.SetFieldValue(item, FieldKey.AliasGender, AliasGender);
-        }
-
-        if (!string.IsNullOrEmpty(AliasBirthDate))
-        {
-            ItemService.SetFieldValue(item, FieldKey.AliasBirthdate, AliasBirthDate);
-        }
-
-        // Add card fields
-        if (!string.IsNullOrEmpty(CardNumber))
-        {
-            ItemService.SetFieldValue(item, FieldKey.CardNumber, CardNumber);
-        }
-
-        if (!string.IsNullOrEmpty(CardCardholderName))
-        {
-            ItemService.SetFieldValue(item, FieldKey.CardCardholderName, CardCardholderName);
-        }
-
-        if (!string.IsNullOrEmpty(CardExpiryMonth))
-        {
-            ItemService.SetFieldValue(item, FieldKey.CardExpiryMonth, CardExpiryMonth);
-        }
-
-        if (!string.IsNullOrEmpty(CardExpiryYear))
-        {
-            ItemService.SetFieldValue(item, FieldKey.CardExpiryYear, CardExpiryYear);
-        }
-
-        if (!string.IsNullOrEmpty(CardCvv))
-        {
-            ItemService.SetFieldValue(item, FieldKey.CardCvv, CardCvv);
-        }
-
-        if (!string.IsNullOrEmpty(CardPin))
-        {
-            ItemService.SetFieldValue(item, FieldKey.CardPin, CardPin);
-        }
-
-        // Add custom fields
-        foreach (var customField in CustomFields.Where(cf => !string.IsNullOrEmpty(cf.Value)))
-        {
-            // For new custom fields (TempId set, FieldDefinitionId is empty), create a new FieldDefinition.
-            // The FieldDefinition.Id is a plain GUID - no prefix needed.
-            // Custom fields are identified by having FieldDefinitionId set (not FieldKey).
-            if (customField.FieldDefinitionId == Guid.Empty && !string.IsNullOrEmpty(customField.TempId))
+            if (field.IsCustomField)
             {
+                // Custom field handling
                 var now = DateTime.UtcNow;
 
-                // TempId is a plain GUID string
-                var fieldDefinitionId = Guid.TryParse(customField.TempId, out var parsedGuid)
-                    ? parsedGuid
-                    : Guid.NewGuid();
+                if (field.FieldDefinitionId == null || field.FieldDefinitionId == Guid.Empty)
+                {
+                    // New custom field - create FieldDefinition
+                    var fieldDefinitionId = !string.IsNullOrEmpty(field.TempId) && Guid.TryParse(field.TempId, out var parsedGuid)
+                        ? parsedGuid
+                        : Guid.NewGuid();
 
-                var fieldDefinition = new FieldDefinition
-                {
-                    Id = fieldDefinitionId,
-                    FieldType = customField.FieldType,
-                    Label = customField.Label,
-                    IsHidden = customField.IsHidden,
-                    IsMultiValue = false,
-                    EnableHistory = false,
-                    Weight = 0,
-                    CreatedAt = now,
-                    UpdatedAt = now,
-                };
+                    var fieldDefinition = new FieldDefinition
+                    {
+                        Id = fieldDefinitionId,
+                        FieldType = field.FieldType,
+                        Label = field.Label,
+                        IsHidden = field.IsHidden,
+                        IsMultiValue = false,
+                        EnableHistory = false,
+                        Weight = 0,
+                        CreatedAt = now,
+                        UpdatedAt = now,
+                    };
 
-                item.FieldValues.Add(new FieldValue
+                    item.FieldValues.Add(new FieldValue
+                    {
+                        Id = Guid.NewGuid(),
+                        ItemId = item.Id,
+                        FieldDefinitionId = fieldDefinitionId,
+                        FieldDefinition = fieldDefinition,
+                        FieldKey = null,
+                        Value = field.Value,
+                        Weight = 0,
+                    });
+                }
+                else
                 {
-                    Id = Guid.NewGuid(),
-                    ItemId = item.Id,
-                    FieldDefinitionId = fieldDefinitionId,
-                    FieldDefinition = fieldDefinition,
-                    FieldKey = null,
-                    Value = customField.Value,
-                    Weight = 0,
-                });
-            }
-            else
-            {
-                // Existing custom field - update value and include FieldDefinition with updated label
-                var fieldValue = new FieldValue
-                {
-                    Id = customField.Id != Guid.Empty ? customField.Id : Guid.NewGuid(),
-                    ItemId = item.Id,
-                    FieldDefinitionId = customField.FieldDefinitionId,
-                    FieldKey = null,
-                    Value = customField.Value,
-                    Weight = 0,
-                };
+                    // Existing custom field - update value and include FieldDefinition
+                    var fieldValue = new FieldValue
+                    {
+                        Id = field.FieldValueId != Guid.Empty ? field.FieldValueId : Guid.NewGuid(),
+                        ItemId = item.Id,
+                        FieldDefinitionId = field.FieldDefinitionId,
+                        FieldKey = null,
+                        Value = field.Value,
+                        Weight = 0,
+                    };
 
-                // Include FieldDefinition with potentially updated label for update logic
-                if (customField.FieldDefinitionId != Guid.Empty)
-                {
+                    // Include FieldDefinition with potentially updated label
                     fieldValue.FieldDefinition = new FieldDefinition
                     {
-                        Id = customField.FieldDefinitionId,
-                        Label = customField.Label,
-                        FieldType = customField.FieldType,
-                        IsHidden = customField.IsHidden,
+                        Id = field.FieldDefinitionId.Value,
+                        Label = field.Label,
+                        FieldType = field.FieldType,
+                        IsHidden = field.IsHidden,
                         IsMultiValue = false,
                         EnableHistory = false,
                         Weight = 0,
                     };
-                }
 
-                item.FieldValues.Add(fieldValue);
+                    item.FieldValues.Add(fieldValue);
+                }
+            }
+            else
+            {
+                // System field
+                ItemService.SetFieldValue(item, field.FieldKey, field.Value);
             }
         }
 
@@ -387,87 +235,86 @@ public sealed class ItemEdit
     }
 
     /// <summary>
-    /// Gets the value of a system field by its field key.
+    /// Gets the value of a field by its field key.
     /// </summary>
     /// <param name="fieldKey">The field key.</param>
     /// <returns>The field value or empty string.</returns>
     public string GetFieldValue(string fieldKey)
     {
-        return fieldKey switch
-        {
-            FieldKey.LoginUrl => ServiceUrl ?? string.Empty,
-            FieldKey.LoginUsername => Username,
-            FieldKey.LoginPassword => Password,
-            FieldKey.LoginEmail => Email,
-            FieldKey.NotesContent => Notes,
-            FieldKey.AliasFirstName => AliasFirstName,
-            FieldKey.AliasLastName => AliasLastName,
-            FieldKey.AliasGender => AliasGender,
-            FieldKey.AliasBirthdate => AliasBirthDate,
-            FieldKey.CardNumber => CardNumber,
-            FieldKey.CardCardholderName => CardCardholderName,
-            FieldKey.CardExpiryMonth => CardExpiryMonth,
-            FieldKey.CardExpiryYear => CardExpiryYear,
-            FieldKey.CardCvv => CardCvv,
-            FieldKey.CardPin => CardPin,
-            _ => string.Empty,
-        };
+        return Fields.FirstOrDefault(f => f.FieldKey == fieldKey)?.Value ?? string.Empty;
     }
 
     /// <summary>
-    /// Sets the value of a system field by its field key.
+    /// Gets a field by its field key.
+    /// If the field doesn't exist, creates it based on the system field definition.
+    /// </summary>
+    /// <param name="fieldKey">The field key.</param>
+    /// <returns>The field or null if not a valid system field.</returns>
+    public SystemFieldEdit? GetField(string fieldKey)
+    {
+        var field = Fields.FirstOrDefault(f => f.FieldKey == fieldKey);
+        if (field != null)
+        {
+            return field;
+        }
+
+        // Field doesn't exist - create it if it's a valid system field
+        var systemField = SystemFieldRegistry.GetSystemField(fieldKey);
+        if (systemField == null)
+        {
+            return null;
+        }
+
+        field = new SystemFieldEdit
+        {
+            FieldKey = fieldKey,
+            Label = fieldKey,
+            FieldType = systemField.FieldType,
+            Value = string.Empty,
+            IsCustomField = false,
+            IsHidden = systemField.IsHidden,
+            EnableHistory = systemField.EnableHistory,
+            DisplayOrder = systemField.DefaultDisplayOrder,
+            Category = systemField.Category,
+            IsMultiValue = systemField.IsMultiValue,
+        };
+        Fields.Add(field);
+        return field;
+    }
+
+    /// <summary>
+    /// Sets the value of a field by its field key.
+    /// If the field doesn't exist, it will be added.
     /// </summary>
     /// <param name="fieldKey">The field key.</param>
     /// <param name="value">The value to set.</param>
     public void SetFieldValue(string fieldKey, string value)
     {
-        switch (fieldKey)
+        var field = Fields.FirstOrDefault(f => f.FieldKey == fieldKey);
+        if (field != null)
         {
-            case FieldKey.LoginUrl:
-                ServiceUrl = value;
-                break;
-            case FieldKey.LoginUsername:
-                Username = value;
-                break;
-            case FieldKey.LoginPassword:
-                Password = value;
-                break;
-            case FieldKey.LoginEmail:
-                Email = value;
-                break;
-            case FieldKey.NotesContent:
-                Notes = value;
-                break;
-            case FieldKey.AliasFirstName:
-                AliasFirstName = value;
-                break;
-            case FieldKey.AliasLastName:
-                AliasLastName = value;
-                break;
-            case FieldKey.AliasGender:
-                AliasGender = value;
-                break;
-            case FieldKey.AliasBirthdate:
-                AliasBirthDate = value;
-                break;
-            case FieldKey.CardNumber:
-                CardNumber = value;
-                break;
-            case FieldKey.CardCardholderName:
-                CardCardholderName = value;
-                break;
-            case FieldKey.CardExpiryMonth:
-                CardExpiryMonth = value;
-                break;
-            case FieldKey.CardExpiryYear:
-                CardExpiryYear = value;
-                break;
-            case FieldKey.CardCvv:
-                CardCvv = value;
-                break;
-            case FieldKey.CardPin:
-                CardPin = value;
-                break;
+            field.Value = value;
+        }
+        else
+        {
+            // Add new field based on system field definition
+            var systemField = SystemFieldRegistry.GetSystemField(fieldKey);
+            if (systemField != null)
+            {
+                Fields.Add(new SystemFieldEdit
+                {
+                    FieldKey = fieldKey,
+                    Label = fieldKey,
+                    FieldType = systemField.FieldType,
+                    Value = value,
+                    IsCustomField = false,
+                    IsHidden = systemField.IsHidden,
+                    EnableHistory = systemField.EnableHistory,
+                    DisplayOrder = systemField.DefaultDisplayOrder,
+                    Category = systemField.Category,
+                    IsMultiValue = systemField.IsMultiValue,
+                });
+            }
         }
     }
 
@@ -479,5 +326,168 @@ public sealed class ItemEdit
     public bool HasFieldValue(string fieldKey)
     {
         return !string.IsNullOrEmpty(GetFieldValue(fieldKey));
+    }
+
+    /// <summary>
+    /// Gets all custom fields.
+    /// </summary>
+    /// <returns>List of custom fields.</returns>
+    public List<SystemFieldEdit> GetCustomFields()
+    {
+        return Fields.Where(f => f.IsCustomField).ToList();
+    }
+
+    /// <summary>
+    /// Gets all system fields.
+    /// </summary>
+    /// <returns>List of system fields.</returns>
+    public List<SystemFieldEdit> GetSystemFields()
+    {
+        return Fields.Where(f => !f.IsCustomField).ToList();
+    }
+
+    /// <summary>
+    /// Adds a new custom field.
+    /// </summary>
+    /// <param name="label">The field label.</param>
+    /// <param name="fieldType">The field type.</param>
+    public void AddCustomField(string label, string fieldType)
+    {
+        var tempId = Guid.NewGuid().ToString();
+        Fields.Add(new SystemFieldEdit
+        {
+            FieldKey = tempId,
+            TempId = tempId,
+            Label = label,
+            FieldType = fieldType,
+            Value = string.Empty,
+            IsCustomField = true,
+            IsHidden = fieldType == "Hidden" || fieldType == "Password",
+            EnableHistory = false,
+            DisplayOrder = Fields.Count,
+            Category = FieldCategory.Custom,
+            IsMultiValue = false,
+        });
+    }
+
+    /// <summary>
+    /// Removes a custom field by its field key (TempId or FieldDefinitionId).
+    /// </summary>
+    /// <param name="fieldKey">The field key to remove.</param>
+    public void RemoveCustomField(string fieldKey)
+    {
+        var field = Fields.FirstOrDefault(f => f.FieldKey == fieldKey && f.IsCustomField);
+        if (field != null)
+        {
+            Fields.Remove(field);
+        }
+    }
+
+    /// <summary>
+    /// Updates the label of a custom field.
+    /// </summary>
+    /// <param name="fieldKey">The field key.</param>
+    /// <param name="newLabel">The new label.</param>
+    public void UpdateCustomFieldLabel(string fieldKey, string newLabel)
+    {
+        var field = Fields.FirstOrDefault(f => f.FieldKey == fieldKey && f.IsCustomField);
+        if (field != null)
+        {
+            field.Label = newLabel;
+        }
+    }
+
+    /// <summary>
+    /// Removes a field by its field key and clears its value.
+    /// </summary>
+    /// <param name="fieldKey">The field key to remove.</param>
+    public void RemoveField(string fieldKey)
+    {
+        var field = Fields.FirstOrDefault(f => f.FieldKey == fieldKey);
+        if (field != null)
+        {
+            if (field.IsCustomField)
+            {
+                Fields.Remove(field);
+            }
+            else
+            {
+                // For system fields, just clear the value (they can be re-added)
+                field.Value = string.Empty;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets fields by category.
+    /// </summary>
+    /// <param name="category">The category to filter by.</param>
+    /// <returns>List of fields in the specified category.</returns>
+    public List<SystemFieldEdit> GetFieldsByCategory(FieldCategory category)
+    {
+        return Fields
+            .Where(f => f.Category == category && !string.IsNullOrEmpty(f.Value))
+            .OrderBy(f => f.DisplayOrder)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Clears all field values for a specific item type that don't apply to the new type.
+    /// </summary>
+    /// <param name="newItemType">The new item type.</param>
+    public void ClearFieldsNotApplicableToType(string newItemType)
+    {
+        foreach (var field in Fields.Where(f => !f.IsCustomField).ToList())
+        {
+            var systemField = SystemFieldRegistry.GetSystemField(field.FieldKey);
+            if (systemField != null && !SystemFieldRegistry.FieldAppliesToType(systemField, newItemType))
+            {
+                field.Value = string.Empty;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets the field category from a field key based on its prefix.
+    /// </summary>
+    private static FieldCategory GetCategoryFromFieldKey(string? fieldKey)
+    {
+        if (string.IsNullOrEmpty(fieldKey))
+        {
+            return FieldCategory.Custom;
+        }
+
+        if (fieldKey.StartsWith("login."))
+        {
+            // URL is in Primary category
+            if (fieldKey == FieldKey.LoginUrl)
+            {
+                return FieldCategory.Primary;
+            }
+
+            return FieldCategory.Login;
+        }
+
+        if (fieldKey.StartsWith("alias."))
+        {
+            return FieldCategory.Alias;
+        }
+
+        if (fieldKey.StartsWith("card."))
+        {
+            return FieldCategory.Card;
+        }
+
+        if (fieldKey.StartsWith("notes."))
+        {
+            return FieldCategory.Notes;
+        }
+
+        if (fieldKey.StartsWith("metadata."))
+        {
+            return FieldCategory.Metadata;
+        }
+
+        return FieldCategory.Custom;
     }
 }

@@ -56,7 +56,7 @@ else
                         @if (ShouldShowField(FieldKey.LoginUrl))
                         {
                             <div class="col-span-6 sm:col-span-3">
-                                <EditFormRow Id="service-url" OnFocus="OnFocusUrlInput" Label="@Localizer["ServiceUrlLabel"]" @bind-Value="Obj.ServiceUrl"></EditFormRow>
+                                <EditFormRow Id="service-url" OnFocus="OnFocusUrlInput" Label="@Localizer["ServiceUrlLabel"]" @bind-Value="Obj.GetField(FieldKey.LoginUrl)!.Value"></EditFormRow>
                             </div>
                         }
                     </div>
@@ -76,7 +76,7 @@ else
                     <div class="col-span-1 md:col-span-1 lg:col-span-1">
                         <RemovableSection CanRemove="@CanRemoveField(FieldKey.NotesContent)" OnRemove="() => RemoveOptionalField(FieldKey.NotesContent)">
                             <div class="col-span-6 sm:col-span-3">
-                                <EditFormRow Type="textarea" Id="notes" Label="@Localizer["NotesLabel"]" LabelStyle="EditFormRow.FormLabelStyle.Header" @bind-Value="Obj.Notes"></EditFormRow>
+                                <EditFormRow Type="textarea" Id="notes" Label="@Localizer["NotesLabel"]" LabelStyle="EditFormRow.FormLabelStyle.Header" @bind-Value="Obj.GetField(FieldKey.NotesContent)!.Value"></EditFormRow>
                             </div>
                         </RemovableSection>
                     </div>
@@ -109,7 +109,7 @@ else
                                 var passkey = Obj.Passkeys.First();
                                 @* With passkey: Username, Passkey, Email, Password *@
                                 <div class="col-span-6">
-                                    <EditUsernameFormRow Id="username" Label="@Localizer["UsernameLabel"]" @bind-Value="Obj.Username" OnGenerateNewUsername="GenerateRandomUsername"></EditUsernameFormRow>
+                                    <EditUsernameFormRow Id="username" Label="@Localizer["UsernameLabel"]" @bind-Value="Obj.GetField(FieldKey.LoginUsername)!.Value" OnGenerateNewUsername="GenerateRandomUsername"></EditUsernameFormRow>
                                 </div>
                                 @if (!PasskeyMarkedForDeletion)
                                 {
@@ -182,10 +182,10 @@ else
                                     </div>
                                 }
                                 <div class="col-span-6">
-                                    <EditEmailFormRow Id="email" Label="@Localizer["EmailLabel"]" @bind-Value="Obj.Email"></EditEmailFormRow>
+                                    <EditEmailFormRow Id="email" Label="@Localizer["EmailLabel"]" @bind-Value="Obj.GetField(FieldKey.LoginEmail)!.Value"></EditEmailFormRow>
                                 </div>
                                 <div class="col-span-6">
-                                    <EditPasswordFormRow Id="password" Label="@Localizer["PasswordLabel"]" @bind-Value="Obj.Password" ShowPassword="IsPasswordVisible"></EditPasswordFormRow>
+                                    <EditPasswordFormRow Id="password" Label="@Localizer["PasswordLabel"]" @bind-Value="Obj.GetField(FieldKey.LoginPassword)!.Value" ShowPassword="IsPasswordVisible"></EditPasswordFormRow>
                                 </div>
                             }
                             else
@@ -194,7 +194,7 @@ else
                                 @if (ShouldShowField(FieldKey.LoginEmail))
                                 {
                                     <div class="col-span-6 relative">
-                                        <EditEmailFormRow Id="email" Label="@Localizer["EmailLabel"]" @bind-Value="Obj.Email"></EditEmailFormRow>
+                                        <EditEmailFormRow Id="email" Label="@Localizer["EmailLabel"]" @bind-Value="Obj.GetField(FieldKey.LoginEmail)!.Value"></EditEmailFormRow>
                                         @if (CanRemoveField(FieldKey.LoginEmail))
                                         {
                                             <button type="button" @onclick="() => RemoveOptionalField(FieldKey.LoginEmail)" @onclick:preventDefault="true"
@@ -221,10 +221,10 @@ else
                                 }
 
                                 <div class="col-span-6">
-                                    <EditUsernameFormRow Id="username" Label="@Localizer["UsernameLabel"]" @bind-Value="Obj.Username" OnGenerateNewUsername="GenerateRandomUsername"></EditUsernameFormRow>
+                                    <EditUsernameFormRow Id="username" Label="@Localizer["UsernameLabel"]" @bind-Value="Obj.GetField(FieldKey.LoginUsername)!.Value" OnGenerateNewUsername="GenerateRandomUsername"></EditUsernameFormRow>
                                 </div>
                                 <div class="col-span-6">
-                                    <EditPasswordFormRow Id="password" Label="@Localizer["PasswordLabel"]" @bind-Value="Obj.Password" ShowPassword="IsPasswordVisible"></EditPasswordFormRow>
+                                    <EditPasswordFormRow Id="password" Label="@Localizer["PasswordLabel"]" @bind-Value="Obj.GetField(FieldKey.LoginPassword)!.Value" ShowPassword="IsPasswordVisible"></EditPasswordFormRow>
                                 </div>
                             }
                         </div>
@@ -259,17 +259,16 @@ else
                             </div>
                             <div class="grid gap-6">
                                 <div class="col-span-6 sm:col-span-3">
-                                    <EditFormRow Id="first-name" Label="@Localizer["FirstNameLabel"]" @bind-Value="Obj.AliasFirstName"></EditFormRow>
+                                    <EditFormRow Id="first-name" Label="@Localizer["FirstNameLabel"]" @bind-Value="Obj.GetField(FieldKey.AliasFirstName)!.Value"></EditFormRow>
                                 </div>
                                 <div class="col-span-6 sm:col-span-3">
-                                    <EditFormRow Id="last-name" Label="@Localizer["LastNameLabel"]" @bind-Value="Obj.AliasLastName"></EditFormRow>
+                                    <EditFormRow Id="last-name" Label="@Localizer["LastNameLabel"]" @bind-Value="Obj.GetField(FieldKey.AliasLastName)!.Value"></EditFormRow>
                                 </div>
                                 <div class="col-span-6 sm:col-span-3">
-                                    <EditFormRow Id="gender" Label="@Localizer["GenderLabel"]" @bind-Value="Obj.AliasGender"></EditFormRow>
+                                    <EditFormRow Id="gender" Label="@Localizer["GenderLabel"]" @bind-Value="Obj.GetField(FieldKey.AliasGender)!.Value"></EditFormRow>
                                 </div>
                                 <div class="col-span-6 sm:col-span-3">
-                                    <EditFormRow Id="birthdate" Label="@Localizer["BirthDateLabel"]" @bind-Value="Obj.AliasBirthDate"></EditFormRow>
-                                    <ValidationMessage For="() => Obj.AliasBirthDate"/>
+                                    <EditFormRow Id="birthdate" Label="@Localizer["BirthDateLabel"]" @bind-Value="Obj.GetField(FieldKey.AliasBirthdate)!.Value"></EditFormRow>
                                 </div>
                             </div>
                         </div>
@@ -284,24 +283,24 @@ else
                             <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["CardDetailsSectionHeader"]</h3>
                             <div class="grid gap-6">
                                 <div class="col-span-6">
-                                    <EditFormRow Id="cardholder-name" Label="@Localizer["CardholderNameLabel"]" @bind-Value="Obj.CardCardholderName"></EditFormRow>
+                                    <EditFormRow Id="cardholder-name" Label="@Localizer["CardholderNameLabel"]" @bind-Value="Obj.GetField(FieldKey.CardCardholderName)!.Value"></EditFormRow>
                                 </div>
                                 <div class="col-span-6">
-                                    <EditPasswordFormRow Id="card-number" Label="@Localizer["CardNumberLabel"]" @bind-Value="Obj.CardNumber" ShowPassword="false" ShowGenerateButtons="false"></EditPasswordFormRow>
+                                    <EditPasswordFormRow Id="card-number" Label="@Localizer["CardNumberLabel"]" @bind-Value="Obj.GetField(FieldKey.CardNumber)!.Value" ShowPassword="false" ShowGenerateButtons="false"></EditPasswordFormRow>
                                 </div>
                                 <div class="col-span-3">
-                                    <EditFormRow Id="expiry-month" Label="@Localizer["ExpiryMonthLabel"]" Placeholder="MM" @bind-Value="Obj.CardExpiryMonth"></EditFormRow>
+                                    <EditFormRow Id="expiry-month" Label="@Localizer["ExpiryMonthLabel"]" Placeholder="MM" @bind-Value="Obj.GetField(FieldKey.CardExpiryMonth)!.Value"></EditFormRow>
                                 </div>
                                 <div class="col-span-3">
-                                    <EditFormRow Id="expiry-year" Label="@Localizer["ExpiryYearLabel"]" Placeholder="YYYY" @bind-Value="Obj.CardExpiryYear"></EditFormRow>
+                                    <EditFormRow Id="expiry-year" Label="@Localizer["ExpiryYearLabel"]" Placeholder="YYYY" @bind-Value="Obj.GetField(FieldKey.CardExpiryYear)!.Value"></EditFormRow>
                                 </div>
                                 <div class="col-span-6 sm:col-span-3">
-                                    <EditPasswordFormRow Id="card-cvv" Label="@Localizer["CardCvvLabel"]" @bind-Value="Obj.CardCvv" ShowPassword="false" ShowGenerateButtons="false"></EditPasswordFormRow>
+                                    <EditPasswordFormRow Id="card-cvv" Label="@Localizer["CardCvvLabel"]" @bind-Value="Obj.GetField(FieldKey.CardCvv)!.Value" ShowPassword="false" ShowGenerateButtons="false"></EditPasswordFormRow>
                                 </div>
                                 @if (ShouldShowField(FieldKey.CardPin))
                                 {
                                     <div class="col-span-6 sm:col-span-3 relative">
-                                        <EditPasswordFormRow Id="card-pin" Label="@Localizer["CardPinLabel"]" @bind-Value="Obj.CardPin" ShowPassword="false"></EditPasswordFormRow>
+                                        <EditPasswordFormRow Id="card-pin" Label="@Localizer["CardPinLabel"]" @bind-Value="Obj.GetField(FieldKey.CardPin)!.Value" ShowPassword="false"></EditPasswordFormRow>
                                         @if (CanRemoveField(FieldKey.CardPin))
                                         {
                                             <button type="button" @onclick="() => RemoveOptionalField(FieldKey.CardPin)" @onclick:preventDefault="true"
@@ -319,34 +318,37 @@ else
                 }
 
                 @* Custom Fields Section *@
-                @if (Obj.CustomFields.Any())
+                @{
+                    var customFields = Obj.GetCustomFields();
+                }
+                @if (customFields.Any())
                 {
                     <div class="col-span-1 md:col-span-1 lg:col-span-2">
                         <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
                             <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["CustomFieldsSectionHeader"]</h3>
                             <div class="grid gap-6">
-                                @foreach (var customField in Obj.CustomFields)
+                                @foreach (var customField in customFields)
                                 {
                                     <div class="col-span-6">
                                         <EditableFieldLabel
-                                            HtmlFor="@($"custom-{customField.TempId ?? customField.Id.ToString()}")"
+                                            HtmlFor="@($"custom-{customField.TempId ?? customField.FieldKey}")"
                                             Label="@customField.Label"
-                                            LabelChanged="@((newLabel) => UpdateCustomFieldLabel(customField, newLabel))"
-                                            OnDelete="@(() => RemoveCustomField(customField))" />
+                                            LabelChanged="@((newLabel) => Obj.UpdateCustomFieldLabel(customField.FieldKey, newLabel))"
+                                            OnDelete="@(() => Obj.RemoveCustomField(customField.FieldKey))" />
                                         @if (customField.FieldType == "TextArea")
                                         {
                                             <div class="relative">
-                                                <textarea id="@($"custom-{customField.TempId ?? customField.Id.ToString()}")" style="height: 200px;" class="outline-0 shadow-sm bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" @bind="customField.Value"></textarea>
+                                                <textarea id="@($"custom-{customField.TempId ?? customField.FieldKey}")" style="height: 200px;" class="outline-0 shadow-sm bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" @bind="customField.Value"></textarea>
                                             </div>
                                         }
                                         else if (customField.IsHidden || customField.FieldType == "Hidden" || customField.FieldType == "Password")
                                         {
-                                            <EditPasswordFormRow Id="@($"custom-{customField.TempId ?? customField.Id.ToString()}")" Label="" @bind-Value="customField.Value" ShowPassword="false"></EditPasswordFormRow>
+                                            <EditPasswordFormRow Id="@($"custom-{customField.TempId ?? customField.FieldKey}")" Label="" @bind-Value="customField.Value" ShowPassword="false"></EditPasswordFormRow>
                                         }
                                         else
                                         {
                                             <div class="relative">
-                                                <input type="text" id="@($"custom-{customField.TempId ?? customField.Id.ToString()}")" autocomplete="off" class="outline-0 shadow-sm bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" @bind="customField.Value" autocapitalize="off" autocorrect="off">
+                                                <input type="text" id="@($"custom-{customField.TempId ?? customField.FieldKey}")" autocomplete="off" class="outline-0 shadow-sm bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" @bind="customField.Value" autocapitalize="off" autocorrect="off">
                                             </div>
                                         }
                                     </div>
@@ -475,7 +477,7 @@ else
                 }
                 if (!string.IsNullOrEmpty(QuickCreateStateService.ServiceUrl))
                 {
-                    Obj.ServiceUrl = QuickCreateStateService.ServiceUrl;
+                    Obj.SetFieldValue(FieldKey.LoginUrl, QuickCreateStateService.ServiceUrl);
                 }
 
                 // Clear the state after using it
@@ -728,35 +730,7 @@ else
     /// </summary>
     private void AddCustomField((string Label, string FieldType) args)
     {
-        // Use a plain GUID for the TempId - no prefix needed.
-        // Custom fields are identified by having FieldDefinitionId set (not FieldKey).
-        var tempId = Guid.NewGuid().ToString();
-        Obj.CustomFields.Add(new CustomFieldEdit
-        {
-            TempId = tempId,
-            Label = args.Label,
-            FieldType = args.FieldType,
-            IsHidden = args.FieldType == "Hidden" || args.FieldType == "Password",
-            Value = string.Empty
-        });
-        StateHasChanged();
-    }
-
-    /// <summary>
-    /// Removes a custom field.
-    /// </summary>
-    private void RemoveCustomField(CustomFieldEdit field)
-    {
-        Obj.CustomFields.Remove(field);
-        StateHasChanged();
-    }
-
-    /// <summary>
-    /// Updates the label of a custom field.
-    /// </summary>
-    private void UpdateCustomFieldLabel(CustomFieldEdit field, string newLabel)
-    {
-        field.Label = newLabel;
+        Obj.AddCustomField(args.Label, args.FieldType);
         StateHasChanged();
     }
 
@@ -849,9 +823,10 @@ else
         Show2FA = Obj.TotpCodes.Any();
         ShowAttachments = Obj.Attachments.Any();
 
-        if (Obj.ServiceUrl is null)
+        // Set default URL if not set
+        if (!Obj.HasFieldValue(FieldKey.LoginUrl))
         {
-            Obj.ServiceUrl = ItemService.DefaultServiceUrl;
+            Obj.SetFieldValue(FieldKey.LoginUrl, ItemService.DefaultServiceUrl);
         }
     }
 
@@ -881,8 +856,8 @@ else
     {
         Obj = ItemEdit.FromEntity(CreateNewItemObject());
 
-        Obj.AliasBirthDate = string.Empty;
-        Obj.ServiceUrl = ItemService.DefaultServiceUrl;
+        Obj.SetFieldValue(FieldKey.AliasBirthdate, string.Empty);
+        Obj.SetFieldValue(FieldKey.LoginUrl, ItemService.DefaultServiceUrl);
     }
 
     /// <summary>
@@ -899,7 +874,8 @@ else
     /// </summary>
     private void OnFocusUrlInput(FocusEventArgs e)
     {
-        if (Obj.ServiceUrl != ItemService.DefaultServiceUrl)
+        var currentUrl = Obj.GetFieldValue(FieldKey.LoginUrl);
+        if (currentUrl != ItemService.DefaultServiceUrl)
         {
             return;
         }
@@ -936,20 +912,20 @@ else
 
     private void ClearAliasFields()
     {
-        Obj.AliasFirstName = string.Empty;
-        Obj.AliasLastName = string.Empty;
-        Obj.AliasGender = string.Empty;
-        Obj.AliasBirthDate = string.Empty;
+        Obj.SetFieldValue(FieldKey.AliasFirstName, string.Empty);
+        Obj.SetFieldValue(FieldKey.AliasLastName, string.Empty);
+        Obj.SetFieldValue(FieldKey.AliasGender, string.Empty);
+        Obj.SetFieldValue(FieldKey.AliasBirthdate, string.Empty);
 
         StateHasChanged();
     }
 
     private bool HasAliasValues()
     {
-        return !string.IsNullOrWhiteSpace(Obj.AliasFirstName) ||
-               !string.IsNullOrWhiteSpace(Obj.AliasLastName) ||
-               !string.IsNullOrWhiteSpace(Obj.AliasGender) ||
-               !string.IsNullOrWhiteSpace(Obj.AliasBirthDate);
+        return !string.IsNullOrWhiteSpace(Obj.GetFieldValue(FieldKey.AliasFirstName)) ||
+               !string.IsNullOrWhiteSpace(Obj.GetFieldValue(FieldKey.AliasLastName)) ||
+               !string.IsNullOrWhiteSpace(Obj.GetFieldValue(FieldKey.AliasGender)) ||
+               !string.IsNullOrWhiteSpace(Obj.GetFieldValue(FieldKey.AliasBirthdate));
     }
 
     private string GetToggleButtonClasses()
@@ -964,39 +940,45 @@ else
 
     private async Task GenerateRandomAlias()
     {
-        string currentUsername = Obj.Username ?? string.Empty;
-        string currentPassword = Obj.Password ?? string.Empty;
-        string currentEmail = Obj.Email ?? string.Empty;
+        string currentUsername = Obj.GetFieldValue(FieldKey.LoginUsername);
+        string currentPassword = Obj.GetFieldValue(FieldKey.LoginPassword);
+        string currentEmail = Obj.GetFieldValue(FieldKey.LoginEmail);
 
         var generatedItem = await ItemService.GenerateRandomIdentityAsync(Obj.ToEntity());
         var generatedObj = ItemEdit.FromEntity(generatedItem);
 
-        Obj.Username = currentUsername;
-        Obj.Password = currentPassword;
-        Obj.Email = currentEmail;
+        // Keep the current values if user has modified them
+        Obj.SetFieldValue(FieldKey.LoginUsername, currentUsername);
+        Obj.SetFieldValue(FieldKey.LoginPassword, currentPassword);
+        Obj.SetFieldValue(FieldKey.LoginEmail, currentEmail);
 
-        Obj.AliasFirstName = generatedObj.AliasFirstName;
-        Obj.AliasLastName = generatedObj.AliasLastName;
-        Obj.AliasGender = generatedObj.AliasGender;
-        Obj.AliasBirthDate = generatedObj.AliasBirthDate;
+        // Always update alias fields
+        Obj.SetFieldValue(FieldKey.AliasFirstName, generatedObj.GetFieldValue(FieldKey.AliasFirstName));
+        Obj.SetFieldValue(FieldKey.AliasLastName, generatedObj.GetFieldValue(FieldKey.AliasLastName));
+        Obj.SetFieldValue(FieldKey.AliasGender, generatedObj.GetFieldValue(FieldKey.AliasGender));
+        Obj.SetFieldValue(FieldKey.AliasBirthdate, generatedObj.GetFieldValue(FieldKey.AliasBirthdate));
+
+        var generatedUsername = generatedObj.GetFieldValue(FieldKey.LoginUsername);
+        var generatedPassword = generatedObj.GetFieldValue(FieldKey.LoginPassword);
+        var generatedEmail = generatedObj.GetFieldValue(FieldKey.LoginEmail);
 
         if (string.IsNullOrWhiteSpace(currentUsername) || currentUsername == LastGeneratedUsername)
         {
-            Obj.Username = generatedObj.Username;
-            LastGeneratedUsername = generatedObj.Username;
+            Obj.SetFieldValue(FieldKey.LoginUsername, generatedUsername);
+            LastGeneratedUsername = generatedUsername;
         }
 
         if (string.IsNullOrWhiteSpace(currentPassword) || currentPassword == LastGeneratedPassword)
         {
-            Obj.Password = generatedObj.Password;
-            LastGeneratedPassword = generatedObj.Password;
+            Obj.SetFieldValue(FieldKey.LoginPassword, generatedPassword);
+            LastGeneratedPassword = generatedPassword;
             IsPasswordVisible = true;
         }
 
         if (string.IsNullOrWhiteSpace(currentEmail) || currentEmail == LastGeneratedEmail || currentEmail.StartsWith("@"))
         {
-            Obj.Email = generatedObj.Email;
-            LastGeneratedEmail = generatedObj.Email;
+            Obj.SetFieldValue(FieldKey.LoginEmail, generatedEmail);
+            LastGeneratedEmail = generatedEmail;
         }
 
         StateHasChanged();
@@ -1007,34 +989,38 @@ else
     /// </summary>
     private async Task GenerateRandomUsername()
     {
+        var aliasFirstName = Obj.GetFieldValue(FieldKey.AliasFirstName);
+        var aliasLastName = Obj.GetFieldValue(FieldKey.AliasLastName);
+        var aliasBirthDate = Obj.GetFieldValue(FieldKey.AliasBirthdate);
+
         AliasVaultIdentity identity;
-        if (string.IsNullOrWhiteSpace(Obj.AliasFirstName) && string.IsNullOrWhiteSpace(Obj.AliasLastName) && string.IsNullOrWhiteSpace(Obj.AliasBirthDate))
+        if (string.IsNullOrWhiteSpace(aliasFirstName) && string.IsNullOrWhiteSpace(aliasLastName) && string.IsNullOrWhiteSpace(aliasBirthDate))
         {
             var randomIdentity = await ItemService.GenerateRandomIdentityAsync(CreateNewItemObject());
             var randomIdentityEdit = ItemEdit.FromEntity(randomIdentity);
 
             identity = new AliasVaultIdentity
             {
-                FirstName = randomIdentityEdit.AliasFirstName ?? string.Empty,
-                LastName = randomIdentityEdit.AliasLastName ?? string.Empty,
-                BirthDate = randomIdentityEdit.AliasBirthDate ?? string.Empty,
-                Gender = randomIdentityEdit.AliasGender ?? string.Empty,
-                NickName = randomIdentityEdit.Username ?? string.Empty,
+                FirstName = randomIdentityEdit.GetFieldValue(FieldKey.AliasFirstName),
+                LastName = randomIdentityEdit.GetFieldValue(FieldKey.AliasLastName),
+                BirthDate = randomIdentityEdit.GetFieldValue(FieldKey.AliasBirthdate),
+                Gender = randomIdentityEdit.GetFieldValue(FieldKey.AliasGender),
+                NickName = randomIdentityEdit.GetFieldValue(FieldKey.LoginUsername),
             };
         }
         else
         {
             identity = new AliasVaultIdentity
             {
-                FirstName = Obj.AliasFirstName ?? string.Empty,
-                LastName = Obj.AliasLastName ?? string.Empty,
-                BirthDate = Obj.AliasBirthDate ?? string.Empty,
-                Gender = Obj.AliasGender ?? string.Empty,
-                NickName = Obj.Username ?? string.Empty,
+                FirstName = aliasFirstName,
+                LastName = aliasLastName,
+                BirthDate = aliasBirthDate,
+                Gender = Obj.GetFieldValue(FieldKey.AliasGender),
+                NickName = Obj.GetFieldValue(FieldKey.LoginUsername),
             };
         }
 
-        Obj.Username = await JsInteropService.GenerateRandomUsernameAsync(identity);
+        Obj.SetFieldValue(FieldKey.LoginUsername, await JsInteropService.GenerateRandomUsernameAsync(identity));
     }
 
     /// <summary>
@@ -1127,4 +1113,5 @@ else
 
         NavigationManager.NavigateTo("/items/" + Id);
     }
+
 }
