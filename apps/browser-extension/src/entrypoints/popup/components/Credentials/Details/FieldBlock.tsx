@@ -5,7 +5,7 @@ import { FormInputCopyToClipboard } from '@/entrypoints/popup/components/Forms/F
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 
 import type { ItemField } from '@/utils/dist/core/models/vault';
-import { FieldTypes, getSystemField } from '@/utils/dist/core/models/vault';
+import { FieldTypes } from '@/utils/dist/core/models/vault';
 
 import FieldHistoryModal from './FieldHistoryModal';
 
