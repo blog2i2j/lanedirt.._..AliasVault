@@ -405,10 +405,40 @@ function itemToCredential(item) {
     HasAttachment: item.HasAttachment
   };
 }
+function createSystemField(fieldKey, options) {
+  const systemField = getSystemField(fieldKey);
+  if (!systemField) {
+    throw new Error(`Unknown system field: ${fieldKey}. Use createCustomField for custom fields.`);
+  }
+  return {
+    FieldKey: fieldKey,
+    Label: options.label ?? fieldKey,
+    // UI layer translates via fieldLabels.*
+    FieldType: systemField.FieldType,
+    Value: options.value,
+    IsHidden: systemField.IsHidden,
+    DisplayOrder: options.displayOrder ?? systemField.DefaultDisplayOrder,
+    IsCustomField: false,
+    EnableHistory: systemField.EnableHistory
+  };
+}
+function createCustomField(options) {
+  return {
+    FieldKey: options.fieldKey,
+    Label: options.label,
+    FieldType: options.fieldType ?? FieldTypes.Text,
+    Value: options.value,
+    IsHidden: options.isHidden ?? false,
+    DisplayOrder: options.displayOrder ?? 0,
+    IsCustomField: true,
+    EnableHistory: options.enableHistory ?? false
+    // Custom fields don't track history by default
+  };
+}
 
 // src/vault/FieldHistory.ts
 var MAX_FIELD_HISTORY_RECORDS = 10;
 
-export { FieldCategories, FieldKey, FieldTypes, ItemTypes, MAX_FIELD_HISTORY_RECORDS, SystemFieldRegistry, fieldAppliesToType, getAllSystemFieldKeys, getDefaultFieldsForItemType, getFieldConfigForType, getFieldValue, getFieldValues, getOptionalFieldsForItemType, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isFieldShownByDefault, isSystemField, isSystemFieldPrefix, itemToCredential };
+export { FieldCategories, FieldKey, FieldTypes, ItemTypes, MAX_FIELD_HISTORY_RECORDS, SystemFieldRegistry, createCustomField, createSystemField, fieldAppliesToType, getAllSystemFieldKeys, getDefaultFieldsForItemType, getFieldConfigForType, getFieldValue, getFieldValues, getOptionalFieldsForItemType, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isFieldShownByDefault, isSystemField, isSystemFieldPrefix, itemToCredential };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map

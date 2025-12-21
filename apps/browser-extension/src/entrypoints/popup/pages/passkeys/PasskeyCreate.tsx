@@ -17,7 +17,7 @@ import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 import { PASSKEY_DISABLED_SITES_KEY } from '@/utils/Constants';
 import { extractDomain, extractRootDomain, filterItems, AutofillMatchingMode } from '@/utils/credentialMatcher/CredentialMatcher';
 import type { Item, Passkey } from '@/utils/dist/core/models/vault';
-import { FieldKey, FieldTypes, ItemTypes, getFieldValue } from '@/utils/dist/core/models/vault';
+import { FieldKey, ItemTypes, getFieldValue, createSystemField } from '@/utils/dist/core/models/vault';
 import { PasskeyAuthenticator } from '@/utils/passkey/PasskeyAuthenticator';
 import { PasskeyHelper } from '@/utils/passkey/PasskeyHelper';
 import type { CreateRequest, PasskeyCreateCredentialResponse, PendingPasskeyCreateRequest } from '@/utils/passkey/types';
@@ -325,8 +325,8 @@ const PasskeyCreate: React.FC = () => {
                   Logo: faviconLogo ?? existingItem.Logo,
                   Fields: [
                     ...(existingItem.Fields || []).filter((f) => f.FieldKey !== FieldKey.LoginUrl && f.FieldKey !== FieldKey.LoginUsername),
-                    { FieldKey: FieldKey.LoginUrl, Label: 'URL', FieldType: FieldTypes.URL, Value: request.origin, IsHidden: false, DisplayOrder: 0, IsCustomField: false, EnableHistory: false },
-                    { FieldKey: FieldKey.LoginUsername, Label: 'Username', FieldType: FieldTypes.Text, Value: request.publicKey.user.name, IsHidden: false, DisplayOrder: 1, IsCustomField: false, EnableHistory: false }
+                    createSystemField(FieldKey.LoginUrl, { value: request.origin }),
+                    createSystemField(FieldKey.LoginUsername, { value: request.publicKey.user.name }),
                   ]
                 },
                 [],
@@ -398,8 +398,8 @@ const PasskeyCreate: React.FC = () => {
             ItemType: ItemTypes.Login,
             Logo: faviconLogo,
             Fields: [
-              { FieldKey: FieldKey.LoginUrl, Label: 'URL', FieldType: FieldTypes.URL, Value: request.origin, IsHidden: false, DisplayOrder: 0, IsCustomField: false, EnableHistory: false },
-              { FieldKey: FieldKey.LoginUsername, Label: 'Username', FieldType: FieldTypes.Text, Value: request.publicKey.user.name, IsHidden: false, DisplayOrder: 1, IsCustomField: false, EnableHistory: false }
+              createSystemField(FieldKey.LoginUrl, { value: request.origin }),
+              createSystemField(FieldKey.LoginUsername, { value: request.publicKey.user.name }),
             ],
             CreatedAt: new Date().toISOString(),
             UpdatedAt: new Date().toISOString()

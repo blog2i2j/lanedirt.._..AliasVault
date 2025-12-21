@@ -361,6 +361,53 @@ declare function groupFieldsByCategory(item: Item): Record<string, ItemField[]>;
  * @deprecated Use Item model directly. This is a temporary compatibility layer.
  */
 declare function itemToCredential(item: Item): Credential;
+/**
+ * Options for creating a system field.
+ * Only `value` is required; metadata is derived from SystemFieldRegistry.
+ */
+type CreateSystemFieldOptions = {
+    /** The value for the field (string or string[] for multi-value) */
+    value: string | string[];
+    /** Override display order (optional, defaults from registry) */
+    displayOrder?: number;
+    /** Override label (optional, normally derived from FieldKey for translation) */
+    label?: string;
+};
+/**
+ * Options for creating a custom field.
+ */
+type CreateCustomFieldOptions = {
+    /** Unique identifier for the custom field (UUID) */
+    fieldKey: string;
+    /** Display label for the field */
+    label: string;
+    /** The value for the field */
+    value: string | string[];
+    /** Field type for rendering */
+    fieldType?: FieldType;
+    /** Whether the field is hidden/masked */
+    isHidden?: boolean;
+    /** Display order */
+    displayOrder?: number;
+    /** Whether to track history (defaults to false for custom fields) */
+    enableHistory?: boolean;
+};
+/**
+ * Create a system field (ItemField) by FieldKey with metadata derived from SystemFieldRegistry.
+ *
+ * @param fieldKey - The system field key (e.g., 'login.username', FieldKey.LoginPassword)
+ * @param options - Field creation options (value required, displayOrder optional)
+ * @returns ItemField with proper metadata from SystemFieldRegistry
+ * @throws Error if fieldKey is not found in SystemFieldRegistry
+ */
+declare function createSystemField(fieldKey: string, options: CreateSystemFieldOptions): ItemField;
+/**
+ * Create a custom field (ItemField) with sensible defaults.
+ *
+ * @param options - Custom field options
+ * @returns ItemField configured as a custom field
+ */
+declare function createCustomField(options: CreateCustomFieldOptions): ItemField;
 
 /**
  * Per-item-type configuration for a system field.
@@ -499,4 +546,4 @@ type FieldHistory = {
  */
 declare const MAX_FIELD_HISTORY_RECORDS = 10;
 
-export { type Alias, type Attachment, type Credential, type EncryptionKey, FieldCategories, type FieldCategory, type FieldHistory, FieldKey, type FieldKeyValue, type FieldType, FieldTypes, type Item, type ItemField, type ItemTag, type ItemTagRef, type ItemType, type ItemTypeFieldConfig, ItemTypes, MAX_FIELD_HISTORY_RECORDS, type Passkey, type PasswordSettings, type SystemFieldDefinition, SystemFieldRegistry, type Tag, type TotpCode, fieldAppliesToType, getAllSystemFieldKeys, getDefaultFieldsForItemType, getFieldConfigForType, getFieldValue, getFieldValues, getOptionalFieldsForItemType, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isFieldShownByDefault, isSystemField, isSystemFieldPrefix, itemToCredential };
+export { type Alias, type Attachment, type CreateCustomFieldOptions, type CreateSystemFieldOptions, type Credential, type EncryptionKey, FieldCategories, type FieldCategory, type FieldHistory, FieldKey, type FieldKeyValue, type FieldType, FieldTypes, type Item, type ItemField, type ItemTag, type ItemTagRef, type ItemType, type ItemTypeFieldConfig, ItemTypes, MAX_FIELD_HISTORY_RECORDS, type Passkey, type PasswordSettings, type SystemFieldDefinition, SystemFieldRegistry, type Tag, type TotpCode, createCustomField, createSystemField, fieldAppliesToType, getAllSystemFieldKeys, getDefaultFieldsForItemType, getFieldConfigForType, getFieldValue, getFieldValues, getOptionalFieldsForItemType, getSystemField, getSystemFieldsForItemType, groupFields, groupFieldsByCategory, hasField, isFieldShownByDefault, isSystemField, isSystemFieldPrefix, itemToCredential };

@@ -6,7 +6,7 @@ import { DISABLED_SITES_KEY, TEMPORARY_DISABLED_SITES_KEY, GLOBAL_AUTOFILL_POPUP
 import { AutofillMatchingMode } from '@/utils/credentialMatcher/CredentialMatcher';
 import { CreateIdentityGenerator, IdentityHelperUtils } from '@/utils/dist/core/identity-generator';
 import type { Item, ItemField } from '@/utils/dist/core/models/vault';
-import { ItemTypes, FieldTypes, FieldKey } from '@/utils/dist/core/models/vault';
+import { ItemTypes, FieldKey, createSystemField } from '@/utils/dist/core/models/vault';
 import { CreatePasswordGenerator, PasswordGenerator, PasswordSettings } from '@/utils/dist/core/password-generator';
 import { ClickValidator } from '@/utils/security/ClickValidator';
 import { ServiceDetectionUtility } from '@/utils/serviceDetection/ServiceDetectionUtility';
@@ -249,64 +249,21 @@ export async function createAutofillPopup(input: HTMLInputElement, items: Item[]
       if (result.isCustomCredential) {
         // Create custom item with information provided by user in popup.
         const faviconBytes = await getFaviconBytes(document);
-        const fields: ItemField[] = [];
-        let displayOrder = 0;
-
-        // Add URL field
         const serviceUrl = getValidServiceUrl();
+
+        // Build fields using factory - only include non-empty values
+        const fields: ItemField[] = [];
         if (serviceUrl) {
-          fields.push({
-            FieldKey: FieldKey.LoginUrl,
-            Label: 'URL',
-            FieldType: FieldTypes.URL,
-            Value: serviceUrl,
-            IsHidden: false,
-            DisplayOrder: displayOrder++,
-            IsCustomField: false,
-            EnableHistory: false
-          });
+          fields.push(createSystemField(FieldKey.LoginUrl, { value: serviceUrl }));
         }
-
-        // Add username if provided
         if (result.customUsername) {
-          fields.push({
-            FieldKey: FieldKey.LoginUsername,
-            Label: 'Username',
-            FieldType: FieldTypes.Text,
-            Value: result.customUsername,
-            IsHidden: false,
-            DisplayOrder: displayOrder++,
-            IsCustomField: false,
-            EnableHistory: false
-          });
+          fields.push(createSystemField(FieldKey.LoginUsername, { value: result.customUsername }));
         }
-
-        // Add email if provided
         if (result.customEmail) {
-          fields.push({
-            FieldKey: FieldKey.LoginEmail,
-            Label: 'Email',
-            FieldType: FieldTypes.Email,
-            Value: result.customEmail,
-            IsHidden: false,
-            DisplayOrder: displayOrder++,
-            IsCustomField: false,
-            EnableHistory: false
-          });
+          fields.push(createSystemField(FieldKey.LoginEmail, { value: result.customEmail }));
         }
-
-        // Add password if provided
         if (result.customPassword) {
-          fields.push({
-            FieldKey: FieldKey.LoginPassword,
-            Label: 'Password',
-            FieldType: FieldTypes.Password,
-            Value: result.customPassword,
-            IsHidden: true,
-            DisplayOrder: displayOrder++,
-            IsCustomField: false,
-            EnableHistory: true
-          });
+          fields.push(createSystemField(FieldKey.LoginPassword, { value: result.customPassword }));
         }
 
         newItem = {
@@ -340,106 +297,20 @@ export async function createAutofillPopup(input: HTMLInputElement, items: Item[]
 
         // Extract favicon from page and get the bytes
         const faviconBytes = await getFaviconBytes(document);
-
-        // Build fields array for the Alias item type
-        const fields: ItemField[] = [];
-        let displayOrder = 0;
-
-        // Add URL field
         const serviceUrl = getValidServiceUrl();
+
+        // Build fields using factory - metadata comes from SystemFieldRegistry
+        const fields: ItemField[] = [];
         if (serviceUrl) {
-          fields.push({
-            FieldKey: FieldKey.LoginUrl,
-            Label: 'URL',
-            FieldType: FieldTypes.URL,
-            Value: serviceUrl,
-            IsHidden: false,
-            DisplayOrder: displayOrder++,
-            IsCustomField: false,
-            EnableHistory: false
-          });
+          fields.push(createSystemField(FieldKey.LoginUrl, { value: serviceUrl }));
         }
-
-        // Add username
-        fields.push({
-          FieldKey: FieldKey.LoginUsername,
-          Label: 'Username',
-          FieldType: FieldTypes.Text,
-          Value: identity.nickName,
-          IsHidden: false,
-          DisplayOrder: displayOrder++,
-          IsCustomField: false,
-          EnableHistory: false
-        });
-
-        // Add email
-        fields.push({
-          FieldKey: FieldKey.LoginEmail,
-          Label: 'Email',
-          FieldType: FieldTypes.Email,
-          Value: `${identity.emailPrefix}@${domain}`,
-          IsHidden: false,
-          DisplayOrder: displayOrder++,
-          IsCustomField: false,
-          EnableHistory: false
-        });
-
-        // Add password
-        fields.push({
-          FieldKey: FieldKey.LoginPassword,
-          Label: 'Password',
-          FieldType: FieldTypes.Password,
-          Value: password,
-          IsHidden: true,
-          DisplayOrder: displayOrder++,
-          IsCustomField: false,
-          EnableHistory: true
-        });
-
-        // Add alias fields
-        fields.push({
-          FieldKey: FieldKey.AliasFirstName,
-          Label: 'First Name',
-          FieldType: FieldTypes.Text,
-          Value: identity.firstName,
-          IsHidden: false,
-          DisplayOrder: displayOrder++,
-          IsCustomField: false,
-          EnableHistory: false
-        });
-
-        fields.push({
-          FieldKey: FieldKey.AliasLastName,
-          Label: 'Last Name',
-          FieldType: FieldTypes.Text,
-          Value: identity.lastName,
-          IsHidden: false,
-          DisplayOrder: displayOrder++,
-          IsCustomField: false,
-          EnableHistory: false
-        });
-
-        fields.push({
-          FieldKey: FieldKey.AliasBirthdate,
-          Label: 'Birth Date',
-          FieldType: FieldTypes.Date,
-          Value: IdentityHelperUtils.normalizeBirthDate(identity.birthDate.toISOString()),
-          IsHidden: false,
-          DisplayOrder: displayOrder++,
-          IsCustomField: false,
-          EnableHistory: false
-        });
-
-        fields.push({
-          FieldKey: FieldKey.AliasGender,
-          Label: 'Gender',
-          FieldType: FieldTypes.Text,
-          Value: identity.gender,
-          IsHidden: false,
-          DisplayOrder: displayOrder++,
-          IsCustomField: false,
-          EnableHistory: false
-        });
+        fields.push(createSystemField(FieldKey.LoginUsername, { value: identity.nickName }));
+        fields.push(createSystemField(FieldKey.LoginEmail, { value: `${identity.emailPrefix}@${domain}` }));
+        fields.push(createSystemField(FieldKey.LoginPassword, { value: password }));
+        fields.push(createSystemField(FieldKey.AliasFirstName, { value: identity.firstName }));
+        fields.push(createSystemField(FieldKey.AliasLastName, { value: identity.lastName }));
+        fields.push(createSystemField(FieldKey.AliasBirthdate, { value: IdentityHelperUtils.normalizeBirthDate(identity.birthDate.toISOString()) }));
+        fields.push(createSystemField(FieldKey.AliasGender, { value: identity.gender }));
 
         newItem = {
           Id: '',

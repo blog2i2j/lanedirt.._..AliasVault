@@ -1,7 +1,8 @@
-import type { Item, ItemField } from './Item';
+import type { Item, ItemField, FieldType } from './Item';
+import { FieldTypes } from './Item';
 import type { Credential } from './Credential';
 import { FieldKey } from './FieldKey';
-import { FieldCategories } from './SystemFieldRegistry';
+import { FieldCategories, getSystemField } from './SystemFieldRegistry';
 
 /**
  * Helper functions for working with Item model
@@ -103,5 +104,83 @@ export function itemToCredential(item: Item): Credential {
     },
     HasPasskey: item.HasPasskey,
     HasAttachment: item.HasAttachment
+  };
+}
+
+/**
+ * Options for creating a system field.
+ * Only `value` is required; metadata is derived from SystemFieldRegistry.
+ */
+export type CreateSystemFieldOptions = {
+  /** The value for the field (string or string[] for multi-value) */
+  value: string | string[];
+  /** Override display order (optional, defaults from registry) */
+  displayOrder?: number;
+  /** Override label (optional, normally derived from FieldKey for translation) */
+  label?: string;
+};
+
+/**
+ * Options for creating a custom field.
+ */
+export type CreateCustomFieldOptions = {
+  /** Unique identifier for the custom field (UUID) */
+  fieldKey: string;
+  /** Display label for the field */
+  label: string;
+  /** The value for the field */
+  value: string | string[];
+  /** Field type for rendering */
+  fieldType?: FieldType;
+  /** Whether the field is hidden/masked */
+  isHidden?: boolean;
+  /** Display order */
+  displayOrder?: number;
+  /** Whether to track history (defaults to false for custom fields) */
+  enableHistory?: boolean;
+};
+
+/**
+ * Create a system field (ItemField) by FieldKey with metadata derived from SystemFieldRegistry.
+ *
+ * @param fieldKey - The system field key (e.g., 'login.username', FieldKey.LoginPassword)
+ * @param options - Field creation options (value required, displayOrder optional)
+ * @returns ItemField with proper metadata from SystemFieldRegistry
+ * @throws Error if fieldKey is not found in SystemFieldRegistry
+ */
+export function createSystemField(fieldKey: string, options: CreateSystemFieldOptions): ItemField {
+  const systemField = getSystemField(fieldKey);
+  if (!systemField) {
+    throw new Error(`Unknown system field: ${fieldKey}. Use createCustomField for custom fields.`);
+  }
+
+  return {
+    FieldKey: fieldKey,
+    Label: options.label ?? fieldKey, // UI layer translates via fieldLabels.*
+    FieldType: systemField.FieldType,
+    Value: options.value,
+    IsHidden: systemField.IsHidden,
+    DisplayOrder: options.displayOrder ?? systemField.DefaultDisplayOrder,
+    IsCustomField: false,
+    EnableHistory: systemField.EnableHistory,
+  };
+}
+
+/**
+ * Create a custom field (ItemField) with sensible defaults.
+ *
+ * @param options - Custom field options
+ * @returns ItemField configured as a custom field
+ */
+export function createCustomField(options: CreateCustomFieldOptions): ItemField {
+  return {
+    FieldKey: options.fieldKey,
+    Label: options.label,
+    FieldType: options.fieldType ?? FieldTypes.Text,
+    Value: options.value,
+    IsHidden: options.isHidden ?? false,
+    DisplayOrder: options.displayOrder ?? 0,
+    IsCustomField: true,
+    EnableHistory: options.enableHistory ?? false, // Custom fields don't track history by default
   };
 }
