@@ -89,8 +89,8 @@ else
                 <TotpViewer TotpCodeList="@Item.TotpCodes" />
             }
 
-            @* Notes - if present *@
-            @if (GroupedFields.TryGetValue(FieldCategory.Notes, out var notesFields) && notesFields.Count > 0)
+            @* Notes - if present (left column for non-Note types) *@
+            @if (Item.ItemType != ItemTypes.Note && GroupedFields.TryGetValue(FieldCategory.Notes, out var notesFields) && notesFields.Count > 0)
             {
                 <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
                     <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["NotesSection"]</h3>
@@ -222,6 +222,20 @@ else
                             }
                         </div>
                     </form>
+                </div>
+            }
+
+            @* Notes - for Note type (main content area) *@
+            @if (Item.ItemType == ItemTypes.Note && GroupedFields.TryGetValue(FieldCategory.Notes, out var noteTypeNotesFields) && noteTypeNotesFields.Count > 0)
+            {
+                <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+                    <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["NotesSection"]</h3>
+                    <div class="grid grid-cols-6 gap-6">
+                        @foreach (var field in noteTypeNotesFields)
+                        {
+                            <FieldBlock Field="@field" />
+                        }
+                    </div>
                 </div>
             }
 

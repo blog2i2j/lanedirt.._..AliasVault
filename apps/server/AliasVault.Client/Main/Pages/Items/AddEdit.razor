@@ -46,7 +46,7 @@ else
 
                 @* Service/Name Section - Always shown *@
                 <div class="p-4 mb-4 bg-white border-2 border-primary-600 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
-                    <h3 class="mb-4 text-xl font-semibold dark:text-white">@GetNameSectionTitle()</h3>
+                    <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["ServiceSectionHeader"]</h3>
                     <div class="grid gap-6">
                         <div class="col-span-6 sm:col-span-3">
                             <EditFormRow Id="service-name" Label="@Localizer["ServiceNameLabel"]" Placeholder="@Localizer["ServiceNamePlaceholder"]" @bind-Value="Obj.ServiceName"></EditFormRow>
@@ -70,8 +70,8 @@ else
                     </div>
                 }
 
-                @* Notes Section - When visible *@
-                @if (ShouldShowField(FieldKey.NotesContent))
+                @* Notes Section - When visible (left side for non-Note types) *@
+                @if (ShouldShowField(FieldKey.NotesContent) && Obj.ItemType != ItemTypes.Note)
                 {
                     <div class="col-span-1 md:col-span-1 lg:col-span-1">
                         <RemovableSection CanRemove="@CanRemoveField(FieldKey.NotesContent)" OnRemove="() => RemoveOptionalField(FieldKey.NotesContent)">
@@ -317,6 +317,21 @@ else
                     </div>
                 }
 
+                @* Notes Section - For Note type (main content area) *@
+                @if (Obj.ItemType == ItemTypes.Note)
+                {
+                    <div class="col-span-1 md:col-span-1 lg:col-span-2">
+                        <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+                            <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["NotesLabel"]</h3>
+                            <div class="grid gap-6">
+                                <div class="col-span-6">
+                                    <EditFormRow Type="textarea" Id="notes" Label="" @bind-Value="Obj.GetField(FieldKey.NotesContent)!.Value"></EditFormRow>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+
                 @* Custom Fields Section *@
                 @{
                     var customFields = Obj.GetCustomFields();
@@ -479,6 +494,10 @@ else
                 {
                     Obj.SetFieldValue(FieldKey.LoginUrl, QuickCreateStateService.ServiceUrl);
                 }
+                if (!string.IsNullOrEmpty(QuickCreateStateService.ItemType))
+                {
+                    await HandleItemTypeChange(QuickCreateStateService.ItemType);
+                }
 
                 // Clear the state after using it
                 QuickCreateStateService.ClearState();
@@ -492,19 +511,6 @@ else
                 await JsInteropService.FocusElementById("service-name");
             }
         }
-    }
-
-    /// <summary>
-    /// Gets the title for the name/service section based on item type.
-    /// </summary>
-    private string GetNameSectionTitle()
-    {
-        return Obj.ItemType switch
-        {
-            ItemTypes.CreditCard => Localizer["CardNameSectionHeader"],
-            ItemTypes.Note => Localizer["NoteTitleSectionHeader"],
-            _ => Localizer["ServiceSectionHeader"]
-        };
     }
 
     /// <summary>
