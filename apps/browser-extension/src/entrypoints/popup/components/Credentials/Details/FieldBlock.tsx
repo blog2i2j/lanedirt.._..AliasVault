@@ -39,13 +39,12 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId, hideLabel = fals
   const [historyCount, setHistoryCount] = useState<number>(0);
 
   /* Get translated label for this field. System fields use fieldLabels.* translations, custom fields use their stored label */
-  const label = field.FieldKey.startsWith('custom_')
+  const label = field.IsCustomField
     ? (field.Label || field.FieldKey)
     : t(`fieldLabels.${field.FieldKey}`, { defaultValue: field.FieldKey });
 
-  // Check if this field supports history
-  const systemField = !field.FieldKey.startsWith('custom_') ? getSystemField(field.FieldKey) : null;
-  const hasHistoryEnabled = systemField?.EnableHistory === true;
+  // Check if this field has history enabled
+  const hasHistoryEnabled = field.EnableHistory === true;
 
   // Check if there's actual history available
   useEffect(() => {

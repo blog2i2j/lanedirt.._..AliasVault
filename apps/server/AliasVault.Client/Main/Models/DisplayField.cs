@@ -25,9 +25,21 @@ public class DisplayField
     public string? FieldDefinitionId { get; set; }
 
     /// <summary>
+    /// Gets or sets the label for this field.
+    /// For system fields, this is the field key (UI layer translates).
+    /// For custom fields, this is the user-defined label from FieldDefinition.
+    /// </summary>
+    public string Label { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the field type for rendering (Text, Password, Email, URL, Date, etc.).
     /// </summary>
     public string FieldType { get; set; } = "Text";
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this is a custom field.
+    /// </summary>
+    public bool IsCustomField { get; set; }
 
     /// <summary>
     /// Gets or sets the field value.

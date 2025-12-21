@@ -261,7 +261,9 @@ export async function createAutofillPopup(input: HTMLInputElement, items: Item[]
             FieldType: FieldTypes.URL,
             Value: serviceUrl,
             IsHidden: false,
-            DisplayOrder: displayOrder++
+            DisplayOrder: displayOrder++,
+            IsCustomField: false,
+            EnableHistory: false
           });
         }
 
@@ -273,7 +275,9 @@ export async function createAutofillPopup(input: HTMLInputElement, items: Item[]
             FieldType: FieldTypes.Text,
             Value: result.customUsername,
             IsHidden: false,
-            DisplayOrder: displayOrder++
+            DisplayOrder: displayOrder++,
+            IsCustomField: false,
+            EnableHistory: false
           });
         }
 
@@ -285,7 +289,9 @@ export async function createAutofillPopup(input: HTMLInputElement, items: Item[]
             FieldType: FieldTypes.Email,
             Value: result.customEmail,
             IsHidden: false,
-            DisplayOrder: displayOrder++
+            DisplayOrder: displayOrder++,
+            IsCustomField: false,
+            EnableHistory: false
           });
         }
 
@@ -297,7 +303,9 @@ export async function createAutofillPopup(input: HTMLInputElement, items: Item[]
             FieldType: FieldTypes.Password,
             Value: result.customPassword,
             IsHidden: true,
-            DisplayOrder: displayOrder++
+            DisplayOrder: displayOrder++,
+            IsCustomField: false,
+            EnableHistory: true
           });
         }
 
@@ -346,7 +354,9 @@ export async function createAutofillPopup(input: HTMLInputElement, items: Item[]
             FieldType: FieldTypes.URL,
             Value: serviceUrl,
             IsHidden: false,
-            DisplayOrder: displayOrder++
+            DisplayOrder: displayOrder++,
+            IsCustomField: false,
+            EnableHistory: false
           });
         }
 
@@ -357,7 +367,9 @@ export async function createAutofillPopup(input: HTMLInputElement, items: Item[]
           FieldType: FieldTypes.Text,
           Value: identity.nickName,
           IsHidden: false,
-          DisplayOrder: displayOrder++
+          DisplayOrder: displayOrder++,
+          IsCustomField: false,
+          EnableHistory: false
         });
 
         // Add email
@@ -367,7 +379,9 @@ export async function createAutofillPopup(input: HTMLInputElement, items: Item[]
           FieldType: FieldTypes.Email,
           Value: `${identity.emailPrefix}@${domain}`,
           IsHidden: false,
-          DisplayOrder: displayOrder++
+          DisplayOrder: displayOrder++,
+          IsCustomField: false,
+          EnableHistory: false
         });
 
         // Add password
@@ -377,7 +391,9 @@ export async function createAutofillPopup(input: HTMLInputElement, items: Item[]
           FieldType: FieldTypes.Password,
           Value: password,
           IsHidden: true,
-          DisplayOrder: displayOrder++
+          DisplayOrder: displayOrder++,
+          IsCustomField: false,
+          EnableHistory: true
         });
 
         // Add alias fields
@@ -387,7 +403,9 @@ export async function createAutofillPopup(input: HTMLInputElement, items: Item[]
           FieldType: FieldTypes.Text,
           Value: identity.firstName,
           IsHidden: false,
-          DisplayOrder: displayOrder++
+          DisplayOrder: displayOrder++,
+          IsCustomField: false,
+          EnableHistory: false
         });
 
         fields.push({
@@ -396,7 +414,9 @@ export async function createAutofillPopup(input: HTMLInputElement, items: Item[]
           FieldType: FieldTypes.Text,
           Value: identity.lastName,
           IsHidden: false,
-          DisplayOrder: displayOrder++
+          DisplayOrder: displayOrder++,
+          IsCustomField: false,
+          EnableHistory: false
         });
 
         fields.push({
@@ -405,7 +425,9 @@ export async function createAutofillPopup(input: HTMLInputElement, items: Item[]
           FieldType: FieldTypes.Date,
           Value: IdentityHelperUtils.normalizeBirthDate(identity.birthDate.toISOString()),
           IsHidden: false,
-          DisplayOrder: displayOrder++
+          DisplayOrder: displayOrder++,
+          IsCustomField: false,
+          EnableHistory: false
         });
 
         fields.push({
@@ -414,7 +436,9 @@ export async function createAutofillPopup(input: HTMLInputElement, items: Item[]
           FieldType: FieldTypes.Text,
           Value: identity.gender,
           IsHidden: false,
-          DisplayOrder: displayOrder++
+          DisplayOrder: displayOrder++,
+          IsCustomField: false,
+          EnableHistory: false
         });
 
         newItem = {

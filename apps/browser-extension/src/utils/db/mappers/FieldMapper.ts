@@ -11,6 +11,7 @@ export type FieldRow = {
   CustomLabel: string | null;
   CustomFieldType: string | null;
   CustomIsHidden: number | null;
+  CustomEnableHistory: number | null;
   Value: string;
   DisplayOrder: number;
 }
@@ -26,6 +27,8 @@ export type ProcessedField = {
   IsHidden: number;
   Value: string;
   DisplayOrder: number;
+  IsCustomField: boolean;
+  EnableHistory: boolean;
 }
 
 /**
@@ -71,7 +74,9 @@ export class FieldMapper {
           FieldType: field.FieldType as FieldType,
           Value: '', // Will be set below
           IsHidden: field.IsHidden === 1,
-          DisplayOrder: field.DisplayOrder
+          DisplayOrder: field.DisplayOrder,
+          IsCustomField: field.IsCustomField,
+          EnableHistory: field.EnableHistory
         });
       }
     }
@@ -111,18 +116,22 @@ export class FieldMapper {
         FieldType: systemField?.FieldType || FieldTypes.Text,
         IsHidden: systemField?.IsHidden ? 1 : 0,
         Value: row.Value,
-        DisplayOrder: row.DisplayOrder
+        DisplayOrder: row.DisplayOrder,
+        IsCustomField: false,
+        EnableHistory: systemField?.EnableHistory ?? false
       };
     } else {
       // Custom field: has FieldDefinitionId, get metadata from FieldDefinitions
       return {
         ItemId: row.ItemId,
-        FieldKey: row.FieldDefinitionId || '', // Use FieldDefinitionId as the key for custom fields
+        FieldKey: row.FieldDefinitionId || '', // Use FieldDefinitionId (UUID) as the key for custom fields
         Label: row.CustomLabel || '',
         FieldType: row.CustomFieldType || FieldTypes.Text,
         IsHidden: row.CustomIsHidden || 0,
         Value: row.Value,
-        DisplayOrder: row.DisplayOrder
+        DisplayOrder: row.DisplayOrder,
+        IsCustomField: true,
+        EnableHistory: row.CustomEnableHistory === 1
       };
     }
   }
@@ -141,6 +150,8 @@ export class FieldMapper {
       FieldType: string;
       IsHidden: number;
       DisplayOrder: number;
+      IsCustomField: boolean;
+      EnableHistory: boolean;
     }>();
 
     for (const row of rows) {
@@ -162,7 +173,9 @@ export class FieldMapper {
             Label: row.FieldKey, // Use FieldKey as label; UI layer translates via fieldLabels.*
             FieldType: systemField?.FieldType || FieldTypes.Text,
             IsHidden: systemField?.IsHidden ? 1 : 0,
-            DisplayOrder: row.DisplayOrder
+            DisplayOrder: row.DisplayOrder,
+            IsCustomField: false,
+            EnableHistory: systemField?.EnableHistory ?? false
           });
         } else {
           // Custom field
@@ -171,7 +184,9 @@ export class FieldMapper {
             Label: row.CustomLabel || '',
             FieldType: row.CustomFieldType || FieldTypes.Text,
             IsHidden: row.CustomIsHidden || 0,
-            DisplayOrder: row.DisplayOrder
+            DisplayOrder: row.DisplayOrder,
+            IsCustomField: true,
+            EnableHistory: row.CustomEnableHistory === 1
           });
         }
       }
@@ -184,7 +199,9 @@ export class FieldMapper {
         ...metadata,
         FieldType: metadata.FieldType as FieldType,
         Value: values.length === 1 ? values[0] : values,
-        IsHidden: metadata.IsHidden === 1
+        IsHidden: metadata.IsHidden === 1,
+        IsCustomField: metadata.IsCustomField,
+        EnableHistory: metadata.EnableHistory
       };
     });
   }

@@ -618,7 +618,9 @@ else
     /// </summary>
     private void AddCustomField((string Label, string FieldType) args)
     {
-        var tempId = $"custom_{Guid.NewGuid()}";
+        // Use a plain GUID for the TempId - no prefix needed.
+        // Custom fields are identified by having FieldDefinitionId set (not FieldKey).
+        var tempId = Guid.NewGuid().ToString();
         Obj.CustomFields.Add(new CustomFieldEdit
         {
             TempId = tempId,

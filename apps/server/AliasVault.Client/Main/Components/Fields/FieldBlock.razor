@@ -76,8 +76,14 @@
     /// </summary>
     private string GetLabel()
     {
+        // For custom fields, use the Label property directly
+        if (Field.IsCustomField)
+        {
+            return !string.IsNullOrEmpty(Field.Label) ? Field.Label : FormatFieldName(Field.FieldKey);
+        }
+
         // Try to get localized label for system field
-        if (!string.IsNullOrEmpty(Field.FieldKey) && !Field.FieldKey.StartsWith("custom_"))
+        if (!string.IsNullOrEmpty(Field.FieldKey))
         {
             // Convert field key to localization key format
             // e.g., "login.username" -> "FieldLabel_login_username"

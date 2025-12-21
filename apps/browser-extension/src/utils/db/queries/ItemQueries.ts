@@ -86,6 +86,7 @@ export class ItemQueries {
         fd.Label as CustomLabel,
         fd.FieldType as CustomFieldType,
         fd.IsHidden as CustomIsHidden,
+        fd.EnableHistory as CustomEnableHistory,
         fv.Value,
         fv.Weight as DisplayOrder
       FROM FieldValues fv
@@ -105,6 +106,7 @@ export class ItemQueries {
       fd.Label as CustomLabel,
       fd.FieldType as CustomFieldType,
       fd.IsHidden as CustomIsHidden,
+      fd.EnableHistory as CustomEnableHistory,
       fv.Value,
       fv.Weight as DisplayOrder
     FROM FieldValues fv

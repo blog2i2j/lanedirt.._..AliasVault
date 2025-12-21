@@ -325,8 +325,8 @@ const PasskeyCreate: React.FC = () => {
                   Logo: faviconLogo ?? existingItem.Logo,
                   Fields: [
                     ...(existingItem.Fields || []).filter((f) => f.FieldKey !== FieldKey.LoginUrl && f.FieldKey !== FieldKey.LoginUsername),
-                    { FieldKey: FieldKey.LoginUrl, Label: 'URL', FieldType: FieldTypes.URL, Value: request.origin, IsHidden: false, DisplayOrder: 0 },
-                    { FieldKey: FieldKey.LoginUsername, Label: 'Username', FieldType: FieldTypes.Text, Value: request.publicKey.user.name, IsHidden: false, DisplayOrder: 1 }
+                    { FieldKey: FieldKey.LoginUrl, Label: 'URL', FieldType: FieldTypes.URL, Value: request.origin, IsHidden: false, DisplayOrder: 0, IsCustomField: false, EnableHistory: false },
+                    { FieldKey: FieldKey.LoginUsername, Label: 'Username', FieldType: FieldTypes.Text, Value: request.publicKey.user.name, IsHidden: false, DisplayOrder: 1, IsCustomField: false, EnableHistory: false }
                   ]
                 },
                 [],
@@ -398,8 +398,8 @@ const PasskeyCreate: React.FC = () => {
             ItemType: ItemTypes.Login,
             Logo: faviconLogo,
             Fields: [
-              { FieldKey: FieldKey.LoginUrl, Label: 'URL', FieldType: FieldTypes.URL, Value: request.origin, IsHidden: false, DisplayOrder: 0 },
-              { FieldKey: FieldKey.LoginUsername, Label: 'Username', FieldType: FieldTypes.Text, Value: request.publicKey.user.name, IsHidden: false, DisplayOrder: 1 }
+              { FieldKey: FieldKey.LoginUrl, Label: 'URL', FieldType: FieldTypes.URL, Value: request.origin, IsHidden: false, DisplayOrder: 0, IsCustomField: false, EnableHistory: false },
+              { FieldKey: FieldKey.LoginUsername, Label: 'Username', FieldType: FieldTypes.Text, Value: request.publicKey.user.name, IsHidden: false, DisplayOrder: 1, IsCustomField: false, EnableHistory: false }
             ],
             CreatedAt: new Date().toISOString(),
             UpdatedAt: new Date().toISOString()

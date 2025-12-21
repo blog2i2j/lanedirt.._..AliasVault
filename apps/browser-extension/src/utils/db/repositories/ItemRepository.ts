@@ -1,5 +1,5 @@
 import type { Item, ItemField, Attachment, TotpCode, FieldHistory } from '@/utils/dist/core/models/vault';
-import { FieldKey, getSystemField, MAX_FIELD_HISTORY_RECORDS } from '@/utils/dist/core/models/vault';
+import { FieldKey, MAX_FIELD_HISTORY_RECORDS } from '@/utils/dist/core/models/vault';
 
 import { BaseRepository, type IDatabaseClient } from '../BaseRepository';
 import { FieldMapper, type FieldRow } from '../mappers/FieldMapper';
@@ -407,11 +407,10 @@ export class ItemRepository extends BaseRepository {
         continue;
       }
 
-      const isCustomField = field.FieldKey.startsWith('custom_');
       let fieldDefinitionId = null;
 
       // For custom fields, create or get FieldDefinition
-      if (isCustomField) {
+      if (field.IsCustomField) {
         fieldDefinitionId = this.ensureFieldDefinition(field, itemType, currentDateTime);
       }
 
@@ -427,7 +426,7 @@ export class ItemRepository extends BaseRepository {
           this.generateId(),
           itemId,
           fieldDefinitionId,
-          isCustomField ? null : field.FieldKey,
+          field.IsCustomField ? null : field.FieldKey,
           value,
           field.DisplayOrder ?? 0,
           currentDateTime,
@@ -502,10 +501,9 @@ export class ItemRepository extends BaseRepository {
           continue;
         }
 
-        const isCustomField = field.FieldKey.startsWith('custom_');
         let fieldDefinitionId = null;
 
-        if (isCustomField) {
+        if (field.IsCustomField) {
           fieldDefinitionId = this.ensureOrUpdateFieldDefinition(field, item.ItemType, currentDateTime);
         }
 
@@ -536,7 +534,7 @@ export class ItemRepository extends BaseRepository {
               this.generateId(),
               item.Id,
               fieldDefinitionId,
-              isCustomField ? null : field.FieldKey,
+              field.IsCustomField ? null : field.FieldKey,
               value,
               field.DisplayOrder ?? 0,
               currentDateTime,
@@ -620,13 +618,12 @@ export class ItemRepository extends BaseRepository {
     }
 
     for (const newField of newFields) {
-      // Skip custom fields
-      if (newField.FieldKey.startsWith('custom_')) {
-        continue;
-      }
-
-      const systemField = getSystemField(newField.FieldKey);
-      if (!systemField || !systemField.EnableHistory) {
+      /**
+       * Check if history tracking is enabled for this field.
+       * EnableHistory comes from SystemFieldRegistry for system fields,
+       * or from the FieldDefinitions table for custom fields.
+       */
+      if (!newField.EnableHistory) {
         continue;
       }
 

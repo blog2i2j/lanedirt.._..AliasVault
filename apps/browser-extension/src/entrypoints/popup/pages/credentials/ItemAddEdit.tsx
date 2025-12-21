@@ -400,8 +400,8 @@ const ItemAddEdit: React.FC = () => {
           // Track fields that have values so they stay visible even if cleared
           fieldsWithValues.add(field.FieldKey);
 
-          // If field key starts with "custom_", it's a custom field
-          if (field.FieldKey.startsWith('custom_')) {
+          // Check if it's a custom field using the IsCustomField property
+          if (field.IsCustomField) {
             existingCustomFields.push({
               tempId: field.FieldKey,
               label: field.Label,
@@ -596,7 +596,9 @@ const ItemAddEdit: React.FC = () => {
             FieldType: systemField.FieldType,
             Value: value,
             IsHidden: systemField.IsHidden,
-            DisplayOrder: systemField.DefaultDisplayOrder
+            DisplayOrder: systemField.DefaultDisplayOrder,
+            IsCustomField: false,
+            EnableHistory: systemField.EnableHistory
           });
         }
       });
@@ -613,7 +615,9 @@ const ItemAddEdit: React.FC = () => {
             FieldType: customField.fieldType,
             Value: value,
             IsHidden: customField.isHidden,
-            DisplayOrder: customField.displayOrder
+            DisplayOrder: customField.displayOrder,
+            IsCustomField: true,
+            EnableHistory: false // Custom fields don't have history enabled by default
           });
         }
       });
@@ -716,7 +720,10 @@ const ItemAddEdit: React.FC = () => {
    * Add custom field handler.
    */
   const handleAddCustomField = useCallback((label: string, fieldType: FieldType) => {
-    const tempId = `custom_${crypto.randomUUID()}`;
+    /**
+     * Custom fields are identified by having FieldDefinitionId set (not FieldKey).
+     */
+    const tempId = crypto.randomUUID();
     const newField: CustomFieldDefinition = {
       tempId,
       label,

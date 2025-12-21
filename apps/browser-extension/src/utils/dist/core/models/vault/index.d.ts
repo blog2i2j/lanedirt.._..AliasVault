@@ -282,7 +282,9 @@ type Item = {
     UpdatedAt: string;
 };
 /**
- * Field value within an item
+ * Field value within an item.
+ * For system fields: FieldKey is the system field key (e.g., "login.username"), IsCustomField is false.
+ * For custom fields: FieldKey is the FieldDefinitionId (UUID), IsCustomField is true.
  */
 type ItemField = {
     FieldKey: string;
@@ -291,6 +293,18 @@ type ItemField = {
     Value: string | string[];
     IsHidden: boolean;
     DisplayOrder: number;
+    /**
+     * Whether this is a custom (user-defined) field.
+     * Custom fields have their metadata stored in FieldDefinitions table.
+     * System fields have their metadata defined in code (SystemFieldRegistry).
+     */
+    IsCustomField: boolean;
+    /**
+     * Whether history tracking is enabled for this field.
+     * For system fields, this comes from SystemFieldRegistry.
+     * For custom fields, this comes from the FieldDefinition record.
+     */
+    EnableHistory: boolean;
 };
 /**
  * Field types for rendering and validation.

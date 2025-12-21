@@ -101,19 +101,35 @@ public static class FieldGrouper
         // Determine category from field key prefix
         var category = GetCategoryFromFieldKey(fieldValue.FieldKey);
 
+        // Check if this is a custom field (has FieldDefinitionId but no FieldKey)
+        var isCustomField = fieldValue.FieldDefinitionId.HasValue && string.IsNullOrEmpty(fieldValue.FieldKey);
+
         // Get system field definition if available
         var systemField = !string.IsNullOrEmpty(fieldValue.FieldKey)
             ? SystemFieldRegistry.GetSystemField(fieldValue.FieldKey)
             : null;
 
+        // For custom fields, get label and type from FieldDefinition
+        var fieldDefinition = fieldValue.FieldDefinition;
+
         return new DisplayField
         {
-            FieldKey = fieldValue.FieldKey ?? string.Empty,
+            FieldKey = fieldValue.FieldKey ?? fieldValue.FieldDefinitionId?.ToString() ?? string.Empty,
             FieldDefinitionId = fieldValue.FieldDefinitionId?.ToString(),
-            FieldType = systemField?.FieldType ?? "Text",
+            Label = isCustomField
+                ? fieldDefinition?.Label ?? string.Empty
+                : fieldValue.FieldKey ?? string.Empty,
+            FieldType = isCustomField
+                ? fieldDefinition?.FieldType ?? "Text"
+                : systemField?.FieldType ?? "Text",
+            IsCustomField = isCustomField,
             Value = fieldValue.Value,
-            IsHidden = systemField?.IsHidden ?? false,
-            EnableHistory = systemField?.EnableHistory ?? false,
+            IsHidden = isCustomField
+                ? fieldDefinition?.IsHidden ?? false
+                : systemField?.IsHidden ?? false,
+            EnableHistory = isCustomField
+                ? fieldDefinition?.EnableHistory ?? false
+                : systemField?.EnableHistory ?? false,
             DisplayOrder = systemField?.DefaultDisplayOrder ?? fieldValue.Weight,
             Category = category,
         };

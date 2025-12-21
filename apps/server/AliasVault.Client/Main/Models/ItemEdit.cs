@@ -315,11 +315,18 @@ public sealed class ItemEdit
         // Add custom fields
         foreach (var customField in CustomFields.Where(cf => !string.IsNullOrEmpty(cf.Value)))
         {
-            // For new custom fields (TempId set, FieldDefinitionId is empty), create a new FieldDefinition
+            // For new custom fields (TempId set, FieldDefinitionId is empty), create a new FieldDefinition.
+            // The FieldDefinition.Id is a plain GUID - no prefix needed.
+            // Custom fields are identified by having FieldDefinitionId set (not FieldKey).
             if (customField.FieldDefinitionId == Guid.Empty && !string.IsNullOrEmpty(customField.TempId))
             {
                 var now = DateTime.UtcNow;
-                var fieldDefinitionId = Guid.NewGuid();
+
+                // TempId is a plain GUID string
+                var fieldDefinitionId = Guid.TryParse(customField.TempId, out var parsedGuid)
+                    ? parsedGuid
+                    : Guid.NewGuid();
+
                 var fieldDefinition = new FieldDefinition
                 {
                     Id = fieldDefinitionId,
