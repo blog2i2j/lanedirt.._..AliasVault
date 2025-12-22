@@ -350,13 +350,13 @@ else
                                             Label="@customField.Label"
                                             LabelChanged="@((newLabel) => Obj.UpdateCustomFieldLabel(customField.FieldKey, newLabel))"
                                             OnDelete="@(() => Obj.RemoveCustomField(customField.FieldKey))" />
-                                        @if (customField.FieldType == "TextArea")
+                                        @if (customField.FieldType == FieldType.TextArea)
                                         {
                                             <div class="relative">
                                                 <textarea id="@($"custom-{customField.TempId ?? customField.FieldKey}")" style="height: 200px;" class="outline-0 shadow-sm bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" @bind="customField.Value"></textarea>
                                             </div>
                                         }
-                                        else if (customField.IsHidden || customField.FieldType == "Hidden" || customField.FieldType == "Password")
+                                        else if (customField.IsHidden || customField.FieldType == FieldType.Hidden || customField.FieldType == FieldType.Password)
                                         {
                                             <EditPasswordFormRow Id="@($"custom-{customField.TempId ?? customField.FieldKey}")" Label="" @bind-Value="customField.Value" ShowPassword="false"></EditPasswordFormRow>
                                         }
@@ -844,7 +844,7 @@ else
     {
         var item = new Item
         {
-            ItemType = "Login",
+            ItemType = AliasClientDb.Models.ItemType.Login,
             FieldValues = new List<FieldValue>(),
             Attachments = new List<Attachment>(),
             TotpCodes = new List<TotpCode>(),

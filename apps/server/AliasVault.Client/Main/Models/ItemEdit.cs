@@ -362,7 +362,7 @@ public sealed class ItemEdit
             FieldType = fieldType,
             Value = string.Empty,
             IsCustomField = true,
-            IsHidden = fieldType == "Hidden" || fieldType == "Password",
+            IsHidden = fieldType == FieldType.Hidden || fieldType == FieldType.Password,
             EnableHistory = false,
             DisplayOrder = Fields.Count,
             Category = FieldCategory.Custom,
@@ -448,7 +448,9 @@ public sealed class ItemEdit
     }
 
     /// <summary>
-    /// Gets the field category from a field key based on its prefix.
+    /// Gets the field category from a field key.
+    /// Uses the SystemFieldRegistry to look up the category for known system fields.
+    /// Falls back to Custom category for unknown fields.
     /// </summary>
     private static FieldCategory GetCategoryFromFieldKey(string? fieldKey)
     {
@@ -457,37 +459,15 @@ public sealed class ItemEdit
             return FieldCategory.Custom;
         }
 
-        if (fieldKey.StartsWith("login."))
+        // Look up category from SystemFieldRegistry for known system fields
+        var systemField = SystemFieldRegistry.GetSystemField(fieldKey);
+        if (systemField != null)
         {
-            // URL is in Primary category
-            if (fieldKey == FieldKey.LoginUrl)
-            {
-                return FieldCategory.Primary;
-            }
-
-            return FieldCategory.Login;
+            return systemField.Category;
         }
 
-        if (fieldKey.StartsWith("alias."))
-        {
-            return FieldCategory.Alias;
-        }
-
-        if (fieldKey.StartsWith("card."))
-        {
-            return FieldCategory.Card;
-        }
-
-        if (fieldKey.StartsWith("notes."))
-        {
-            return FieldCategory.Notes;
-        }
-
-        if (fieldKey.StartsWith("metadata."))
-        {
-            return FieldCategory.Metadata;
-        }
-
+        // For unknown fields with a system field prefix, this might be a new system field
+        // not yet in the registry - treat as custom for now
         return FieldCategory.Custom;
     }
 }

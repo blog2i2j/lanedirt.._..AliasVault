@@ -369,7 +369,7 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
         return items.Select(x => new ItemListEntry
         {
             Id = x.Id,
-            ItemType = x.ItemType ?? "Login",
+            ItemType = x.ItemType ?? AliasClientDb.Models.ItemType.Login,
             Logo = x.Logo?.FileData,
             Service = x.Name,
             Username = GetFieldValue(x, FieldKey.LoginUsername),
