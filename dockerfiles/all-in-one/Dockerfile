@@ -29,7 +29,6 @@ WORKDIR /src
 
 # Copy all source files
 COPY apps/server/ ./apps/server/
-COPY shared/ ./shared/
 
 # Copy built core libraries from core-builder stage
 COPY --from=core-builder /src/core/ ./core/
