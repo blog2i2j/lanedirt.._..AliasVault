@@ -17,6 +17,7 @@ using Microsoft.EntityFrameworkCore;
 
 /// <summary>
 /// Service class for Folder operations.
+/// All mutations use background sync to avoid blocking the UI.
 /// </summary>
 public sealed class FolderService(DbService dbService)
 {
@@ -57,11 +58,11 @@ public sealed class FolderService(DbService dbService)
     }
 
     /// <summary>
-    /// Create a new folder.
+    /// Create a new folder. Syncs to server in background without blocking UI.
     /// </summary>
     /// <param name="name">The folder name.</param>
     /// <param name="parentFolderId">Optional parent folder ID.</param>
-    /// <returns>The created folder ID, or empty Guid on failure.</returns>
+    /// <returns>The created folder ID.</returns>
     public async Task<Guid> CreateAsync(string name, Guid? parentFolderId = null)
     {
         var context = await dbService.GetDbContextAsync();
@@ -78,21 +79,18 @@ public sealed class FolderService(DbService dbService)
         };
 
         context.Folders.Add(folder);
-
-        if (!await dbService.SaveDatabaseAsync())
-        {
-            return Guid.Empty;
-        }
+        await context.SaveChangesAsync();
+        dbService.SaveDatabaseInBackground();
 
         return folder.Id;
     }
 
     /// <summary>
-    /// Update a folder's name.
+    /// Update a folder's name. Syncs to server in background without blocking UI.
     /// </summary>
     /// <param name="folderId">The folder ID.</param>
     /// <param name="name">The new folder name.</param>
-    /// <returns>True if successful.</returns>
+    /// <returns>True if folder was found and updated.</returns>
     public async Task<bool> UpdateAsync(Guid folderId, string name)
     {
         var context = await dbService.GetDbContextAsync();
@@ -109,14 +107,18 @@ public sealed class FolderService(DbService dbService)
         folder.Name = name;
         folder.UpdatedAt = DateTime.UtcNow;
 
-        return await dbService.SaveDatabaseAsync();
+        await context.SaveChangesAsync();
+        dbService.SaveDatabaseInBackground();
+
+        return true;
     }
 
     /// <summary>
     /// Delete a folder, moving its items to root (FolderId = null).
+    /// Syncs to server in background without blocking UI.
     /// </summary>
     /// <param name="folderId">The folder ID.</param>
-    /// <returns>True if successful.</returns>
+    /// <returns>True if folder was found and deleted.</returns>
     public async Task<bool> DeleteAsync(Guid folderId)
     {
         var context = await dbService.GetDbContextAsync();
@@ -147,14 +149,18 @@ public sealed class FolderService(DbService dbService)
         folder.IsDeleted = true;
         folder.UpdatedAt = currentDateTime;
 
-        return await dbService.SaveDatabaseAsync();
+        await context.SaveChangesAsync();
+        dbService.SaveDatabaseInBackground();
+
+        return true;
     }
 
     /// <summary>
     /// Delete a folder and all its contents (move items to trash).
+    /// Syncs to server in background without blocking UI.
     /// </summary>
     /// <param name="folderId">The folder ID.</param>
-    /// <returns>True if successful.</returns>
+    /// <returns>True if folder was found and deleted.</returns>
     public async Task<bool> DeleteWithContentsAsync(Guid folderId)
     {
         var context = await dbService.GetDbContextAsync();
@@ -185,6 +191,9 @@ public sealed class FolderService(DbService dbService)
         folder.IsDeleted = true;
         folder.UpdatedAt = currentDateTime;
 
-        return await dbService.SaveDatabaseAsync();
+        await context.SaveChangesAsync();
+        dbService.SaveDatabaseInBackground();
+
+        return true;
     }
 }

@@ -299,6 +299,59 @@ public sealed class DbService : IDisposable
     }
 
     /// <summary>
+    /// Saves the database to the remote server in the background without blocking the caller.
+    /// The local database state is immediately persisted (in-memory), and the server sync happens asynchronously.
+    /// If the sync fails, a notification is shown to the user.
+    /// </summary>
+    /// <remarks>
+    /// This method is useful for operations where blocking the UI is undesirable, such as
+    /// folder creation, settings changes, etc. The local mutation is considered immediately
+    /// successful, and server sync happens in the background.
+    /// </remarks>
+    public void SaveDatabaseInBackground()
+    {
+        // Set state to indicate background sync is pending
+        _state.UpdateState(DbServiceState.DatabaseStatus.BackgroundSyncPending);
+
+        // Fire and forget the background save operation
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                // Make sure a public/private RSA encryption key exists before saving the database.
+                await GetOrCreateEncryptionKeyAsync();
+
+                var encryptedBase64String = await GetEncryptedDatabaseBase64String();
+
+                // Update state to show we're actively syncing
+                _state.UpdateState(DbServiceState.DatabaseStatus.SavingToServer);
+
+                // Save to webapi.
+                var success = await SaveToServerAsync(encryptedBase64String);
+                if (success)
+                {
+                    _logger.LogInformation("Database successfully saved to server (background sync).");
+                    _state.UpdateState(DbServiceState.DatabaseStatus.Ready);
+                }
+                else
+                {
+                    _logger.LogWarning("Background sync to server failed.");
+                    _globalNotificationService.AddErrorMessage(
+                        "Failed to sync changes to server. Your changes are saved locally and will be synced on next refresh.");
+                    _state.UpdateState(DbServiceState.DatabaseStatus.Ready);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during background database sync.");
+                _globalNotificationService.AddErrorMessage(
+                    "Failed to sync changes to server. Your changes are saved locally and will be synced on next refresh.");
+                _state.UpdateState(DbServiceState.DatabaseStatus.Ready);
+            }
+        });
+    }
+
+    /// <summary>
     /// Export the in-memory SQLite database to a base64 string.
     /// </summary>
     /// <returns>Base64 encoded string that represents SQLite database.</returns>
