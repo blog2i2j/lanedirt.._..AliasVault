@@ -152,15 +152,24 @@ const ItemsList: React.FC = () => {
   /**
    * Handle add new item.
    * Navigate to add item page, pre-selecting the item type if filtering by type.
+   * Also pre-selects the current folder if we're inside a folder.
    */
   const handleAddItem = useCallback(() : void => {
+    const params = new URLSearchParams();
+
     // If filtering by an item type, pre-select that type for the new item
     if (isItemTypeFilter(filterType)) {
-      navigate(`/items/add?type=${filterType}`);
-    } else {
-      navigate('/items/add');
+      params.set('type', filterType);
     }
-  }, [navigate, filterType]);
+
+    // Pre-select the current folder if we're inside a folder
+    if (currentFolderId) {
+      params.set('folderId', currentFolderId);
+    }
+
+    const queryString = params.toString();
+    navigate(queryString ? `/items/add?${queryString}` : '/items/add');
+  }, [navigate, filterType, currentFolderId]);
 
   /**
    * Handle add new folder.

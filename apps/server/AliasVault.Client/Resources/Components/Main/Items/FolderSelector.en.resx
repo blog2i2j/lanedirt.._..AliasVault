@@ -20,17 +20,9 @@
     </xsd:element>
   </xsd:schema>
 
-  <data name="FolderLabel">
-    <value>Folder</value>
-    <comment>Label for the folder section</comment>
-  </data>
   <data name="NoFolder">
     <value>No folder</value>
     <comment>Text shown when no folder is selected</comment>
-  </data>
-  <data name="ChangeFolder">
-    <value>Change</value>
-    <comment>Button text to change folder</comment>
   </data>
   <data name="SelectFolderTitle">
     <value>Select Folder</value>

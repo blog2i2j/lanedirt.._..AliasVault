@@ -226,6 +226,13 @@
             FieldValues = new List<FieldValue>()
         };
 
+        // Set folder ID if we're in a folder view
+        var folderId = GetCurrentFolderIdFromUrl();
+        if (folderId.HasValue)
+        {
+            item.FolderId = folderId.Value;
+        }
+
         // Set email with default domain
         ItemService.SetFieldValue(item, FieldKey.LoginEmail, "@" + ItemService.GetDefaultEmailDomain());
 
@@ -268,9 +275,26 @@
         QuickCreateStateService.ServiceName = Model.ServiceName;
         QuickCreateStateService.ServiceUrl = Model.ServiceUrl;
         QuickCreateStateService.ItemType = Model.ItemType;
+        QuickCreateStateService.FolderId = GetCurrentFolderIdFromUrl();
 
         NavigationManager.NavigateTo("/items/create");
         ClosePopup();
+    }
+
+    /// <summary>
+    /// Extract the folder ID from the current URL if we're in a folder view.
+    /// </summary>
+    /// <returns>The folder ID if in a folder view, null otherwise.</returns>
+    private Guid? GetCurrentFolderIdFromUrl()
+    {
+        var uri = new Uri(NavigationManager.Uri);
+        var path = uri.AbsolutePath;
+        if (path.StartsWith("/items/folder/") && Guid.TryParse(path.Replace("/items/folder/", ""), out var folderId))
+        {
+            return folderId;
+        }
+
+        return null;
     }
 
     /// <summary>

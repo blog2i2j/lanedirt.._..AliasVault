@@ -5,36 +5,24 @@
 @inject FolderService FolderService
 @inject IStringLocalizerFactory LocalizerFactory
 
-<div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 sm:p-6 dark:bg-gray-800">
-    <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3">
-            <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700">
-                <svg class="w-5 h-5 text-gray-600 dark:text-gray-400" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"/>
-                </svg>
-            </div>
-            <div>
-                <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300">@Localizer["FolderLabel"]</h4>
-                <p class="text-sm text-gray-500 dark:text-gray-400">
-                    @if (SelectedFolderId.HasValue)
-                    {
-                        var folder = Folders.FirstOrDefault(f => f.Id == SelectedFolderId.Value);
-                        <span class="text-primary-600 dark:text-primary-400">@folder?.Name</span>
-                    }
-                    else
-                    {
-                        <span>@Localizer["NoFolder"]</span>
-                    }
-                </p>
-            </div>
-        </div>
-        <button type="button"
-                @onclick="OpenFolderModal"
-                @onclick:preventDefault="true"
-                class="px-3 py-1.5 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-md transition-colors">
-            @Localizer["ChangeFolder"]
-        </button>
-    </div>
+<div class="flex items-center gap-2 mt-2">
+    <svg class="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+    </svg>
+    <button type="button"
+            @onclick="OpenFolderModal"
+            @onclick:preventDefault="true"
+            class="text-sm text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+        @if (SelectedFolderId.HasValue)
+        {
+            var folder = Folders.FirstOrDefault(f => f.Id == SelectedFolderId.Value);
+            <span class="text-primary-600 dark:text-primary-400">@folder?.Name</span>
+        }
+        else
+        {
+            <span>@Localizer["NoFolder"]</span>
+        }
+    </button>
 </div>
 
 @* Folder Selection Modal *@

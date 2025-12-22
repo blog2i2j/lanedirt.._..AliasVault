@@ -28,6 +28,11 @@ public class QuickCreateStateService
     public string? ItemType { get; set; }
 
     /// <summary>
+    /// Gets or sets the folder ID to pre-select when creating a new item.
+    /// </summary>
+    public Guid? FolderId { get; set; }
+
+    /// <summary>
     /// Clears the stored state.
     /// </summary>
     public void ClearState()
@@ -35,5 +40,6 @@ public class QuickCreateStateService
         ServiceName = null;
         ServiceUrl = null;
         ItemType = null;
+        FolderId = null;
     }
 }

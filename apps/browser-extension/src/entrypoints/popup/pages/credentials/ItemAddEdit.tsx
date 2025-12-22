@@ -85,9 +85,10 @@ const ItemAddEdit: React.FC = () => {
   const dbContext = useDb();
   const isEditMode = id !== undefined && id.length > 0;
 
-  // Get item type and name from URL parameters (for create mode)
+  // Get item type, name, and folder from URL parameters (for create mode)
   const itemTypeParam = searchParams.get('type') as ItemType | null;
   const itemNameParam = searchParams.get('name');
+  const folderIdParam = searchParams.get('folderId');
 
   const { executeVaultMutationAsync } = useVaultMutate();
   const { setHeaderButtons } = useHeaderButtons();
@@ -341,7 +342,7 @@ const ItemAddEdit: React.FC = () => {
           Id: crypto.randomUUID().toUpperCase(),
           Name: serviceName,
           ItemType: effectiveType,
-          FolderId: null,
+          FolderId: folderIdParam || null,
           Fields: [],
           CreatedAt: new Date().toISOString(),
           UpdatedAt: new Date().toISOString()
@@ -443,7 +444,7 @@ const ItemAddEdit: React.FC = () => {
       setLocalLoading(false);
       setIsInitialLoading(false);
     }
-  }, [dbContext?.sqliteClient, id, isEditMode, itemTypeParam, itemNameParam, navigate, setIsInitialLoading, detectService, loadPersistedValues]);
+  }, [dbContext?.sqliteClient, id, isEditMode, itemTypeParam, itemNameParam, folderIdParam, navigate, setIsInitialLoading, detectService, loadPersistedValues]);
 
   /**
    * Handle generating alias and populating fields.

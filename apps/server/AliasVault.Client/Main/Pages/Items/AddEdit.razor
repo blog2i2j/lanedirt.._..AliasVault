@@ -41,9 +41,6 @@ else
                     ShowDropdownChanged="@((show) => ShowTypeDropdown = show)"
                     OnRegenerateAlias="@GenerateRandomAlias" />
 
-                @* Folder Selector *@
-                <FolderSelector @bind-SelectedFolderId="Obj.FolderId" />
-
                 @* Service/Name Section - Always shown *@
                 <div class="p-4 mb-4 bg-white border-2 border-primary-600 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
                     <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["ServiceSectionHeader"]</h3>
@@ -51,6 +48,8 @@ else
                         <div class="col-span-6 sm:col-span-3">
                             <EditFormRow Id="service-name" Label="@Localizer["ServiceNameLabel"]" Placeholder="@Localizer["ServiceNamePlaceholder"]" @bind-Value="Obj.ServiceName"></EditFormRow>
                             <ValidationMessage For="() => Obj.ServiceName"/>
+                            @* Folder Selector - below name field *@
+                            <FolderSelector @bind-SelectedFolderId="Obj.FolderId" />
                         </div>
                         @* URL field - only for Login and Alias types *@
                         @if (ShouldShowField(FieldKey.LoginUrl))
@@ -498,6 +497,10 @@ else
                 if (!string.IsNullOrEmpty(QuickCreateStateService.ItemType))
                 {
                     await HandleItemTypeChange(QuickCreateStateService.ItemType);
+                }
+                if (QuickCreateStateService.FolderId.HasValue)
+                {
+                    Obj.FolderId = QuickCreateStateService.FolderId;
                 }
 
                 // Clear the state after using it
