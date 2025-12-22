@@ -23,26 +23,26 @@ public class DbCleanupTests : ClientPlaywrightTest
     [Order(1)]
     public async Task DbCleanupSoftDeletedRecordsTest()
     {
-        // Create two credentials. One random and one with a known name.
-        await CreateCredentialEntry();
-        await CreateCredentialEntry(new Dictionary<string, string> { { "service-name", "CredentialB" } });
+        // Create two items. One random and one with a known name.
+        await CreateItemEntry();
+        await CreateItemEntry(new Dictionary<string, string> { { "service-name", "ItemB" } });
 
-        // Delete the credential with the known name.
-        await DeleteCredentialEntry("CredentialB");
+        // Delete the item with the known name.
+        await DeleteItemEntry("ItemB");
 
         // Verify that the soft delete count is now 1.
         await NavigateUsingBlazorRouter("test/cleanup-stats");
 
         // Extract value from input hidden with id soft-deleted-credential-count
-        var softDeletedCredentialCount = await Page.EvaluateAsync<int>("document.getElementById('soft-deleted-credential-count').value");
-        Assert.That(softDeletedCredentialCount, Is.EqualTo(1), "Soft deleted credential count is not as expected.");
+        var softDeletedItemCount = await Page.EvaluateAsync<int>("document.getElementById('soft-deleted-credential-count').value");
+        Assert.That(softDeletedItemCount, Is.EqualTo(1), "Soft deleted item count is not as expected.");
 
         // Unlock the vault to trigger the cleanup.
         await RefreshPageAndUnlockVault();
 
         // Verify that the soft delete count is now 0 as cleanup should have run.
         await NavigateUsingBlazorRouter("test/cleanup-stats");
-        softDeletedCredentialCount = await Page.EvaluateAsync<int>("document.getElementById('soft-deleted-credential-count').value");
-        Assert.That(softDeletedCredentialCount, Is.EqualTo(1), "Soft deleted credential count is not as expected. Cleanup should only run after 7 days.");
+        softDeletedItemCount = await Page.EvaluateAsync<int>("document.getElementById('soft-deleted-credential-count').value");
+        Assert.That(softDeletedItemCount, Is.EqualTo(1), "Soft deleted item count is not as expected. Cleanup should only run after 7 days.");
     }
 }

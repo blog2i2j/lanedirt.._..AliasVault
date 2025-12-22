@@ -23,9 +23,9 @@ public class TotpTests : ClientPlaywrightTest
     [Order(1)]
     public async Task AddAndVerifyTotpCode()
     {
-        // Create a new credential with service name = "Test Service TOTP"
+        // Create a new item with service name = "Test Service TOTP"
         var serviceName = "Test Service TOTP";
-        await CreateCredentialEntry(
+        await CreateItemEntry(
             new Dictionary<string, string>
             {
                 { "service-name", serviceName },
@@ -33,7 +33,7 @@ public class TotpTests : ClientPlaywrightTest
 
         // Open the edit page again by clicking the button that contains the text "Edit"
         await Page.ClickAsync("text=Edit");
-        await WaitForUrlAsync("credentials/**/edit", "Edit the existing credential");
+        await WaitForUrlAsync("items/**/edit", "Edit the existing item");
 
         // Click the "Add TOTP Code" button
         var addButton = Page.Locator("button[id='add-totp-code'], a[id='add-totp-code']");
@@ -50,11 +50,11 @@ public class TotpTests : ClientPlaywrightTest
         var saveButton = Page.Locator("button[id='save-totp-code']");
         await saveButton.ClickAsync();
 
-        // Save the credential
-        var submitButton = Page.Locator("text=Save Credential").First;
+        // Save the item
+        var submitButton = Page.Locator("text=Save Item").First;
         await submitButton.ClickAsync();
 
-        await WaitForUrlAsync("credentials/**", "Credential updated successfully");
+        await WaitForUrlAsync("items/**", "Item updated successfully");
 
         // Verify that the TOTP code appears in the list
         var pageContent = await Page.TextContentAsync("body");
@@ -74,9 +74,9 @@ public class TotpTests : ClientPlaywrightTest
     [Order(2)]
     public async Task DeleteTotpCode()
     {
-        // Create a new credential with service name = "Test Service TOTP Delete"
+        // Create a new item with service name = "Test Service TOTP Delete"
         var serviceName = "Test Service TOTP Delete";
-        await CreateCredentialEntry(
+        await CreateItemEntry(
             new Dictionary<string, string>
             {
                 { "service-name", serviceName },
@@ -84,7 +84,7 @@ public class TotpTests : ClientPlaywrightTest
 
         // Open the edit page again by clicking the button that contains the text "Edit"
         await Page.ClickAsync("text=Edit");
-        await WaitForUrlAsync("credentials/**/edit", "Edit the existing credential");
+        await WaitForUrlAsync("items/**/edit", "Edit the existing item");
 
         // Add a TOTP code
         var addButton = Page.Locator("button[id='add-totp-code'], a[id='add-totp-code']");
@@ -95,11 +95,11 @@ public class TotpTests : ClientPlaywrightTest
 
         await Page.Locator("button[id='save-totp-code']").ClickAsync();
 
-        // Save the credential
-        var submitButton = Page.Locator("text=Save Credential").First;
+        // Save the item
+        var submitButton = Page.Locator("text=Save Item").First;
         await submitButton.ClickAsync();
 
-        await WaitForUrlAsync("credentials/**", "Credential updated successfully");
+        await WaitForUrlAsync("items/**", "Item updated successfully");
 
         // Verify the TOTP code was added
         var pageContent = await Page.TextContentAsync("body");
@@ -107,7 +107,7 @@ public class TotpTests : ClientPlaywrightTest
 
         // Open the edit page again by clicking the button that contains the text "Edit"
         await Page.ClickAsync("text=Edit");
-        await WaitForUrlAsync("credentials/**/edit", "Edit the existing credential");
+        await WaitForUrlAsync("items/**/edit", "Edit the existing item");
 
         // Click the delete button for the TOTP code
         var deleteButton = Page.Locator("button.delete-totp-code").First;

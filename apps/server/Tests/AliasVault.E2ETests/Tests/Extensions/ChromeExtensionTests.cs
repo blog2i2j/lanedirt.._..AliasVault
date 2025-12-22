@@ -27,7 +27,7 @@ public class ChromeExtensionTests : BrowserExtensionPlaywrightTest
     {
         // Create a new alias with service name = "Test Service".
         var serviceName = "Test Service";
-        await CreateCredentialEntry(new Dictionary<string, string>
+        await CreateItemEntry(new Dictionary<string, string>
         {
             { "service-name", serviceName },
         });
@@ -52,7 +52,7 @@ public class ChromeExtensionTests : BrowserExtensionPlaywrightTest
     {
         // Step 1: Create a credential via the client app
         var serviceName = "Offline Test Credential";
-        await CreateCredentialEntry(new Dictionary<string, string>
+        await CreateItemEntry(new Dictionary<string, string>
         {
             { "service-name", serviceName },
         });
@@ -234,8 +234,8 @@ public class ChromeExtensionTests : BrowserExtensionPlaywrightTest
         // Refresh the vault via the refresh button to get the latest vault that browser extension just uploaded
         await Page.ClickAsync("button[id='vault-refresh-btn']");
 
-        // Navigate to the credentials page explicitly in case we were stuck on the welcome screen.
-        await Page.ClickAsync("a[href='/credentials']");
+        // Navigate to the items page explicitly in case we were stuck on the welcome screen.
+        await Page.ClickAsync("a[href='/items']");
 
         // Wait for credentials page to load and verify the new credential appears
         await Page.WaitForSelectorAsync("text=" + serviceName);
@@ -368,7 +368,7 @@ public class ChromeExtensionTests : BrowserExtensionPlaywrightTest
     {
         // Create a credential to display
         var serviceName = "Test Popup Display";
-        await CreateCredentialEntry(new Dictionary<string, string>
+        await CreateItemEntry(new Dictionary<string, string>
         {
             { "service-name", serviceName },
         });

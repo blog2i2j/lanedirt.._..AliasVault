@@ -40,17 +40,6 @@ public sealed class DbServiceState
         Creating,
 
         /// <summary>
-        /// Database requires a merge because of multiple vaults with the same revision number.
-        /// This happens when multiple clients have made changes to the same vault without syncing in between.
-        /// </summary>
-        MergeRequired,
-
-        /// <summary>
-        /// Database merge failed.
-        /// </summary>
-        MergeFailed,
-
-        /// <summary>
         /// Database failed to decrypt. No data is accessible.
         /// </summary>
         DecryptionFailed,

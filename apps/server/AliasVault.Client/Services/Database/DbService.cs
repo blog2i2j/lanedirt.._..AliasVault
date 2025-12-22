@@ -118,116 +118,6 @@ public sealed class DbService : IDisposable
     }
 
     /// <summary>
-    /// Merges two or more databases into one using the Rust WASM merge logic.
-    /// </summary>
-    /// <returns>Bool which indicates if merging was successful.</returns>
-    public async Task<bool> MergeDatabasesAsync()
-    {
-        try
-        {
-            var vaultsToMerge = await _httpClient.GetFromJsonAsync<VaultMergeResponse>($"v1/Vault/merge?currentRevisionNumber={_vaultRevisionNumber}");
-            if (vaultsToMerge == null || vaultsToMerge.Vaults.Count == 0)
-            {
-                // No vaults to merge found, set error state.
-                _state.UpdateState(DbServiceState.DatabaseStatus.MergeFailed, "No vaults to merge found.");
-                return false;
-            }
-
-            _logger.LogInformation("Merging databases using Rust WASM...");
-
-            // Get the list of syncable table names from Rust core.
-            var tableNames = await _rustCore.GetSyncableTableNamesAsync();
-
-            // Read local tables as JSON.
-            var localTables = await ReadTablesAsJsonAsync(_sqlConnection!, tableNames);
-            _logger.LogDebug("Read {Count} local tables.", localTables.Count);
-
-            // Process each vault to merge.
-            foreach (var vault in vaultsToMerge.Vaults)
-            {
-                // Store username of the loaded vault in memory to send to server as sanity check when updating the vault later.
-                _authService.StoreUsername(vault.Username);
-
-                var decryptedBase64String = await _jsInteropService.SymmetricDecrypt(vault.Blob, _authService.GetEncryptionKeyAsBase64Async());
-                _logger.LogInformation("Decrypted vault {VaultUpdatedAt}.", vault.UpdatedAt);
-
-                // Create a temporary in-memory SQLite database for the server vault.
-                await using var serverConnection = new SqliteConnection("Data Source=:memory:");
-                await serverConnection.OpenAsync();
-                await ImportDbContextFromBase64Async(decryptedBase64String, serverConnection);
-
-                // Read server tables as JSON.
-                var serverTables = await ReadTablesAsJsonAsync(serverConnection, tableNames);
-                _logger.LogDebug("Read {Count} server tables.", serverTables.Count);
-
-                // Create the merge input.
-                var mergeInput = new MergeInput
-                {
-                    LocalTables = localTables,
-                    ServerTables = serverTables,
-                };
-
-                // Call Rust WASM merge.
-                var mergeOutput = await _rustCore.MergeVaultsAsync(mergeInput);
-
-                _logger.LogInformation(
-                    "Merge completed: {TablesProcessed} tables, {FromLocal} kept local, {FromServer} from server, {Inserted} inserted, {Conflicts} conflicts.",
-                    mergeOutput.Stats.TablesProcessed,
-                    mergeOutput.Stats.RecordsFromLocal,
-                    mergeOutput.Stats.RecordsFromServer,
-                    mergeOutput.Stats.RecordsInserted,
-                    mergeOutput.Stats.Conflicts);
-
-                // Execute the SQL statements returned by the merge.
-                await ExecuteMergeSqlStatementsAsync(mergeOutput.Statements);
-
-                // Update local tables for the next merge iteration (if there are multiple vaults).
-                localTables = await ReadTablesAsJsonAsync(_sqlConnection!, tableNames);
-            }
-
-            // Verify foreign key integrity after merge.
-            await using (var command = _sqlConnection!.CreateCommand())
-            {
-                command.CommandText = "PRAGMA foreign_key_check;";
-                await using var reader = await command.ExecuteReaderAsync();
-                if (await reader.ReadAsync())
-                {
-                    // Foreign key violation detected.
-                    _state.UpdateState(DbServiceState.DatabaseStatus.MergeFailed, "Foreign key violation detected after merge.");
-                    return false;
-                }
-            }
-
-            // Update the db context with the new merged database.
-            _dbContext = new AliasClientDbContext(_sqlConnection, log => _logger.LogDebug("{Message}", log));
-
-            // Update the current vault revision number to the highest revision number in the merged database(s).
-            // This is important so the server knows that the local client has successfully merged the databases
-            // and should overwrite the existing database on the server with the new merged database.
-            var newRevisionNumber = vaultsToMerge.Vaults.Max(v => v.CurrentRevisionNumber);
-            StoreVaultRevisionNumber(newRevisionNumber);
-
-            _isSuccessfullyInitialized = true;
-            await _settingsService.InitializeAsync(this);
-            _state.UpdateState(DbServiceState.DatabaseStatus.Ready);
-            _logger.LogInformation("Databases merged successfully.");
-
-            // Save the newly merged database to the server.
-            return await SaveDatabaseAsync();
-        }
-        catch (Exception ex)
-        {
-            _globalNotificationService.AddErrorMessage(
-                "Unable to save changes: Your vault has been updated elsewhere. " +
-                "The automatic merge was unsuccessful, possibly due to a password change or vault upgrade. " +
-                "Please log out and log back in to retrieve the latest version of your vault.");
-            _logger.LogError(ex, "Error merging databases.");
-            _state.UpdateState(DbServiceState.DatabaseStatus.Ready);
-            return false;
-        }
-    }
-
-    /// <summary>
     /// Returns the AliasClientDbContext instance.
     /// </summary>
     /// <returns>AliasClientDbContext.</returns>
@@ -752,6 +642,109 @@ public sealed class DbService : IDisposable
     }
 
     /// <summary>
+    /// Fetches the latest vault from server, merges with local changes using Rust WASM, and saves the merged result.
+    /// Called when server responds with "Outdated" status, indicating another client has uploaded a newer vault.
+    /// </summary>
+    /// <returns>Bool which indicates if merge and save was successful.</returns>
+    private async Task<bool> MergeWithServerAndSaveAsync()
+    {
+        try
+        {
+            _logger.LogInformation("Local vault is outdated. Fetching latest vault from server for merge...");
+
+            // Fetch the latest vault from server.
+            var response = await _httpClient.GetFromJsonAsync<VaultGetResponse>("v1/Vault");
+            if (response?.Vault == null || string.IsNullOrEmpty(response.Vault.Blob))
+            {
+                _logger.LogError("Failed to fetch vault from server for merge.");
+                _globalNotificationService.AddErrorMessage("Failed to sync vault. Please try again.");
+                return false;
+            }
+
+            var serverVault = response.Vault;
+            _logger.LogInformation("Fetched server vault at revision {Revision}.", serverVault.CurrentRevisionNumber);
+
+            // Store username of the loaded vault in memory to send to server as sanity check when updating the vault later.
+            _authService.StoreUsername(serverVault.Username);
+
+            // Decrypt server vault.
+            var decryptedBase64String = await _jsInteropService.SymmetricDecrypt(serverVault.Blob, _authService.GetEncryptionKeyAsBase64Async());
+
+            // Get the list of syncable table names from Rust core.
+            var tableNames = await _rustCore.GetSyncableTableNamesAsync();
+
+            // Read local tables as JSON.
+            var localTables = await ReadTablesAsJsonAsync(_sqlConnection!, tableNames);
+            _logger.LogDebug("Read {Count} local tables.", localTables.Count);
+
+            // Create a temporary in-memory SQLite database for the server vault.
+            await using var serverConnection = new SqliteConnection("Data Source=:memory:");
+            await serverConnection.OpenAsync();
+            await ImportDbContextFromBase64Async(decryptedBase64String, serverConnection);
+
+            // Read server tables as JSON.
+            var serverTables = await ReadTablesAsJsonAsync(serverConnection, tableNames);
+            _logger.LogDebug("Read {Count} server tables.", serverTables.Count);
+
+            // Create the merge input (local has our pending changes, server has the latest).
+            var mergeInput = new MergeInput
+            {
+                LocalTables = localTables,
+                ServerTables = serverTables,
+            };
+
+            // Call Rust WASM merge (LWW - Last Write Wins based on UpdatedAt).
+            var mergeOutput = await _rustCore.MergeVaultsAsync(mergeInput);
+
+            _logger.LogInformation(
+                "Merge completed: {TablesProcessed} tables, {FromLocal} kept local, {FromServer} from server, {Inserted} inserted, {Conflicts} conflicts.",
+                mergeOutput.Stats.TablesProcessed,
+                mergeOutput.Stats.RecordsFromLocal,
+                mergeOutput.Stats.RecordsFromServer,
+                mergeOutput.Stats.RecordsInserted,
+                mergeOutput.Stats.Conflicts);
+
+            // Execute the SQL statements returned by the merge to update local database.
+            await ExecuteMergeSqlStatementsAsync(mergeOutput.Statements);
+
+            // Verify foreign key integrity after merge.
+            await using (var command = _sqlConnection!.CreateCommand())
+            {
+                command.CommandText = "PRAGMA foreign_key_check;";
+                await using var reader = await command.ExecuteReaderAsync();
+                if (await reader.ReadAsync())
+                {
+                    _logger.LogError("Foreign key violation detected after merge.");
+                    _globalNotificationService.AddErrorMessage("Merge failed due to data integrity error. Please log out and log back in.");
+                    return false;
+                }
+            }
+
+            // Update the db context with the merged database.
+            _dbContext = new AliasClientDbContext(_sqlConnection, log => _logger.LogDebug("{Message}", log));
+
+            // Update the local revision number to the server's revision.
+            // When we upload, server will calculate new revision = this + 1.
+            StoreVaultRevisionNumber(serverVault.CurrentRevisionNumber);
+
+            _logger.LogInformation("Local merge completed. Uploading merged vault to server...");
+
+            // Now save the merged vault to server. This recursive call handles the case where
+            // another client uploaded during our merge (returns Outdated again).
+            return await SaveDatabaseAsync();
+        }
+        catch (Exception ex)
+        {
+            _globalNotificationService.AddErrorMessage(
+                "Unable to save changes: Your vault has been updated elsewhere. " +
+                "The automatic merge was unsuccessful, possibly due to a password change or vault upgrade. " +
+                "Please log out and log back in to retrieve the latest version of your vault.");
+            _logger.LogError(ex, "Error merging with server vault.");
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Checks if there are any pending migrations.
     /// </summary>
     /// <returns>Bool which indicates if there are any pending migrations.</returns>
@@ -787,12 +780,6 @@ public sealed class DbService : IDisposable
             var response = await _httpClient.GetFromJsonAsync<VaultGetResponse>("v1/Vault");
             if (response is not null)
             {
-                if (response.Status == VaultStatus.MergeRequired)
-                {
-                    _state.UpdateState(DbServiceState.DatabaseStatus.MergeRequired);
-                    return false;
-                }
-
                 var vault = response.Vault!;
                 StoreVaultRevisionNumber(vault.CurrentRevisionNumber);
 
@@ -870,22 +857,11 @@ public sealed class DbService : IDisposable
 
             if (vaultUpdateResponse != null)
             {
-                // If the server responds with a merge required status, we need to merge the local database
-                // with the one on the server before we can continue.
-                if (vaultUpdateResponse.Status == VaultStatus.MergeRequired)
+                if (vaultUpdateResponse.Status == VaultStatus.Outdated)
                 {
-                    _state.UpdateState(DbServiceState.DatabaseStatus.MergeRequired);
-                    return await MergeDatabasesAsync();
-                }
-                else if (vaultUpdateResponse.Status == VaultStatus.Outdated)
-                {
-                    // If the server responds with "outdated", it means we need to re-fetch the latest vault.
-                    // Because of how the WASM client works now, it mutates the current database in memory so we need to
-                    // merge the newly fetched database with the local database. For this we still need the
-                    // merge databases logic. So for outdated responses, we still call the MergeDatabasesAsync() method.
-                    // TODO: when changing datamodel and improving offline mode and batched mutations, update this logic and flow as well.
-                    _state.UpdateState(DbServiceState.DatabaseStatus.MergeRequired);
-                    return await MergeDatabasesAsync();
+                    // Server has a newer vault. Fetch it, merge with our local changes, and re-upload.
+                    // The merge uses LWW (Last Write Wins) based on UpdatedAt timestamps.
+                    return await MergeWithServerAndSaveAsync();
                 }
 
                 _vaultRevisionNumber = vaultUpdateResponse.NewRevisionNumber;
