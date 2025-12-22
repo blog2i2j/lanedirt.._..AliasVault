@@ -16,7 +16,10 @@
         break;
     case FieldType.TextArea:
         <div class="col-span-6">
-            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">@GetLabel()</label>
+            @if (!HideLabel)
+            {
+                <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">@GetLabel()</label>
+            }
             <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white whitespace-pre-wrap text-sm">
                 @RenderTextWithLinks(Field.Value ?? string.Empty)
             </div>
@@ -76,6 +79,12 @@
     /// </summary>
     [Parameter]
     public bool FullWidth { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether to hide the label (useful when section header already shows the label).
+    /// </summary>
+    [Parameter]
+    public bool HideLabel { get; set; }
 
     /// <summary>
     /// Gets the label for the field.

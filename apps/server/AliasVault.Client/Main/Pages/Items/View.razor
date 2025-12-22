@@ -97,7 +97,7 @@ else
                     <div class="grid grid-cols-6 gap-6">
                         @foreach (var field in notesFields)
                         {
-                            <FieldBlock Field="@field" />
+                            <FieldBlock Field="@field" HideLabel="true" />
                         }
                     </div>
                 </div>
@@ -233,7 +233,7 @@ else
                     <div class="grid grid-cols-6 gap-6">
                         @foreach (var field in noteTypeNotesFields)
                         {
-                            <FieldBlock Field="@field" />
+                            <FieldBlock Field="@field" HideLabel="true" />
                         }
                     </div>
                 </div>
@@ -243,7 +243,6 @@ else
             @if (GroupedFields.TryGetValue(FieldCategory.Custom, out var customFields) && customFields.Count > 0)
             {
                 <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
-                    <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["CustomFieldsSection"]</h3>
                     <form action="#">
                         <div class="grid grid-cols-6 gap-6">
                             @foreach (var field in customFields)
