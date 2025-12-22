@@ -32,6 +32,12 @@ public class AttachmentTests : ClientPlaywrightTest
             },
             async () =>
             {
+                // Add the attachments section via the + menu
+                await AddFieldSectionAsync("Attachments");
+
+                // Wait for the file input to appear
+                await Page.WaitForSelectorAsync("input[type='file']");
+
                 // Upload file.
                 var fileInput = Page.Locator("input[type='file']");
                 var fileContent = await ResourceReaderUtility.ReadEmbeddedResourceBytesAsync("AliasVault.E2ETests.TestData.TestAttachment.txt");
@@ -90,6 +96,12 @@ public class AttachmentTests : ClientPlaywrightTest
             },
             async () =>
             {
+                // Add the attachments section via the + menu
+                await AddFieldSectionAsync("Attachments");
+
+                // Wait for the file input to appear
+                await Page.WaitForSelectorAsync("input[type='file']");
+
                 // Upload file.
                 var fileInput = Page.Locator("input[type='file']");
                 var fileContent = await ResourceReaderUtility.ReadEmbeddedResourceBytesAsync("AliasVault.E2ETests.TestData.TestAttachment.txt");
@@ -161,6 +173,12 @@ public class AttachmentTests : ClientPlaywrightTest
             },
             async () =>
             {
+                // Add the attachments section via the + menu
+                await AddFieldSectionAsync("Attachments");
+
+                // Wait for the file input to appear
+                await Page.WaitForSelectorAsync("input[type='file']");
+
                 // Upload file.
                 var fileInput = Page.Locator("input[type='file']");
                 var fileContent = await ResourceReaderUtility.ReadEmbeddedResourceBytesAsync("AliasVault.E2ETests.TestData.TestAttachment.txt");
@@ -222,6 +240,12 @@ public class AttachmentTests : ClientPlaywrightTest
             },
             async () =>
             {
+                // Add the attachments section via the + menu
+                await AddFieldSectionAsync("Attachments");
+
+                // Wait for the file input to appear
+                await Page.WaitForSelectorAsync("input[type='file']");
+
                 var fileInput = Page.Locator("input[type='file']");
                 var fileContent = await ResourceReaderUtility.ReadEmbeddedResourceBytesAsync("AliasVault.E2ETests.TestData.TestAttachment.txt");
 
@@ -284,6 +308,12 @@ public class AttachmentTests : ClientPlaywrightTest
         // Edit the credential
         await Page.ClickAsync("text=Edit");
         await WaitForUrlAsync("items/**/edit", "Edit the existing item");
+
+        // Add the attachments section via the + menu
+        await AddFieldSectionAsync("Attachments");
+
+        // Wait for the file input to appear
+        await Page.WaitForSelectorAsync("input[type='file']");
 
         var attachmentNames = new[] { "Attachment1.txt", "Attachment2.txt", "Attachment3.txt" };
         var fileInput = Page.Locator("input[type='file']");
@@ -352,6 +382,12 @@ public class AttachmentTests : ClientPlaywrightTest
             },
             async () =>
             {
+                // Add the attachments section via the + menu
+                await AddFieldSectionAsync("Attachments");
+
+                // Wait for the file input to appear
+                await Page.WaitForSelectorAsync("input[type='file']");
+
                 var fileInput = Page.Locator("input[type='file']");
                 var fileContent = await ResourceReaderUtility.ReadEmbeddedResourceBytesAsync("AliasVault.E2ETests.TestData.TestAttachment.txt");
 

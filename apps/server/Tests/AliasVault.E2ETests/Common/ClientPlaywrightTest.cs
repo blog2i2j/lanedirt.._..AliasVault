@@ -295,6 +295,20 @@ public class ClientPlaywrightTest : PlaywrightTest
     }
 
     /// <summary>
+    /// Add a field section to the current item add/edit form via the "+" menu.
+    /// This clicks the add field button and selects the specified option.
+    /// </summary>
+    /// <param name="fieldName">The name of the field/section to add (e.g., "Attachments", "Two-Factor Authentication").</param>
+    /// <returns>Async task.</returns>
+    protected async Task AddFieldSectionAsync(string fieldName)
+    {
+        var addFieldButton = Page.Locator("button.w-full.border-dashed").First;
+        await addFieldButton.ClickAsync();
+        var fieldOption = Page.Locator($"button:has-text('{fieldName}')").First;
+        await fieldOption.ClickAsync();
+    }
+
+    /// <summary>
     /// Login (again) as current user.
     /// </summary>
     /// <param name="rememberMe">Whether the remember me option should be checked.</param>
