@@ -40,21 +40,48 @@ public class RustCoreService : IAsyncDisposable
     /// <returns>True if the WASM module is loaded and available.</returns>
     public async Task<bool> IsAvailableAsync()
     {
-        if (isAvailable.HasValue)
+        // Only return cached result if it's true (successful initialization).
+        // If false or null, we should try again since WASM might still be loading.
+        if (isAvailable == true)
         {
-            return isAvailable.Value;
+            return true;
         }
 
         try
         {
-            isAvailable = await jsRuntime.InvokeAsync<bool>("rustCoreIsAvailable");
-            return isAvailable.Value;
+            var result = await jsRuntime.InvokeAsync<bool>("rustCoreIsAvailable");
+            if (result)
+            {
+                isAvailable = true;
+            }
+
+            return result;
         }
         catch
         {
-            isAvailable = false;
             return false;
         }
+    }
+
+    /// <summary>
+    /// Wait for the Rust WASM module to become available with retries.
+    /// </summary>
+    /// <param name="maxRetries">Maximum number of retry attempts.</param>
+    /// <param name="delayMs">Delay between retries in milliseconds.</param>
+    /// <returns>True if the WASM module became available.</returns>
+    public async Task<bool> WaitForAvailabilityAsync(int maxRetries = 10, int delayMs = 100)
+    {
+        for (int i = 0; i < maxRetries; i++)
+        {
+            if (await IsAvailableAsync())
+            {
+                return true;
+            }
+
+            await Task.Delay(delayMs);
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -65,7 +92,8 @@ public class RustCoreService : IAsyncDisposable
     /// <exception cref="InvalidOperationException">Thrown if merge fails or WASM module is unavailable.</exception>
     public async Task<MergeOutput> MergeVaultsAsync(MergeInput input)
     {
-        if (!await IsAvailableAsync())
+        // Wait for WASM to be available with retries, as it may still be loading.
+        if (!await WaitForAvailabilityAsync())
         {
             throw new InvalidOperationException("Rust WASM module is not available.");
         }
