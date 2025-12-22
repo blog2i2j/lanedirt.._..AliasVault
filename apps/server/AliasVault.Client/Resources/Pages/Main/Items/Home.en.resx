@@ -206,6 +206,10 @@
     <value>New Folder</value>
     <comment>Button text for creating a new folder</comment>
   </data>
+  <data name="EditFolder" xml:space="preserve">
+    <value>Edit Folder</value>
+    <comment>Button text for editing a folder</comment>
+  </data>
   <data name="DeleteFolder" xml:space="preserve">
     <value>Delete Folder</value>
     <comment>Button text for deleting a folder</comment>

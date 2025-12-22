@@ -30,6 +30,11 @@
             </button>
             @if (IsInFolder)
             {
+                <button @onclick="ShowEditFolderModal" title="@Localizer["EditFolder"]" class="p-1.5 text-gray-400 hover:text-orange-500 dark:text-gray-500 dark:hover:text-orange-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                </button>
                 <button @onclick="ShowDeleteFolderModal" title="@Localizer["DeleteFolder"]" class="p-1.5 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <polyline points="3 6 5 6 21 6" />
@@ -259,12 +264,20 @@ else
     }
 }
 
-@* Folder Modal *@
+@* Create Folder Modal *@
 <FolderModal
     IsOpen="@ShowFolderModal"
     OnClose="CloseFolderModal"
     OnSave="CreateFolderAsync"
     Mode="create" />
+
+@* Edit Folder Modal *@
+<FolderModal
+    IsOpen="@ShowEditFolderModalVisible"
+    OnClose="CloseEditFolderModal"
+    OnSave="EditFolderAsync"
+    InitialName="@CurrentFolderName"
+    Mode="edit" />
 
 @* Delete Folder Modal *@
 <DeleteFolderModal
@@ -323,6 +336,11 @@ else
     /// Gets or sets whether the delete folder modal is shown.
     /// </summary>
     private bool ShowDeleteFolderModalVisible { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the edit folder modal is shown.
+    /// </summary>
+    private bool ShowEditFolderModalVisible { get; set; }
 
     /// <summary>
     /// Gets or sets the search term.
@@ -601,6 +619,48 @@ else
         else
         {
             GlobalNotificationService.AddErrorMessage(Localizer["FailedToCreateFolder"], true);
+        }
+    }
+
+    /// <summary>
+    /// Show the edit folder modal.
+    /// </summary>
+    private void ShowEditFolderModal()
+    {
+        ShowEditFolderModalVisible = true;
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Close the edit folder modal.
+    /// </summary>
+    private void CloseEditFolderModal()
+    {
+        ShowEditFolderModalVisible = false;
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Edit the current folder's name.
+    /// </summary>
+    private async Task EditFolderAsync(string newName)
+    {
+        if (FolderId.HasValue)
+        {
+            var success = await FolderService.UpdateAsync(FolderId.Value, newName);
+            if (success)
+            {
+                // Update the current folder name to reflect the change
+                CurrentFolderName = newName;
+
+                // Reload folders to update the name in the list
+                Folders = await FolderService.GetAllWithCountsAsync();
+                StateHasChanged();
+            }
+            else
+            {
+                GlobalNotificationService.AddErrorMessage(SharedLocalizer["ErrorGeneric"], true);
+            }
         }
     }
 
