@@ -219,6 +219,16 @@ window.focusElement = (elementId) => {
     }
 };
 
+window.focusAndSelectElement = (elementId) => {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.focus();
+        if (element.select) {
+            element.select();
+        }
+    }
+};
+
 window.blurElement = (elementId) => {
     const element = document.getElementById(elementId);
     if (element) {

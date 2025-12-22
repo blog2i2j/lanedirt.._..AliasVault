@@ -151,4 +151,10 @@
     <value>Cancel</value>
     <comment>Cancel button text</comment>
   </data>
+
+  <!-- Default field label -->
+  <data name="DefaultFieldLabel">
+    <value>Field {0}</value>
+    <comment>Default label for custom field, {0} is the field number</comment>
+  </data>
 </root>

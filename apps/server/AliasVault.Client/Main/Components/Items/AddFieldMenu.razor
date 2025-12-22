@@ -1,8 +1,10 @@
 @using AliasClientDb.Models
 @using AliasVault.Client.Main.Components.Layout
+@using AliasVault.Client.Services.JsInterop
 @using Microsoft.Extensions.Localization
 
 @inject IStringLocalizerFactory LocalizerFactory
+@inject JsInteropService JsInteropService
 
 <div class="relative">
     <button type="button"
@@ -85,7 +87,6 @@
     Title="@Localizer["AddCustomField"]"
     ConfirmText="@Localizer["Add"]"
     CancelText="@Localizer["Cancel"]"
-    ConfirmDisabled="@string.IsNullOrWhiteSpace(CustomFieldLabel)"
     ConfirmButtonClass="bg-primary-600 hover:bg-primary-500 dark:bg-primary-700 dark:hover:bg-primary-600"
     MaxWidth="md"
     OnClose="CloseCustomFieldModal"
@@ -102,6 +103,7 @@
                     @Localizer["FieldLabel"]
                 </label>
                 <input type="text"
+                       id="custom-field-label-input"
                        @bind="CustomFieldLabel"
                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
                        placeholder="@Localizer["EnterFieldName"]" />
@@ -172,6 +174,12 @@
     public EventCallback<(string Label, string FieldType)> OnAddCustomField { get; set; }
 
     /// <summary>
+    /// Current count of custom fields, used for auto-generating default labels.
+    /// </summary>
+    [Parameter]
+    public int CustomFieldCount { get; set; }
+
+    /// <summary>
     /// Callback when 2FA section is added.
     /// </summary>
     [Parameter]
@@ -216,12 +224,17 @@
         CloseMenu();
     }
 
-    private void OpenCustomFieldModal()
+    private async Task OpenCustomFieldModal()
     {
         ShowCustomFieldModal = true;
-        CustomFieldLabel = string.Empty;
+        // Auto-generate a default label based on existing custom field count
+        CustomFieldLabel = string.Format(Localizer["DefaultFieldLabel"].Value, CustomFieldCount + 1);
         CustomFieldType = "Text";
         CloseMenu();
+
+        // Wait for the modal to render, then focus and select the input text
+        await Task.Delay(50);
+        await JsInteropService.FocusAndSelectElementById("custom-field-label-input");
     }
 
     private Task CloseCustomFieldModal()

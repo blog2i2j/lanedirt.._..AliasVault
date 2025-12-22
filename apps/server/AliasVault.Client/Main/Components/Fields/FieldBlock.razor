@@ -41,7 +41,7 @@
         </div>
         break;
     case "Date":
-        <div class="col-span-6 sm:col-span-3">
+        <div class="@(FullWidth ? "col-span-6" : "col-span-6 sm:col-span-3")">
             <CopyPasteFormRow
                 Id="@GetFieldId()"
                 Label="@GetLabel()"
@@ -50,7 +50,7 @@
         break;
     default:
         @* Text, Email, Phone, Number - use standard copy/paste row *@
-        <div class="col-span-6 sm:col-span-3">
+        <div class="@(FullWidth ? "col-span-6" : "col-span-6 sm:col-span-3")">
             <CopyPasteFormRow
                 Id="@GetFieldId()"
                 Label="@GetLabel()"
@@ -70,6 +70,12 @@
     /// </summary>
     [Parameter]
     public required DisplayField Field { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the field should span full width.
+    /// </summary>
+    [Parameter]
+    public bool FullWidth { get; set; }
 
     /// <summary>
     /// Gets the label for the field.

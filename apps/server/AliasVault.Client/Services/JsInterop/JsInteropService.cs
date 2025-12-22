@@ -104,6 +104,14 @@ public sealed class JsInteropService(IJSRuntime jsRuntime)
         await jsRuntime.InvokeVoidAsync("focusElement", elementId);
 
     /// <summary>
+    /// Focus an element by its ID and select all its text.
+    /// </summary>
+    /// <param name="elementId">The element ID to focus and select.</param>
+    /// <returns>Task.</returns>
+    public async Task FocusAndSelectElementById(string elementId) =>
+        await jsRuntime.InvokeVoidAsync("focusAndSelectElement", elementId);
+
+    /// <summary>
     /// Blur (defocus) an element by its ID.
     /// </summary>
     /// <param name="elementId">The element ID to focus.</param>
