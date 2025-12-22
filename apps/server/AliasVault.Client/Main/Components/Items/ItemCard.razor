@@ -1,4 +1,5 @@
 @using AliasVault.Client.Main.Models
+@using AliasClientDb.Models
 @inject NavigationManager NavigationManager
 
 @* ItemCard component - displays an item in a card format with appropriate icon and information *@
@@ -67,7 +68,7 @@
     /// </summary>
     private string GetDisplayText()
     {
-        if (Obj.ItemType == ItemTypes.CreditCard)
+        if (Obj.ItemType == ItemType.CreditCard)
         {
             // For credit cards, show masked card number if available
             if (!string.IsNullOrEmpty(Obj.CardNumber) && Obj.CardNumber.Length >= 4)
@@ -78,7 +79,7 @@
             return string.Empty;
         }
 
-        if (Obj.ItemType == ItemTypes.Note)
+        if (Obj.ItemType == ItemType.Note)
         {
             // For notes, no secondary text needed
             return string.Empty;

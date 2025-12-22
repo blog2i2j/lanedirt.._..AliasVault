@@ -43,7 +43,7 @@ else
             <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
                 <div class="items-center flex space-x-4">
                     <ItemIcon
-                        ItemType="@(Item.ItemType ?? ItemTypes.Login)"
+                        ItemType="@(Item.ItemType ?? ItemType.Login)"
                         Logo="@Item.Logo?.FileData"
                         CardNumber="@GetCardNumber()"
                         AltText="@(Item.Name ?? "Item")"
@@ -78,7 +78,7 @@ else
             </div>
 
             @* Recent emails - only for Login/Alias *@
-            @if ((Item.ItemType == ItemTypes.Login || Item.ItemType == ItemTypes.Alias) && !string.IsNullOrEmpty(GetEmailAddress()))
+            @if ((Item.ItemType == ItemType.Login || Item.ItemType == ItemType.Alias) && !string.IsNullOrEmpty(GetEmailAddress()))
             {
                 <RecentEmails EmailAddress="@GetEmailAddress()" />
             }
@@ -90,7 +90,7 @@ else
             }
 
             @* Notes - if present (left column for non-Note types) *@
-            @if (Item.ItemType != ItemTypes.Note && GroupedFields.TryGetValue(FieldCategory.Notes, out var notesFields) && notesFields.Count > 0)
+            @if (Item.ItemType != ItemType.Note && GroupedFields.TryGetValue(FieldCategory.Notes, out var notesFields) && notesFields.Count > 0)
             {
                 <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
                     <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["NotesSection"]</h3>
@@ -113,7 +113,7 @@ else
         @* Right column *@
         <div class="col-span-1 md:col-span-2 lg:col-span-2">
             @* Login fields - for Login/Alias *@
-            @if ((Item.ItemType == ItemTypes.Login || Item.ItemType == ItemTypes.Alias) &&
+            @if ((Item.ItemType == ItemType.Login || Item.ItemType == ItemType.Alias) &&
                 GroupedFields.TryGetValue(FieldCategory.Login, out var loginFields) && loginFields.Count > 0)
             {
                 <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
@@ -181,7 +181,7 @@ else
             }
 
             @* Alias fields - for Alias type only *@
-            @if (Item.ItemType == ItemTypes.Alias &&
+            @if (Item.ItemType == ItemType.Alias &&
                 GroupedFields.TryGetValue(FieldCategory.Alias, out var aliasFields) && aliasFields.Count > 0)
             {
                 <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
@@ -209,7 +209,7 @@ else
             }
 
             @* Card fields - for CreditCard type *@
-            @if (Item.ItemType == ItemTypes.CreditCard &&
+            @if (Item.ItemType == ItemType.CreditCard &&
                 GroupedFields.TryGetValue(FieldCategory.Card, out var cardFields) && cardFields.Count > 0)
             {
                 <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
@@ -226,7 +226,7 @@ else
             }
 
             @* Notes - for Note type (main content area) *@
-            @if (Item.ItemType == ItemTypes.Note && GroupedFields.TryGetValue(FieldCategory.Notes, out var noteTypeNotesFields) && noteTypeNotesFields.Count > 0)
+            @if (Item.ItemType == ItemType.Note && GroupedFields.TryGetValue(FieldCategory.Notes, out var noteTypeNotesFields) && noteTypeNotesFields.Count > 0)
             {
                 <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
                     <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["NotesSection"]</h3>

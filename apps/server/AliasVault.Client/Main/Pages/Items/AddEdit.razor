@@ -71,7 +71,7 @@ else
                 }
 
                 @* Notes Section - When visible (left side for non-Note types) *@
-                @if (ShouldShowField(FieldKey.NotesContent) && Obj.ItemType != ItemTypes.Note)
+                @if (ShouldShowField(FieldKey.NotesContent) && Obj.ItemType != ItemType.Note)
                 {
                     <div class="col-span-1 md:col-span-1 lg:col-span-1">
                         <RemovableSection CanRemove="@CanRemoveField(FieldKey.NotesContent)" OnRemove="() => RemoveOptionalField(FieldKey.NotesContent)">
@@ -206,7 +206,7 @@ else
                                         }
                                     </div>
                                 }
-                                else if (Obj.ItemType == ItemTypes.Login && !ManuallyAddedFields.Contains(FieldKey.LoginEmail))
+                                else if (Obj.ItemType == ItemType.Login && !ManuallyAddedFields.Contains(FieldKey.LoginEmail))
                                 {
                                     @* Show + Email button for Login type when email is not visible *@
                                     <div class="col-span-6">
@@ -232,7 +232,7 @@ else
                 }
 
                 @* Alias Identity Section - For Alias type *@
-                @if (Obj.ItemType == ItemTypes.Alias)
+                @if (Obj.ItemType == ItemType.Alias)
                 {
                     <div class="col-span-1 md:col-span-1 lg:col-span-2">
                         <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
@@ -276,7 +276,7 @@ else
                 }
 
                 @* Credit Card Section - For CreditCard type *@
-                @if (Obj.ItemType == ItemTypes.CreditCard)
+                @if (Obj.ItemType == ItemType.CreditCard)
                 {
                     <div class="col-span-1 md:col-span-1 lg:col-span-2">
                         <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
@@ -318,7 +318,7 @@ else
                 }
 
                 @* Notes Section - For Note type (main content area) *@
-                @if (Obj.ItemType == ItemTypes.Note)
+                @if (Obj.ItemType == ItemType.Note)
                 {
                     <div class="col-span-1 md:col-span-1 lg:col-span-2">
                         <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
@@ -519,7 +519,7 @@ else
     /// </summary>
     private bool HasLoginFields()
     {
-        return Obj.ItemType == ItemTypes.Login || Obj.ItemType == ItemTypes.Alias;
+        return Obj.ItemType == ItemType.Login || Obj.ItemType == ItemType.Alias;
     }
 
     /// <summary>
@@ -789,7 +789,7 @@ else
         }
 
         // Generate alias for Alias type in create mode
-        if (newType == ItemTypes.Alias && !EditMode && !HasAliasValues())
+        if (newType == ItemType.Alias && !EditMode && !HasAliasValues())
         {
             await GenerateRandomAlias();
         }

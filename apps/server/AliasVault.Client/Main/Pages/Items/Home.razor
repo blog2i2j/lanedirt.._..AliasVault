@@ -6,6 +6,7 @@
 @using AliasVault.RazorComponents.Tables
 @using AliasVault.Client.Main.Models
 @using AliasVault.Client.Main.Components.Items
+@using AliasClientDb.Models
 @using AliasVault.Client.Main.Components.Folders
 @using Microsoft.Extensions.Localization
 @implements IAsyncDisposable
@@ -428,10 +429,10 @@ else
             {
                 ItemFilterType.Passkeys => filtered.Where(x => x.HasPasskey),
                 ItemFilterType.Attachments => filtered.Where(x => x.HasAttachment),
-                ItemFilterType.Login => filtered.Where(x => x.ItemType == ItemTypes.Login),
-                ItemFilterType.Alias => filtered.Where(x => x.ItemType == ItemTypes.Alias),
-                ItemFilterType.CreditCard => filtered.Where(x => x.ItemType == ItemTypes.CreditCard),
-                ItemFilterType.Note => filtered.Where(x => x.ItemType == ItemTypes.Note),
+                ItemFilterType.Login => filtered.Where(x => x.ItemType == ItemType.Login),
+                ItemFilterType.Alias => filtered.Where(x => x.ItemType == ItemType.Alias),
+                ItemFilterType.CreditCard => filtered.Where(x => x.ItemType == ItemType.CreditCard),
+                ItemFilterType.Note => filtered.Where(x => x.ItemType == ItemType.Note),
                 _ => filtered, // All
             };
 

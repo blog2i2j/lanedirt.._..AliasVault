@@ -5,8 +5,8 @@
 @* FieldBlock component - renders a single field based on its type *@
 @switch (Field.FieldType)
 {
-    case "Password":
-    case "Hidden":
+    case FieldType.Password:
+    case FieldType.Hidden:
         <div class="col-span-6">
             <CopyPastePasswordFormRow
                 Id="@GetFieldId()"
@@ -14,7 +14,7 @@
                 Value="@(Field.Value ?? string.Empty)" />
         </div>
         break;
-    case "TextArea":
+    case FieldType.TextArea:
         <div class="col-span-6">
             <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">@GetLabel()</label>
             <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white whitespace-pre-wrap text-sm">
@@ -22,7 +22,7 @@
             </div>
         </div>
         break;
-    case "URL":
+    case FieldType.URL:
         <div class="col-span-6">
             <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">@GetLabel()</label>
             @if (!string.IsNullOrEmpty(Field.Value))
@@ -40,7 +40,7 @@
             }
         </div>
         break;
-    case "Date":
+    case FieldType.Date:
         <div class="@(FullWidth ? "col-span-6" : "col-span-6 sm:col-span-3")">
             <CopyPasteFormRow
                 Id="@GetFieldId()"

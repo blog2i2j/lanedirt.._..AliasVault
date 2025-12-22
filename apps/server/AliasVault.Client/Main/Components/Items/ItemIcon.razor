@@ -1,12 +1,14 @@
 @using AliasVault.Client.Main.Models
+@using AliasClientDb.Models
 @using AliasVault.Client.Main.Utilities
+@using ItemTypeClass = AliasClientDb.Models.ItemType
 
 @* ItemIcon component - displays contextually appropriate icons based on item type *@
 @* For Login/Alias: Uses the Logo field if available, falls back to key placeholder *@
 @* For CreditCard: Shows card brand icons (Visa, MC, Amex, Discover) based on card number *@
 @* For Note: Shows a document/note icon *@
 
-@if (ItemType == ItemTypes.Note)
+@if (ItemType == ItemTypeClass.Note)
 {
     @* Note icon - document style *@
     <svg class="@SizeClass flex-shrink-0" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -17,7 +19,7 @@
         <rect x="10" y="22" width="8" height="1.5" rx="0.75" fill="#ffe096"/>
     </svg>
 }
-else if (ItemType == ItemTypes.CreditCard)
+else if (ItemType == ItemTypeClass.CreditCard)
 {
     @* Credit card icon - detect brand and show appropriate icon *@
     @switch (CardBrandDetector.Detect(CardNumber))
@@ -92,7 +94,7 @@ else
     /// Gets or sets the item type (Login, Alias, CreditCard, Note).
     /// </summary>
     [Parameter]
-    public string ItemType { get; set; } = ItemTypes.Login;
+    public string ItemType { get; set; } = ItemTypeClass.Login;
 
     /// <summary>
     /// Gets or sets the logo bytes for Login/Alias items.
