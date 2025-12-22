@@ -5,7 +5,7 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
-namespace AliasVault.Client.Services.Native;
+namespace AliasVault.Client.Services.JsInterop.RustCore;
 
 using System.Text.Json.Serialization;
 

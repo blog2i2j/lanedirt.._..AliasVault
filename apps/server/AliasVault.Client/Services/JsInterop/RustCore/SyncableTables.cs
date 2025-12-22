@@ -5,7 +5,7 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
-namespace AliasVault.Client.Services.Native;
+namespace AliasVault.Client.Services.JsInterop.RustCore;
 
 /// <summary>
 /// List of syncable table names that need to be read for merge operations.

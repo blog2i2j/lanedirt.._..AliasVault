@@ -1,11 +1,11 @@
 //-----------------------------------------------------------------------
-// <copyright file="RustCore.cs" company="aliasvault">
+// <copyright file="RustCoreService.cs" company="aliasvault">
 // Copyright (c) aliasvault. All rights reserved.
 // Licensed under the AGPLv3 license. See LICENSE.md file in the project root for full license information.
 // </copyright>
 //-----------------------------------------------------------------------
 
-namespace AliasVault.Client.Services.Native;
+namespace AliasVault.Client.Services.JsInterop.RustCore;
 
 using System.Text.Json;
 using Microsoft.JSInterop;
@@ -14,7 +14,7 @@ using Microsoft.JSInterop;
 /// JavaScript interop wrapper for the Rust WASM core library.
 /// Provides vault merge and credential matching functionality via WASM.
 /// </summary>
-public class RustCore : IAsyncDisposable
+public class RustCoreService : IAsyncDisposable
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -26,10 +26,10 @@ public class RustCore : IAsyncDisposable
     private bool? isAvailable;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="RustCore"/> class.
+    /// Initializes a new instance of the <see cref="RustCoreService"/> class.
     /// </summary>
     /// <param name="jsRuntime">The JS runtime for interop.</param>
-    public RustCore(IJSRuntime jsRuntime)
+    public RustCoreService(IJSRuntime jsRuntime)
     {
         this.jsRuntime = jsRuntime;
     }

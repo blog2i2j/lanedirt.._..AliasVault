@@ -10,7 +10,7 @@ using AliasVault.Client;
 using AliasVault.Client.Main.Services;
 using AliasVault.Client.Providers;
 using AliasVault.Client.Services;
-using AliasVault.Client.Services.Native;
+using AliasVault.Client.Services.JsInterop.RustCore;
 using AliasVault.RazorComponents.Services;
 using AliasVault.Shared.Core;
 using Blazor.WebAssembly.DynamicCulture.Loader;
@@ -101,7 +101,7 @@ builder.Services.AddScoped<ClipboardCopyService>();
 builder.Services.AddScoped<ConfirmModalService>();
 builder.Services.AddScoped<QuickCreateStateService>();
 builder.Services.AddScoped<LanguageService>();
-builder.Services.AddScoped<RustCore>();
+builder.Services.AddScoped<RustCoreService>();
 
 builder.Services.AddAuthorizationCore();
 builder.Services.AddBlazoredLocalStorage();

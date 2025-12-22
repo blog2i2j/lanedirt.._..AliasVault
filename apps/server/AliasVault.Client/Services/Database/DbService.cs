@@ -15,7 +15,7 @@ using AliasClientDb.Models;
 using AliasVault.Client.Services;
 using AliasVault.Client.Services.Auth;
 using AliasVault.Client.Services.JsInterop.Models;
-using AliasVault.Client.Services.Native;
+using AliasVault.Client.Services.JsInterop.RustCore;
 using AliasVault.Client.Utilities;
 using AliasVault.Shared.Models.Enums;
 using AliasVault.Shared.Models.WebApi.Vault;
@@ -32,7 +32,7 @@ public sealed class DbService : IDisposable
     private const string _UNKNOWN_VERSION = "Unknown";
     private readonly AuthService _authService;
     private readonly JsInteropService _jsInteropService;
-    private readonly RustCore _rustCore;
+    private readonly RustCoreService _rustCore;
     private readonly HttpClient _httpClient;
     private readonly DbServiceState _state = new();
     private readonly Config _config;
@@ -51,12 +51,12 @@ public sealed class DbService : IDisposable
     /// </summary>
     /// <param name="authService">AuthService.</param>
     /// <param name="jsInteropService">JsInteropService.</param>
-    /// <param name="rustCore">RustCore service for WASM interop.</param>
+    /// <param name="rustCore">RustCoreService for WASM interop.</param>
     /// <param name="httpClient">HttpClient.</param>
     /// <param name="config">Config instance.</param>
     /// <param name="globalNotificationService">Global notification service.</param>
     /// <param name="logger">ILogger instance.</param>
-    public DbService(AuthService authService, JsInteropService jsInteropService, RustCore rustCore, HttpClient httpClient, Config config, GlobalNotificationService globalNotificationService, ILogger<DbService> logger)
+    public DbService(AuthService authService, JsInteropService jsInteropService, RustCoreService rustCore, HttpClient httpClient, Config config, GlobalNotificationService globalNotificationService, ILogger<DbService> logger)
     {
         _authService = authService;
         _jsInteropService = jsInteropService;
