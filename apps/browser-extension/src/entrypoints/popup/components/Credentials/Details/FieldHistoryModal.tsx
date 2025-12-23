@@ -92,7 +92,7 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
       onClose={onClose}
       title={`${fieldLabel} ${t('items.history')}`}
       maxWidth="max-w-2xl"
-      bodyClassName="px-4 pb-4 overflow-y-auto max-h-[60vh]"
+      bodyClassName="px-4 pb-4 pt-4 overflow-y-auto max-h-[60vh]"
     >
       {loading ? (
         <div className="flex items-center justify-center py-8">
