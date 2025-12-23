@@ -65,12 +65,16 @@ public class RustCoreService : IAsyncDisposable
 
     /// <summary>
     /// Wait for the Rust WASM module to become available with retries.
+    /// Uses exponential backoff for more robust loading in slow environments (e.g., E2E tests, mobile devices).
+    /// Default timeout is ~30 seconds to handle slow network conditions.
     /// </summary>
     /// <param name="maxRetries">Maximum number of retry attempts.</param>
-    /// <param name="delayMs">Delay between retries in milliseconds.</param>
+    /// <param name="initialDelayMs">Initial delay between retries in milliseconds.</param>
     /// <returns>True if the WASM module became available.</returns>
-    public async Task<bool> WaitForAvailabilityAsync(int maxRetries = 10, int delayMs = 100)
+    public async Task<bool> WaitForAvailabilityAsync(int maxRetries = 30, int initialDelayMs = 100)
     {
+        var currentDelay = initialDelayMs;
+
         for (int i = 0; i < maxRetries; i++)
         {
             if (await IsAvailableAsync())
@@ -78,7 +82,10 @@ public class RustCoreService : IAsyncDisposable
                 return true;
             }
 
-            await Task.Delay(delayMs);
+            await Task.Delay(currentDelay);
+
+            // Exponential backoff with cap at 2 seconds
+            currentDelay = Math.Min(currentDelay * 2, 2000);
         }
 
         return false;

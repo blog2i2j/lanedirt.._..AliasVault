@@ -7,6 +7,34 @@ let isInitialized = false;
 let initPromise = null;
 
 /**
+ * Fetch with retry for more robust WASM loading.
+ * @param {string} url - URL to fetch.
+ * @param {number} maxRetries - Maximum retry attempts.
+ * @param {number} baseDelay - Base delay in ms for exponential backoff.
+ * @returns {Promise<Response>} The fetch response.
+ */
+async function fetchWithRetry(url, maxRetries = 3, baseDelay = 100) {
+    let lastError;
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            const response = await fetch(url);
+            if (response.ok) {
+                return response;
+            }
+            lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
+        } catch (error) {
+            lastError = error;
+        }
+
+        if (i < maxRetries - 1) {
+            const delay = baseDelay * Math.pow(2, i);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+    throw lastError;
+}
+
+/**
  * Initialize the Rust WASM module.
  * @returns {Promise<boolean>} True if initialization succeeded.
  */
@@ -15,17 +43,15 @@ async function initRustCore() {
         return true;
     }
 
+    // If we have a pending promise, wait for it
     if (initPromise) {
         return initPromise;
     }
 
     initPromise = (async () => {
         try {
-            // Fetch the WASM binary first
-            const wasmResponse = await fetch('/wasm/aliasvault_core_bg.wasm');
-            if (!wasmResponse.ok) {
-                throw new Error(`Failed to fetch WASM: ${wasmResponse.status}`);
-            }
+            // Fetch the WASM binary with retry
+            const wasmResponse = await fetchWithRetry('/wasm/aliasvault_core_bg.wasm');
             const wasmBytes = await wasmResponse.arrayBuffer();
 
             // Dynamically import the ES module
