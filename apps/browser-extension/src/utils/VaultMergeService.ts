@@ -1,7 +1,7 @@
 import initSqlJs, { Database, SqlJsStatic, SqlValue } from 'sql.js';
 import { browser } from 'wxt/browser';
 
-import init, { getSyncableTableNames, mergeVaults } from './dist/core/rust/aliasvault_core.js';
+import init, { getSyncableTableNames, mergeVaults, pruneVault } from './dist/core/rust/aliasvault_core.js';
 
 /**
  * Record type for JSON data passed to/from Rust.
@@ -54,6 +54,22 @@ type MergeOutput = {
 }
 
 /**
+ * Input structure for Rust prune function.
+ */
+type PruneInput = {
+  tables: TableData[];
+  retention_days: number;
+}
+
+/**
+ * Output structure from Rust prune function.
+ */
+type PruneOutput = {
+  success: boolean;
+  statements: SqlStatement[];
+}
+
+/**
  * Result of a merge operation.
  */
 export type MergeResult = {
@@ -71,6 +87,15 @@ export type MergeStats = {
   recordsFromServer: number;
   recordsCreatedLocally: number;
   conflicts: number;
+}
+
+/**
+ * Result of a prune operation.
+ */
+export type PruneResult = {
+  success: boolean;
+  prunedVaultBase64: string;
+  statementCount: number;
 }
 
 /**
@@ -199,6 +224,88 @@ export class VaultMergeService {
       }
     } catch (error) {
       console.error('Vault merge failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Prune expired items from trash in a vault.
+   *
+   * This permanently deletes (sets IsDeleted = true) items that have been in the trash
+   * (DeletedAt set) for longer than the retention period.
+   *
+   * Uses Rust WASM for the prune logic:
+   * 1. Load SQLite database with sql.js
+   * 2. Read relevant tables as JSON
+   * 3. Call Rust prune (returns SQL statements)
+   * 4. Execute SQL statements on database
+   * 5. Export pruned database
+   *
+   * @param vaultBase64 - The vault as base64 SQLite
+   * @param retentionDays - Number of days to keep items in trash (default: 30)
+   * @returns PruneResult with the pruned vault as base64
+   */
+  public async prune(vaultBase64: string, retentionDays: number = 30): Promise<PruneResult> {
+    try {
+      // Initialize Rust WASM
+      await this.initRust();
+
+      // Use injected SQL.js instance or initialize a new one
+      const SQL = this.sqlJsInstance ?? await initSqlJs({
+        /**
+         * Locate the SQL.js WASM file.
+         * @param file - The file name to locate
+         * @returns The path to the file
+         */
+        locateFile: (file: string) => `src/${file}`
+      });
+
+      // Load the database
+      const db = this.loadDatabase(SQL, vaultBase64);
+
+      try {
+        // Tables needed for pruning
+        const tableNames = ['Items', 'FieldValues', 'Attachments', 'TotpCodes', 'Passkeys'];
+
+        // Read tables as JSON
+        const tables: TableData[] = tableNames.map(name => ({
+          name,
+          records: this.readTableAsJson(db, name),
+        }));
+
+        // Call Rust WASM prune
+        const pruneInput: PruneInput = JSON.parse(JSON.stringify({
+          tables,
+          retention_days: retentionDays,
+        })) as PruneInput;
+
+        const pruneOutput = pruneVault(pruneInput) as PruneOutput;
+
+        // Execute SQL statements from Rust on database
+        for (const stmt of pruneOutput.statements) {
+          const sanitizedParams = stmt.params.map(p => p === undefined ? null : p);
+          db.run(stmt.sql, sanitizedParams);
+        }
+
+        // Export the pruned database
+        const prunedVaultBase64 = this.exportDatabase(db);
+        const statementCount = pruneOutput.statements.length;
+
+        if (statementCount > 0) {
+          console.info(`[VaultMerge] Pruned expired items from trash (${statementCount} SQL statements executed)`);
+        }
+
+        return {
+          success: pruneOutput.success,
+          prunedVaultBase64,
+          statementCount,
+        };
+      } finally {
+        // Clean up database
+        db.close();
+      }
+    } catch (error) {
+      console.error('Vault prune failed:', error);
       throw error;
     }
   }

@@ -7,7 +7,8 @@ use std::ffi::{c_char, CStr, CString};
 use std::ptr;
 
 use crate::credential_matcher::{filter_credentials, CredentialMatcherInput};
-use crate::merge::{merge_vaults, MergeInput, SYNCABLE_TABLE_NAMES};
+use crate::vault_merge::{merge_vaults, MergeInput, SYNCABLE_TABLE_NAMES};
+use crate::vault_pruner::{prune_vault, PruneInput};
 
 /// Merge two vaults using LWW strategy.
 ///
@@ -42,6 +43,50 @@ pub unsafe extern "C" fn merge_vaults_ffi(input_json: *const c_char) -> *mut c_c
         Ok(o) => o,
         Err(e) => {
             return create_error_response(&format!("Merge failed: {}", e));
+        }
+    };
+
+    match serde_json::to_string(&output) {
+        Ok(json) => string_to_c_char(json),
+        Err(e) => create_error_response(&format!("Failed to serialize output: {}", e)),
+    }
+}
+
+/// Prune expired items from trash.
+///
+/// Items with DeletedAt older than retention_days are marked as permanently deleted.
+///
+/// # Safety
+///
+/// - `input_json` must be a valid null-terminated C string
+/// - The returned pointer must be freed by calling `free_string`
+///
+/// # Returns
+///
+/// A null-terminated C string containing the JSON result (PruneOutput).
+/// Returns null on error.
+#[no_mangle]
+pub unsafe extern "C" fn prune_vault_ffi(input_json: *const c_char) -> *mut c_char {
+    if input_json.is_null() {
+        return ptr::null_mut();
+    }
+
+    let c_str = match CStr::from_ptr(input_json).to_str() {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let input: PruneInput = match serde_json::from_str(c_str) {
+        Ok(i) => i,
+        Err(e) => {
+            return create_error_response(&format!("Failed to parse input: {}", e));
+        }
+    };
+
+    let output = match prune_vault(input) {
+        Ok(o) => o,
+        Err(e) => {
+            return create_error_response(&format!("Prune failed: {}", e));
         }
     };
 
@@ -158,6 +203,9 @@ mod tests {
     fn test_null_input() {
         unsafe {
             let result = merge_vaults_ffi(ptr::null());
+            assert!(result.is_null());
+
+            let result = prune_vault_ffi(ptr::null());
             assert!(result.is_null());
 
             let result = filter_credentials_ffi(ptr::null());

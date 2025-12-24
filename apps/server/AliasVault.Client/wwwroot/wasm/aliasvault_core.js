@@ -400,6 +400,66 @@ export function mergeVaultsJson(input_json) {
     }
 }
 
+/**
+ * Prune expired items from trash.
+ *
+ * Items with DeletedAt older than retention_days are marked as permanently deleted (IsDeleted = true).
+ * Default retention is 30 days.
+ *
+ * Takes a JsValue (PruneInput) and returns a JsValue (PruneOutput).
+ * @param {any} input
+ * @returns {any}
+ */
+export function pruneVault(input) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        wasm.pruneVault(retptr, addHeapObject(input));
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return takeObject(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
+ * Prune vault using JSON strings (alternative API).
+ *
+ * Takes a JSON string and returns a JSON string.
+ * @param {string} input_json
+ * @returns {string}
+ */
+export function pruneVaultJson(input_json) {
+    let deferred3_0;
+    let deferred3_1;
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passStringToWasm0(input_json, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.pruneVaultJson(retptr, ptr0, len0);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        var r3 = getDataViewMemory0().getInt32(retptr + 4 * 3, true);
+        var ptr2 = r0;
+        var len2 = r1;
+        if (r3) {
+            ptr2 = 0; len2 = 0;
+            throw takeObject(r2);
+        }
+        deferred3_0 = ptr2;
+        deferred3_1 = len2;
+        return getStringFromWasm0(ptr2, len2);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+        wasm.__wbindgen_export4(deferred3_0, deferred3_1, 1);
+    }
+}
+
 const EXPECTED_RESPONSE_TYPES = new Set(['basic', 'cors', 'default']);
 
 async function __wbg_load(module, imports) {
@@ -438,6 +498,10 @@ function __wbg_get_imports() {
     imports.wbg.__wbg_Error_52673b7de5a0ca89 = function(arg0, arg1) {
         const ret = Error(getStringFromWasm0(arg0, arg1));
         return addHeapObject(ret);
+    };
+    imports.wbg.__wbg_Number_2d1dcfcf4ec51736 = function(arg0) {
+        const ret = Number(getObject(arg0));
+        return ret;
     };
     imports.wbg.__wbg_String_8f0eb39a4a4c2f66 = function(arg0, arg1) {
         const ret = String(getObject(arg1));
@@ -537,6 +601,10 @@ function __wbg_get_imports() {
             wasm.__wbindgen_export4(deferred0_0, deferred0_1, 1);
         }
     };
+    imports.wbg.__wbg_getTime_ad1e9878a735af08 = function(arg0) {
+        const ret = getObject(arg0).getTime();
+        return ret;
+    };
     imports.wbg.__wbg_get_6b7bd52aca3f9671 = function(arg0, arg1) {
         const ret = getObject(arg0)[arg1 >>> 0];
         return addHeapObject(ret);
@@ -598,6 +666,10 @@ function __wbg_get_imports() {
     imports.wbg.__wbg_length_d45040a40c570362 = function(arg0) {
         const ret = getObject(arg0).length;
         return ret;
+    };
+    imports.wbg.__wbg_new_0_23cedd11d9b40c9d = function() {
+        const ret = new Date();
+        return addHeapObject(ret);
     };
     imports.wbg.__wbg_new_1ba21ce319a06297 = function() {
         const ret = new Object();

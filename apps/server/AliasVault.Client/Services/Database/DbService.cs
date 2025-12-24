@@ -168,6 +168,9 @@ public sealed class DbService : IDisposable
             _state.UpdateState(DbServiceState.DatabaseStatus.SavingToServer);
         }
 
+        // Prune expired items from trash before saving.
+        await PruneExpiredTrashItemsAsync();
+
         // Make sure a public/private RSA encryption key exists before saving the database.
         await GetOrCreateEncryptionKeyAsync();
 
@@ -208,6 +211,9 @@ public sealed class DbService : IDisposable
         {
             try
             {
+                // Prune expired items from trash before saving.
+                await PruneExpiredTrashItemsAsync();
+
                 // Make sure a public/private RSA encryption key exists before saving the database.
                 await GetOrCreateEncryptionKeyAsync();
 
@@ -642,6 +648,24 @@ public sealed class DbService : IDisposable
     }
 
     /// <summary>
+    /// Replace first occurrence of a string.
+    /// </summary>
+    /// <param name="text">The text to search in.</param>
+    /// <param name="search">The string to search for.</param>
+    /// <param name="replace">The replacement string.</param>
+    /// <returns>The modified string.</returns>
+    private static string ReplaceFirst(string text, string search, string replace)
+    {
+        int pos = text.IndexOf(search, StringComparison.Ordinal);
+        if (pos < 0)
+        {
+            return text;
+        }
+
+        return text[..pos] + replace + text[(pos + search.Length)..];
+    }
+
+    /// <summary>
     /// Fetches the latest vault from server, merges with local changes using Rust WASM, and saves the merged result.
     /// Called when server responds with "Outdated" status, indicating another client has uploaded a newer vault.
     /// </summary>
@@ -817,9 +841,6 @@ public sealed class DbService : IDisposable
                     return false;
                 }
 
-                // Check if any soft-deleted records exist that are older than 7 days. If so, permanently delete them.
-                await VaultCleanupSoftDeletedRecords();
-
                 _isSuccessfullyInitialized = true;
                 await _settingsService.InitializeAsync(this);
                 _state.UpdateState(DbServiceState.DatabaseStatus.Ready);
@@ -879,6 +900,62 @@ public sealed class DbService : IDisposable
     }
 
     /// <summary>
+    /// Prunes expired items from the trash.
+    /// Items that have been in trash (DeletedAt set) for longer than 30 days
+    /// are permanently deleted (IsDeleted = true).
+    /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    private async Task PruneExpiredTrashItemsAsync()
+    {
+        try
+        {
+            // Read table data for prune operation
+            var tableNames = new[] { "Items", "FieldValues", "Attachments", "TotpCodes", "Passkeys" };
+            var tables = await ReadTablesAsJsonAsync(_sqlConnection!, tableNames);
+
+            var pruneInput = new JsInterop.RustCore.PruneInput
+            {
+                Tables = tables,
+                RetentionDays = 30,
+            };
+
+            var pruneOutput = await _rustCore.PruneVaultAsync(pruneInput);
+
+            if (pruneOutput.Success && pruneOutput.Statements.Count > 0)
+            {
+                _logger.LogInformation("Pruning {StatementCount} expired items from trash.", pruneOutput.Statements.Count);
+
+                // Execute the SQL statements returned by Rust
+                foreach (var stmt in pruneOutput.Statements)
+                {
+                    await using var command = _sqlConnection!.CreateCommand();
+                    command.CommandText = stmt.Sql;
+
+                    for (int i = 0; i < stmt.Params.Count; i++)
+                    {
+                        var param = stmt.Params[i];
+                        command.Parameters.AddWithValue($"@p{i}", param?.ToString() ?? (object)DBNull.Value);
+                    }
+
+                    // Replace ? placeholders with @p0, @p1, etc.
+                    var parameterizedSql = stmt.Sql;
+                    for (int i = 0; i < stmt.Params.Count; i++)
+                    {
+                        parameterizedSql = ReplaceFirst(parameterizedSql, "?", $"@p{i}");
+                    }
+
+                    command.CommandText = parameterizedSql;
+                    await command.ExecuteNonQueryAsync();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to prune expired trash items. Continuing with save.");
+        }
+    }
+
+    /// <summary>
     /// Get the default public/private encryption key, if it does not yet exist, create it.
     /// </summary>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
@@ -904,50 +981,6 @@ public sealed class DbService : IDisposable
         };
         _dbContext.EncryptionKeys.Add(encryptionKey);
         return encryptionKey;
-    }
-
-    /// <summary>
-    /// Check if any soft-deleted records exist that are older than 7 days. If so, permanently delete them.
-    /// </summary>
-    /// <returns>Task.</returns>
-    private async Task VaultCleanupSoftDeletedRecords()
-    {
-        var cutoffDate = DateTime.UtcNow.AddDays(-7);
-        var deleteCount = 0;
-
-        // Hard delete soft-deleted Items older than 7 days
-        deleteCount += await _dbContext.Items
-            .Where(i => i.IsDeleted && i.UpdatedAt <= cutoffDate)
-            .ExecuteDeleteAsync();
-
-        // Hard delete soft-deleted FieldValues older than 7 days
-        deleteCount += await _dbContext.FieldValues
-            .Where(fv => fv.IsDeleted && fv.UpdatedAt <= cutoffDate)
-            .ExecuteDeleteAsync();
-
-        // Hard delete soft-deleted Passkeys older than 7 days
-        deleteCount += await _dbContext.Passkeys
-            .Where(p => p.IsDeleted && p.UpdatedAt <= cutoffDate)
-            .ExecuteDeleteAsync();
-
-        // Hard delete soft-deleted Attachments older than 7 days
-        deleteCount += await _dbContext.Attachments
-            .Where(a => a.IsDeleted && a.UpdatedAt <= cutoffDate)
-            .ExecuteDeleteAsync();
-
-        // Hard delete soft-deleted TotpCodes older than 7 days
-        deleteCount += await _dbContext.TotpCodes
-            .Where(t => t.IsDeleted && t.UpdatedAt <= cutoffDate)
-            .ExecuteDeleteAsync();
-
-        if (deleteCount > 0)
-        {
-            var success = await SaveDatabaseAsync();
-            if (!success)
-            {
-                throw new DataException("Error saving database to server after record deletion.");
-            }
-        }
     }
 
     /// <summary>

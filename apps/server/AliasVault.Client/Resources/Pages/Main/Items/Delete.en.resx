@@ -32,10 +32,6 @@
     <value>You can delete the item below.</value>
     <comment>Page description for deleting item</comment>
   </data>
-  <data name="DeleteWarningMessage">
-    <value>Note: removing this item is permanent and cannot be undone.</value>
-    <comment>Warning message about permanent deletion</comment>
-  </data>
   <data name="ItemEntrySection">
     <value>Item entry</value>
     <comment>Section header for item details</comment>

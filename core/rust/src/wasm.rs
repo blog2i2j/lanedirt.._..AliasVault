@@ -5,7 +5,8 @@ use wasm_bindgen::prelude::*;
 use crate::credential_matcher::{
     filter_credentials, CredentialMatcherInput, CredentialMatcherOutput,
 };
-use crate::merge::{merge_vaults, MergeInput, MergeOutput};
+use crate::vault_merge::{merge_vaults, MergeInput, MergeOutput};
+use crate::vault_pruner::{prune_vault, PruneInput, PruneOutput};
 
 #[wasm_bindgen]
 extern "C" {
@@ -19,10 +20,14 @@ pub fn init() {
     console_error_panic_hook::set_once();
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Vault Merge WASM Bindings
+// ═══════════════════════════════════════════════════════════════════════════════
+
 /// Get the list of table names that need to be synced.
 #[wasm_bindgen(js_name = getSyncableTableNames)]
 pub fn get_syncable_table_names() -> Vec<String> {
-    crate::merge::SYNCABLE_TABLE_NAMES
+    crate::vault_merge::SYNCABLE_TABLE_NAMES
         .iter()
         .map(|s| s.to_string())
         .collect()
@@ -48,8 +53,39 @@ pub fn merge_vaults_js(input: JsValue) -> Result<JsValue, JsValue> {
 /// Takes a JSON string and returns a JSON string.
 #[wasm_bindgen(js_name = mergeVaultsJson)]
 pub fn merge_vaults_json_js(input_json: &str) -> Result<String, JsValue> {
-    crate::merge::merge_vaults_json(input_json)
+    crate::vault_merge::merge_vaults_json(input_json)
         .map_err(|e| JsValue::from_str(&format!("Merge failed: {}", e)))
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Vault Pruner WASM Bindings
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Prune expired items from trash.
+///
+/// Items with DeletedAt older than retention_days are marked as permanently deleted (IsDeleted = true).
+/// Default retention is 30 days.
+///
+/// Takes a JsValue (PruneInput) and returns a JsValue (PruneOutput).
+#[wasm_bindgen(js_name = pruneVault)]
+pub fn prune_vault_js(input: JsValue) -> Result<JsValue, JsValue> {
+    let input: PruneInput = serde_wasm_bindgen::from_value(input)
+        .map_err(|e| JsValue::from_str(&format!("Failed to parse input: {}", e)))?;
+
+    let output: PruneOutput = prune_vault(input)
+        .map_err(|e| JsValue::from_str(&format!("Prune failed: {}", e)))?;
+
+    serde_wasm_bindgen::to_value(&output)
+        .map_err(|e| JsValue::from_str(&format!("Failed to serialize output: {}", e)))
+}
+
+/// Prune vault using JSON strings (alternative API).
+///
+/// Takes a JSON string and returns a JSON string.
+#[wasm_bindgen(js_name = pruneVaultJson)]
+pub fn prune_vault_json_js(input_json: &str) -> Result<String, JsValue> {
+    crate::vault_pruner::prune_vault_json(input_json)
+        .map_err(|e| JsValue::from_str(&format!("Prune failed: {}", e)))
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

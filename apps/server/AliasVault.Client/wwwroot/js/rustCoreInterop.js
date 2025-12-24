@@ -199,3 +199,34 @@ window.rustCoreExtractRootDomain = async function(domain) {
         return '';
     }
 };
+
+/**
+ * Prune expired items from trash.
+ * Items that have been in trash (DeletedAt set) for longer than the retention period
+ * are permanently deleted (IsDeleted = true).
+ * @param {string} inputJson - JSON string containing PruneInput.
+ * @returns {Promise<string>} JSON string containing PruneOutput.
+ */
+window.rustCorePruneVault = async function(inputJson) {
+    if (!await initRustCore()) {
+        return JSON.stringify({
+            success: false,
+            error: 'Rust WASM module not available',
+            statements: [],
+            stats: {}
+        });
+    }
+
+    try {
+        const result = wasmModule.pruneVaultJson(inputJson);
+        return result;
+    } catch (error) {
+        console.error('[RustCore] Prune failed:', error);
+        return JSON.stringify({
+            success: false,
+            error: error.toString(),
+            statements: [],
+            stats: {}
+        });
+    }
+};

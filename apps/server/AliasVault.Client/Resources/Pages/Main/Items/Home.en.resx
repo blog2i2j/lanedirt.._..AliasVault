@@ -58,7 +58,7 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  
+
   <!-- Page Header -->
   <data name="PageTitle" xml:space="preserve">
     <value>Vault</value>
@@ -68,7 +68,7 @@
     <value>Find all of your items below.</value>
     <comment>Page description text</comment>
   </data>
-  
+
   <!-- Settings Dropdown -->
   <data name="ViewModeLabel" xml:space="preserve">
     <value>View Mode</value>
@@ -98,7 +98,7 @@
     <value>Alphabetical</value>
     <comment>Alphabetical sort option</comment>
   </data>
-  
+
   <!-- Empty State -->
   <data name="NoItemsTitle" xml:space="preserve">
     <value>No items yet</value>
@@ -132,7 +132,7 @@
     <value>Import from KeePass, Bitwarden, Chrome, Firefox...</value>
     <comment>Import button text</comment>
   </data>
-  
+
   <!-- Error Messages -->
   <data name="FailedToLoadItemsMessage" xml:space="preserve">
     <value>Failed to load items.</value>
@@ -163,6 +163,10 @@
   <data name="FilterAttachmentsOption" xml:space="preserve">
     <value>Attachments</value>
     <comment>Filter option to show only items with attachments</comment>
+  </data>
+  <data name="FilterRecentlyDeletedOption" xml:space="preserve">
+    <value>Recently Deleted</value>
+    <comment>Filter option to show recently deleted items</comment>
   </data>
 
   <!-- Filtered Empty States -->

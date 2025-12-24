@@ -597,13 +597,38 @@ export async function handleClearPersistedFormValues(): Promise<void> {
 
 /**
  * Upload a new version of the vault to the server using the provided sqlite client.
+ * Prunes expired trash items (older than 30 days) before uploading.
  */
 async function uploadNewVaultToServer(sqliteClient: SqliteClient) : Promise<VaultPostResponse> {
-  const updatedVaultData = sqliteClient.exportToBase64();
+  let updatedVaultData = sqliteClient.exportToBase64();
   const encryptionKey = await handleGetEncryptionKey();
 
   if (!encryptionKey) {
     throw new Error(await t('common.errors.vaultIsLocked'));
+  }
+
+  /**
+   * Prune expired items from trash before uploading.
+   * Items that have been in trash (DeletedAt set) for more than 30 days
+   * are permanently deleted (IsDeleted = true) as part of the sync process.
+   */
+  try {
+    const { vaultMergeService } = await import('@/utils/VaultMergeService');
+    const pruneResult = await vaultMergeService.prune(updatedVaultData, 30);
+    if (pruneResult.success && pruneResult.statementCount > 0) {
+      console.info(`[VaultSync] Pruned expired items from trash (${pruneResult.statementCount} statements)`);
+      updatedVaultData = pruneResult.prunedVaultBase64;
+
+      /**
+       * Reload the sqlite client with the pruned vault so the UI reflects the change.
+       * Clear the cache to force re-initialization.
+       */
+      cachedSqliteClient = null;
+      cachedVaultBlob = null;
+      await sqliteClient.initializeFromBase64(updatedVaultData);
+    }
+  } catch (pruneError) {
+    console.warn('[VaultSync] Failed to prune vault, continuing with upload:', pruneError);
   }
 
   const encryptedVault = await EncryptionUtility.symmetricEncrypt(

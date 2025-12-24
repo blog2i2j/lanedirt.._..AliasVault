@@ -89,6 +89,17 @@
                             <button @onclick="() => SetFilter(ItemFilterType.Attachments)" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 @(FilterType == ItemFilterType.Attachments ? "bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400" : "text-gray-700 dark:text-gray-300")">
                                 @Localizer["FilterAttachmentsOption"]
                             </button>
+
+                            <div class="border-t border-gray-200 dark:border-gray-600 my-1"></div>
+
+                            @* Recently deleted link *@
+                            <button @onclick="NavigateToRecentlyDeleted" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 flex items-center justify-between">
+                                <span>@Localizer["FilterRecentlyDeletedOption"]</span>
+                                @if (RecentlyDeletedCount > 0)
+                                {
+                                    <span class="text-gray-400 dark:text-gray-500">@RecentlyDeletedCount</span>
+                                }
+                            </button>
                         </div>
                     </div>
                 </ClickOutsideHandler>
@@ -343,6 +354,11 @@ else
     private bool ShowEditFolderModalVisible { get; set; }
 
     /// <summary>
+    /// Gets or sets the count of recently deleted items.
+    /// </summary>
+    private int RecentlyDeletedCount { get; set; }
+
+    /// <summary>
     /// Gets or sets the search term.
     /// </summary>
     private string SearchTerm { get; set; } = string.Empty;
@@ -587,6 +603,15 @@ else
     }
 
     /// <summary>
+    /// Navigate to the recently deleted page.
+    /// </summary>
+    private void NavigateToRecentlyDeleted()
+    {
+        ShowFilterDropdown = false;
+        NavigationManager.NavigateTo("/items/recently-deleted");
+    }
+
+    /// <summary>
     /// Show the create folder modal.
     /// </summary>
     private void ShowCreateFolderModal()
@@ -796,6 +821,10 @@ else
 
         // Load folders
         Folders = await FolderService.GetAllWithCountsAsync();
+
+        // Load recently deleted count
+        var recentlyDeleted = await ItemService.GetRecentlyDeletedAsync();
+        RecentlyDeletedCount = recentlyDeleted.Count;
 
         // Pass unsorted list to the view - sorting will be handled by the property
         Items = itemListEntries;

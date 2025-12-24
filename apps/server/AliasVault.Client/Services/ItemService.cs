@@ -273,12 +273,21 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
 
         var updateDateTime = DateTime.UtcNow;
 
+        // Check if item type has changed
+        var typeChanged = existingItem.ItemType != item.ItemType;
+
         // Update basic item info
         existingItem.Name = item.Name;
         existingItem.ItemType = item.ItemType;
         existingItem.LogoId = item.LogoId;
         existingItem.FolderId = item.FolderId;
         existingItem.UpdatedAt = updateDateTime;
+
+        // Clear inapplicable fields/relations when type changes
+        if (typeChanged && item.ItemType != null)
+        {
+            ClearInapplicableData(context, existingItem, item.ItemType, updateDateTime);
+        }
 
         // Update field values
         UpdateFieldValues(context, existingItem, item, updateDateTime);
@@ -414,6 +423,110 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
     }
 
     /// <summary>
+    /// Soft deletes an existing item from database by moving it to trash.
+    /// Syncs to server in the background without blocking the UI.
+    /// </summary>
+    /// <param name="id">Id of item to delete.</param>
+    /// <returns>Task that completes after local mutation.</returns>
+    public async Task TrashItemInBackgroundAsync(Guid id)
+    {
+        var context = await dbService.GetDbContextAsync();
+
+        var item = await context.Items
+            .Include(x => x.Passkeys)
+            .Where(x => x.Id == id)
+            .FirstAsync();
+
+        var deleteDateTime = DateTime.UtcNow;
+
+        // Move to trash (soft delete)
+        item.DeletedAt = deleteDateTime;
+        item.UpdatedAt = deleteDateTime;
+
+        // Save locally and sync to server in background
+        await context.SaveChangesAsync();
+        dbService.SaveDatabaseInBackground();
+    }
+
+    /// <summary>
+    /// Restores an item from the trash (clears DeletedAt).
+    /// </summary>
+    /// <param name="id">Id of item to restore.</param>
+    /// <returns>Bool which indicates if restoration was successful.</returns>
+    public async Task<bool> RestoreItemAsync(Guid id)
+    {
+        var context = await dbService.GetDbContextAsync();
+
+        var item = await context.Items
+            .Where(x => x.Id == id && x.DeletedAt != null && !x.IsDeleted)
+            .FirstOrDefaultAsync();
+
+        if (item == null)
+        {
+            return false;
+        }
+
+        var restoreDateTime = DateTime.UtcNow;
+
+        // Restore from trash (clear DeletedAt)
+        item.DeletedAt = null;
+        item.UpdatedAt = restoreDateTime;
+
+        return await dbService.SaveDatabaseAsync();
+    }
+
+    /// <summary>
+    /// Restores an item from the trash (clears DeletedAt).
+    /// Syncs to server in the background without blocking the UI.
+    /// </summary>
+    /// <param name="id">Id of item to restore.</param>
+    /// <returns>True if item was found and restored locally, false if not found.</returns>
+    public async Task<bool> RestoreItemInBackgroundAsync(Guid id)
+    {
+        var context = await dbService.GetDbContextAsync();
+
+        var item = await context.Items
+            .Where(x => x.Id == id && x.DeletedAt != null && !x.IsDeleted)
+            .FirstOrDefaultAsync();
+
+        if (item == null)
+        {
+            return false;
+        }
+
+        var restoreDateTime = DateTime.UtcNow;
+
+        // Restore from trash (clear DeletedAt)
+        item.DeletedAt = null;
+        item.UpdatedAt = restoreDateTime;
+
+        // Save locally and sync to server in background
+        await context.SaveChangesAsync();
+        dbService.SaveDatabaseInBackground();
+        return true;
+    }
+
+    /// <summary>
+    /// Gets all items that are in the trash (DeletedAt is set but IsDeleted is false).
+    /// </summary>
+    /// <returns>List of trashed items.</returns>
+    public async Task<List<Item>> GetRecentlyDeletedAsync()
+    {
+        var context = await dbService.GetDbContextAsync();
+
+        var items = await context.Items
+            .Include(x => x.FieldValues.Where(fv => !fv.IsDeleted))
+                .ThenInclude(fv => fv.FieldDefinition)
+            .Include(x => x.Logo)
+            .AsSplitQuery()
+            .Where(x => !x.IsDeleted && x.DeletedAt != null)
+            .OrderByDescending(x => x.DeletedAt)
+            .ToListAsync();
+
+        return items;
+    }
+
+    /// <summary>
     /// Permanently deletes an item (sets IsDeleted = true).
     /// </summary>
     /// <param name="id">Id of item to permanently delete.</param>
@@ -461,6 +574,59 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
         }
 
         return await dbService.SaveDatabaseAsync();
+    }
+
+    /// <summary>
+    /// Permanently deletes an item (sets IsDeleted = true).
+    /// Syncs to server in the background without blocking the UI.
+    /// </summary>
+    /// <param name="id">Id of item to permanently delete.</param>
+    /// <returns>Task that completes after local mutation.</returns>
+    public async Task PermanentlyDeleteItemInBackgroundAsync(Guid id)
+    {
+        var context = await dbService.GetDbContextAsync();
+
+        var item = await context.Items
+            .Include(x => x.FieldValues)
+            .Include(x => x.Passkeys)
+            .Include(x => x.Attachments)
+            .Include(x => x.TotpCodes)
+            .Where(x => x.Id == id)
+            .FirstAsync();
+
+        var deleteDateTime = DateTime.UtcNow;
+
+        // Mark item and all related entities as deleted
+        item.IsDeleted = true;
+        item.UpdatedAt = deleteDateTime;
+
+        foreach (var fv in item.FieldValues)
+        {
+            fv.IsDeleted = true;
+            fv.UpdatedAt = deleteDateTime;
+        }
+
+        foreach (var passkey in item.Passkeys)
+        {
+            passkey.IsDeleted = true;
+            passkey.UpdatedAt = deleteDateTime;
+        }
+
+        foreach (var attachment in item.Attachments)
+        {
+            attachment.IsDeleted = true;
+            attachment.UpdatedAt = deleteDateTime;
+        }
+
+        foreach (var totp in item.TotpCodes)
+        {
+            totp.IsDeleted = true;
+            totp.UpdatedAt = deleteDateTime;
+        }
+
+        // Save locally and sync to server in background
+        await context.SaveChangesAsync();
+        dbService.SaveDatabaseInBackground();
     }
 
     /// <summary>
@@ -731,6 +897,116 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
             {
                 existingField.IsDeleted = true;
                 existingField.UpdatedAt = updateDateTime;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Clears data that is not applicable to the new item type.
+    /// Called when an item's type changes (e.g., Login to Note).
+    /// </summary>
+    /// <param name="context">The database context.</param>
+    /// <param name="item">The item to clear data from.</param>
+    /// <param name="newType">The new item type.</param>
+    /// <param name="updateDateTime">The timestamp for updates.</param>
+    private static void ClearInapplicableData(AliasClientDbContext context, Item item, string newType, DateTime updateDateTime)
+    {
+        // Define field keys by category
+        var loginFieldKeys = new[]
+        {
+            FieldKey.LoginUsername,
+            FieldKey.LoginPassword,
+            FieldKey.LoginEmail,
+            FieldKey.LoginUrl,
+        };
+
+        var aliasFieldKeys = new[]
+        {
+            FieldKey.AliasFirstName,
+            FieldKey.AliasLastName,
+            FieldKey.AliasGender,
+            FieldKey.AliasBirthdate,
+        };
+
+        var cardFieldKeys = new[]
+        {
+            FieldKey.CardNumber,
+            FieldKey.CardCardholderName,
+            FieldKey.CardExpiryMonth,
+            FieldKey.CardExpiryYear,
+            FieldKey.CardCvv,
+            FieldKey.CardPin,
+        };
+
+        // Determine what to clear based on new type
+        var fieldKeysToClear = new List<string>();
+
+        switch (newType)
+        {
+            case ItemType.Note:
+                // Note only has notes.content - clear everything else
+                fieldKeysToClear.AddRange(loginFieldKeys);
+                fieldKeysToClear.AddRange(aliasFieldKeys);
+                fieldKeysToClear.AddRange(cardFieldKeys);
+
+                // Clear logo reference for Notes
+                item.LogoId = null;
+
+                // Soft-delete all TOTP codes for Notes
+                foreach (var totp in item.TotpCodes.Where(t => !t.IsDeleted))
+                {
+                    totp.IsDeleted = true;
+                    totp.UpdatedAt = updateDateTime;
+                }
+
+                // Soft-delete all passkeys for Notes
+                foreach (var passkey in item.Passkeys.Where(p => !p.IsDeleted))
+                {
+                    passkey.IsDeleted = true;
+                    passkey.UpdatedAt = updateDateTime;
+                }
+
+                break;
+
+            case ItemType.CreditCard:
+                // Credit card keeps card fields and notes - clear login/alias fields
+                fieldKeysToClear.AddRange(loginFieldKeys);
+                fieldKeysToClear.AddRange(aliasFieldKeys);
+
+                // Clear logo reference for CreditCards (uses brand detection icon)
+                item.LogoId = null;
+
+                // Soft-delete all TOTP codes for CreditCards
+                foreach (var totp in item.TotpCodes.Where(t => !t.IsDeleted))
+                {
+                    totp.IsDeleted = true;
+                    totp.UpdatedAt = updateDateTime;
+                }
+
+                // Soft-delete all passkeys for CreditCards
+                foreach (var passkey in item.Passkeys.Where(p => !p.IsDeleted))
+                {
+                    passkey.IsDeleted = true;
+                    passkey.UpdatedAt = updateDateTime;
+                }
+
+                break;
+
+            case ItemType.Login:
+            case ItemType.Alias:
+                // Login/Alias can have everything except card fields
+                fieldKeysToClear.AddRange(cardFieldKeys);
+                break;
+        }
+
+        // Soft-delete the inapplicable field values
+        foreach (var fieldKey in fieldKeysToClear)
+        {
+            var fieldValue = item.FieldValues.FirstOrDefault(fv => fv.FieldKey == fieldKey && !fv.IsDeleted);
+            if (fieldValue != null)
+            {
+                fieldValue.IsDeleted = true;
+                fieldValue.UpdatedAt = updateDateTime;
             }
         }
     }

@@ -150,6 +150,44 @@ public class RustCoreService : IAsyncDisposable
     }
 
     /// <summary>
+    /// Prune expired items from trash.
+    /// Items that have been in trash (DeletedAt set) for longer than retentionDays
+    /// are permanently deleted (IsDeleted = true).
+    /// </summary>
+    /// <param name="input">The prune input containing table data and retention period.</param>
+    /// <returns>The prune output with SQL statements to execute.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if prune fails or WASM module is unavailable.</exception>
+    public async Task<PruneOutput> PruneVaultAsync(PruneInput input)
+    {
+        // Wait for WASM to be available with retries, as it may still be loading.
+        if (!await WaitForAvailabilityAsync())
+        {
+            throw new InvalidOperationException("Rust WASM module is not available.");
+        }
+
+        var inputJson = JsonSerializer.Serialize(input, JsonOptions);
+        var resultJson = await jsRuntime.InvokeAsync<string>("rustCorePruneVault", inputJson);
+
+        if (string.IsNullOrEmpty(resultJson))
+        {
+            throw new InvalidOperationException("Prune operation returned empty result.");
+        }
+
+        var result = JsonSerializer.Deserialize<PruneOutput>(resultJson, JsonOptions);
+        if (result == null)
+        {
+            throw new InvalidOperationException("Failed to deserialize prune result.");
+        }
+
+        if (!result.Success && !string.IsNullOrEmpty(result.Error))
+        {
+            throw new InvalidOperationException($"Prune failed: {result.Error}");
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Extract domain from URL.
     /// </summary>
     /// <param name="url">The URL to extract domain from.</param>
