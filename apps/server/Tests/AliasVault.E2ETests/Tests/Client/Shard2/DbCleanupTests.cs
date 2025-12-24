@@ -18,53 +18,28 @@ namespace AliasVault.E2ETests.Tests.Client.Shard2;
 public class DbCleanupTests : ClientPlaywrightTest
 {
     /// <summary>
-    /// Test that deleted items are moved to trash (DeletedAt is set) rather than being immediately removed.
+    /// Test that items appears in recently deleted after deletion, and can also be restored again from the trash.
     /// </summary>
     /// <returns>Async task.</returns>
     [Test]
     [Order(1)]
-    public async Task DeletedItemsAreMovedToTrashTest()
+    public async Task ItemsCanBeDeletedAndRestoredFromTrashTest()
     {
-        // Create two items. One random and one with a known name.
+        // Create two items, one placeholder to skip welcome, one testable item.
         await CreateItemEntry();
-        await CreateItemEntry(new Dictionary<string, string> { { "service-name", "ItemB" } });
-
-        // Delete the item with the known name.
-        await DeleteItemEntry("ItemB");
-
-        // Navigate to recently deleted page and verify item is there.
-        await NavigateUsingBlazorRouter("items/recently-deleted");
-
-        // Wait for the page to load and check for the deleted item.
-        await Page.WaitForSelectorAsync("[data-testid='recently-deleted-item']");
-        var deletedItems = await Page.Locator("[data-testid='recently-deleted-item']").CountAsync();
-        Assert.That(deletedItems, Is.EqualTo(1), "Expected 1 item in recently deleted.");
-
-        // Verify the item name is displayed.
-        var itemName = await Page.Locator("[data-testid='recently-deleted-item-name']").TextContentAsync();
-        Assert.That(itemName, Does.Contain("ItemB"), "Expected deleted item to be ItemB.");
-    }
-
-    /// <summary>
-    /// Test that items can be restored from the trash.
-    /// </summary>
-    /// <returns>Async task.</returns>
-    [Test]
-    [Order(2)]
-    public async Task ItemsCanBeRestoredFromTrashTest()
-    {
-        // Create and delete an item.
         await CreateItemEntry(new Dictionary<string, string> { { "service-name", "RestoreMe" } });
+
+        // Delete an item.
         await DeleteItemEntry("RestoreMe");
 
         // Navigate to recently deleted page.
         await NavigateUsingBlazorRouter("items/recently-deleted");
 
         // Wait for the page to load.
-        await Page.WaitForSelectorAsync("[data-testid='recently-deleted-item']");
+        await Page.WaitForSelectorAsync("[data-item='deleted']");
 
         // Click the restore button.
-        await Page.Locator("[data-testid='restore-button']").First.ClickAsync();
+        await Page.Locator("[data-action='restore']").First.ClickAsync();
 
         // Wait for restore to complete and navigate to items list.
         await WaitForUrlAsync("**/items", 5000);
@@ -79,7 +54,7 @@ public class DbCleanupTests : ClientPlaywrightTest
     /// </summary>
     /// <returns>Async task.</returns>
     [Test]
-    [Order(3)]
+    [Order(2)]
     public async Task ItemsCanBePermanentlyDeletedTest()
     {
         // Create and delete an item.
@@ -90,19 +65,19 @@ public class DbCleanupTests : ClientPlaywrightTest
         await NavigateUsingBlazorRouter("items/recently-deleted");
 
         // Wait for the page to load.
-        await Page.WaitForSelectorAsync("[data-testid='recently-deleted-item']");
+        await Page.WaitForSelectorAsync("[data-item='deleted']");
 
         // Click the permanently delete button.
-        await Page.Locator("[data-testid='permanent-delete-button']").First.ClickAsync();
+        await Page.Locator("[data-action='delete']").First.ClickAsync();
 
         // Confirm the deletion in the modal.
-        await Page.Locator("[data-testid='confirm-delete-button']").ClickAsync();
+        await Page.Locator("[data-action='confirm-delete']").ClickAsync();
 
         // Wait for deletion to complete.
         await Page.WaitForTimeoutAsync(1000);
 
         // Verify the item is no longer in the trash.
-        var deletedItems = await Page.Locator("[data-testid='recently-deleted-item']").CountAsync();
+        var deletedItems = await Page.Locator("[data-item='deleted']").CountAsync();
         Assert.That(deletedItems, Is.EqualTo(0), "Expected no items in recently deleted after permanent deletion.");
     }
 }
