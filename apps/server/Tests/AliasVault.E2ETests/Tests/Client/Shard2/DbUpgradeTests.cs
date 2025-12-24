@@ -41,6 +41,12 @@ public class DbUpgradeTests : ClientPlaywrightTest
             "Test credential 2",
         ];
 
+        // The 1.0.0 vault was created when SRP used the username as the identity.
+        // Update the user's SrpIdentity to match what the old vault expects (lowercase username).
+        var user = ApiDbContext.AliasVaultUsers.First();
+        user.SrpIdentity = TestUserUsername.ToLowerInvariant();
+        await ApiDbContext.SaveChangesAsync();
+
         // Insert static 1.0.0 vault into the database for the current user.
         ApiDbContext.Vaults.Add(
             new Vault
