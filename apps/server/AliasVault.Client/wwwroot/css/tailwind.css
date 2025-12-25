@@ -624,6 +624,10 @@ video {
   position: relative;
 }
 
+.sticky {
+  position: sticky;
+}
+
 .inset-0 {
   inset: 0px;
 }
@@ -724,6 +728,10 @@ video {
 
 .z-20 {
   z-index: 20;
+}
+
+.z-40 {
+  z-index: 40;
 }
 
 .col-span-1 {

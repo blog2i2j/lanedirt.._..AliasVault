@@ -94,6 +94,21 @@ else
                         </RemovableSection>
                     </div>
                 }
+
+                @* Add Field Menu - Left column (visible only on lg screens when right column is also shown) *@
+                <div class="hidden lg:block mb-4">
+                    <AddFieldMenu
+                        OptionalSystemFields="@GetOptionalSystemFields()"
+                        VisibleFieldKeys="@GetVisibleFieldKeys()"
+                        Show2FA="@Show2FA"
+                        ShowAttachments="@ShowAttachments"
+                        HasLoginFields="@HasLoginFields()"
+                        CustomFieldCount="@Obj.GetCustomFields().Count"
+                        OnAddSystemField="AddOptionalField"
+                        OnAddCustomField="AddCustomField"
+                        OnAdd2FA="Add2FASection"
+                        OnAddAttachments="AddAttachmentsSection" />
+                </div>
             </div>
 
             <div class="col-span-1 md:col-span-1 lg:col-span-2">
