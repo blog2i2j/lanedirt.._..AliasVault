@@ -143,6 +143,12 @@
 
         // Keep track of the original TOTP codes.
         OriginalTotpCodeIds = TotpCodeList.Where(t => !t.IsDeleted).Select(t => t.Id).ToList();
+
+        // Auto-show the add form if there are no existing codes
+        if (!TotpCodeList.Any(t => !t.IsDeleted))
+        {
+            ShowAddForm();
+        }
     }
 
     /// <summary>

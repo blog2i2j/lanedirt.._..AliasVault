@@ -84,9 +84,9 @@ else
             }
 
             @* TOTP codes - only for items with TOTP *@
-            @if (Item.TotpCodes.Count > 0)
+            @if (Item.TotpCodes.Any(t => !t.IsDeleted))
             {
-                <TotpViewer TotpCodeList="@Item.TotpCodes" />
+                <TotpViewer TotpCodeList="@Item.TotpCodes.Where(t => !t.IsDeleted).ToList()" />
             }
 
             @* Notes - if present (left column for non-Note types) *@

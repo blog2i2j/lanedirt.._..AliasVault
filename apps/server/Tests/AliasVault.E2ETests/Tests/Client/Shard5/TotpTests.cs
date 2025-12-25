@@ -29,32 +29,23 @@ public class TotpTests : ClientPlaywrightTest
             new Dictionary<string, string>
             {
                 { "service-name", serviceName },
+            },
+            async () =>
+            {
+                // Add the 2FA section via the + menu (form auto-opens when no codes exist)
+                await AddFieldSectionAsync("Two-Factor Authentication");
+
+                // Fill in the TOTP code details (form is already visible)
+                var nameInput = Page.Locator("input[id='name']");
+                var secretKeyInput = Page.Locator("input[id='secretKey']");
+
+                await nameInput.FillAsync("Test TOTP");
+                await secretKeyInput.FillAsync("JBSWY3DPEHPK3PXP"); // Example secret key
+
+                // Submit the TOTP form
+                var saveButton = Page.Locator("button[id='save-totp-code']");
+                await saveButton.ClickAsync();
             });
-
-        // Open the edit page again by clicking the button that contains the text "Edit"
-        await Page.ClickAsync("text=Edit");
-        await WaitForUrlAsync("items/**/edit", "Edit the existing item");
-
-        // Click the "Add TOTP Code" button
-        var addButton = Page.Locator("button[id='add-totp-code'], a[id='add-totp-code']");
-        await addButton.ClickAsync();
-
-        // Fill in the TOTP code details
-        var secretKeyInput = Page.Locator("input[id='secretKey']");
-        var nameInput = Page.Locator("input[id='name']");
-
-        await nameInput.FillAsync("Test TOTP");
-        await secretKeyInput.FillAsync("JBSWY3DPEHPK3PXP"); // Example secret key
-
-        // Submit the form
-        var saveButton = Page.Locator("button[id='save-totp-code']");
-        await saveButton.ClickAsync();
-
-        // Save the item
-        var submitButton = Page.Locator("text=Save Item").First;
-        await submitButton.ClickAsync();
-
-        await WaitForUrlAsync("items/**", "Item updated successfully");
 
         // Verify that the TOTP code appears in the list
         var pageContent = await Page.TextContentAsync("body");
@@ -80,26 +71,19 @@ public class TotpTests : ClientPlaywrightTest
             new Dictionary<string, string>
             {
                 { "service-name", serviceName },
+            },
+            async () =>
+            {
+                // Add the 2FA section via the + menu (form auto-opens when no codes exist)
+                await AddFieldSectionAsync("Two-Factor Authentication");
+
+                // Fill in the TOTP code details (form is already visible)
+                await Page.Locator("input[id='name']").FillAsync("TOTP to Delete");
+                await Page.Locator("input[id='secretKey']").FillAsync("JBSWY3DPEHPK3PXP");
+
+                // Submit the TOTP form
+                await Page.Locator("button[id='save-totp-code']").ClickAsync();
             });
-
-        // Open the edit page again by clicking the button that contains the text "Edit"
-        await Page.ClickAsync("text=Edit");
-        await WaitForUrlAsync("items/**/edit", "Edit the existing item");
-
-        // Add a TOTP code
-        var addButton = Page.Locator("button[id='add-totp-code'], a[id='add-totp-code']");
-        await addButton.ClickAsync();
-
-        await Page.Locator("input[id='name']").FillAsync("TOTP to Delete");
-        await Page.Locator("input[id='secretKey']").FillAsync("JBSWY3DPEHPK3PXP");
-
-        await Page.Locator("button[id='save-totp-code']").ClickAsync();
-
-        // Save the item
-        var submitButton = Page.Locator("text=Save Item").First;
-        await submitButton.ClickAsync();
-
-        await WaitForUrlAsync("items/**", "Item updated successfully");
 
         // Verify the TOTP code was added
         var pageContent = await Page.TextContentAsync("body");
@@ -116,6 +100,12 @@ public class TotpTests : ClientPlaywrightTest
         // Confirm deletion in the modal
         var confirmButton = Page.Locator("button:has-text('Confirm')");
         await confirmButton.ClickAsync();
+
+        // Save the item to persist the deletion
+        var submitButton = Page.Locator("text=Save Item").First;
+        await submitButton.ClickAsync();
+
+        await WaitForUrlAsync("items/**", "Item updated successfully");
 
         // Verify the TOTP code was deleted
         pageContent = await Page.TextContentAsync("body");

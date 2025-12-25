@@ -1020,8 +1020,9 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
     /// <param name="updateDateTime">The timestamp for updates.</param>
     private static void UpdateAttachments(DbContext context, Item existingItem, Item newItem, DateTime updateDateTime)
     {
+        // Mark existing attachments as deleted if they're not in the new list (excluding already deleted ones)
         var attachmentsToRemove = existingItem.Attachments
-            .Where(existingAttachment => !newItem.Attachments.Any(a => a.Id == existingAttachment.Id))
+            .Where(existingAttachment => !newItem.Attachments.Any(a => a.Id == existingAttachment.Id && !a.IsDeleted))
             .ToList();
 
         foreach (var attachmentToRemove in attachmentsToRemove)
@@ -1030,7 +1031,8 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
             attachmentToRemove.UpdatedAt = updateDateTime;
         }
 
-        foreach (var attachment in newItem.Attachments)
+        // Process attachments from the new item (excluding deleted ones - they're handled above)
+        foreach (var attachment in newItem.Attachments.Where(a => !a.IsDeleted))
         {
             if (attachment.Id != Guid.Empty)
             {
@@ -1043,11 +1045,18 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
             }
             else
             {
-                attachment.Id = Guid.NewGuid();
-                attachment.ItemId = existingItem.Id;
-                attachment.CreatedAt = updateDateTime;
-                attachment.UpdatedAt = updateDateTime;
-                existingItem.Attachments.Add(attachment);
+                // Create a new attachment entity and add via context to ensure proper tracking
+                var newAttachment = new Attachment
+                {
+                    Id = Guid.NewGuid(),
+                    ItemId = existingItem.Id,
+                    Filename = attachment.Filename,
+                    Blob = attachment.Blob,
+                    CreatedAt = updateDateTime,
+                    UpdatedAt = updateDateTime,
+                    IsDeleted = false,
+                };
+                context.Add(newAttachment);
             }
         }
     }
@@ -1061,8 +1070,9 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
     /// <param name="updateDateTime">The timestamp for updates.</param>
     private static void UpdateTotpCodes(DbContext context, Item existingItem, Item newItem, DateTime updateDateTime)
     {
+        // Mark existing TOTP codes as deleted if they're not in the new list (excluding already deleted ones)
         var totpCodesToRemove = existingItem.TotpCodes
-            .Where(existingTotp => !newItem.TotpCodes.Any(t => t.Id == existingTotp.Id))
+            .Where(existingTotp => !newItem.TotpCodes.Any(t => t.Id == existingTotp.Id && !t.IsDeleted))
             .ToList();
 
         foreach (var totpToRemove in totpCodesToRemove)
@@ -1071,7 +1081,8 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
             totpToRemove.UpdatedAt = updateDateTime;
         }
 
-        foreach (var totpCode in newItem.TotpCodes)
+        // Process TOTP codes from the new item (excluding deleted ones - they're handled above)
+        foreach (var totpCode in newItem.TotpCodes.Where(t => !t.IsDeleted))
         {
             if (totpCode.Id != Guid.Empty)
             {
@@ -1084,11 +1095,18 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
             }
             else
             {
-                totpCode.Id = Guid.NewGuid();
-                totpCode.ItemId = existingItem.Id;
-                totpCode.CreatedAt = updateDateTime;
-                totpCode.UpdatedAt = updateDateTime;
-                existingItem.TotpCodes.Add(totpCode);
+                // Create a new TOTP code entity and add via context to ensure proper tracking
+                var newTotpCode = new TotpCode
+                {
+                    Id = Guid.NewGuid(),
+                    ItemId = existingItem.Id,
+                    Name = totpCode.Name,
+                    SecretKey = totpCode.SecretKey,
+                    CreatedAt = updateDateTime,
+                    UpdatedAt = updateDateTime,
+                    IsDeleted = false,
+                };
+                context.Add(newTotpCode);
             }
         }
     }
