@@ -451,6 +451,6 @@ public class ClientPlaywrightTest : PlaywrightTest
         await getStartedButton.ClickAsync();
 
         // Wait for "Find all of your items below" message to appear.
-        await WaitForUrlAsync("welcome**", "Find all of your items below");
+        await WaitForUrlAsync("items**", "Find all of your items below");
     }
 }

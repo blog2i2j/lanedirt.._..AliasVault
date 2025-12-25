@@ -129,8 +129,8 @@ public class AttachmentTests : ClientPlaywrightTest
             { "username", updatedUsername },
         });
 
-        // Check that the updated username and attachment name still appear on the alias page.
-        var usernameElement = await Page.QuerySelectorAsync("#username");
+        // Check that the updated username and attachment name still appear on the item page.
+        var usernameElement = await Page.QuerySelectorAsync("#login-username");
         Assert.That(usernameElement, Is.Not.Null, "Username element not found.");
         Assert.That(await usernameElement.InputValueAsync(), Is.EqualTo(updatedUsername), "Updated username does not appear on alias page.");
 
