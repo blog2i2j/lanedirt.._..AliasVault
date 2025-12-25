@@ -396,6 +396,9 @@ public class EmailDecryptionTests : ClientPlaywrightTest
         // Delete the first credential.
         await DeleteItemEntry(serviceName1);
 
+        // Wait for background sync to complete (delete uses background sync).
+        await Task.Delay(1000);
+
         // Assert that the first claim is now disabled, and second still enabled.
         claim1 = await ApiDbContext.UserEmailClaims.AsNoTracking().FirstAsync(x => x.Address == email1);
         claim2 = await ApiDbContext.UserEmailClaims.AsNoTracking().FirstAsync(x => x.Address == email2);
