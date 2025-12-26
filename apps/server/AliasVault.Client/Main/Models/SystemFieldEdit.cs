@@ -52,8 +52,15 @@ public sealed class SystemFieldEdit
 
     /// <summary>
     /// Gets or sets the field value.
+    /// For single-value fields, use Value property.
+    /// For multi-value fields, use Values property.
     /// </summary>
     public string Value { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the field values for multi-value fields.
+    /// </summary>
+    public List<string> Values { get; set; } = new();
 
     /// <summary>
     /// Gets or sets a value indicating whether this is a custom field.

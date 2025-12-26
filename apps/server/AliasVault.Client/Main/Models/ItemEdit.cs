@@ -106,35 +106,46 @@ public sealed class ItemEdit
             LastUpdate = item.UpdatedAt,
         };
 
-        // Convert all field values to SystemFieldEdit
-        foreach (var fv in item.FieldValues.Where(f => !f.IsDeleted))
-        {
-            var isCustomField = fv.FieldDefinitionId != null && string.IsNullOrEmpty(fv.FieldKey);
-            var systemField = !string.IsNullOrEmpty(fv.FieldKey) ? SystemFieldRegistry.GetSystemField(fv.FieldKey) : null;
+        // Group field values by FieldKey to handle multi-value fields
+        var groupedFields = item.FieldValues
+            .Where(f => !f.IsDeleted)
+            .GroupBy(f => f.FieldKey ?? f.FieldDefinitionId?.ToString() ?? string.Empty);
 
-            edit.Fields.Add(new SystemFieldEdit
+        foreach (var group in groupedFields)
+        {
+            var firstFv = group.First();
+            var isCustomField = firstFv.FieldDefinitionId != null && string.IsNullOrEmpty(firstFv.FieldKey);
+            var systemField = !string.IsNullOrEmpty(firstFv.FieldKey) ? SystemFieldRegistry.GetSystemField(firstFv.FieldKey) : null;
+            var isMultiValue = systemField?.IsMultiValue ?? false;
+
+            var fieldEdit = new SystemFieldEdit
             {
-                FieldKey = fv.FieldKey ?? fv.FieldDefinitionId?.ToString() ?? string.Empty,
-                FieldValueId = fv.Id,
-                FieldDefinitionId = fv.FieldDefinitionId,
+                FieldKey = firstFv.FieldKey ?? firstFv.FieldDefinitionId?.ToString() ?? string.Empty,
+                FieldValueId = firstFv.Id,
+                FieldDefinitionId = firstFv.FieldDefinitionId,
                 Label = isCustomField
-                    ? fv.FieldDefinition?.Label ?? "Custom Field"
-                    : fv.FieldKey ?? string.Empty,
+                    ? firstFv.FieldDefinition?.Label ?? "Custom Field"
+                    : firstFv.FieldKey ?? string.Empty,
                 FieldType = isCustomField
-                    ? fv.FieldDefinition?.FieldType ?? "Text"
+                    ? firstFv.FieldDefinition?.FieldType ?? "Text"
                     : systemField?.FieldType ?? "Text",
-                Value = fv.Value ?? string.Empty,
                 IsCustomField = isCustomField,
                 IsHidden = isCustomField
-                    ? fv.FieldDefinition?.IsHidden ?? false
+                    ? firstFv.FieldDefinition?.IsHidden ?? false
                     : systemField?.IsHidden ?? false,
                 EnableHistory = isCustomField
-                    ? fv.FieldDefinition?.EnableHistory ?? false
+                    ? firstFv.FieldDefinition?.EnableHistory ?? false
                     : systemField?.EnableHistory ?? false,
-                DisplayOrder = systemField?.DefaultDisplayOrder ?? fv.Weight,
-                Category = GetCategoryFromFieldKey(fv.FieldKey),
-                IsMultiValue = systemField?.IsMultiValue ?? false,
-            });
+                DisplayOrder = systemField?.DefaultDisplayOrder ?? firstFv.Weight,
+                Category = GetCategoryFromFieldKey(firstFv.FieldKey),
+                IsMultiValue = isMultiValue,
+                Values = group.OrderBy(fv => fv.Weight).Select(fv => fv.Value ?? string.Empty).ToList(),
+            };
+
+            // Set Value to first value for easier handling with single-value form components
+            fieldEdit.Value = fieldEdit.Values.FirstOrDefault() ?? string.Empty;
+
+            edit.Fields.Add(fieldEdit);
         }
 
         return edit;
@@ -158,8 +169,17 @@ public sealed class ItemEdit
         };
 
         // Convert all fields to FieldValue entities
-        foreach (var field in Fields.Where(f => !string.IsNullOrEmpty(f.Value)))
+        foreach (var field in Fields)
         {
+            // Check if field has any values (single or multi)
+            var hasValue = !string.IsNullOrEmpty(field.Value) ||
+                          (field.IsMultiValue && field.Values.Any(v => !string.IsNullOrEmpty(v)));
+
+            if (!hasValue)
+            {
+                continue;
+            }
+
             if (field.IsCustomField)
             {
                 // Custom field handling
@@ -224,9 +244,27 @@ public sealed class ItemEdit
                     item.FieldValues.Add(fieldValue);
                 }
             }
+            else if (field.IsMultiValue)
+            {
+                // Multi-value system field (e.g., login.url) - create separate FieldValue for each value
+                var nonEmptyValues = field.Values.Where(v => !string.IsNullOrEmpty(v)).ToList();
+                for (int i = 0; i < nonEmptyValues.Count; i++)
+                {
+                    item.FieldValues.Add(new FieldValue
+                    {
+                        Id = Guid.NewGuid(),
+                        ItemId = item.Id,
+                        FieldKey = field.FieldKey,
+                        Value = nonEmptyValues[i],
+                        Weight = i, // Use index as weight for ordering
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
+                    });
+                }
+            }
             else
             {
-                // System field
+                // Single-value system field
                 ItemService.SetFieldValue(item, field.FieldKey, field.Value);
             }
         }
@@ -242,6 +280,39 @@ public sealed class ItemEdit
     public string GetFieldValue(string fieldKey)
     {
         return Fields.FirstOrDefault(f => f.FieldKey == fieldKey)?.Value ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Gets all values for a multi-value field by its field key.
+    /// </summary>
+    /// <param name="fieldKey">The field key.</param>
+    /// <returns>List of field values.</returns>
+    public List<string> GetFieldValues(string fieldKey)
+    {
+        var field = Fields.FirstOrDefault(f => f.FieldKey == fieldKey);
+        if (field == null)
+        {
+            return new List<string>();
+        }
+
+        return field.IsMultiValue && field.Values.Any()
+            ? field.Values.Where(v => !string.IsNullOrEmpty(v)).ToList()
+            : (string.IsNullOrEmpty(field.Value) ? new List<string>() : new List<string> { field.Value });
+    }
+
+    /// <summary>
+    /// Sets multiple values for a multi-value field.
+    /// </summary>
+    /// <param name="fieldKey">The field key.</param>
+    /// <param name="values">The values to set.</param>
+    public void SetFieldValues(string fieldKey, List<string> values)
+    {
+        var field = GetField(fieldKey);
+        if (field != null)
+        {
+            field.Values = values ?? new List<string>();
+            field.Value = values?.FirstOrDefault() ?? string.Empty;
+        }
     }
 
     /// <summary>
@@ -271,6 +342,7 @@ public sealed class ItemEdit
             Label = fieldKey,
             FieldType = systemField.FieldType,
             Value = string.Empty,
+            Values = systemField.IsMultiValue ? new List<string> { string.Empty } : new List<string>(),
             IsCustomField = false,
             IsHidden = systemField.IsHidden,
             EnableHistory = systemField.EnableHistory,
@@ -285,6 +357,7 @@ public sealed class ItemEdit
     /// <summary>
     /// Sets the value of a field by its field key.
     /// If the field doesn't exist, it will be added.
+    /// For multi-value fields, this sets the first value.
     /// </summary>
     /// <param name="fieldKey">The field key.</param>
     /// <param name="value">The value to set.</param>
@@ -294,6 +367,14 @@ public sealed class ItemEdit
         if (field != null)
         {
             field.Value = value;
+
+            // Also update Values list for multi-value fields
+            if (field.IsMultiValue)
+            {
+                field.Values = string.IsNullOrEmpty(value)
+                    ? new List<string> { string.Empty }
+                    : new List<string> { value };
+            }
         }
         else
         {
@@ -301,18 +382,22 @@ public sealed class ItemEdit
             var systemField = SystemFieldRegistry.GetSystemField(fieldKey);
             if (systemField != null)
             {
+                var isMultiValue = systemField.IsMultiValue;
                 Fields.Add(new SystemFieldEdit
                 {
                     FieldKey = fieldKey,
                     Label = fieldKey,
                     FieldType = systemField.FieldType,
                     Value = value,
+                    Values = isMultiValue
+                        ? (string.IsNullOrEmpty(value) ? new List<string> { string.Empty } : new List<string> { value })
+                        : new List<string>(),
                     IsCustomField = false,
                     IsHidden = systemField.IsHidden,
                     EnableHistory = systemField.EnableHistory,
                     DisplayOrder = systemField.DefaultDisplayOrder,
                     Category = systemField.Category,
-                    IsMultiValue = systemField.IsMultiValue,
+                    IsMultiValue = isMultiValue,
                 });
             }
         }
@@ -320,12 +405,24 @@ public sealed class ItemEdit
 
     /// <summary>
     /// Checks if a field has a non-empty value.
+    /// For multi-value fields, checks if any value is non-empty.
     /// </summary>
     /// <param name="fieldKey">The field key.</param>
     /// <returns>True if the field has a value.</returns>
     public bool HasFieldValue(string fieldKey)
     {
-        return !string.IsNullOrEmpty(GetFieldValue(fieldKey));
+        var field = Fields.FirstOrDefault(f => f.FieldKey == fieldKey);
+        if (field == null)
+        {
+            return false;
+        }
+
+        if (field.IsMultiValue)
+        {
+            return field.Values.Any(v => !string.IsNullOrEmpty(v));
+        }
+
+        return !string.IsNullOrEmpty(field.Value);
     }
 
     /// <summary>

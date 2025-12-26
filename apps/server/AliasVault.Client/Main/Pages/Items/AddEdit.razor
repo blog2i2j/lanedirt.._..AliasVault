@@ -51,11 +51,16 @@ else
                             @* Folder Selector - below name field *@
                             <FolderSelector @bind-SelectedFolderId="Obj.FolderId" />
                         </div>
-                        @* URL field - only for Login and Alias types *@
+                        @* URL field - only for Login and Alias types (multi-value) *@
                         @if (ShouldShowField(FieldKey.LoginUrl))
                         {
                             <div class="col-span-6 sm:col-span-3">
-                                <EditFormRow Id="service-url" OnFocus="OnFocusUrlInput" Label="@Localizer["ServiceUrlLabel"]" @bind-Value="Obj.GetField(FieldKey.LoginUrl)!.Value"></EditFormRow>
+                                <MultiValueFormRow
+                                    Id="service-url"
+                                    Label="@Localizer["ServiceUrlLabel"]"
+                                    Values="@GetUrlValues()"
+                                    ValuesChanged="OnUrlValuesChanged"
+                                    OnFocus="OnFocusUrlInput" />
                             </div>
                         }
                     </div>
@@ -895,11 +900,49 @@ else
     }
 
     /// <summary>
+    /// Gets the URL values for the multi-value field.
+    /// Ensures at least one entry exists.
+    /// </summary>
+    private List<string> GetUrlValues()
+    {
+        var field = Obj.GetField(FieldKey.LoginUrl);
+        if (field == null)
+        {
+            return new List<string> { string.Empty };
+        }
+
+        // Return Values if populated, otherwise convert single Value
+        if (field.Values != null && field.Values.Count > 0)
+        {
+            return field.Values;
+        }
+
+        return string.IsNullOrEmpty(field.Value)
+            ? new List<string> { string.Empty }
+            : new List<string> { field.Value };
+    }
+
+    /// <summary>
+    /// Handles URL values change from the multi-value component.
+    /// </summary>
+    private void OnUrlValuesChanged(List<string> values)
+    {
+        Obj.SetFieldValues(FieldKey.LoginUrl, values);
+        StateHasChanged();
+    }
+
+    /// <summary>
     /// When the URL input is focused, place cursor at the end of the default URL.
     /// </summary>
-    private void OnFocusUrlInput(FocusEventArgs e)
+    private void OnFocusUrlInput((int Index, FocusEventArgs Args) e)
     {
-        var currentUrl = Obj.GetFieldValue(FieldKey.LoginUrl);
+        var urlValues = GetUrlValues();
+        if (e.Index >= urlValues.Count)
+        {
+            return;
+        }
+
+        var currentUrl = urlValues[e.Index];
         if (currentUrl != ItemService.DefaultServiceUrl)
         {
             return;
@@ -907,7 +950,7 @@ else
 
         Task.Delay(1).ContinueWith(_ =>
         {
-            JSRuntime.InvokeVoidAsync("eval", $"document.getElementById('service-url').setSelectionRange({ItemService.DefaultServiceUrl.Length}, {ItemService.DefaultServiceUrl.Length})");
+            JSRuntime.InvokeVoidAsync("eval", $"document.getElementById('service-url-{e.Index}').setSelectionRange({ItemService.DefaultServiceUrl.Length}, {ItemService.DefaultServiceUrl.Length})");
         });
     }
 

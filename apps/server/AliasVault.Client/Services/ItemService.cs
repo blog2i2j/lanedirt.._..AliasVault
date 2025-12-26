@@ -770,10 +770,11 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
         // Get the existing tracked field values from the existingItem (loaded with Include)
         var existingFields = existingItem.FieldValues.Where(fv => !fv.IsDeleted).ToList();
 
-        // Build maps for quick lookup
+        // Group existing fields by key to support multi-value fields
         var existingByFieldKey = existingFields
             .Where(f => f.FieldKey != null)
-            .ToDictionary(f => f.FieldKey!, f => f);
+            .GroupBy(f => f.FieldKey!)
+            .ToDictionary(g => g.Key, g => g.OrderBy(f => f.Weight).ToList());
 
         var existingByFieldDefId = existingFields
             .Where(f => f.FieldDefinitionId != null)
@@ -782,96 +783,75 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
         var processedFieldKeys = new HashSet<string>();
         var processedFieldDefIds = new HashSet<Guid>();
 
-        // Process new field values
-        foreach (var newField in newItem.FieldValues.Where(fv => !fv.IsDeleted))
+        // Group new fields by key to handle multi-value fields
+        var newFieldsByKey = newItem.FieldValues
+            .Where(fv => !fv.IsDeleted && fv.FieldKey != null)
+            .GroupBy(f => f.FieldKey!)
+            .ToDictionary(g => g.Key, g => g.OrderBy(f => f.Weight).ToList());
+
+        // Process new system field values (grouped by key for multi-value support)
+        foreach (var kvp in newFieldsByKey)
         {
-            if (newField.FieldKey != null)
+            var fieldKey = kvp.Key;
+            var newValues = kvp.Value;
+            processedFieldKeys.Add(fieldKey);
+
+            if (existingByFieldKey.TryGetValue(fieldKey, out var existingValues))
             {
-                // System field
-                processedFieldKeys.Add(newField.FieldKey);
-
-                if (existingByFieldKey.TryGetValue(newField.FieldKey, out var existingField))
+                // Update existing values - match by position (Weight)
+                for (int i = 0; i < newValues.Count; i++)
                 {
-                    // Update existing - just update the tracked entity
-                    if (existingField.Value != newField.Value || existingField.Weight != newField.Weight)
+                    var newField = newValues[i];
+                    if (i < existingValues.Count)
                     {
-                        existingField.Value = newField.Value;
-                        existingField.Weight = newField.Weight;
-                        existingField.UpdatedAt = updateDateTime;
-                    }
-                }
-                else
-                {
-                    // Insert new - add to tracked collection
-                    context.FieldValues.Add(new FieldValue
-                    {
-                        Id = Guid.NewGuid(),
-                        ItemId = existingItem.Id,
-                        FieldKey = newField.FieldKey,
-                        FieldDefinitionId = null,
-                        Value = newField.Value,
-                        Weight = newField.Weight,
-                        CreatedAt = updateDateTime,
-                        UpdatedAt = updateDateTime,
-                        IsDeleted = false,
-                    });
-                }
-            }
-            else if (newField.FieldDefinitionId != null)
-            {
-                // Custom field
-                processedFieldDefIds.Add(newField.FieldDefinitionId.Value);
-
-                if (existingByFieldDefId.TryGetValue(newField.FieldDefinitionId.Value, out var existingField))
-                {
-                    // Update existing field value
-                    if (existingField.Value != newField.Value || existingField.Weight != newField.Weight)
-                    {
-                        existingField.Value = newField.Value;
-                        existingField.Weight = newField.Weight;
-                        existingField.UpdatedAt = updateDateTime;
-                    }
-
-                    // Also update the FieldDefinition label if it has changed
-                    if (newField.FieldDefinition != null && existingField.FieldDefinition != null)
-                    {
-                        if (existingField.FieldDefinition.Label != newField.FieldDefinition.Label)
+                        // Update existing field value
+                        var existingField = existingValues[i];
+                        if (existingField.Value != newField.Value || existingField.Weight != i)
                         {
-                            existingField.FieldDefinition.Label = newField.FieldDefinition.Label;
-                            existingField.FieldDefinition.UpdatedAt = updateDateTime;
+                            existingField.Value = newField.Value;
+                            existingField.Weight = i;
+                            existingField.UpdatedAt = updateDateTime;
                         }
                     }
-                }
-                else
-                {
-                    // New custom field - need to add FieldDefinition first if provided
-                    if (newField.FieldDefinition != null)
+                    else
                     {
-                        context.FieldDefinitions.Add(new FieldDefinition
+                        // Insert new value (more values than before)
+                        context.FieldValues.Add(new FieldValue
                         {
-                            Id = newField.FieldDefinition.Id,
-                            FieldType = newField.FieldDefinition.FieldType,
-                            Label = newField.FieldDefinition.Label,
-                            IsMultiValue = newField.FieldDefinition.IsMultiValue,
-                            IsHidden = newField.FieldDefinition.IsHidden,
-                            EnableHistory = newField.FieldDefinition.EnableHistory,
-                            Weight = newField.FieldDefinition.Weight,
-                            ApplicableToTypes = newField.FieldDefinition.ApplicableToTypes,
+                            Id = Guid.NewGuid(),
+                            ItemId = existingItem.Id,
+                            FieldKey = fieldKey,
+                            FieldDefinitionId = null,
+                            Value = newField.Value,
+                            Weight = i,
                             CreatedAt = updateDateTime,
                             UpdatedAt = updateDateTime,
                             IsDeleted = false,
                         });
                     }
+                }
 
-                    // Add the FieldValue
+                // Soft-delete extra existing values (fewer values than before)
+                for (int i = newValues.Count; i < existingValues.Count; i++)
+                {
+                    existingValues[i].IsDeleted = true;
+                    existingValues[i].UpdatedAt = updateDateTime;
+                }
+            }
+            else
+            {
+                // Insert all new values (field didn't exist before)
+                for (int i = 0; i < newValues.Count; i++)
+                {
+                    var newField = newValues[i];
                     context.FieldValues.Add(new FieldValue
                     {
                         Id = Guid.NewGuid(),
                         ItemId = existingItem.Id,
-                        FieldKey = null,
-                        FieldDefinitionId = newField.FieldDefinitionId,
+                        FieldKey = fieldKey,
+                        FieldDefinitionId = null,
                         Value = newField.Value,
-                        Weight = newField.Weight,
+                        Weight = i,
                         CreatedAt = updateDateTime,
                         UpdatedAt = updateDateTime,
                         IsDeleted = false,
@@ -880,13 +860,78 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
             }
         }
 
-        // Soft-delete removed system fields
-        foreach (var existingField in existingFields.Where(f => f.FieldKey != null))
+        // Process new custom field values
+        foreach (var newField in newItem.FieldValues.Where(fv => !fv.IsDeleted && fv.FieldDefinitionId != null))
         {
-            if (!processedFieldKeys.Contains(existingField.FieldKey!))
+            processedFieldDefIds.Add(newField.FieldDefinitionId!.Value);
+
+            if (existingByFieldDefId.TryGetValue(newField.FieldDefinitionId.Value, out var existingField))
             {
-                existingField.IsDeleted = true;
-                existingField.UpdatedAt = updateDateTime;
+                // Update existing field value
+                if (existingField.Value != newField.Value || existingField.Weight != newField.Weight)
+                {
+                    existingField.Value = newField.Value;
+                    existingField.Weight = newField.Weight;
+                    existingField.UpdatedAt = updateDateTime;
+                }
+
+                // Also update the FieldDefinition label if it has changed
+                if (newField.FieldDefinition != null && existingField.FieldDefinition != null)
+                {
+                    if (existingField.FieldDefinition.Label != newField.FieldDefinition.Label)
+                    {
+                        existingField.FieldDefinition.Label = newField.FieldDefinition.Label;
+                        existingField.FieldDefinition.UpdatedAt = updateDateTime;
+                    }
+                }
+            }
+            else
+            {
+                // New custom field - need to add FieldDefinition first if provided
+                if (newField.FieldDefinition != null)
+                {
+                    context.FieldDefinitions.Add(new FieldDefinition
+                    {
+                        Id = newField.FieldDefinition.Id,
+                        FieldType = newField.FieldDefinition.FieldType,
+                        Label = newField.FieldDefinition.Label,
+                        IsMultiValue = newField.FieldDefinition.IsMultiValue,
+                        IsHidden = newField.FieldDefinition.IsHidden,
+                        EnableHistory = newField.FieldDefinition.EnableHistory,
+                        Weight = newField.FieldDefinition.Weight,
+                        ApplicableToTypes = newField.FieldDefinition.ApplicableToTypes,
+                        CreatedAt = updateDateTime,
+                        UpdatedAt = updateDateTime,
+                        IsDeleted = false,
+                    });
+                }
+
+                // Add the FieldValue
+                context.FieldValues.Add(new FieldValue
+                {
+                    Id = Guid.NewGuid(),
+                    ItemId = existingItem.Id,
+                    FieldKey = null,
+                    FieldDefinitionId = newField.FieldDefinitionId,
+                    Value = newField.Value,
+                    Weight = newField.Weight,
+                    CreatedAt = updateDateTime,
+                    UpdatedAt = updateDateTime,
+                    IsDeleted = false,
+                });
+            }
+        }
+
+        // Soft-delete removed system fields (all values for a field key)
+        foreach (var existingFieldKey in existingByFieldKey.Keys)
+        {
+            if (!processedFieldKeys.Contains(existingFieldKey))
+            {
+                foreach (var existingField in existingByFieldKey[existingFieldKey])
+                {
+                    existingField.IsDeleted = true;
+                    existingField.UpdatedAt = updateDateTime;
+                }
             }
         }
 
