@@ -21,6 +21,7 @@ using AliasVault.Shared.Models.Enums;
 using AliasVault.Shared.Models.WebApi.Vault;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 
 /// <summary>
 /// Class to manage the in-memory AliasClientDb service. The reason for this service is to provide a way to interact
@@ -38,6 +39,7 @@ public sealed class DbService : IDisposable
     private readonly Config _config;
     private readonly ILogger<DbService> _logger;
     private readonly GlobalNotificationService _globalNotificationService;
+    private readonly IStringLocalizer _sharedLocalizer;
     private SettingsService _settingsService = new();
     private SqliteConnection? _sqlConnection;
     private AliasClientDbContext _dbContext;
@@ -55,8 +57,9 @@ public sealed class DbService : IDisposable
     /// <param name="httpClient">HttpClient.</param>
     /// <param name="config">Config instance.</param>
     /// <param name="globalNotificationService">Global notification service.</param>
+    /// <param name="localizerFactory">IStringLocalizerFactory instance.</param>
     /// <param name="logger">ILogger instance.</param>
-    public DbService(AuthService authService, JsInteropService jsInteropService, RustCoreService rustCore, HttpClient httpClient, Config config, GlobalNotificationService globalNotificationService, ILogger<DbService> logger)
+    public DbService(AuthService authService, JsInteropService jsInteropService, RustCoreService rustCore, HttpClient httpClient, Config config, GlobalNotificationService globalNotificationService, IStringLocalizerFactory localizerFactory, ILogger<DbService> logger)
     {
         _authService = authService;
         _jsInteropService = jsInteropService;
@@ -64,6 +67,7 @@ public sealed class DbService : IDisposable
         _httpClient = httpClient;
         _config = config;
         _globalNotificationService = globalNotificationService;
+        _sharedLocalizer = localizerFactory.Create("SharedResources", "AliasVault.Client");
         _logger = logger;
 
         // Set the initial state of the database service.
@@ -240,8 +244,7 @@ public sealed class DbService : IDisposable
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during background database sync.");
-                _globalNotificationService.AddErrorMessage(
-                    "Failed to sync changes to server. Your changes are saved locally and will be synced on next refresh.");
+                _globalNotificationService.AddErrorMessage(_sharedLocalizer["ErrorUnknown"]);
                 _state.UpdateState(DbServiceState.DatabaseStatus.Ready);
             }
         });
@@ -681,7 +684,7 @@ public sealed class DbService : IDisposable
             if (response?.Vault == null || string.IsNullOrEmpty(response.Vault.Blob))
             {
                 _logger.LogError("Failed to fetch vault from server for merge.");
-                _globalNotificationService.AddErrorMessage("Failed to sync vault. Please try again.");
+                _globalNotificationService.AddErrorMessage(_sharedLocalizer["ErrorUnknown"]);
                 return false;
             }
 
@@ -739,7 +742,7 @@ public sealed class DbService : IDisposable
                 if (await reader.ReadAsync())
                 {
                     _logger.LogError("Foreign key violation detected after merge.");
-                    _globalNotificationService.AddErrorMessage("Merge failed due to data integrity error. Please log out and log back in.");
+                    _globalNotificationService.AddErrorMessage(_sharedLocalizer["ErrorUnknown"]);
                     return false;
                 }
             }
@@ -759,10 +762,7 @@ public sealed class DbService : IDisposable
         }
         catch (Exception ex)
         {
-            _globalNotificationService.AddErrorMessage(
-                "Unable to save changes: Your vault has been updated elsewhere. " +
-                "The automatic merge was unsuccessful, possibly due to a password change or vault upgrade. " +
-                "Please log out and log back in to retrieve the latest version of your vault.");
+            _globalNotificationService.AddErrorMessage(_sharedLocalizer["ErrorUnknown"]);
             _logger.LogError(ex, "Error merging with server vault.");
             return false;
         }
