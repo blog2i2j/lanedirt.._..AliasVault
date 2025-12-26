@@ -131,22 +131,22 @@ public class RustCoreService : IAsyncDisposable
     /// Get the list of table names that need to be synced.
     /// </summary>
     /// <returns>Array of table names.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if WASM module is unavailable.</exception>
     public async Task<string[]> GetSyncableTableNamesAsync()
     {
-        if (!await IsAvailableAsync())
+        // Wait for WASM to be available with retries, as it may still be loading.
+        if (!await WaitForAvailabilityAsync())
         {
-            return SyncableTables.Names;
+            throw new InvalidOperationException("Rust WASM module is not available.");
         }
 
-        try
+        var result = await jsRuntime.InvokeAsync<string[]>("rustCoreGetSyncableTableNames");
+        if (result == null || result.Length == 0)
         {
-            var result = await jsRuntime.InvokeAsync<string[]>("rustCoreGetSyncableTableNames");
-            return result ?? SyncableTables.Names;
+            throw new InvalidOperationException("Failed to get syncable table names from Rust WASM.");
         }
-        catch
-        {
-            return SyncableTables.Names;
-        }
+
+        return result;
     }
 
     /// <summary>
