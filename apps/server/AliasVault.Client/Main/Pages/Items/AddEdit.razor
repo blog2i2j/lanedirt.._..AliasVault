@@ -692,11 +692,12 @@ else
     }
 
     /// <summary>
-    /// Checks if the 2FA section can be removed (always true when visible).
+    /// Checks if the 2FA section can be removed.
+    /// Only allow removal when there's at least one TOTP code registered.
     /// </summary>
     private bool CanRemove2FASection()
     {
-        return true;
+        return Obj.TotpCodes.Any(t => !t.IsDeleted);
     }
 
     /// <summary>
