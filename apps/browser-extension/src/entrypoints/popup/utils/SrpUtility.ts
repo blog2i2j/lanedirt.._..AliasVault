@@ -57,22 +57,28 @@ class SrpUtility {
   ): Promise<ValidateLoginResponse> {
     const normalizedUsername = SrpAuthService.normalizeUsername(username);
 
+    /*
+     * Use srpIdentity from server response if available, otherwise fall back to normalized username.
+     * @todo Remove fallback after 0.26.0+ has been released.
+     */
+    const srpIdentity = loginResponse.srpIdentity ?? normalizedUsername;
+
     // Generate client ephemeral
     const clientEphemeral = SrpAuthService.generateEphemeral();
 
-    // Derive private key
+    // Derive private key using srpIdentity (not the typed username)
     const privateKey = SrpAuthService.derivePrivateKey(
       loginResponse.salt,
-      normalizedUsername,
+      srpIdentity,
       passwordHashString
     );
 
-    // Derive session
+    // Derive session using srpIdentity (not the typed username)
     const session = SrpAuthService.deriveSession(
       clientEphemeral.secret,
       loginResponse.serverEphemeral,
       loginResponse.salt,
-      normalizedUsername,
+      srpIdentity,
       privateKey
     );
 
@@ -114,22 +120,28 @@ class SrpUtility {
   ): Promise<ValidateLoginResponse> {
     const normalizedUsername = SrpAuthService.normalizeUsername(username);
 
+    /*
+     * Use srpIdentity from server response if available, otherwise fall back to normalized username.
+     * @todo Remove fallback after 0.26.0+ has been released.
+     */
+    const srpIdentity = loginResponse.srpIdentity ?? normalizedUsername;
+
     // Generate client ephemeral
     const clientEphemeral = SrpAuthService.generateEphemeral();
 
-    // Derive private key
+    // Derive private key using srpIdentity (not the typed username)
     const privateKey = SrpAuthService.derivePrivateKey(
       loginResponse.salt,
-      normalizedUsername,
+      srpIdentity,
       passwordHashString
     );
 
-    // Derive session
+    // Derive session using srpIdentity (not the typed username)
     const session = SrpAuthService.deriveSession(
       clientEphemeral.secret,
       loginResponse.serverEphemeral,
       loginResponse.salt,
-      normalizedUsername,
+      srpIdentity,
       privateKey
     );
 

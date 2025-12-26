@@ -347,9 +347,9 @@ export class SrpAuthService {
 
       const loginResponse = (await initiateResponse.json()) as LoginResponse;
 
-      /**
+      /*
        * Use srpIdentity from server response if available, otherwise fall back to normalized username.
-       * Note: the fallback can be removed in the future after 0.26.0+ is deployed.
+       * @todo Remove fallback after 0.26.0+ has been released.
        */
       const srpIdentity = loginResponse.srpIdentity ?? normalizedUsername;
 
