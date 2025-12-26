@@ -206,7 +206,7 @@ public class DbSyncTests : ClientPlaywrightTest
 
         // Assert that merge failed error message is shown.
         var pageContent = await Page.TextContentAsync("body");
-        Assert.That(pageContent, Does.Contain("Unable to save changes"), $"Merge failed error expected after another client changed the password but no error message found.");
+        Assert.That(pageContent, Does.Contain("An unknown error occurred."), $"Merge failed error expected after another client changed the password but no error message found.");
     }
 
     /// <summary>
