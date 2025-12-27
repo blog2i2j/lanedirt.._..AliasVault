@@ -30,7 +30,7 @@ export function ServiceUrlNotice({ serviceUrl, onDismiss }: IServiceUrlNoticePro
    */
   const handlePress = (): void => {
     router.push({
-      pathname: '/(tabs)/credentials/add-edit',
+      pathname: '/(tabs)/items/add-edit',
       params: { serviceUrl }
     });
   };

@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next';
-import { View, Text, StyleSheet, Linking, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Linking } from 'react-native';
 
-import type { Credential } from '@/utils/dist/core/models/vault';
+import type { Item } from '@/utils/dist/core/models/vault';
+import { getFieldValue, FieldKey } from '@/utils/dist/core/models/vault';
 
 import { useColors } from '@/hooks/useColorScheme';
 
@@ -10,7 +11,7 @@ import { ThemedView } from '@/components/themed/ThemedView';
 import { RobustPressable } from '@/components/ui/RobustPressable';
 
 type NotesSectionProps = {
-  credential: Credential;
+  item: Item;
 };
 
 /**
@@ -64,15 +65,17 @@ const splitTextAndUrls = (text: string): { type: 'text' | 'url', content: string
 /**
  * Notes section component.
  */
-export const NotesSection: React.FC<NotesSectionProps> = ({ credential }) : React.ReactNode => {
+export const NotesSection: React.FC<NotesSectionProps> = ({ item }) : React.ReactNode => {
   const { t } = useTranslation();
   const colors = useColors();
 
-  if (!credential.Notes) {
+  const notes = getFieldValue(item, FieldKey.NotesContent);
+
+  if (!notes) {
     return null;
   }
 
-  const parts = splitTextAndUrls(credential.Notes);
+  const parts = splitTextAndUrls(notes);
 
   /**
    * Handle the link press.

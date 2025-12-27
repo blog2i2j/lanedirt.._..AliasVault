@@ -8,7 +8,8 @@ import { StyleSheet, Text, FlatList, TouchableOpacity, TextInput, RefreshControl
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 
-import type { Credential } from '@/utils/dist/core/models/vault';
+import type { Item } from '@/utils/dist/core/models/vault';
+import { getFieldValue, FieldKey } from '@/utils/dist/core/models/vault';
 import emitter from '@/utils/EventEmitter';
 import { VaultAuthenticationError } from '@/utils/types/errors/VaultAuthenticationError';
 
@@ -20,8 +21,8 @@ import { useVaultSync } from '@/hooks/useVaultSync';
 type FilterType = 'all' | 'passkeys' | 'aliases' | 'userpass' | 'attachments';
 
 import Logo from '@/assets/images/logo.svg';
-import { CredentialCard } from '@/components/credentials/CredentialCard';
-import { ServiceUrlNotice } from '@/components/credentials/ServiceUrlNotice';
+import { ItemCard } from '@/components/items/ItemCard';
+import { ServiceUrlNotice } from '@/components/items/ServiceUrlNotice';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedText } from '@/components/themed/ThemedText';
@@ -34,9 +35,9 @@ import { useApp } from '@/context/AppContext';
 import { useDb } from '@/context/DbContext';
 
 /**
- * Credentials screen.
+ * Items screen.
  */
-export default function CredentialsScreen() : React.ReactNode {
+export default function ItemsScreen() : React.ReactNode {
   const [searchQuery, setSearchQuery] = useState('');
   const { syncVault } = useVaultSync();
   const colors = useColors();
@@ -47,8 +48,8 @@ export default function CredentialsScreen() : React.ReactNode {
   const [isTabFocused, setIsTabFocused] = useState(false);
   const router = useRouter();
   const { serviceUrl: serviceUrlParam } = useLocalSearchParams<{ serviceUrl?: string }>();
-  const [credentialsList, setCredentialsList] = useState<Credential[]>([]);
-  const [isLoadingCredentials, setIsLoadingCredentials] = useMinDurationLoading(false, 200);
+  const [itemsList, setItemsList] = useState<Item[]>([]);
+  const [isLoadingItems, setIsLoadingItems] = useMinDurationLoading(false, 200);
   const [refreshing, setRefreshing] = useMinDurationLoading(false, 200);
   const [serviceUrl, setServiceUrl] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
@@ -64,23 +65,23 @@ export default function CredentialsScreen() : React.ReactNode {
   const isDatabaseAvailable = dbContext.dbAvailable;
 
   /**
-   * Load credentials.
+   * Load items (credentials).
    */
-  const loadCredentials = useCallback(async () : Promise<void> => {
+  const loadItems = useCallback(async (): Promise<void> => {
     try {
-      const credentials = await dbContext.sqliteClient!.getAllCredentials();
-      setCredentialsList(credentials);
-      setIsLoadingCredentials(false);
+      const items = await dbContext.sqliteClient!.getAllItems();
+      setItemsList(items);
+      setIsLoadingItems(false);
     } catch (err) {
-      // Error loading credentials, show error toast
+      // Error loading items, show error toast
       Toast.show({
         type: 'error',
-        text1: t('credentials.errorLoadingCredentials'),
+        text1: t('items.errorLoadingItems'),
         text2: err instanceof Error ? err.message : 'Unknown error',
       });
-      setIsLoadingCredentials(false);
+      setIsLoadingItems(false);
     }
-  }, [dbContext.sqliteClient, setIsLoadingCredentials, t]);
+  }, [dbContext.sqliteClient, setIsLoadingItems, t]);
 
   useEffect(() => {
     const unsubscribeFocus = navigation.addListener('focus', () => {
@@ -100,18 +101,18 @@ export default function CredentialsScreen() : React.ReactNode {
       }
     });
 
-    // Add listener for credential changes
-    const credentialChangedSub = emitter.addListener('credentialChanged', async () => {
-      await loadCredentials();
+    // Add listener for item/credential changes
+    const itemChangedSub = emitter.addListener('credentialChanged', async () => {
+      await loadItems();
     });
 
-    return () : void => {
+    return (): void => {
       tabPressSub.remove();
-      credentialChangedSub.remove();
+      itemChangedSub.remove();
       unsubscribeFocus();
       unsubscribeBlur();
     };
-  }, [isTabFocused, loadCredentials, navigation, setRefreshing]);
+  }, [isTabFocused, loadItems, navigation, setRefreshing]);
 
   const onRefresh = useCallback(async () => {
     // Trigger haptic feedback when pull-to-refresh is activated
@@ -122,13 +123,13 @@ export default function CredentialsScreen() : React.ReactNode {
     }
 
     setRefreshing(true);
-    setIsLoadingCredentials(true);
+    setIsLoadingItems(true);
 
     // Check if we are in offline mode, if so, we don't need to refresh the credentials
     const isOffline = authContext.isOffline;
     if (isOffline) {
       setRefreshing(false);
-      setIsLoadingCredentials(false);
+      setIsLoadingItems(false);
       return;
     }
 
@@ -140,13 +141,13 @@ export default function CredentialsScreen() : React.ReactNode {
          */
         onSuccess: async (hasNewVault) => {
           // Calculate remaining time needed to reach minimum duration
-          await loadCredentials();
-          setIsLoadingCredentials(false);
+          await loadItems();
+          setIsLoadingItems(false);
           setRefreshing(false);
           setTimeout(() => {
             Toast.show({
               type: 'success',
-              text1: hasNewVault ? t('credentials.vaultSyncedSuccessfully') : t('credentials.vaultUpToDate'),
+              text1: hasNewVault ? t('items.vaultSyncedSuccessfully') : t('items.vaultUpToDate'),
               position: 'top',
               visibilityTime: 1200,
             });
@@ -157,12 +158,12 @@ export default function CredentialsScreen() : React.ReactNode {
          */
         onOffline: () => {
           setRefreshing(false);
-          setIsLoadingCredentials(false);
+          setIsLoadingItems(false);
           authContext.setOfflineMode(true);
           setTimeout(() => {
             Toast.show({
               type: 'error',
-              text1: t('credentials.offlineMessage'),
+              text1: t('items.offlineMessage'),
               position: 'bottom',
             });
           }, 200);
@@ -173,7 +174,7 @@ export default function CredentialsScreen() : React.ReactNode {
         onError: async (error) => {
           console.error('Error syncing vault:', error);
           setRefreshing(false);
-          setIsLoadingCredentials(false);
+          setIsLoadingItems(false);
 
           /**
            * Authentication errors are handled in useVaultSync
@@ -193,29 +194,29 @@ export default function CredentialsScreen() : React.ReactNode {
         },
       });
     } catch (err) {
-      console.error('Error refreshing credentials:', err);
+      console.error('Error refreshing items:', err);
       setRefreshing(false);
-      setIsLoadingCredentials(false);
+      setIsLoadingItems(false);
 
       // Authentication errors are already handled in useVaultSync
       if (!(err instanceof VaultAuthenticationError)) {
         Toast.show({
           type: 'error',
-          text1: t('credentials.vaultSyncFailed'),
+          text1: t('items.vaultSyncFailed'),
           text2: err instanceof Error ? err.message : 'Unknown error',
         });
       }
     }
-  }, [syncVault, loadCredentials, setIsLoadingCredentials, setRefreshing, authContext, router, t]);
+  }, [syncVault, loadItems, setIsLoadingItems, setRefreshing, authContext, router, t]);
 
   useEffect(() => {
     if (!isAuthenticated || !isDatabaseAvailable) {
       return;
     }
 
-    setIsLoadingCredentials(true);
-    loadCredentials();
-  }, [isAuthenticated, isDatabaseAvailable, loadCredentials, setIsLoadingCredentials]);
+    setIsLoadingItems(true);
+    loadItems();
+  }, [isAuthenticated, isDatabaseAvailable, loadItems, setIsLoadingItems]);
 
   /**
    * Get the title based on the active filter
@@ -223,49 +224,57 @@ export default function CredentialsScreen() : React.ReactNode {
   const getFilterTitle = useCallback(() : string => {
     switch (filterType) {
       case 'passkeys':
-        return t('credentials.filters.passkeys');
+        return t('items.filters.passkeys');
       case 'aliases':
-        return t('credentials.filters.aliases');
+        return t('items.filters.aliases');
       case 'userpass':
-        return t('credentials.filters.userpass');
+        return t('items.filters.userpass');
       case 'attachments':
-        return t('credentials.filters.attachments');
+        return t('items.filters.attachments');
       default:
-        return t('credentials.title');
+        return t('items.title');
     }
   }, [filterType, t]);
 
-  const filteredCredentials = credentialsList.filter(credential => {
+  const filteredItems = itemsList.filter(item => {
     // First apply type filter
     let passesTypeFilter = true;
 
     if (filterType === 'passkeys') {
-      passesTypeFilter = credential.HasPasskey === true;
+      passesTypeFilter = item.HasPasskey === true;
     } else if (filterType === 'aliases') {
       // Check for non-empty alias fields (excluding email which is used everywhere)
+      const firstName = getFieldValue(item, FieldKey.AliasFirstName);
+      const lastName = getFieldValue(item, FieldKey.AliasLastName);
+      const gender = getFieldValue(item, FieldKey.AliasGender);
+      const birthDate = getFieldValue(item, FieldKey.AliasBirthdate);
       passesTypeFilter = !!(
-        (credential.Alias?.FirstName && credential.Alias.FirstName.trim()) ||
-        (credential.Alias?.LastName && credential.Alias.LastName.trim()) ||
-        (credential.Alias?.NickName && credential.Alias.NickName.trim()) ||
-        (credential.Alias?.Gender && credential.Alias.Gender.trim()) ||
-        (credential.Alias?.BirthDate && credential.Alias.BirthDate.trim() && credential.Alias.BirthDate.trim().startsWith('0001-01-01') !== true)
+        (firstName && firstName.trim()) ||
+        (lastName && lastName.trim()) ||
+        (gender && gender.trim()) ||
+        (birthDate && birthDate.trim() && !birthDate.trim().startsWith('0001-01-01'))
       );
     } else if (filterType === 'userpass') {
-      // Show only credentials that have username/password AND do NOT have alias fields AND do NOT have passkey
+      // Show only items that have username/password AND do NOT have alias fields AND do NOT have passkey
+      const firstName = getFieldValue(item, FieldKey.AliasFirstName);
+      const lastName = getFieldValue(item, FieldKey.AliasLastName);
+      const gender = getFieldValue(item, FieldKey.AliasGender);
+      const birthDate = getFieldValue(item, FieldKey.AliasBirthdate);
       const hasAliasFields = !!(
-        (credential.Alias?.FirstName && credential.Alias.FirstName.trim()) ||
-        (credential.Alias?.LastName && credential.Alias.LastName.trim()) ||
-        (credential.Alias?.NickName && credential.Alias.NickName.trim()) ||
-        (credential.Alias?.Gender && credential.Alias.Gender.trim()) ||
-        (credential.Alias?.BirthDate && credential.Alias.BirthDate.trim() && credential.Alias.BirthDate.trim().startsWith('0001-01-01') !== true)
+        (firstName && firstName.trim()) ||
+        (lastName && lastName.trim()) ||
+        (gender && gender.trim()) ||
+        (birthDate && birthDate.trim() && !birthDate.trim().startsWith('0001-01-01'))
       );
+      const username = getFieldValue(item, FieldKey.LoginUsername);
+      const password = getFieldValue(item, FieldKey.LoginPassword);
       const hasUsernameOrPassword = !!(
-        (credential.Username && credential.Username.trim()) ||
-        (credential.Password && credential.Password.trim())
+        (username && username.trim()) ||
+        (password && password.trim())
       );
-      passesTypeFilter = hasUsernameOrPassword && !credential.HasPasskey && !hasAliasFields;
+      passesTypeFilter = hasUsernameOrPassword && !item.HasPasskey && !hasAliasFields;
     } else if (filterType === 'attachments') {
-      passesTypeFilter = credential.HasAttachment === true;
+      passesTypeFilter = item.HasAttachment === true;
     }
 
     if (!passesTypeFilter) {
@@ -280,19 +289,19 @@ export default function CredentialsScreen() : React.ReactNode {
     }
 
     /**
-     * We filter credentials by searching in the following fields:
-     * - Service name
+     * We filter items by searching in the following fields:
+     * - Item name
      * - Username
-     * - Alias email
-     * - Service URL
+     * - Email
+     * - URL
      * - Notes
      */
     const searchableFields = [
-      credential.ServiceName?.toLowerCase() || '',
-      credential.Username?.toLowerCase() || '',
-      credential.Alias?.Email?.toLowerCase() || '',
-      credential.ServiceUrl?.toLowerCase() || '',
-      credential.Notes?.toLowerCase() || '',
+      item.Name?.toLowerCase() || '',
+      getFieldValue(item, FieldKey.LoginUsername)?.toLowerCase() || '',
+      getFieldValue(item, FieldKey.LoginEmail)?.toLowerCase() || '',
+      getFieldValue(item, FieldKey.LoginUrl)?.toLowerCase() || '',
+      getFieldValue(item, FieldKey.NotesContent)?.toLowerCase() || '',
     ];
 
     // Split search term into words for AND search
@@ -431,7 +440,7 @@ export default function CredentialsScreen() : React.ReactNode {
         if (Platform.OS === 'android') {
           return (
             <AndroidHeader
-              title={`${getFilterTitle()} (${filteredCredentials.length})`}
+              title={`${getFilterTitle()} (${filteredItems.length})`}
               headerButtons={[
                 {
                   icon: showFilterMenu ? "keyboard-arrow-up" : "keyboard-arrow-down",
@@ -447,26 +456,26 @@ export default function CredentialsScreen() : React.ReactNode {
             />
           );
         }
-        return <Text>{t('credentials.title')}</Text>;
+        return <Text>{t('items.title')}</Text>;
       },
     });
-  }, [navigation, t, filterType, showFilterMenu, getFilterTitle, filteredCredentials.length]);
+  }, [navigation, t, filterType, showFilterMenu, getFilterTitle, filteredItems.length]);
 
   /**
-   * Delete a credential.
+   * Delete an item (move to trash).
    */
-  const onCredentialDelete = useCallback(async (credentialId: string) : Promise<void> => {
+  const onItemDelete = useCallback(async (itemId: string): Promise<void> => {
     setIsSyncing(true);
 
     await executeVaultMutation(async () => {
-      await dbContext.sqliteClient!.deleteCredentialById(credentialId);
+      await dbContext.sqliteClient!.trashItem(itemId);
       setIsSyncing(false);
     });
 
     // Refresh list after deletion with a small delay to ensure feedback is visible.
     await new Promise(resolve => setTimeout(resolve, 250));
-    await loadCredentials();
-  }, [dbContext.sqliteClient, executeVaultMutation, loadCredentials]);
+    await loadItems();
+  }, [dbContext.sqliteClient, executeVaultMutation, loadItems]);
 
   // Handle deep link parameters
   useFocusEffect(
@@ -483,7 +492,7 @@ export default function CredentialsScreen() : React.ReactNode {
         <LoadingOverlay status={syncStatus} />
       )}
       <CollapsibleHeader
-        title={t('credentials.title')}
+        title={t('items.title')}
         scrollY={scrollY}
         showNavigationHeader={true}
         alwaysVisible={true}
@@ -491,7 +500,7 @@ export default function CredentialsScreen() : React.ReactNode {
       <RobustPressable
         style={styles.fab}
         onPress={() => {
-          router.push('/(tabs)/credentials/add-edit');
+          router.push('/(tabs)/items/add-edit');
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }}
       >
@@ -500,8 +509,8 @@ export default function CredentialsScreen() : React.ReactNode {
       <ThemedView style={styles.stepContainer}>
         <Animated.FlatList
           ref={flatListRef}
-          data={isLoadingCredentials ? Array(4).fill(null) : filteredCredentials}
-          keyExtractor={(item, index) => item?.Id ?? `skeleton-${index}`}
+          data={isLoadingItems ? Array(4).fill(null) : filteredItems}
+          keyExtractor={(itm, index) => itm?.Id ?? `skeleton-${index}`}
           keyboardShouldPersistTaps='handled'
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -526,7 +535,7 @@ export default function CredentialsScreen() : React.ReactNode {
                     {getFilterTitle()}
                   </ThemedText>
                   <ThemedText style={styles.filterCount}>
-                    ({filteredCredentials.length})
+                    ({filteredItems.length})
                   </ThemedText>
                   <MaterialIcons
                     name={showFilterMenu ? "keyboard-arrow-up" : "keyboard-arrow-down"}
@@ -557,7 +566,7 @@ export default function CredentialsScreen() : React.ReactNode {
                       styles.filterMenuItemText,
                       filterType === 'all' && styles.filterMenuItemTextActive
                     ]}>
-                      {t('credentials.filters.all')}
+                      {t('items.filters.all')}
                     </ThemedText>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -574,7 +583,7 @@ export default function CredentialsScreen() : React.ReactNode {
                       styles.filterMenuItemText,
                       filterType === 'passkeys' && styles.filterMenuItemTextActive
                     ]}>
-                      {t('credentials.filters.passkeys')}
+                      {t('items.filters.passkeys')}
                     </ThemedText>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -591,7 +600,7 @@ export default function CredentialsScreen() : React.ReactNode {
                       styles.filterMenuItemText,
                       filterType === 'aliases' && styles.filterMenuItemTextActive
                     ]}>
-                      {t('credentials.filters.aliases')}
+                      {t('items.filters.aliases')}
                     </ThemedText>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -608,7 +617,7 @@ export default function CredentialsScreen() : React.ReactNode {
                       styles.filterMenuItemText,
                       filterType === 'userpass' && styles.filterMenuItemTextActive
                     ]}>
-                      {t('credentials.filters.userpass')}
+                      {t('items.filters.userpass')}
                     </ThemedText>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -625,7 +634,7 @@ export default function CredentialsScreen() : React.ReactNode {
                       styles.filterMenuItemText,
                       filterType === 'attachments' && styles.filterMenuItemTextActive
                     ]}>
-                      {t('credentials.filters.attachments')}
+                      {t('items.filters.attachments')}
                     </ThemedText>
                   </TouchableOpacity>
                 </ThemedView>
@@ -639,7 +648,7 @@ export default function CredentialsScreen() : React.ReactNode {
                 />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder={t('credentials.searchPlaceholder')}
+                  placeholder={t('items.searchPlaceholder')}
                   placeholderTextColor={colors.textMuted}
                   value={searchQuery}
                   autoCorrect={false}
@@ -668,30 +677,30 @@ export default function CredentialsScreen() : React.ReactNode {
               tintColor={colors.primary}
             />
           }
-          renderItem={({ item }) =>
-            isLoadingCredentials ? (
+          renderItem={({ item: itm }) =>
+            isLoadingItems ? (
               <SkeletonLoader count={1} height={60} parts={2} />
             ) : (
-              <CredentialCard credential={item} onCredentialDelete={onCredentialDelete} />
+              <ItemCard item={itm} onItemDelete={onItemDelete} />
             )
           }
           ListEmptyComponent={
-            !isLoadingCredentials ? (
+            !isLoadingItems ? (
               <Text style={styles.emptyText}>
                 {searchQuery
-                  ? t('credentials.noMatchingCredentials')
+                  ? t('items.noMatchingItems')
                   : filterType === 'passkeys'
-                    ? t('credentials.noPasskeysFound')
+                    ? t('items.noPasskeysFound')
                     : filterType === 'attachments'
-                      ? t('credentials.noAttachmentsFound')
-                      : t('credentials.noCredentialsFound')
+                      ? t('items.noAttachmentsFound')
+                      : t('items.noItemsFound')
                 }
               </Text>
             ) : null
           }
         />
       </ThemedView>
-      {isLoading && <LoadingOverlay status={syncStatus || t('credentials.deletingCredential')} />}
+      {isLoading && <LoadingOverlay status={syncStatus || t('items.deletingItem')} />}
     </ThemedContainer>
   );
 }

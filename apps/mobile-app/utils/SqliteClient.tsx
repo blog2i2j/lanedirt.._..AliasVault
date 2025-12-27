@@ -1,19 +1,89 @@
 import { Buffer } from 'buffer';
 
 import type { EncryptionKeyDerivationParams, VaultMetadata } from '@/utils/dist/core/models/metadata';
-import type { Attachment, Credential, EncryptionKey, PasswordSettings, TotpCode, Passkey } from '@/utils/dist/core/models/vault';
+import type { Attachment, Credential, EncryptionKey, PasswordSettings, TotpCode, Passkey, Item } from '@/utils/dist/core/models/vault';
 import { VaultSqlGenerator, VaultVersion, checkVersionCompatibility, extractVersionFromMigrationId } from '@/utils/dist/core/vault';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
 
 import NativeVaultManager from '@/specs/NativeVaultManager';
 import * as dateFormatter from '@/utils/dateFormatter';
+import { ItemRepository } from '@/utils/db/repositories/ItemRepository';
+import { SettingsRepository } from '@/utils/db/repositories/SettingsRepository';
+import { LogoRepository } from '@/utils/db/repositories/LogoRepository';
+import type { IDatabaseClient, SqliteBindValue } from '@/utils/db/BaseRepository';
+import type { ItemWithDeletedAt } from '@/utils/db/mappers/ItemMapper';
 
 type SQLiteBindValue = string | number | null | Uint8Array;
 
 /**
  * Client for interacting with the SQLite database through native code.
+ * Implements IDatabaseClient interface for repository pattern.
  */
-class SqliteClient {
+class SqliteClient implements IDatabaseClient {
+  // Repositories for Item-based access (lazy initialized)
+  private _itemRepository: ItemRepository | null = null;
+  private _settingsRepository: SettingsRepository | null = null;
+  private _logoRepository: LogoRepository | null = null;
+
+  /**
+   * Get the ItemRepository instance (lazy initialization).
+   */
+  public get itemRepository(): ItemRepository {
+    if (!this._itemRepository) {
+      // Use a factory function to create the repository with 'this' as the client
+      this._itemRepository = Object.setPrototypeOf(
+        { client: this as IDatabaseClient },
+        ItemRepository.prototype
+      ) as ItemRepository;
+      // Manually bind 'this' context to all repository methods
+      Object.getOwnPropertyNames(ItemRepository.prototype).forEach(name => {
+        const method = ItemRepository.prototype[name as keyof typeof ItemRepository.prototype];
+        if (typeof method === 'function' && name !== 'constructor') {
+          (this._itemRepository as unknown as Record<string, unknown>)[name] = method.bind(this._itemRepository);
+        }
+      });
+    }
+    return this._itemRepository;
+  }
+
+  /**
+   * Get the SettingsRepository instance (lazy initialization).
+   */
+  public get settingsRepository(): SettingsRepository {
+    if (!this._settingsRepository) {
+      this._settingsRepository = Object.setPrototypeOf(
+        { client: this as IDatabaseClient },
+        SettingsRepository.prototype
+      ) as SettingsRepository;
+      Object.getOwnPropertyNames(SettingsRepository.prototype).forEach(name => {
+        const method = SettingsRepository.prototype[name as keyof typeof SettingsRepository.prototype];
+        if (typeof method === 'function' && name !== 'constructor') {
+          (this._settingsRepository as unknown as Record<string, unknown>)[name] = method.bind(this._settingsRepository);
+        }
+      });
+    }
+    return this._settingsRepository;
+  }
+
+  /**
+   * Get the LogoRepository instance (lazy initialization).
+   */
+  public get logoRepository(): LogoRepository {
+    if (!this._logoRepository) {
+      this._logoRepository = Object.setPrototypeOf(
+        { client: this as IDatabaseClient },
+        LogoRepository.prototype
+      ) as LogoRepository;
+      Object.getOwnPropertyNames(LogoRepository.prototype).forEach(name => {
+        const method = LogoRepository.prototype[name as keyof typeof LogoRepository.prototype];
+        if (typeof method === 'function' && name !== 'constructor') {
+          (this._logoRepository as unknown as Record<string, unknown>)[name] = method.bind(this._logoRepository);
+        }
+      });
+    }
+    return this._logoRepository;
+  }
+
   /**
    * Store the encrypted database via the native code implementation.
    */
@@ -221,6 +291,122 @@ class SqliteClient {
   public close(): void {
     // No-op since the native code handles connection lifecycle
   }
+
+  // ============================================================================
+  // NEW: Item-based methods using repository pattern
+  // ============================================================================
+
+  /**
+   * Fetch all items (new V5 schema).
+   * @returns Array of Item objects
+   */
+  public async getAllItems(): Promise<Item[]> {
+    return this.itemRepository.getAll();
+  }
+
+  /**
+   * Fetch a single item by ID (new V5 schema).
+   * @param itemId - The ID of the item to fetch
+   * @returns Item object or null if not found
+   */
+  public async getItemById(itemId: string): Promise<Item | null> {
+    return this.itemRepository.getById(itemId);
+  }
+
+  /**
+   * Fetch all unique email addresses from items.
+   * @returns Array of email addresses
+   */
+  public async getAllItemEmailAddresses(): Promise<string[]> {
+    return this.itemRepository.getAllEmailAddresses();
+  }
+
+  /**
+   * Get recently deleted items (in trash).
+   * @returns Array of items with DeletedAt field
+   */
+  public async getRecentlyDeletedItems(): Promise<ItemWithDeletedAt[]> {
+    return this.itemRepository.getRecentlyDeleted();
+  }
+
+  /**
+   * Create a new item with its fields and related entities.
+   * @param item - The item to create
+   * @param attachments - Array of attachments
+   * @param totpCodes - Array of TOTP codes
+   * @returns The ID of the created item
+   */
+  public async createItem(item: Item, attachments: Attachment[] = [], totpCodes: TotpCode[] = []): Promise<string> {
+    return this.itemRepository.create(item, attachments, totpCodes);
+  }
+
+  /**
+   * Update an existing item.
+   * @param item - The item to update
+   * @param originalAttachmentIds - IDs of attachments before edit
+   * @param attachments - Current attachments
+   * @param originalTotpCodeIds - IDs of TOTP codes before edit
+   * @param totpCodes - Current TOTP codes
+   * @returns Number of rows affected
+   */
+  public async updateItem(
+    item: Item,
+    originalAttachmentIds: string[],
+    attachments: Attachment[],
+    originalTotpCodeIds: string[],
+    totpCodes: TotpCode[]
+  ): Promise<number> {
+    return this.itemRepository.update(item, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes);
+  }
+
+  /**
+   * Move an item to trash.
+   * @param itemId - The ID of the item
+   * @returns Number of rows affected
+   */
+  public async trashItem(itemId: string): Promise<number> {
+    return this.itemRepository.trash(itemId);
+  }
+
+  /**
+   * Restore an item from trash.
+   * @param itemId - The ID of the item
+   * @returns Number of rows affected
+   */
+  public async restoreItem(itemId: string): Promise<number> {
+    return this.itemRepository.restore(itemId);
+  }
+
+  /**
+   * Permanently delete an item.
+   * @param itemId - The ID of the item
+   * @returns Number of rows affected
+   */
+  public async permanentlyDeleteItem(itemId: string): Promise<number> {
+    return this.itemRepository.permanentlyDelete(itemId);
+  }
+
+  /**
+   * Get TOTP codes for an item (new V5 schema).
+   * @param itemId - The ID of the item
+   * @returns Array of TotpCode objects
+   */
+  public async getTotpCodesForItem(itemId: string): Promise<TotpCode[]> {
+    return this.settingsRepository.getTotpCodesForItem(itemId);
+  }
+
+  /**
+   * Get attachments for an item (new V5 schema).
+   * @param itemId - The ID of the item
+   * @returns Array of attachments
+   */
+  public async getAttachmentsForItem(itemId: string): Promise<Attachment[]> {
+    return this.settingsRepository.getAttachmentsForItem(itemId);
+  }
+
+  // ============================================================================
+  // LEGACY: Credential-based methods (kept for backward compatibility)
+  // ============================================================================
 
   /**
    * Fetch a single credential with its associated service information.
@@ -1203,9 +1389,8 @@ class SqliteClient {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return results.map((row: any) => ({
       Id: row.Id,
-      CredentialId: row.CredentialId,
+      ItemId: row.ItemId ?? row.CredentialId, // Support both old and new schema
       RpId: row.RpId,
-      UserId: row.UserId,
       PublicKey: row.PublicKey,
       PrivateKey: row.PrivateKey,
       DisplayName: row.DisplayName,
@@ -1257,9 +1442,8 @@ class SqliteClient {
     const row: any = results[0];
     return {
       Id: row.Id,
-      CredentialId: row.CredentialId,
+      ItemId: row.ItemId ?? row.CredentialId, // Support both old and new schema
       RpId: row.RpId,
-      UserId: row.UserId,
       PublicKey: row.PublicKey,
       PrivateKey: row.PrivateKey,
       DisplayName: row.DisplayName,
@@ -1303,9 +1487,8 @@ class SqliteClient {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return results.map((row: any) => ({
       Id: row.Id,
-      CredentialId: row.CredentialId,
+      ItemId: row.ItemId ?? row.CredentialId, // Support both old and new schema
       RpId: row.RpId,
-      UserId: row.UserId,
       PublicKey: row.PublicKey,
       PrivateKey: row.PrivateKey,
       DisplayName: row.DisplayName,
@@ -1318,7 +1501,7 @@ class SqliteClient {
   }
 
   /**
-   * Create a new passkey linked to a credential
+   * Create a new passkey linked to an item
    * @param passkey - The passkey object to create
    */
   public async createPasskey(passkey: Omit<Passkey, 'CreatedAt' | 'UpdatedAt' | 'IsDeleted'>): Promise<void> {
@@ -1329,10 +1512,10 @@ class SqliteClient {
 
       const query = `
         INSERT INTO Passkeys (
-          Id, CredentialId, RpId, UserId, PublicKey, PrivateKey,
+          Id, ItemId, RpId, PublicKey, PrivateKey,
           PrfKey, DisplayName, AdditionalData, CreatedAt, UpdatedAt, IsDeleted
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
       // Convert PrfKey to Uint8Array if it's a number array
@@ -1343,9 +1526,8 @@ class SqliteClient {
 
       await this.executeUpdate(query, [
         passkey.Id,
-        passkey.CredentialId,
+        passkey.ItemId,
         passkey.RpId,
-        passkey.UserId ?? null,
         passkey.PublicKey,
         passkey.PrivateKey,
         prfKeyData,

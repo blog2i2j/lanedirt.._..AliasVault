@@ -372,7 +372,7 @@ export const EmailPreview: React.FC<EmailPreviewProps> = ({ email }) : React.Rea
               const emailPrefix = email.split('@')[0];
               Linking.openURL(`https://spamok.com/${emailPrefix}/${mail.id}`);
             } else {
-              router.push(`/(tabs)/credentials/email/${mail.id}`);
+              router.push(`/(tabs)/items/email/${mail.id}`);
             }
           }}
         >

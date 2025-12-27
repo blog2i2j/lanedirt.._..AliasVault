@@ -5,7 +5,7 @@ import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import Toast from 'react-native-toast-message';
 
 import { copyToClipboardWithExpiration } from '@/utils/ClipboardUtility';
-import type { Credential, TotpCode } from '@/utils/dist/core/models/vault';
+import type { Item, TotpCode } from '@/utils/dist/core/models/vault';
 
 import { useColors } from '@/hooks/useColorScheme';
 
@@ -15,13 +15,13 @@ import { useAuth } from '@/context/AuthContext';
 import { useDb } from '@/context/DbContext';
 
 type TotpSectionProps = {
-  credential: Credential;
+  item: Item;
 };
 
 /**
  * Totp section component.
  */
-export const TotpSection: React.FC<TotpSectionProps> = ({ credential }) : React.ReactNode => {
+export const TotpSection: React.FC<TotpSectionProps> = ({ item }) : React.ReactNode => {
   const [totpCodes, setTotpCodes] = useState<TotpCode[]>([]);
   const [currentCodes, setCurrentCodes] = useState<Record<string, string>>({});
   const colors = useColors();
@@ -103,7 +103,7 @@ export const TotpSection: React.FC<TotpSectionProps> = ({ credential }) : React.
       }
 
       try {
-        const codes = await dbContext.sqliteClient.getTotpCodesForCredential(credential.Id);
+        const codes = await dbContext.sqliteClient.getTotpCodesForItem(item.Id);
         setTotpCodes(codes);
       } catch (error) {
         console.error('Error loading TOTP codes:', error);
@@ -111,7 +111,7 @@ export const TotpSection: React.FC<TotpSectionProps> = ({ credential }) : React.
     };
 
     loadTotpCodes();
-  }, [credential, dbContext?.sqliteClient]);
+  }, [item, dbContext?.sqliteClient]);
 
   useEffect(() => {
     /**

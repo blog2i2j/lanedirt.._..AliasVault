@@ -168,11 +168,11 @@ export default function EmailDetailsScreen() : React.ReactNode {
   };
 
   /**
-   * Handle the open credential button press.
+   * Handle the open item button press.
    */
-  const handleOpenCredential = () : void => {
+  const handleOpenItem = () : void => {
     if (associatedCredential) {
-      router.push(`/(tabs)/credentials/${associatedCredential.Id}`);
+      router.push(`/(tabs)/items/${associatedCredential.Id}`);
     }
   };
 
@@ -238,12 +238,12 @@ export default function EmailDetailsScreen() : React.ReactNode {
     metadataContainer: {
       padding: 2,
     },
-    metadataCredential: {
+    metadataItem: {
       alignItems: 'center',
       alignSelf: 'center',
       flexDirection: 'row',
     },
-    metadataCredentialIcon: {
+    metadataItemIcon: {
       marginRight: 4,
     },
     metadataHeading: {
@@ -408,10 +408,10 @@ export default function EmailDetailsScreen() : React.ReactNode {
               {associatedCredential && (
                 <View>
                   <RobustPressable
-                    onPress={handleOpenCredential}
-                    style={styles.metadataCredential}
+                    onPress={handleOpenItem}
+                    style={styles.metadataItem}
                   >
-                    <IconSymbol size={16} name={IconSymbolName.Key} color={colors.primary} style={styles.metadataCredentialIcon} />
+                    <IconSymbol size={16} name={IconSymbolName.Key} color={colors.primary} style={styles.metadataItemIcon} />
                     <ThemedText style={[styles.metadataText, { color: colors.primary }]}>
                       {associatedCredential.ServiceName}
                     </ThemedText>

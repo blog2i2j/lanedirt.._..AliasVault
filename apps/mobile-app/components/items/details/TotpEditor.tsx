@@ -110,7 +110,7 @@ export const TotpEditor: React.FC<TotpEditorProps> = ({
         Id: crypto.randomUUID().toUpperCase(),
         Name: name,
         SecretKey: secretKey,
-        CredentialId: '' // Will be set when saving the credential
+        ItemId: '' // Will be set when saving the item
       };
 
       // Add to the list

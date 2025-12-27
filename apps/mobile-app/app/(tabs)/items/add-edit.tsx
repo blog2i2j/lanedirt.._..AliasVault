@@ -1,32 +1,30 @@
 import { Buffer } from 'buffer';
 
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { yupResolver } from '@hookform/resolvers/yup';
 import { usePreventRemove } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Resolver, useForm } from 'react-hook-form';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View, Alert, Keyboard, Platform, ScrollView, KeyboardAvoidingView } from 'react-native';
 import Toast from 'react-native-toast-message';
 
 import { CreateIdentityGenerator, CreateUsernameEmailGenerator, Gender, Identity, IdentityHelperUtils, convertAgeRangeToBirthdateOptions } from '@/utils/dist/core/identity-generator';
-import type { Attachment, Credential, TotpCode } from '@/utils/dist/core/models/vault';
+import type { Attachment, Item, ItemField, TotpCode, ItemType } from '@/utils/dist/core/models/vault';
+import { ItemTypes, getSystemFieldsForItemType, FieldKey } from '@/utils/dist/core/models/vault';
 import type { FaviconExtractModel } from '@/utils/dist/core/models/webapi';
 import { CreatePasswordGenerator, PasswordGenerator } from '@/utils/dist/core/password-generator';
 import emitter from '@/utils/EventEmitter';
 import { extractServiceNameFromUrl } from '@/utils/UrlUtility';
-import { createCredentialSchema } from '@/utils/ValidationSchema';
 
 import { useColors } from '@/hooks/useColorScheme';
 import { useVaultMutate } from '@/hooks/useVaultMutate';
 
-import { AttachmentUploader } from '@/components/credentials/details/AttachmentUploader';
-import { TotpEditor } from '@/components/credentials/details/TotpEditor';
 import { AdvancedPasswordField } from '@/components/form/AdvancedPasswordField';
 import { EmailDomainField } from '@/components/form/EmailDomainField';
-import { ValidatedFormField, ValidatedFormFieldRef } from '@/components/form/ValidatedFormField';
+import { FormField, FormFieldRef } from '@/components/form/FormField';
+import { AttachmentUploader } from '@/components/items/details/AttachmentUploader';
+import { TotpEditor } from '@/components/items/details/TotpEditor';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedText } from '@/components/themed/ThemedText';
@@ -36,32 +34,41 @@ import { useAuth } from '@/context/AuthContext';
 import { useDb } from '@/context/DbContext';
 import { useWebApi } from '@/context/WebApiContext';
 
-type CredentialMode = 'random' | 'manual';
+type ItemMode = 'random' | 'manual';
+
+// Default item type for mobile app - currently only Login/Alias type is supported
+const DEFAULT_ITEM_TYPE: ItemType = ItemTypes.Alias;
 
 /**
- * Add or edit a credential screen.
+ * Add or edit an item screen.
  */
-export default function AddEditCredentialScreen() : React.ReactNode {
+export default function AddEditItemScreen() : React.ReactNode {
   const { id, serviceUrl } = useLocalSearchParams<{ id: string, serviceUrl?: string }>();
   const router = useRouter();
   const colors = useColors();
   const dbContext = useDb();
   const authContext = useAuth();
-  const [mode, setMode] = useState<CredentialMode>('random');
+  const [mode, setMode] = useState<ItemMode>('random');
   const { executeVaultMutation, syncStatus } = useVaultMutate();
   const navigation = useNavigation();
   const webApi = useWebApi();
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  const serviceNameRef = useRef<ValidatedFormFieldRef>(null);
+  const itemNameRef = useRef<FormFieldRef>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSaveDisabled, setIsSaveDisabled] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [originalAttachmentIds, setOriginalAttachmentIds] = useState<string[]>([]);
   const [totpCodes, setTotpCodes] = useState<TotpCode[]>([]);
   const [originalTotpCodeIds, setOriginalTotpCodeIds] = useState<string[]>([]);
-  const [passkeyMarkedForDeletion, setPasskeyMarkedForDeletion] = useState(false);
+  const [passkeyIdsMarkedForDeletion, setPasskeyIdsMarkedForDeletion] = useState<string[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const { t } = useTranslation();
+
+  // Item state
+  const [item, setItem] = useState<Item | null>(null);
+
+  // Form state for dynamic fields - key is FieldKey, value is the field value
+  const [fieldValues, setFieldValues] = useState<Record<string, string | string[]>>({});
 
   // Track last generated values to avoid overwriting manual entries
   const [lastGeneratedValues, setLastGeneratedValues] = useState<{
@@ -70,30 +77,31 @@ export default function AddEditCredentialScreen() : React.ReactNode {
     email: string | null;
   }>({ username: null, password: null, email: null });
 
-  const { control, handleSubmit, setValue, watch, formState } = useForm<Credential>({
-    resolver: yupResolver(createCredentialSchema(t)) as Resolver<Credential>,
-    defaultValues: {
-      Id: "",
-      Username: "",
-      Password: "",
-      ServiceName: "",
-      ServiceUrl: "https://",
-      Notes: "",
-      Alias: {
-        FirstName: "",
-        LastName: "",
-        NickName: "",
-        BirthDate: "",
-        Gender: undefined,
-        Email: ""
-      }
-    }
-  });
-
   /**
    * If we received an ID, we're in edit mode.
    */
   const isEditMode = id !== undefined && id.length > 0;
+
+  /**
+   * Get all applicable system fields for the current item type.
+   */
+  const applicableSystemFields = useMemo(() => {
+    if (!item) {
+      return [];
+    }
+    return getSystemFieldsForItemType(item.ItemType);
+  }, [item]);
+
+  /**
+   * Handle field value change.
+   */
+  const handleFieldChange = useCallback((fieldKey: string, value: string | string[]) => {
+    setFieldValues(prev => ({
+      ...prev,
+      [fieldKey]: value
+    }));
+    setHasUnsavedChanges(true);
+  }, []);
 
   /**
    * Generate a random identity.
@@ -106,17 +114,8 @@ export default function AddEditCredentialScreen() : React.ReactNode {
     const ageRange = await dbContext.sqliteClient!.getDefaultIdentityAgeRange();
     const birthdateOptions = convertAgeRangeToBirthdateOptions(ageRange);
 
-    // Generate identity with gender preference and birthdate options
     return identityGenerator.generateRandomIdentity(genderPreference, birthdateOptions);
   }, [dbContext.sqliteClient]);
-
-  /**
-   * Track form changes to warn user before dismissing with unsaved changes.
-   */
-  useEffect(() => {
-    // Update unsaved changes state based on form dirty state
-    setHasUnsavedChanges(formState.isDirty);
-  }, [formState.isDirty]);
 
   /**
    * Prevent accidental dismissal when there are unsaved changes.
@@ -129,17 +128,13 @@ export default function AddEditCredentialScreen() : React.ReactNode {
         {
           text: t('common.cancel'),
           style: 'cancel',
-          /**
-           * Cancel button handler.
-           */
+          /** Cancel button handler. */
           onPress: () : void => {}
         },
         {
           text: t('credentials.unsavedChanges.discard'),
           style: 'destructive',
-          /**
-           * Discard button handler.
-           */
+          /** Discard button handler. */
           onPress: () : void => {
             setHasUnsavedChanges(false);
             navigation.dispatch(data.action);
@@ -150,51 +145,62 @@ export default function AddEditCredentialScreen() : React.ReactNode {
   });
 
   /**
-   * Load an existing credential from the database in edit mode.
+   * Load an existing item from the database in edit mode.
    */
-  const loadExistingCredential = useCallback(async () : Promise<void> => {
+  const loadExistingItem = useCallback(async () : Promise<void> => {
     try {
-      const existingCredential = await dbContext.sqliteClient!.getCredentialById(id);
-      if (existingCredential) {
-        existingCredential.Alias.BirthDate = IdentityHelperUtils.normalizeBirthDate(existingCredential.Alias.BirthDate);
-        Object.entries(existingCredential).forEach(([key, value]) => {
-          setValue(key as keyof Credential, value);
+      const existingItem = await dbContext.sqliteClient!.getItemById(id);
+      if (existingItem) {
+        setItem(existingItem);
+
+        // Initialize field values from existing fields
+        const initialValues: Record<string, string | string[]> = {};
+        existingItem.Fields.forEach((field) => {
+          initialValues[field.FieldKey] = field.Value;
         });
-        if (existingCredential.Alias?.FirstName || existingCredential.Alias?.LastName) {
+
+        // Normalize birthdate if present
+        if (initialValues[FieldKey.AliasBirthdate]) {
+          initialValues[FieldKey.AliasBirthdate] = IdentityHelperUtils.normalizeBirthDate(
+            initialValues[FieldKey.AliasBirthdate] as string
+          );
+        }
+
+        setFieldValues(initialValues);
+
+        // Check if alias fields have values to set mode
+        const hasAliasFields = initialValues[FieldKey.AliasFirstName] || initialValues[FieldKey.AliasLastName];
+        if (hasAliasFields) {
           setMode('manual');
         }
 
-        // Load attachments for this credential
-        const credentialAttachments = await dbContext.sqliteClient!.getAttachmentsForCredential(id);
-        setAttachments(credentialAttachments);
+        // Load attachments for this item
+        const itemAttachments = await dbContext.sqliteClient!.getAttachmentsForItem(id);
+        setAttachments(itemAttachments);
+        setOriginalAttachmentIds(itemAttachments.map(a => a.Id));
 
-        // Load TOTP codes for this credential
-        const credentialTotpCodes = await dbContext.sqliteClient!.getTotpCodesForCredential(id);
-        setTotpCodes(credentialTotpCodes);
-        setOriginalTotpCodeIds(credentialTotpCodes.map(tc => tc.Id));
-        setOriginalAttachmentIds(credentialAttachments.map(a => a.Id));
+        // Load TOTP codes for this item
+        const itemTotpCodes = await dbContext.sqliteClient!.getTotpCodesForItem(id);
+        setTotpCodes(itemTotpCodes);
+        setOriginalTotpCodeIds(itemTotpCodes.map(tc => tc.Id));
       }
     } catch (err) {
-      console.error('Error loading credential:', err);
+      console.error('Error loading item:', err);
       Toast.show({
         type: 'error',
         text1: t('credentials.errors.loadFailed'),
         text2: t('auth.errors.enterPassword')
       });
     }
-  }, [id, dbContext.sqliteClient, setValue, t]);
+  }, [id, dbContext.sqliteClient, t]);
 
   /**
-   * On mount, load an existing credential if we're in edit mode, or extract the service name from the service URL
-   * if we're in add mode and the service URL is provided (by native autofill component).
+   * On mount, load an existing item if we're in edit mode, or initialize new item.
    */
   useEffect(() => {
-    /**
-     * Initialize the component by loading settings and handling initial state.
-     */
+    /** Initialize the component by loading settings and handling initial state. */
     const initializeComponent = async (): Promise<void> => {
       if (authContext.isOffline) {
-        // Show toast and close the modal
         setTimeout(() => {
           Toast.show({
             type: 'error',
@@ -207,35 +213,54 @@ export default function AddEditCredentialScreen() : React.ReactNode {
       }
 
       if (isEditMode) {
-        loadExistingCredential();
-      } else if (serviceUrl) {
-        const decodedUrl = decodeURIComponent(serviceUrl);
-        const serviceName = extractServiceNameFromUrl(decodedUrl);
-        setValue('ServiceUrl', decodedUrl);
-        setValue('ServiceName', serviceName);
-      }
+        loadExistingItem();
+      } else {
+        // Create mode - initialize new item
+        let serviceName = '';
+        let itemUrl = '';
 
-      // On create mode, focus the service name field after a short delay to ensure the component is mounted
-      if (!isEditMode) {
+        if (serviceUrl) {
+          const decodedUrl = decodeURIComponent(serviceUrl);
+          serviceName = extractServiceNameFromUrl(decodedUrl);
+          itemUrl = decodedUrl;
+        }
+
+        const newItem: Item = {
+          Id: crypto.randomUUID().toUpperCase(),
+          Name: serviceName,
+          ItemType: DEFAULT_ITEM_TYPE,
+          FolderId: null,
+          Fields: [],
+          CreatedAt: new Date().toISOString(),
+          UpdatedAt: new Date().toISOString()
+        };
+
+        setItem(newItem);
+
+        // Set URL in field values if provided
+        if (itemUrl) {
+          setFieldValues(prev => ({
+            ...prev,
+            [FieldKey.LoginUrl]: itemUrl
+          }));
+        }
+
+        // Focus the item name field after a short delay
         setTimeout(() => {
-          serviceNameRef.current?.focus();
+          itemNameRef.current?.focus();
         }, 100);
       }
     };
 
     initializeComponent();
-  }, [id, isEditMode, serviceUrl, loadExistingCredential, setValue, authContext.isOffline, router, t, dbContext.sqliteClient]);
+  }, [id, isEditMode, serviceUrl, loadExistingItem, authContext.isOffline, router, t]);
 
   /**
    * Initialize the password generator with settings from user's vault.
-   * @returns {PasswordGenerator}
    */
   const initializePasswordGenerator = useCallback(async () : Promise<PasswordGenerator> => {
-    // Initialize password generator with settings from vault
     const passwordSettings = await dbContext.sqliteClient!.getPasswordSettings();
-    const passwordGenerator = CreatePasswordGenerator(passwordSettings);
-
-    return passwordGenerator;
+    return CreatePasswordGenerator(passwordSettings);
   }, [dbContext.sqliteClient]);
 
   /**
@@ -243,40 +268,42 @@ export default function AddEditCredentialScreen() : React.ReactNode {
    */
   const generateRandomAlias = useCallback(async (): Promise<void> => {
     const passwordGenerator = await initializePasswordGenerator();
-
-    // Generate identity with gender preference and birthdate options
     const identity = await generateRandomIdentity();
-
     const password = passwordGenerator.generateRandomPassword();
     const defaultEmailDomain = await dbContext.sqliteClient!.getDefaultEmailDomain();
     const email = defaultEmailDomain ? `${identity.emailPrefix}@${defaultEmailDomain}` : identity.emailPrefix;
 
     // Check current values
-    const currentUsername = watch('Username') ?? '';
-    const currentPassword = watch('Password') ?? '';
-    const currentEmail = watch('Alias.Email') ?? '';
+    const currentUsername = (fieldValues[FieldKey.LoginUsername] as string) ?? '';
+    const currentPassword = (fieldValues[FieldKey.LoginPassword] as string) ?? '';
+    const currentEmail = (fieldValues[FieldKey.LoginEmail] as string) ?? '';
+
+    const newValues: Record<string, string | string[]> = { ...fieldValues };
 
     // Only overwrite email if it's empty or matches the last generated value
     if (!currentEmail || currentEmail === lastGeneratedValues.email) {
-      setValue('Alias.Email', email);
+      newValues[FieldKey.LoginEmail] = email;
     }
-    setValue('Alias.FirstName', identity.firstName);
-    setValue('Alias.LastName', identity.lastName);
-    setValue('Alias.NickName', identity.nickName);
-    setValue('Alias.Gender', identity.gender);
-    setValue('Alias.BirthDate', IdentityHelperUtils.normalizeBirthDate(identity.birthDate.toISOString()));
+
+    // Always update alias identity fields
+    newValues[FieldKey.AliasFirstName] = identity.firstName;
+    newValues[FieldKey.AliasLastName] = identity.lastName;
+    newValues[FieldKey.AliasGender] = identity.gender;
+    newValues[FieldKey.AliasBirthdate] = IdentityHelperUtils.normalizeBirthDate(identity.birthDate.toISOString());
 
     // Only overwrite username if it's empty or matches the last generated value
     if (!currentUsername || currentUsername === lastGeneratedValues.username) {
-      setValue('Username', identity.nickName);
+      newValues[FieldKey.LoginUsername] = identity.nickName;
     }
 
     // Only overwrite password if it's empty or matches the last generated value
     if (!currentPassword || currentPassword === lastGeneratedValues.password) {
-      setValue('Password', password);
-      // Make password visible when newly generated
+      newValues[FieldKey.LoginPassword] = password;
       setIsPasswordVisible(true);
     }
+
+    setFieldValues(newValues);
+    setHasUnsavedChanges(true);
 
     // Update tracking with new generated values
     setLastGeneratedValues({
@@ -284,32 +311,39 @@ export default function AddEditCredentialScreen() : React.ReactNode {
       password: password,
       email: email
     });
-  }, [watch, setValue, setIsPasswordVisible, initializePasswordGenerator, generateRandomIdentity, dbContext.sqliteClient, lastGeneratedValues, setLastGeneratedValues]);
+  }, [fieldValues, initializePasswordGenerator, generateRandomIdentity, dbContext.sqliteClient, lastGeneratedValues]);
 
   /**
    * Clear all alias fields.
    */
   const clearAliasFields = useCallback(() => {
-    setValue('Alias.FirstName', '');
-    setValue('Alias.LastName', '');
-    setValue('Alias.NickName', '');
-    setValue('Alias.Gender', '');
-    setValue('Alias.BirthDate', '');
-  }, [setValue]);
+    setFieldValues(prev => ({
+      ...prev,
+      [FieldKey.AliasFirstName]: '',
+      [FieldKey.AliasLastName]: '',
+      [FieldKey.AliasGender]: '',
+      [FieldKey.AliasBirthdate]: '',
+    }));
+    setHasUnsavedChanges(true);
+  }, []);
 
   /**
    * Check if any alias fields have values.
    */
-  const hasAliasValues = watch('Alias.FirstName') || watch('Alias.LastName') || watch('Alias.NickName') || watch('Alias.Gender') || watch('Alias.BirthDate');
+  const hasAliasValues = useMemo(() => {
+    return !!(
+      fieldValues[FieldKey.AliasFirstName] ||
+      fieldValues[FieldKey.AliasLastName] ||
+      fieldValues[FieldKey.AliasGender] ||
+      fieldValues[FieldKey.AliasBirthdate]
+    );
+  }, [fieldValues]);
 
   /**
    * Handle the generate random alias button press.
    */
   const handleGenerateRandomAlias = useCallback(async (): Promise<void> => {
-    // Trigger haptic feedback when pull-to-refresh is activated
-    if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else if (Platform.OS === 'android') {
+    if (Platform.OS === 'ios' || Platform.OS === 'android') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
 
@@ -321,114 +355,107 @@ export default function AddEditCredentialScreen() : React.ReactNode {
   }, [generateRandomAlias, clearAliasFields, hasAliasValues]);
 
   /**
-   * Submit the form for either creating or updating a credential.
-   * @param {Credential} data - The form data.
+   * Submit the form for either creating or updating an item.
    */
-  const onSubmit = useCallback(async (data: Credential) : Promise<void> => {
-    // Prevent multiple submissions
-    if (isSaveDisabled) {
+  const onSubmit = useCallback(async () : Promise<void> => {
+    if (isSaveDisabled || !item) {
       return;
     }
 
-    // Disable save button to prevent multiple submissions
     setIsSaveDisabled(true);
-
     Keyboard.dismiss();
-
     setIsSyncing(true);
 
-    // Assemble the credential to save
-    const credentialToSave: Credential = {
-      Id: isEditMode ? id : '',
-      Username: data.Username,
-      Password: data.Password,
-      ServiceName: data.ServiceName,
-      ServiceUrl: (data.ServiceUrl === 'http://' || data.ServiceUrl === 'https://') ? '' : data.ServiceUrl,
-      Notes: data.Notes,
-      Alias: {
-        FirstName: data.Alias.FirstName,
-        LastName: data.Alias.LastName,
-        NickName: data.Alias.NickName,
-        BirthDate: data.Alias.BirthDate,
-        Gender: data.Alias.Gender,
-        Email: data.Alias.Email
-      }
-    }
-
-    // If we're creating a new credential and mode is random, generate random values here
+    // If we're creating a new item and mode is random, generate random values first
     if (!isEditMode && mode === 'random') {
-      // Generate random values now and then read them from the form fields to manually assign to the credentialToSave object
       await generateRandomAlias();
-      credentialToSave.Username = watch('Username');
-      credentialToSave.Password = watch('Password');
-      credentialToSave.ServiceName = watch('ServiceName');
-      const serviceUrl = watch('ServiceUrl');
-      credentialToSave.ServiceUrl = (serviceUrl === 'http://' || serviceUrl === 'https://') ? '' : serviceUrl;
-      credentialToSave.Notes = watch('Notes');
-      credentialToSave.Alias.FirstName = watch('Alias.FirstName');
-      credentialToSave.Alias.LastName = watch('Alias.LastName');
-      credentialToSave.Alias.NickName = watch('Alias.NickName');
-      credentialToSave.Alias.BirthDate = watch('Alias.BirthDate');
-      credentialToSave.Alias.Gender = watch('Alias.Gender');
-      credentialToSave.Alias.Email = watch('Alias.Email');
     }
 
-    // Convert user birthdate entry format (yyyy-mm-dd) into valid ISO 8601 format for database storage
-    credentialToSave.Alias.BirthDate = IdentityHelperUtils.normalizeBirthDate(credentialToSave.Alias.BirthDate);
+    // Build the fields array from fieldValues
+    const fields: ItemField[] = [];
 
-    // Extract favicon from service URL if the credential has one
-    if (credentialToSave.ServiceUrl) {
+    applicableSystemFields.forEach(systemField => {
+      const value = fieldValues[systemField.FieldKey];
+
+      // Only include fields with non-empty values
+      if (value && (Array.isArray(value) ? value.length > 0 : value.toString().trim() !== '')) {
+        fields.push({
+          FieldKey: systemField.FieldKey,
+          Label: systemField.FieldKey,
+          FieldType: systemField.FieldType,
+          Value: value,
+          IsHidden: systemField.IsHidden,
+          DisplayOrder: systemField.DefaultDisplayOrder,
+          IsCustomField: false,
+          EnableHistory: systemField.EnableHistory
+        });
+      }
+    });
+
+    // Normalize birthdate if present
+    const birthdateField = fields.find(f => f.FieldKey === FieldKey.AliasBirthdate);
+    if (birthdateField && typeof birthdateField.Value === 'string') {
+      birthdateField.Value = IdentityHelperUtils.normalizeBirthDate(birthdateField.Value);
+    }
+
+    // Build the item to save
+    let itemToSave: Item = {
+      ...item,
+      Id: isEditMode ? id : crypto.randomUUID().toUpperCase(),
+      Name: item.Name || t('items.untitled'),
+      Fields: fields,
+      UpdatedAt: new Date().toISOString()
+    };
+
+    // Extract favicon from URL if present
+    const urlValue = fieldValues[FieldKey.LoginUrl];
+    const urlString = Array.isArray(urlValue) ? urlValue[0] : urlValue;
+    if (urlString && urlString !== 'https://' && urlString !== 'http://') {
       try {
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Favicon extraction timed out')), 5000)
         );
 
-        const faviconPromise = webApi.get<FaviconExtractModel>('Favicon/Extract?url=' + credentialToSave.ServiceUrl);
+        const faviconPromise = webApi.get<FaviconExtractModel>('Favicon/Extract?url=' + urlString);
         const faviconResponse = await Promise.race([faviconPromise, timeoutPromise]) as FaviconExtractModel;
         if (faviconResponse?.image) {
           const decodedImage = Uint8Array.from(Buffer.from(faviconResponse.image as string, 'base64'));
-          credentialToSave.Logo = decodedImage;
+          itemToSave.Logo = decodedImage;
         }
       } catch {
-        // Favicon extraction failed or timed out, this is not a critical error so we can ignore it.
+        // Favicon extraction failed or timed out - not critical
       }
     }
 
     await executeVaultMutation(async () => {
       if (isEditMode) {
-        await dbContext.sqliteClient!.updateCredentialById(credentialToSave, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes);
+        await dbContext.sqliteClient!.updateItem(itemToSave, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes);
 
         // Delete passkeys if marked for deletion
-        if (passkeyMarkedForDeletion) {
-          await dbContext.sqliteClient!.deletePasskeysByCredentialId(credentialToSave.Id);
+        if (passkeyIdsMarkedForDeletion.length > 0) {
+          for (const passkeyId of passkeyIdsMarkedForDeletion) {
+            await dbContext.sqliteClient!.deletePasskeyById(passkeyId);
+          }
         }
       } else {
-        const credentialId = await dbContext.sqliteClient!.createCredential(credentialToSave, attachments, totpCodes);
-        credentialToSave.Id = credentialId;
+        await dbContext.sqliteClient!.createItem(itemToSave, attachments, totpCodes);
       }
 
-      // Emit an event to notify list and detail views to refresh
-      emitter.emit('credentialChanged', credentialToSave.Id);
+      // Emit event to notify list and detail views to refresh
+      emitter.emit('credentialChanged', itemToSave.Id);
     },
     {
-      /**
-       * Handle successful vault mutation.
-       */
+      /** Handle successful vault mutation. */
       onSuccess: () => {
-        // Reset unsaved changes flag to allow dismissal without confirmation
         setHasUnsavedChanges(false);
 
-        // If this was created from autofill (serviceUrl param), show confirmation screen
         if (serviceUrl && !isEditMode) {
-          router.replace('/credentials/autofill-credential-created');
+          router.replace('/items/autofill-item-created');
         } else {
           setIsSyncing(false);
           setIsSaveDisabled(false);
-
-          // First close the modal
           router.dismiss();
 
-          // Then navigate after a short delay to ensure the modal has closed
           setTimeout(() => {
             if (isEditMode) {
               Toast.show({
@@ -436,23 +463,18 @@ export default function AddEditCredentialScreen() : React.ReactNode {
                 text1: t('credentials.toasts.credentialUpdated'),
                 position: 'bottom'
               });
-
-              // Do not navigate away, the original screen will update itself after modal is closed.
             } else {
               Toast.show({
                 type: 'success',
                 text1: t('credentials.toasts.credentialCreated'),
                 position: 'bottom'
               });
-
-              router.push(`/credentials/${credentialToSave.Id}`);
+              router.push(`/items/${itemToSave.Id}`);
             }
           }, 100);
         }
       },
-      /**
-       * Handle error during vault mutation.
-       */
+      /** Handle error during vault mutation. */
       onError: (error) => {
         Toast.show({
           type: 'error',
@@ -460,42 +482,37 @@ export default function AddEditCredentialScreen() : React.ReactNode {
           text2: error.message,
           position: 'bottom'
         });
-        console.error('Error saving credential:', error.message);
-
+        console.error('Error saving item:', error.message);
         setIsSyncing(false);
         setIsSaveDisabled(false);
       }
     });
-  }, [isEditMode, id, serviceUrl, router, executeVaultMutation, dbContext.sqliteClient, mode, generateRandomAlias, webApi, watch, setIsSaveDisabled, setIsSyncing, isSaveDisabled, t, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes, passkeyMarkedForDeletion]);
+  }, [isEditMode, id, serviceUrl, router, executeVaultMutation, dbContext.sqliteClient, mode, generateRandomAlias, webApi, isSaveDisabled, item, fieldValues, applicableSystemFields, t, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes, passkeyIdsMarkedForDeletion]);
 
   /**
-   * Generate a random username based on current identity fields, or completely random if fields are empty.
+   * Generate a random username based on current identity fields.
    */
   const generateRandomUsername = useCallback(async () : Promise<void> => {
     try {
-      const firstName = watch('Alias.FirstName') ?? '';
-      const lastName = watch('Alias.LastName') ?? '';
-      const nickName = watch('Alias.NickName') ?? '';
-      const birthDate = watch('Alias.BirthDate') ?? '';
+      const firstName = (fieldValues[FieldKey.AliasFirstName] as string) ?? '';
+      const lastName = (fieldValues[FieldKey.AliasLastName] as string) ?? '';
+      const birthDate = (fieldValues[FieldKey.AliasBirthdate] as string) ?? '';
 
       let username: string;
 
-      // If alias fields are empty, generate a completely random username
-      if (!firstName && !lastName && !nickName && !birthDate) {
+      if (!firstName && !lastName && !birthDate) {
         const randomIdentity = await generateRandomIdentity();
         username = randomIdentity.nickName;
       } else {
-        // Generate username based on current identity fields
         const usernameEmailGenerator = CreateUsernameEmailGenerator();
 
         let gender = Gender.Other;
         try {
-          gender = watch('Alias.Gender') as Gender;
+          gender = (fieldValues[FieldKey.AliasGender] as string) as Gender;
         } catch {
-          // Gender parsing failed, default to other.
+          // Gender parsing failed, default to other
         }
 
-        // Parse birthDate, fallback to current date if invalid
         let parsedBirthDate = new Date(birthDate);
         if (!birthDate || isNaN(parsedBirthDate.getTime())) {
           parsedBirthDate = new Date();
@@ -504,22 +521,21 @@ export default function AddEditCredentialScreen() : React.ReactNode {
         const identity: Identity = {
           firstName,
           lastName,
-          nickName,
+          nickName: '',
           gender,
           birthDate: parsedBirthDate,
-          emailPrefix: watch('Alias.Email') ?? '',
+          emailPrefix: (fieldValues[FieldKey.LoginEmail] as string) ?? '',
         };
 
         username = usernameEmailGenerator.generateUsername(identity);
       }
 
-      setValue('Username', username);
-      // Update the tracking for username
+      handleFieldChange(FieldKey.LoginUsername, username);
       setLastGeneratedValues(prev => ({ ...prev, username }));
     } catch (error) {
       console.error('Error generating random username:', error);
     }
-  }, [setValue, watch, setLastGeneratedValues, generateRandomIdentity]);
+  }, [fieldValues, generateRandomIdentity, handleFieldChange]);
 
   /**
    * Handle the delete button press.
@@ -542,20 +558,16 @@ export default function AddEditCredentialScreen() : React.ReactNode {
         {
           text: t('common.delete'),
           style: "destructive",
-          /**
-           * Delete the credential.
-           */
+          /** Delete the item. */
           onPress: async () : Promise<void> => {
             setIsSyncing(true);
 
             await executeVaultMutation(async () => {
-              await dbContext.sqliteClient!.deleteCredentialById(id);
+              await dbContext.sqliteClient!.trashItem(id);
             });
 
-            // Emit an event to notify list views to refresh
             emitter.emit('credentialChanged', id);
 
-            // Show success toast
             setTimeout(() => {
               Toast.show({
                 type: 'success',
@@ -565,12 +577,6 @@ export default function AddEditCredentialScreen() : React.ReactNode {
             }, 200);
 
             setIsSyncing(false);
-
-            /*
-             * Navigate back to the root of the navigation stack.
-             * On Android, we need to go back twice since we're two levels deep.
-             * On iOS, this will dismiss the modal.
-             */
             router.back();
             router.back();
           }
@@ -586,7 +592,6 @@ export default function AddEditCredentialScreen() : React.ReactNode {
     if (Platform.OS !== 'ios') {
       return 0;
     }
-
     const iosVersion = parseInt(Platform.Version as string, 10);
     return iosVersion >= 26 ? 72 : 52;
   };
@@ -642,9 +647,6 @@ export default function AddEditCredentialScreen() : React.ReactNode {
     },
     headerRightButtonDisabled: {
       opacity: 0.5,
-    },
-    keyboardContainer: {
-      flex: 1,
     },
     modeButton: {
       alignItems: 'center',
@@ -702,9 +704,7 @@ export default function AddEditCredentialScreen() : React.ReactNode {
           {
             text: t('credentials.unsavedChanges.discard'),
             style: 'destructive',
-            /**
-             * Discard button handler.
-             */
+            /** Discard button handler. */
             onPress: () : void => {
               setHasUnsavedChanges(false);
               router.back();
@@ -720,13 +720,8 @@ export default function AddEditCredentialScreen() : React.ReactNode {
   // Set header buttons
   useEffect(() => {
     navigation.setOptions({
-      /**
-       * Header left button (iOS only).
-       */
       ...(Platform.OS === 'ios' && {
-        /**
-         * Header left button.
-         */
+        /** Header left button. */
         headerLeft: () : React.ReactNode => (
           <RobustPressable
             onPress={handleCancel}
@@ -736,12 +731,10 @@ export default function AddEditCredentialScreen() : React.ReactNode {
           </RobustPressable>
         ),
       }),
-      /**
-       * Header right button.
-       */
+      /** Header right button. */
       headerRight: () => (
         <RobustPressable
-          onPress={handleSubmit(onSubmit)}
+          onPress={onSubmit}
           style={[styles.headerRightButton, isSaveDisabled && styles.headerRightButtonDisabled]}
           disabled={isSaveDisabled}
         >
@@ -753,7 +746,16 @@ export default function AddEditCredentialScreen() : React.ReactNode {
         </RobustPressable>
       ),
     });
-  }, [navigation, mode, handleSubmit, onSubmit, colors.primary, isEditMode, router, styles.headerLeftButton, styles.headerLeftButtonText, styles.headerRightButton, styles.headerRightButtonDisabled, isSaveDisabled, t, handleCancel]);
+  }, [navigation, mode, onSubmit, colors.primary, isEditMode, router, styles.headerLeftButton, styles.headerLeftButtonText, styles.headerRightButton, styles.headerRightButtonDisabled, isSaveDisabled, t, handleCancel]);
+
+  // Check for passkeys (in edit mode)
+  const hasPasskey = useMemo(() => {
+    return item?.HasPasskey ?? false;
+  }, [item]);
+
+  if (!item) {
+    return null;
+  }
 
   return (
     <>
@@ -806,16 +808,19 @@ export default function AddEditCredentialScreen() : React.ReactNode {
 
             <View style={styles.section}>
               <ThemedText style={styles.sectionTitle}>{t('credentials.service')}</ThemedText>
-              <ValidatedFormField
-                ref={serviceNameRef}
-                control={control}
-                name="ServiceName"
+              <FormField
+                ref={itemNameRef}
+                value={item.Name ?? ''}
+                onChangeText={(value) => {
+                  setItem(prev => prev ? { ...prev, Name: value } : prev);
+                  setHasUnsavedChanges(true);
+                }}
                 label={t('credentials.serviceName')}
                 required
               />
-              <ValidatedFormField
-                control={control}
-                name="ServiceUrl"
+              <FormField
+                value={(fieldValues[FieldKey.LoginUrl] as string) ?? 'https://'}
+                onChangeText={(value) => handleFieldChange(FieldKey.LoginUrl, value)}
                 label={t('credentials.serviceUrl')}
               />
             </View>
@@ -824,19 +829,19 @@ export default function AddEditCredentialScreen() : React.ReactNode {
                 <View style={styles.section}>
                   <ThemedText style={styles.sectionTitle}>{t('credentials.loginCredentials')}</ThemedText>
 
-                  {watch('HasPasskey') ? (
+                  {hasPasskey ? (
                     <>
                       {/* When passkey exists: username, passkey, email, password */}
-                      <ValidatedFormField
-                        control={control}
-                        name="Username"
+                      <FormField
+                        value={(fieldValues[FieldKey.LoginUsername] as string) ?? ''}
+                        onChangeText={(value) => handleFieldChange(FieldKey.LoginUsername, value)}
                         label={t('credentials.username')}
                         buttons={[{
                           icon: "refresh",
                           onPress: generateRandomUsername
                         }]}
                       />
-                      {!passkeyMarkedForDeletion && (
+                      {!passkeyIdsMarkedForDeletion.length && (
                         <View style={{
                           backgroundColor: colors.background,
                           borderColor: colors.accentBorder,
@@ -859,7 +864,7 @@ export default function AddEditCredentialScreen() : React.ReactNode {
                                   {t('passkeys.passkey')}
                                 </ThemedText>
                                 <RobustPressable
-                                  onPress={() => setPasskeyMarkedForDeletion(true)}
+                                  onPress={() => setPasskeyIdsMarkedForDeletion(['passkey'])}
                                   style={{
                                     padding: 6,
                                     borderRadius: 4,
@@ -873,26 +878,6 @@ export default function AddEditCredentialScreen() : React.ReactNode {
                                   />
                                 </RobustPressable>
                               </View>
-                              {watch('PasskeyRpId') && (
-                                <View style={{ marginBottom: 4 }}>
-                                  <ThemedText style={{ color: colors.textMuted, fontSize: 12 }}>
-                                    {t('passkeys.site')}:{' '}
-                                    <ThemedText style={{ color: colors.text, fontSize: 12 }}>
-                                      {watch('PasskeyRpId')}
-                                    </ThemedText>
-                                  </ThemedText>
-                                </View>
-                              )}
-                              {watch('PasskeyDisplayName') && (
-                                <View style={{ marginBottom: 4 }}>
-                                  <ThemedText style={{ color: colors.textMuted, fontSize: 12 }}>
-                                    {t('passkeys.displayName')}:{' '}
-                                    <ThemedText style={{ color: colors.text, fontSize: 12 }}>
-                                      {watch('PasskeyDisplayName')}
-                                    </ThemedText>
-                                  </ThemedText>
-                                </View>
-                              )}
                               <ThemedText style={{ color: colors.textMuted, fontSize: 11, marginTop: 4 }}>
                                 {t('passkeys.helpText')}
                               </ThemedText>
@@ -900,7 +885,7 @@ export default function AddEditCredentialScreen() : React.ReactNode {
                           </View>
                         </View>
                       )}
-                      {passkeyMarkedForDeletion && (
+                      {passkeyIdsMarkedForDeletion.length > 0 && (
                         <View style={{
                           backgroundColor: colors.errorBackground,
                           borderColor: colors.errorBorder,
@@ -923,7 +908,7 @@ export default function AddEditCredentialScreen() : React.ReactNode {
                                   {t('passkeys.passkeyMarkedForDeletion')}
                                 </ThemedText>
                                 <RobustPressable
-                                  onPress={() => setPasskeyMarkedForDeletion(false)}
+                                  onPress={() => setPasskeyIdsMarkedForDeletion([])}
                                   style={{ padding: 4 }}
                                 >
                                   <MaterialIcons
@@ -941,13 +926,13 @@ export default function AddEditCredentialScreen() : React.ReactNode {
                         </View>
                       )}
                       <EmailDomainField
-                        value={watch('Alias.Email') ?? ''}
-                        onChange={(newValue) => setValue('Alias.Email', newValue)}
+                        value={(fieldValues[FieldKey.LoginEmail] as string) ?? ''}
+                        onChange={(newValue) => handleFieldChange(FieldKey.LoginEmail, newValue)}
                         label={t('credentials.email')}
                       />
                       <AdvancedPasswordField
-                        control={control}
-                        name="Password"
+                        value={(fieldValues[FieldKey.LoginPassword] as string) ?? ''}
+                        onChangeText={(value) => handleFieldChange(FieldKey.LoginPassword, value)}
                         label={t('credentials.password')}
                         showPassword={isPasswordVisible}
                         onShowPasswordChange={setIsPasswordVisible}
@@ -958,13 +943,13 @@ export default function AddEditCredentialScreen() : React.ReactNode {
                     <>
                       {/* When no passkey: email, username, password */}
                       <EmailDomainField
-                        value={watch('Alias.Email') ?? ''}
-                        onChange={(newValue) => setValue('Alias.Email', newValue)}
+                        value={(fieldValues[FieldKey.LoginEmail] as string) ?? ''}
+                        onChange={(newValue) => handleFieldChange(FieldKey.LoginEmail, newValue)}
                         label={t('credentials.email')}
                       />
-                      <ValidatedFormField
-                        control={control}
-                        name="Username"
+                      <FormField
+                        value={(fieldValues[FieldKey.LoginUsername] as string) ?? ''}
+                        onChangeText={(value) => handleFieldChange(FieldKey.LoginUsername, value)}
                         label={t('credentials.username')}
                         buttons={[{
                           icon: "refresh",
@@ -972,8 +957,8 @@ export default function AddEditCredentialScreen() : React.ReactNode {
                         }]}
                       />
                       <AdvancedPasswordField
-                        control={control}
-                        name="Password"
+                        value={(fieldValues[FieldKey.LoginPassword] as string) ?? ''}
+                        onChangeText={(value) => handleFieldChange(FieldKey.LoginPassword, value)}
                         label={t('credentials.password')}
                         showPassword={isPasswordVisible}
                         onShowPasswordChange={setIsPasswordVisible}
@@ -1001,29 +986,24 @@ export default function AddEditCredentialScreen() : React.ReactNode {
                       {hasAliasValues ? t('credentials.clearAliasFields') : t('credentials.generateRandomAlias')}
                     </ThemedText>
                   </RobustPressable>
-                  <ValidatedFormField
-                    control={control}
-                    name="Alias.FirstName"
+                  <FormField
+                    value={(fieldValues[FieldKey.AliasFirstName] as string) ?? ''}
+                    onChangeText={(value) => handleFieldChange(FieldKey.AliasFirstName, value)}
                     label={t('credentials.firstName')}
                   />
-                  <ValidatedFormField
-                    control={control}
-                    name="Alias.LastName"
+                  <FormField
+                    value={(fieldValues[FieldKey.AliasLastName] as string) ?? ''}
+                    onChangeText={(value) => handleFieldChange(FieldKey.AliasLastName, value)}
                     label={t('credentials.lastName')}
                   />
-                  <ValidatedFormField
-                    control={control}
-                    name="Alias.NickName"
-                    label={t('credentials.nickName')}
-                  />
-                  <ValidatedFormField
-                    control={control}
-                    name="Alias.Gender"
+                  <FormField
+                    value={(fieldValues[FieldKey.AliasGender] as string) ?? ''}
+                    onChangeText={(value) => handleFieldChange(FieldKey.AliasGender, value)}
                     label={t('credentials.gender')}
                   />
-                  <ValidatedFormField
-                    control={control}
-                    name="Alias.BirthDate"
+                  <FormField
+                    value={(fieldValues[FieldKey.AliasBirthdate] as string) ?? ''}
+                    onChangeText={(value) => handleFieldChange(FieldKey.AliasBirthdate, value)}
                     label={t('credentials.birthDate')}
                     placeholder={t('credentials.birthDatePlaceholder')}
                   />
@@ -1032,9 +1012,9 @@ export default function AddEditCredentialScreen() : React.ReactNode {
                 <View style={styles.section}>
                   <ThemedText style={styles.sectionTitle}>{t('credentials.metadata')}</ThemedText>
 
-                  <ValidatedFormField
-                    control={control}
-                    name="Notes"
+                  <FormField
+                    value={(fieldValues[FieldKey.NotesContent] as string) ?? ''}
+                    onChangeText={(value) => handleFieldChange(FieldKey.NotesContent, value)}
                     label={t('credentials.notes')}
                     multiline={true}
                     numberOfLines={4}

@@ -1,25 +1,30 @@
 import { useTranslation } from 'react-i18next';
 
 import { IdentityHelperUtils } from '@/utils/dist/core/identity-generator';
-import type { Credential } from '@/utils/dist/core/models/vault';
+import type { Item } from '@/utils/dist/core/models/vault';
+import { getFieldValue, FieldKey } from '@/utils/dist/core/models/vault';
 
 import FormInputCopyToClipboard from '@/components/form/FormInputCopyToClipboard';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedView } from '@/components/themed/ThemedView';
 
 type AliasDetailsProps = {
-  credential: Credential;
+  item: Item;
 };
 
 /**
  * Alias details component.
  */
-export const AliasDetails: React.FC<AliasDetailsProps> = ({ credential }) : React.ReactNode => {
+export const AliasDetails: React.FC<AliasDetailsProps> = ({ item }) : React.ReactNode => {
   const { t } = useTranslation();
-  const hasName = Boolean(credential.Alias?.FirstName?.trim() ?? credential.Alias?.LastName?.trim());
-  const fullName = [credential.Alias?.FirstName, credential.Alias?.LastName].filter(Boolean).join(' ');
+  const firstName = getFieldValue(item, FieldKey.AliasFirstName)?.trim();
+  const lastName = getFieldValue(item, FieldKey.AliasLastName)?.trim();
+  const birthDate = getFieldValue(item, FieldKey.AliasBirthdate);
 
-  if (!hasName && !credential.Alias?.NickName && !IdentityHelperUtils.isValidBirthDate(credential.Alias?.BirthDate)) {
+  const hasName = Boolean(firstName || lastName);
+  const fullName = [firstName, lastName].filter(Boolean).join(' ');
+
+  if (!hasName && !IdentityHelperUtils.isValidBirthDate(birthDate)) {
     return null;
   }
 
@@ -32,28 +37,22 @@ export const AliasDetails: React.FC<AliasDetailsProps> = ({ credential }) : Reac
           value={fullName}
         />
       )}
-      {credential.Alias?.FirstName && (
+      {firstName && (
         <FormInputCopyToClipboard
           label={t('credentials.firstName')}
-          value={credential.Alias.FirstName}
+          value={firstName}
         />
       )}
-      {credential.Alias?.LastName && (
+      {lastName && (
         <FormInputCopyToClipboard
           label={t('credentials.lastName')}
-          value={credential.Alias.LastName}
+          value={lastName}
         />
       )}
-      {credential.Alias?.NickName && (
-        <FormInputCopyToClipboard
-          label={t('credentials.nickName')}
-          value={credential.Alias.NickName}
-        />
-      )}
-      {IdentityHelperUtils.isValidBirthDate(credential.Alias?.BirthDate) && (
+      {IdentityHelperUtils.isValidBirthDate(birthDate) && (
         <FormInputCopyToClipboard
           label={t('credentials.birthDate')}
-          value={IdentityHelperUtils.normalizeBirthDate(credential.Alias.BirthDate)}
+          value={IdentityHelperUtils.normalizeBirthDate(birthDate!)}
         />
       )}
     </ThemedView>

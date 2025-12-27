@@ -4,18 +4,19 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, View, Text, StyleSheet, Linking, Platform } from 'react-native'
 import Toast from 'react-native-toast-message';
 
-import type { Credential } from '@/utils/dist/core/models/vault';
+import type { Item } from '@/utils/dist/core/models/vault';
+import { FieldTypes, getFieldValue, FieldKey } from '@/utils/dist/core/models/vault';
 import emitter from '@/utils/EventEmitter';
 
 import { useColors } from '@/hooks/useColorScheme';
 
-import { CredentialIcon } from '@/components/credentials/CredentialIcon';
-import { AliasDetails } from '@/components/credentials/details/AliasDetails';
-import { AttachmentSection } from '@/components/credentials/details/AttachmentSection';
-import { EmailPreview } from '@/components/credentials/details/EmailPreview';
-import { LoginCredentials } from '@/components/credentials/details/LoginCredentials';
-import { NotesSection } from '@/components/credentials/details/NotesSection';
-import { TotpSection } from '@/components/credentials/details/TotpSection';
+import { AliasDetails } from '@/components/items/details/AliasDetails';
+import { AttachmentSection } from '@/components/items/details/AttachmentSection';
+import { EmailPreview } from '@/components/items/details/EmailPreview';
+import { LoginFields } from '@/components/items/details/LoginFields';
+import { NotesSection } from '@/components/items/details/NotesSection';
+import { TotpSection } from '@/components/items/details/TotpSection';
+import { ItemIcon } from '@/components/items/ItemIcon';
 import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedScrollView } from '@/components/themed/ThemedScrollView';
 import { ThemedText } from '@/components/themed/ThemedText';
@@ -24,11 +25,11 @@ import { RobustPressable } from '@/components/ui/RobustPressable';
 import { useDb } from '@/context/DbContext';
 
 /**
- * Credential details screen.
+ * Item details screen.
  */
-export default function CredentialDetailsScreen() : React.ReactNode {
+export default function ItemDetailsScreen() : React.ReactNode {
   const { id } = useLocalSearchParams();
-  const [credential, setCredential] = useState<Credential | null>(null);
+  const [item, setItem] = useState<Item | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const dbContext = useDb();
   const navigation = useNavigation();
@@ -39,7 +40,7 @@ export default function CredentialDetailsScreen() : React.ReactNode {
    * Handle the edit button press.
    */
   const handleEdit = useCallback(() : void => {
-    router.push(`/(tabs)/credentials/add-edit?id=${id}`);
+    router.push(`/(tabs)/items/add-edit?id=${id}`);
   }, [id, router]);
 
   // Set header buttons
@@ -63,38 +64,38 @@ export default function CredentialDetailsScreen() : React.ReactNode {
         </View>
       ),
     });
-  }, [navigation, credential, handleEdit, colors.primary]);
+  }, [navigation, item, handleEdit, colors.primary]);
 
   useEffect(() => {
     /**
-     * Load the credential.
+     * Load the item.
      */
-    const loadCredential = async () : Promise<void> => {
+    const loadItem = async () : Promise<void> => {
       if (!dbContext.dbAvailable || !id) {
         return;
       }
 
       try {
-        const cred = await dbContext.sqliteClient!.getCredentialById(id as string);
-        setCredential(cred);
+        const result = await dbContext.sqliteClient!.getItemById(id as string);
+        setItem(result);
       } catch (err) {
-        console.error('Error loading credential:', err);
+        console.error('Error loading item:', err);
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadCredential();
+    loadItem();
 
-    // Add listener for credential changes
-    const credentialChangedSub = emitter.addListener('credentialChanged', async (changedId: string) => {
+    // Add listener for item changes
+    const itemChangedSub = emitter.addListener('credentialChanged', async (changedId: string) => {
       if (changedId === id) {
-        await loadCredential();
+        await loadItem();
       }
     });
 
     return () : void => {
-      credentialChangedSub.remove();
+      itemChangedSub.remove();
       Toast.hide();
     };
   }, [id, dbContext.dbAvailable, dbContext.sqliteClient]);
@@ -107,42 +108,51 @@ export default function CredentialDetailsScreen() : React.ReactNode {
     );
   }
 
-  if (!credential) {
+  if (!item) {
     return null;
   }
+
+  // Extract URL fields for display
+  const urlFields = item.Fields.filter(field => field.FieldType === FieldTypes.URL && field.Value);
+  const firstUrl = urlFields.length > 0
+    ? (Array.isArray(urlFields[0].Value) ? urlFields[0].Value[0] : urlFields[0].Value)
+    : null;
+
+  // Get email for EmailPreview
+  const email = getFieldValue(item, FieldKey.LoginEmail);
 
   return (
     <ThemedContainer>
       <ThemedScrollView>
         <ThemedView style={styles.header}>
-          <CredentialIcon logo={credential.Logo} style={styles.logo} />
+          <ItemIcon logo={item.Logo} style={styles.logo} />
           <View style={styles.headerText}>
             <ThemedText type="title" style={styles.serviceName}>
-              {credential.ServiceName}
+              {item.Name}
             </ThemedText>
-            {credential.ServiceUrl && (
-              /^https?:\/\//i.test(credential.ServiceUrl) ? (
+            {firstUrl && (
+              /^https?:\/\//i.test(firstUrl) ? (
                 <RobustPressable
-                  onPress={() => Linking.openURL(credential.ServiceUrl!)}
+                  onPress={() => Linking.openURL(firstUrl)}
                 >
                   <Text style={[styles.serviceUrl, { color: colors.primary }]}>
-                    {credential.ServiceUrl}
+                    {firstUrl}
                   </Text>
                 </RobustPressable>
               ) : (
                 <Text style={styles.serviceUrl}>
-                  {credential.ServiceUrl}
+                  {firstUrl}
                 </Text>
               )
             )}
           </View>
         </ThemedView>
-        <EmailPreview email={credential.Alias.Email} />
-        <TotpSection credential={credential} />
-        <LoginCredentials credential={credential} />
-        <AliasDetails credential={credential} />
-        <NotesSection credential={credential} />
-        <AttachmentSection credential={credential} />
+        <EmailPreview email={email} />
+        <TotpSection item={item} />
+        <LoginFields item={item} />
+        <AliasDetails item={item} />
+        <NotesSection item={item} />
+        <AttachmentSection item={item} />
       </ThemedScrollView>
     </ThemedContainer>
   );

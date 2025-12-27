@@ -7,7 +7,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 
-import type { Credential, Attachment } from '@/utils/dist/core/models/vault';
+import type { Item, Attachment } from '@/utils/dist/core/models/vault';
 import emitter from '@/utils/EventEmitter';
 
 import { useColors } from '@/hooks/useColorScheme';
@@ -19,13 +19,13 @@ import { useDb } from '@/context/DbContext';
 import { FilePreviewModal } from './FilePreviewModal';
 
 type AttachmentSectionProps = {
-  credential: Credential;
+  item: Item;
 };
 
 /**
  * Attachment section component.
  */
-export const AttachmentSection: React.FC<AttachmentSectionProps> = ({ credential }): React.ReactNode => {
+export const AttachmentSection: React.FC<AttachmentSectionProps> = ({ item }): React.ReactNode => {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
   const [selectedFile, setSelectedFile] = useState<{
@@ -176,26 +176,26 @@ export const AttachmentSection: React.FC<AttachmentSectionProps> = ({ credential
     }
 
     try {
-      const attachmentList = await dbContext.sqliteClient.getAttachmentsForCredential(credential.Id);
+      const attachmentList = await dbContext.sqliteClient.getAttachmentsForItem(item.Id);
       setAttachments(attachmentList);
     } catch (error) {
       console.error('Error loading attachments:', error);
     }
-  }, [credential.Id, dbContext?.sqliteClient]);
+  }, [item.Id, dbContext?.sqliteClient]);
 
   useEffect((): (() => void) => {
     loadAttachments();
 
-    const credentialChangedSub = emitter.addListener('credentialChanged', async (changedId: string) => {
-      if (changedId === credential.Id) {
+    const itemChangedSub = emitter.addListener('credentialChanged', async (changedId: string) => {
+      if (changedId === item.Id) {
         await loadAttachments();
       }
     });
 
     return () => {
-      credentialChangedSub.remove();
+      itemChangedSub.remove();
     };
-  }, [credential.Id, dbContext?.sqliteClient, loadAttachments]);
+  }, [item.Id, dbContext?.sqliteClient, loadAttachments]);
 
   if (attachments.length === 0) {
     return null;

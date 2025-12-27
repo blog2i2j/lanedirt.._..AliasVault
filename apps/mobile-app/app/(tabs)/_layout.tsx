@@ -99,11 +99,11 @@ export default function TabLayout() : React.ReactNode {
         }),
       }}>
       <Tabs.Screen
-        name="credentials"
+        name="items"
         options={{
-          title: t('navigation.credentials'),
+          title: t('navigation.vault'),
           /**
-           * Icon for the credentials tab.
+           * Icon for the vault tab.
            */
           tabBarIcon: ({ color }) => <IconSymbol size={28} name={IconSymbolName.Key} color={color} />,
         }}

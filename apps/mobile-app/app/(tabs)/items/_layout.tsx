@@ -5,10 +5,10 @@ import { Platform } from 'react-native';
 import { defaultHeaderOptions } from '@/components/themed/ThemedHeader';
 
 /**
- * Credentials layout.
- * @returns {React.ReactNode} The credentials layout component
+ * Items layout.
+ * @returns {React.ReactNode} The items layout component
  */
-export default function CredentialsLayout(): React.ReactNode {
+export default function ItemsLayout(): React.ReactNode {
   const { t } = useTranslation();
 
   return (
@@ -16,7 +16,7 @@ export default function CredentialsLayout(): React.ReactNode {
       <Stack.Screen
         name="index"
         options={{
-          title: t('credentials.title'),
+          title: t('items.title'),
           headerShown: Platform.OS === 'android',
           ...defaultHeaderOptions,
         }}
@@ -24,7 +24,7 @@ export default function CredentialsLayout(): React.ReactNode {
       <Stack.Screen
         name="add-edit"
         options={{
-          title: t('credentials.addCredential'),
+          title: t('items.addItem'),
           presentation: Platform.OS === 'ios' ? 'modal' : 'card',
           ...defaultHeaderOptions,
         }}
@@ -32,14 +32,14 @@ export default function CredentialsLayout(): React.ReactNode {
       <Stack.Screen
         name="add-edit-page"
         options={{
-          title: t('credentials.addCredential'),
+          title: t('items.addItem'),
           ...defaultHeaderOptions,
         }}
       />
       <Stack.Screen
-        name="autofill-credential-created"
+        name="autofill-item-created"
         options={{
-          title: t('credentials.credentialCreated'),
+          title: t('items.itemCreated'),
           presentation: Platform.OS === 'ios' ? 'modal' : 'card',
           ...defaultHeaderOptions,
         }}
@@ -47,14 +47,14 @@ export default function CredentialsLayout(): React.ReactNode {
       <Stack.Screen
         name="[id]"
         options={{
-          title: t('credentials.credentialDetails'),
+          title: t('items.itemDetails'),
           ...defaultHeaderOptions,
         }}
       />
       <Stack.Screen
         name="email/[id]"
         options={{
-          title: t('credentials.emailPreview'),
+          title: t('items.emailPreview'),
         }}
       />
     </Stack>

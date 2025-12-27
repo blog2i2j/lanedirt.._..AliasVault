@@ -2,7 +2,8 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
-import type { Credential } from '@/utils/dist/core/models/vault';
+import type { Item } from '@/utils/dist/core/models/vault';
+import { getFieldValue, FieldKey } from '@/utils/dist/core/models/vault';
 
 import { useColors } from '@/hooks/useColorScheme';
 
@@ -10,22 +11,22 @@ import FormInputCopyToClipboard from '@/components/form/FormInputCopyToClipboard
 import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedView } from '@/components/themed/ThemedView';
 
-type LoginCredentialsProps = {
-  credential: Credential;
+type LoginFieldsProps = {
+  item: Item;
 };
 
 /**
- * Login credentials component.
+ * Login fields component.
  */
-export const LoginCredentials: React.FC<LoginCredentialsProps> = ({ credential }) : React.ReactNode => {
+export const LoginFields: React.FC<LoginFieldsProps> = ({ item }) : React.ReactNode => {
   const { t } = useTranslation();
   const colors = useColors();
-  const email = credential.Alias?.Email?.trim();
-  const username = credential.Username?.trim();
-  const password = credential.Password?.trim();
+  const email = getFieldValue(item, FieldKey.LoginEmail)?.trim();
+  const username = getFieldValue(item, FieldKey.LoginUsername)?.trim();
+  const password = getFieldValue(item, FieldKey.LoginPassword)?.trim();
 
   // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-  const hasLoginCredentials = email || username || password || credential.HasPasskey;
+  const hasLoginCredentials = email || username || password || item.HasPasskey;
 
   if (!hasLoginCredentials) {
     return null;
@@ -88,7 +89,7 @@ export const LoginCredentials: React.FC<LoginCredentialsProps> = ({ credential }
           value={username}
         />
       )}
-      {credential.HasPasskey && (
+      {item.HasPasskey && (
         <View style={passkeyStyles.container}>
           <View style={passkeyStyles.contentRow}>
             <MaterialIcons
@@ -101,26 +102,6 @@ export const LoginCredentials: React.FC<LoginCredentialsProps> = ({ credential }
               <ThemedText style={passkeyStyles.label}>
                 {t('passkeys.passkey')}
               </ThemedText>
-              {credential.PasskeyRpId && (
-                <View style={passkeyStyles.metadataRow}>
-                  <ThemedText style={passkeyStyles.metadataLabel}>
-                    {t('passkeys.site')}:{' '}
-                  </ThemedText>
-                  <ThemedText style={passkeyStyles.metadataValue}>
-                    {credential.PasskeyRpId}
-                  </ThemedText>
-                </View>
-              )}
-              {credential.PasskeyDisplayName && (
-                <View style={passkeyStyles.metadataRow}>
-                  <ThemedText style={passkeyStyles.metadataLabel}>
-                    {t('passkeys.displayName')}:{' '}
-                  </ThemedText>
-                  <ThemedText style={passkeyStyles.metadataValue}>
-                    {credential.PasskeyDisplayName}
-                  </ThemedText>
-                </View>
-              )}
               <ThemedText style={passkeyStyles.helpText}>
                 {t('passkeys.helpText')}
               </ThemedText>

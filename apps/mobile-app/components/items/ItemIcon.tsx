@@ -6,17 +6,17 @@ import { SvgUri } from 'react-native-svg';
 import servicePlaceholder from '@/assets/images/service-placeholder.webp';
 
 /**
- * Credential icon props.
+ * Item icon props.
  */
-type CredentialIconProps = {
+type ItemIconProps = {
   logo?: Uint8Array | number[] | string | null;
   style?: ImageStyle;
 };
 
 /**
- * Credential icon component.
+ * Item icon component.
  */
-export function CredentialIcon({ logo, style }: CredentialIconProps) : React.ReactNode {
+export function ItemIcon({ logo, style }: ItemIconProps) : React.ReactNode {
   /**
    * Get the logo source.
    */

@@ -230,24 +230,24 @@ export default function UpgradeScreen() : React.ReactNode {
          */
         onStatus: (message) => setUpgradeStatus(message),
         /**
-         * Handle successful vault sync and navigate to credentials.
+         * Handle successful vault sync and navigate to items.
          */
         onSuccess: () => {
-          router.replace('/(tabs)/credentials');
+          router.replace('/(tabs)/items');
         },
         /**
-         * Handle sync error and still navigate to credentials.
+         * Handle sync error and still navigate to items.
          */
         onError: (error) => {
           console.error('Sync error after upgrade:', error);
-          // Still navigate to credentials even if sync fails
-          router.replace('/(tabs)/credentials');
+          // Still navigate to items even if sync fails
+          router.replace('/(tabs)/items');
         }
       });
     } catch (error) {
       console.error('Error during post-upgrade flow:', error);
-      // Navigate to credentials anyway
-      router.replace('/(tabs)/credentials');
+      // Navigate to items anyway
+      router.replace('/(tabs)/items');
     }
   };
 

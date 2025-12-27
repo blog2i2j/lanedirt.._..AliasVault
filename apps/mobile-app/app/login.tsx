@@ -235,7 +235,7 @@ export default function LoginScreen() : React.ReactNode {
     setPasswordHashBase64(null);
     setInitiateLoginResponse(null);
     setLoginStatus(null);
-    router.replace('/(tabs)/credentials');
+    router.replace('/(tabs)/items');
     setIsLoading(false);
   };
 
