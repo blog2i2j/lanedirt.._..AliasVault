@@ -24,7 +24,7 @@ import { useVaultMutate } from '@/hooks/useVaultMutate';
 import { AddFieldMenu, type OptionalSection } from '@/components/form/AddFieldMenu';
 import { AdvancedPasswordField } from '@/components/form/AdvancedPasswordField';
 import { EmailDomainField } from '@/components/form/EmailDomainField';
-import { FormField, FormFieldRef } from '@/components/form/FormField';
+import { FormField } from '@/components/form/FormField';
 import { FormSection } from '@/components/form/FormSection';
 import { HiddenField } from '@/components/form/HiddenField';
 import { ItemNameField, ItemNameFieldRef } from '@/components/form/ItemNameField';

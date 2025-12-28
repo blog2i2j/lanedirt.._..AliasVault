@@ -610,7 +610,7 @@
       "deleteFolderKeepItemsDescription": "Items will be moved back to the main list.",
       "deleteFolderAndItems": "Delete folder and all items",
       "deleteFolderAndItemsDescription": "{{count}} item(s) will be moved to Recently Deleted.",
-      "emptyFolderHint": "To move items to this folder, edit the item and select this folder.",
+      "emptyFolderHint": "This folder is empty. To move items to this folder, edit the item and select this folder.",
       "noFolder": "No Folder",
       "selectFolder": "Select Folder"
     }

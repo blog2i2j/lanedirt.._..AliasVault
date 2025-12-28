@@ -485,13 +485,11 @@ export default function FolderViewScreen(): React.ReactNode {
 
     return (
       <View>
-        <Text style={styles.emptyText}>
-          {searchQuery
-            ? t('items.noMatchingItems')
-            : t('items.folders.emptyFolder')
-          }
-        </Text>
-        {!searchQuery && (
+        {searchQuery.length > 0 ? (
+          <Text style={styles.emptyText}>
+            {t('items.noMatchingItems')}
+          </Text>
+        ) : (
           <Text style={styles.emptyHint}>
             {t('items.folders.emptyFolderHint')}
           </Text>
