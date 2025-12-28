@@ -21,6 +21,8 @@
     "enabled": "Enabled",
     "disabled": "Disabled",
     "twoFactorAuthentication": "Two-Factor Authentication",
+    "add": "Add",
+    "attachments": "Attachments",
     "deleteItemConfirmTitle": "Delete Item",
     "deleteItemConfirmDescription": "Are you sure you want to delete this item?",
     "errors": {
@@ -432,6 +434,56 @@
     "vault": "Vault",
     "emails": "Emails",
     "settings": "Settings"
+  },
+  "itemTypes": {
+    "creating": "Creating",
+    "editing": "Editing",
+    "login": {
+      "title": "Login"
+    },
+    "alias": {
+      "title": "Alias"
+    },
+    "creditCard": {
+      "title": "Credit Card",
+      "cardInformation": "Card Information"
+    },
+    "note": {
+      "title": "Note"
+    },
+    "addField": "Add Field",
+    "addCustomField": "Add Custom Field",
+    "customFields": "Custom Fields",
+    "fieldLabel": "Field Label",
+    "fieldType": "Field Type",
+    "enterFieldName": "Enter field name",
+    "fieldTypes": {
+      "text": "Text",
+      "hidden": "Hidden",
+      "email": "Email",
+      "url": "URL",
+      "phone": "Phone",
+      "number": "Number",
+      "date": "Date",
+      "textArea": "Text Area"
+    }
+  },
+  "fieldLabels": {
+    "login.username": "Username",
+    "login.password": "Password",
+    "login.email": "Email",
+    "login.url": "URL",
+    "alias.first_name": "First Name",
+    "alias.last_name": "Last Name",
+    "alias.gender": "Gender",
+    "alias.birthdate": "Birth Date",
+    "card.cardholder_name": "Cardholder Name",
+    "card.number": "Card Number",
+    "card.expiry_month": "Expiry Month",
+    "card.expiry_year": "Expiry Year",
+    "card.cvv": "CVV",
+    "card.pin": "PIN",
+    "notes.content": "Notes"
   },
   "items": {
     "title": "Items",

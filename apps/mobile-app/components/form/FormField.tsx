@@ -23,6 +23,8 @@ type FormFieldProps = Omit<TextInputProps, 'onChangeText'> & {
   required?: boolean;
   buttons?: FormFieldButton[];
   error?: string;
+  /** Optional callback for remove button - when provided, shows X button in label row */
+  onRemove?: () => void;
 }
 
 /**
@@ -35,6 +37,7 @@ const FormFieldComponent = forwardRef<FormFieldRef, FormFieldProps>(({
   required,
   buttons,
   error,
+  onRemove,
   ...props
 }, ref) => {
   const colors = useColors();
@@ -94,6 +97,15 @@ const FormFieldComponent = forwardRef<FormFieldRef, FormFieldProps>(({
       fontSize: 12,
       marginBottom: 4,
     },
+    labelContainer: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 4,
+    },
+    removeButton: {
+      padding: 4,
+    },
     requiredIndicator: {
       color: colorRed,
       marginLeft: 4,
@@ -104,9 +116,20 @@ const FormFieldComponent = forwardRef<FormFieldRef, FormFieldProps>(({
 
   return (
     <View style={styles.inputGroup}>
-      <ThemedText style={styles.inputLabel}>
-        {label} {required && <ThemedText style={styles.requiredIndicator}>*</ThemedText>}
-      </ThemedText>
+      <View style={styles.labelContainer}>
+        <ThemedText style={styles.inputLabel}>
+          {label} {required && <ThemedText style={styles.requiredIndicator}>*</ThemedText>}
+        </ThemedText>
+        {onRemove && (
+          <TouchableHighlight
+            style={styles.removeButton}
+            onPress={onRemove}
+            underlayColor={colors.accentBackground}
+          >
+            <MaterialIcons name="close" size={18} color={colors.textMuted} />
+          </TouchableHighlight>
+        )}
+      </View>
       <View style={[styles.inputContainer, error ? styles.inputError : null]}>
         <TextInput
           ref={inputRef}

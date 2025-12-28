@@ -25,6 +25,8 @@ type AdvancedPasswordFieldProps = Omit<TextInputProps, 'value' | 'onChangeText'>
   showPassword?: boolean;
   onShowPasswordChange?: (show: boolean) => void;
   isNewCredential?: boolean;
+  /** Optional callback for remove button - when provided, shows X button in label row */
+  onRemove?: () => void;
 }
 
 const AdvancedPasswordFieldComponent = forwardRef<AdvancedPasswordFieldRef, AdvancedPasswordFieldProps>(({
@@ -35,6 +37,7 @@ const AdvancedPasswordFieldComponent = forwardRef<AdvancedPasswordFieldRef, Adva
   showPassword: controlledShowPassword,
   onShowPasswordChange,
   isNewCredential = false,
+  onRemove,
   ...props
 }, ref) => {
   const colors = useColors();
@@ -227,7 +230,15 @@ const AdvancedPasswordFieldComponent = forwardRef<AdvancedPasswordFieldRef, Adva
     inputLabel: {
       color: colors.textMuted,
       fontSize: 12,
+    },
+    labelContainer: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
       marginBottom: 4,
+    },
+    removeButton: {
+      padding: 4,
     },
     modalContent: {
       backgroundColor: colors.accentBackground,
@@ -348,9 +359,20 @@ const AdvancedPasswordFieldComponent = forwardRef<AdvancedPasswordFieldRef, Adva
 
   return (
     <View style={styles.inputGroup}>
-      <ThemedText style={styles.inputLabel}>
-        {label} {required && <ThemedText style={styles.requiredIndicator}>*</ThemedText>}
-      </ThemedText>
+      <View style={styles.labelContainer}>
+        <ThemedText style={styles.inputLabel}>
+          {label} {required && <ThemedText style={styles.requiredIndicator}>*</ThemedText>}
+        </ThemedText>
+        {onRemove && (
+          <TouchableOpacity
+            style={styles.removeButton}
+            onPress={onRemove}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="close" size={18} color={colors.textMuted} />
+          </TouchableOpacity>
+        )}
+      </View>
 
       <View style={styles.inputContainer}>
         <TextInput
