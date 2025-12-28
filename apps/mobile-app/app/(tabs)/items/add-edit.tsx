@@ -21,13 +21,13 @@ import { extractServiceNameFromUrl } from '@/utils/UrlUtility';
 import { useColors } from '@/hooks/useColorScheme';
 import { useVaultMutate } from '@/hooks/useVaultMutate';
 
-import { FolderSelector } from '@/components/folders/FolderSelector';
 import { AddFieldMenu, type OptionalSection } from '@/components/form/AddFieldMenu';
 import { AdvancedPasswordField } from '@/components/form/AdvancedPasswordField';
 import { EmailDomainField } from '@/components/form/EmailDomainField';
 import { FormField, FormFieldRef } from '@/components/form/FormField';
 import { FormSection } from '@/components/form/FormSection';
 import { HiddenField } from '@/components/form/HiddenField';
+import { ItemNameField, ItemNameFieldRef } from '@/components/form/ItemNameField';
 import { AttachmentUploader } from '@/components/items/details/AttachmentUploader';
 import { TotpEditor } from '@/components/items/details/TotpEditor';
 import { ItemTypeSelector } from '@/components/items/ItemTypeSelector';
@@ -76,7 +76,7 @@ export default function AddEditItemScreen(): React.ReactNode {
   const { t } = useTranslation();
 
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  const itemNameRef = useRef<FormFieldRef>(null);
+  const itemNameRef = useRef<ItemNameFieldRef>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSaveDisabled, setIsSaveDisabled] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -1248,15 +1248,19 @@ export default function AddEditItemScreen(): React.ReactNode {
 
             {/* Item Name and Primary Fields Section */}
             <FormSection title={t('items.service')}>
-              <FormField
+              <ItemNameField
                 ref={itemNameRef}
                 value={item.Name ?? ''}
                 onChangeText={(value) => {
                   setItem(prev => prev ? { ...prev, Name: value } : prev);
                   setHasUnsavedChanges(true);
                 }}
-                label={t('items.serviceName')}
-                required
+                folders={folders}
+                selectedFolderId={item.FolderId}
+                onFolderChange={(folderId) => {
+                  setItem(prev => prev ? { ...prev, FolderId: folderId } : prev);
+                  setHasUnsavedChanges(true);
+                }}
               />
               {/* Primary fields (like URL) */}
               {primaryFields.map(field => (
@@ -1270,17 +1274,6 @@ export default function AddEditItemScreen(): React.ReactNode {
                   )}
                 </View>
               ))}
-              {/* Folder selection */}
-              {folders.length > 0 && (
-                <FolderSelector
-                  folders={folders}
-                  selectedFolderId={item.FolderId}
-                  onFolderChange={(folderId) => {
-                    setItem(prev => prev ? { ...prev, FolderId: folderId } : prev);
-                    setHasUnsavedChanges(true);
-                  }}
-                />
-              )}
             </FormSection>
 
             {/* Passkey Section - only in edit mode for items with passkeys */}
