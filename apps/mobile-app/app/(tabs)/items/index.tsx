@@ -93,6 +93,9 @@ export default function ItemsScreen(): React.ReactNode {
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [showFilterMenu, setShowFilterMenu] = useState(false);
 
+  // Recently deleted count state
+  const [recentlyDeletedCount, setRecentlyDeletedCount] = useState(0);
+
   const authContext = useApp();
   const dbContext = useDb();
 
@@ -197,16 +200,18 @@ export default function ItemsScreen(): React.ReactNode {
   }, [itemsList, searchQuery, filterType]);
 
   /**
-   * Load items (credentials) and folders.
+   * Load items (credentials), folders, and recently deleted count.
    */
   const loadItems = useCallback(async (): Promise<void> => {
     try {
-      const [items, loadedFolders] = await Promise.all([
+      const [items, loadedFolders, deletedCount] = await Promise.all([
         dbContext.sqliteClient!.getAllItems(),
-        dbContext.sqliteClient!.getAllFolders()
+        dbContext.sqliteClient!.getAllFolders(),
+        dbContext.sqliteClient!.getRecentlyDeletedCount()
       ]);
       setItemsList(items);
       setFolders(loadedFolders);
+      setRecentlyDeletedCount(deletedCount);
       setIsLoadingItems(false);
     } catch (err) {
       Toast.show({
@@ -474,6 +479,16 @@ export default function ItemsScreen(): React.ReactNode {
       height: 1,
       marginVertical: 4,
     },
+    filterMenuItemWithBadge: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      width: '100%',
+    },
+    filterMenuItemBadge: {
+      color: colors.textMuted,
+      fontSize: 14,
+    },
     // Folder pills styles
     folderPillsContainer: {
       flexDirection: 'row',
@@ -681,6 +696,28 @@ export default function ItemsScreen(): React.ReactNode {
           ]}>
             {t('common.attachments')}
           </ThemedText>
+        </TouchableOpacity>
+
+        <ThemedView style={styles.filterMenuSeparator} />
+
+        {/* Recently deleted link */}
+        <TouchableOpacity
+          style={styles.filterMenuItem}
+          onPress={() => {
+            setShowFilterMenu(false);
+            router.push('/(tabs)/items/deleted');
+          }}
+        >
+          <View style={styles.filterMenuItemWithBadge}>
+            <ThemedText style={styles.filterMenuItemText}>
+              {t('items.recentlyDeleted.title')}
+            </ThemedText>
+            {recentlyDeletedCount > 0 && (
+              <ThemedText style={styles.filterMenuItemBadge}>
+                {recentlyDeletedCount}
+              </ThemedText>
+            )}
+          </View>
         </TouchableOpacity>
       </ThemedView>
     );

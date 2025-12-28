@@ -351,6 +351,14 @@ class SqliteClient implements IDatabaseClient {
   }
 
   /**
+   * Get count of items in trash.
+   * @returns Number of items in trash
+   */
+  public async getRecentlyDeletedCount(): Promise<number> {
+    return this.itemRepository.getRecentlyDeletedCount();
+  }
+
+  /**
    * Create a new item with its fields and related entities.
    * @param item - The item to create
    * @param attachments - Array of attachments

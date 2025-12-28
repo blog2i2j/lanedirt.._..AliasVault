@@ -65,6 +65,14 @@ export default function ItemsLayout(): React.ReactNode {
           title: t('items.emailPreview'),
         }}
       />
+      <Stack.Screen
+        name="deleted"
+        options={{
+          title: t('items.recentlyDeleted.title'),
+          headerBackTitle: t('items.title'),
+          ...defaultHeaderOptions,
+        }}
+      />
     </Stack>
   );
 }

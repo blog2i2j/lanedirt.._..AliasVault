@@ -613,6 +613,25 @@
       "emptyFolderHint": "This folder is empty. To move items to this folder, edit the item and select this folder.",
       "noFolder": "No Folder",
       "selectFolder": "Select Folder"
+    },
+    "recentlyDeleted": {
+      "title": "Recently Deleted",
+      "noItems": "No deleted items",
+      "noItemsDescription": "Items you delete will appear here for 30 days before being permanently removed.",
+      "description": "These items will be permanently deleted after 30 days. You can restore them or delete them immediately.",
+      "restore": "Restore",
+      "deletePermanently": "Delete Permanently",
+      "emptyAll": "Empty All",
+      "daysRemaining": "{{count}} day remaining",
+      "daysRemaining_plural": "{{count}} days remaining",
+      "expiringSoon": "Expiring soon",
+      "confirmDeleteTitle": "Delete Permanently?",
+      "confirmDeleteMessage": "This item will be permanently deleted and cannot be recovered.",
+      "confirmEmptyAllTitle": "Empty Recently Deleted?",
+      "confirmEmptyAllMessage": "All {{count}} items will be permanently deleted and cannot be recovered.",
+      "itemRestored": "Item restored",
+      "itemDeleted": "Item permanently deleted",
+      "allItemsDeleted": "All items permanently deleted"
     }
   },
   "emails": {
