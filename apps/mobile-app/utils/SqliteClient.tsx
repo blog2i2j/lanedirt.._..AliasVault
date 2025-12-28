@@ -10,6 +10,7 @@ import * as dateFormatter from '@/utils/dateFormatter';
 import { ItemRepository } from '@/utils/db/repositories/ItemRepository';
 import { SettingsRepository } from '@/utils/db/repositories/SettingsRepository';
 import { LogoRepository } from '@/utils/db/repositories/LogoRepository';
+import { FolderRepository, type Folder } from '@/utils/db/repositories/FolderRepository';
 import type { IDatabaseClient, SqliteBindValue } from '@/utils/db/BaseRepository';
 import type { ItemWithDeletedAt } from '@/utils/db/mappers/ItemMapper';
 
@@ -24,6 +25,7 @@ class SqliteClient implements IDatabaseClient {
   private _itemRepository: ItemRepository | null = null;
   private _settingsRepository: SettingsRepository | null = null;
   private _logoRepository: LogoRepository | null = null;
+  private _folderRepository: FolderRepository | null = null;
 
   /**
    * Get the ItemRepository instance (lazy initialization).
@@ -82,6 +84,25 @@ class SqliteClient implements IDatabaseClient {
       });
     }
     return this._logoRepository;
+  }
+
+  /**
+   * Get the FolderRepository instance (lazy initialization).
+   */
+  public get folderRepository(): FolderRepository {
+    if (!this._folderRepository) {
+      this._folderRepository = Object.setPrototypeOf(
+        { client: this as IDatabaseClient },
+        FolderRepository.prototype
+      ) as FolderRepository;
+      Object.getOwnPropertyNames(FolderRepository.prototype).forEach(name => {
+        const method = FolderRepository.prototype[name as keyof typeof FolderRepository.prototype];
+        if (typeof method === 'function' && name !== 'constructor') {
+          (this._folderRepository as unknown as Record<string, unknown>)[name] = method.bind(this._folderRepository);
+        }
+      });
+    }
+    return this._folderRepository;
   }
 
   /**
@@ -402,6 +423,75 @@ class SqliteClient implements IDatabaseClient {
    */
   public async getAttachmentsForItem(itemId: string): Promise<Attachment[]> {
     return this.settingsRepository.getAttachmentsForItem(itemId);
+  }
+
+  // ============================================================================
+  // NEW: Folder-based methods using repository pattern
+  // ============================================================================
+
+  /**
+   * Get all folders.
+   * @returns Array of Folder objects
+   */
+  public async getAllFolders(): Promise<Folder[]> {
+    return this.folderRepository.getAll();
+  }
+
+  /**
+   * Get a folder by ID.
+   * @param folderId - The ID of the folder
+   * @returns Folder object or null if not found
+   */
+  public async getFolderById(folderId: string): Promise<Omit<Folder, 'Weight'> | null> {
+    return this.folderRepository.getById(folderId);
+  }
+
+  /**
+   * Create a new folder.
+   * @param name - The name of the folder
+   * @param parentFolderId - Optional parent folder ID for nested folders
+   * @returns The ID of the created folder
+   */
+  public async createFolder(name: string, parentFolderId?: string | null): Promise<string> {
+    return this.folderRepository.create(name, parentFolderId);
+  }
+
+  /**
+   * Update a folder's name.
+   * @param folderId - The ID of the folder to update
+   * @param name - The new name for the folder
+   * @returns The number of rows updated
+   */
+  public async updateFolder(folderId: string, name: string): Promise<number> {
+    return this.folderRepository.update(folderId, name);
+  }
+
+  /**
+   * Delete a folder (soft delete). Items in the folder will be moved to root.
+   * @param folderId - The ID of the folder to delete
+   * @returns The number of rows updated
+   */
+  public async deleteFolder(folderId: string): Promise<number> {
+    return this.folderRepository.delete(folderId);
+  }
+
+  /**
+   * Delete a folder and all its contents. Items will be moved to trash.
+   * @param folderId - The ID of the folder to delete
+   * @returns The number of items trashed
+   */
+  public async deleteFolderWithContents(folderId: string): Promise<number> {
+    return this.folderRepository.deleteWithContents(folderId);
+  }
+
+  /**
+   * Move an item to a folder.
+   * @param itemId - The ID of the item to move
+   * @param folderId - The ID of the destination folder (null to remove from folder)
+   * @returns The number of rows updated
+   */
+  public async moveItemToFolder(itemId: string, folderId: string | null): Promise<number> {
+    return this.folderRepository.moveItem(itemId, folderId);
   }
 
   // ============================================================================

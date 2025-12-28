@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, View, Alert, Keyboard, Platform, ScrollView, KeyboardAvoidingView } from 'react-native';
 import Toast from 'react-native-toast-message';
 
+import type { Folder } from '@/utils/db/repositories/FolderRepository';
 import { CreateIdentityGenerator, CreateUsernameEmailGenerator, Gender, Identity, IdentityHelperUtils, convertAgeRangeToBirthdateOptions } from '@/utils/dist/core/identity-generator';
 import type { Attachment, Item, ItemField, TotpCode, ItemType, FieldType } from '@/utils/dist/core/models/vault';
 import { ItemTypes, getSystemFieldsForItemType, getOptionalFieldsForItemType, isFieldShownByDefault, getSystemField, fieldAppliesToType, FieldCategories, FieldTypes } from '@/utils/dist/core/models/vault';
@@ -20,6 +21,7 @@ import { extractServiceNameFromUrl } from '@/utils/UrlUtility';
 import { useColors } from '@/hooks/useColorScheme';
 import { useVaultMutate } from '@/hooks/useVaultMutate';
 
+import { FolderSelector } from '@/components/folders/FolderSelector';
 import { AddFieldMenu, type OptionalSection } from '@/components/form/AddFieldMenu';
 import { AdvancedPasswordField } from '@/components/form/AdvancedPasswordField';
 import { EmailDomainField } from '@/components/form/EmailDomainField';
@@ -96,6 +98,9 @@ export default function AddEditItemScreen(): React.ReactNode {
   // UI visibility state
   const [show2FA, setShow2FA] = useState(false);
   const [showAttachments, setShowAttachments] = useState(false);
+
+  // Folder state
+  const [folders, setFolders] = useState<Folder[]>([]);
 
   // Track manually added optional fields
   const [manuallyAddedFields, setManuallyAddedFields] = useState<Set<string>>(new Set());
@@ -488,6 +493,14 @@ export default function AddEditItemScreen(): React.ReactNode {
         return;
       }
 
+      // Load folders for folder selection
+      try {
+        const loadedFolders = await dbContext.sqliteClient!.getAllFolders();
+        setFolders(loadedFolders);
+      } catch (err) {
+        console.error('Error loading folders:', err);
+      }
+
       if (isEditMode) {
         loadExistingItem();
       } else {
@@ -534,7 +547,7 @@ export default function AddEditItemScreen(): React.ReactNode {
     };
 
     initializeComponent();
-  }, [id, isEditMode, serviceUrl, itemTypeParam, loadExistingItem, authContext.isOffline, router, t]);
+  }, [id, isEditMode, serviceUrl, itemTypeParam, loadExistingItem, authContext.isOffline, router, t, dbContext.sqliteClient]);
 
   /**
    * Auto-generate alias when alias fields are shown by default in create mode.
@@ -1257,6 +1270,17 @@ export default function AddEditItemScreen(): React.ReactNode {
                   )}
                 </View>
               ))}
+              {/* Folder selection */}
+              {folders.length > 0 && (
+                <FolderSelector
+                  folders={folders}
+                  selectedFolderId={item.FolderId}
+                  onFolderChange={(folderId) => {
+                    setItem(prev => prev ? { ...prev, FolderId: folderId } : prev);
+                    setHasUnsavedChanges(true);
+                  }}
+                />
+              )}
             </FormSection>
 
             {/* Passkey Section - only in edit mode for items with passkeys */}

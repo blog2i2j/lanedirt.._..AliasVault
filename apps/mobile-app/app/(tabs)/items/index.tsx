@@ -2,14 +2,15 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, FlatList, TouchableOpacity, TextInput, RefreshControl, Platform, Animated, Alert } from 'react-native';
+import { Alert, StyleSheet, Text, Platform, Animated, TextInput, TouchableOpacity, View, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 
-import type { Item } from '@/utils/dist/core/models/vault';
-import { getFieldValue, FieldKey } from '@/utils/dist/core/models/vault';
+import type { Folder } from '@/utils/db/repositories/FolderRepository';
+import type { Item, ItemType } from '@/utils/dist/core/models/vault';
+import { getFieldValue, FieldKey, ItemTypes } from '@/utils/dist/core/models/vault';
 import emitter from '@/utils/EventEmitter';
 import { VaultAuthenticationError } from '@/utils/types/errors/VaultAuthenticationError';
 
@@ -18,11 +19,10 @@ import { useMinDurationLoading } from '@/hooks/useMinDurationLoading';
 import { useVaultMutate } from '@/hooks/useVaultMutate';
 import { useVaultSync } from '@/hooks/useVaultSync';
 
-type FilterType = 'all' | 'passkeys' | 'aliases' | 'userpass' | 'attachments';
-
 import Logo from '@/assets/images/logo.svg';
+import { FolderModal } from '@/components/folders/FolderModal';
+import { FolderPill, type FolderWithCount } from '@/components/folders/FolderPill';
 import { ItemCard } from '@/components/items/ItemCard';
-import { ServiceUrlNotice } from '@/components/items/ServiceUrlNotice';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedText } from '@/components/themed/ThemedText';
@@ -35,26 +35,61 @@ import { useApp } from '@/context/AppContext';
 import { useDb } from '@/context/DbContext';
 
 /**
- * Items screen.
+ * Filter types for the items list.
  */
-export default function ItemsScreen() : React.ReactNode {
-  const [searchQuery, setSearchQuery] = useState('');
+type FilterType = 'all' | 'passkeys' | 'attachments' | ItemType;
+
+/**
+ * Check if a filter is an item type filter.
+ */
+const isItemTypeFilter = (filter: FilterType): filter is ItemType => {
+  return Object.values(ItemTypes).includes(filter as ItemType);
+};
+
+/**
+ * Item type filter option configuration.
+ */
+type ItemTypeOption = {
+  type: ItemType;
+  titleKey: string;
+  iconName: keyof typeof MaterialIcons.glyphMap;
+};
+
+/**
+ * Available item type filter options with icons.
+ */
+const ITEM_TYPE_OPTIONS: ItemTypeOption[] = [
+  { type: ItemTypes.Login, titleKey: 'itemTypes.login.title', iconName: 'key' },
+  { type: ItemTypes.Alias, titleKey: 'itemTypes.alias.title', iconName: 'person' },
+  { type: ItemTypes.CreditCard, titleKey: 'itemTypes.creditCard.title', iconName: 'credit-card' },
+  { type: ItemTypes.Note, titleKey: 'itemTypes.note.title', iconName: 'description' },
+];
+
+/**
+ * Items screen - main vault items list.
+ */
+export default function ItemsScreen(): React.ReactNode {
   const { syncVault } = useVaultSync();
-  const colors = useColors();
   const { t } = useTranslation();
-  const flatListRef = useRef<FlatList>(null);
+  const colors = useColors();
   const scrollY = useRef(new Animated.Value(0)).current;
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+  const flatListRef = useRef<Animated.FlatList<Item | null>>(null);
   const [isTabFocused, setIsTabFocused] = useState(false);
   const router = useRouter();
   const { serviceUrl: serviceUrlParam } = useLocalSearchParams<{ serviceUrl?: string }>();
   const [itemsList, setItemsList] = useState<Item[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useMinDurationLoading(false, 200);
   const [refreshing, setRefreshing] = useMinDurationLoading(false, 200);
   const [serviceUrl, setServiceUrl] = useState<string | null>(null);
-  const insets = useSafeAreaInsets();
   const { executeVaultMutation, isLoading, syncStatus } = useVaultMutate();
   const [isSyncing, setIsSyncing] = useState(false);
+  const [showFolderModal, setShowFolderModal] = useState(false);
+
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [showFilterMenu, setShowFilterMenu] = useState(false);
 
@@ -65,15 +100,115 @@ export default function ItemsScreen() : React.ReactNode {
   const isDatabaseAvailable = dbContext.dbAvailable;
 
   /**
-   * Load items (credentials).
+   * Get folders with item counts for display.
+   */
+  const foldersWithCounts = useMemo((): FolderWithCount[] => {
+    // Don't show folders when searching
+    if (searchQuery) {
+      return [];
+    }
+
+    const folderCounts = new Map<string, number>();
+
+    // Count items per folder
+    itemsList.forEach((item: Item) => {
+      if (item.FolderId) {
+        folderCounts.set(item.FolderId, (folderCounts.get(item.FolderId) || 0) + 1);
+      }
+    });
+
+    // Return folders with counts, sorted alphabetically
+    return folders.map(folder => ({
+      id: folder.Id,
+      name: folder.Name,
+      itemCount: folderCounts.get(folder.Id) || 0
+    })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [folders, itemsList, searchQuery]);
+
+  /**
+   * Get the title based on the active filter.
+   */
+  const getFilterTitle = useCallback((): string => {
+    switch (filterType) {
+      case 'passkeys':
+        return t('items.filters.passkeys');
+      case 'attachments':
+        return t('common.attachments');
+      case 'all':
+        return t('items.title');
+      default:
+        if (isItemTypeFilter(filterType)) {
+          const itemTypeOption = ITEM_TYPE_OPTIONS.find(opt => opt.type === filterType);
+          if (itemTypeOption) {
+            return t(itemTypeOption.titleKey);
+          }
+        }
+        return t('items.title');
+    }
+  }, [filterType, t]);
+
+  /**
+   * Filter items by folder, type, and search query.
+   */
+  const filteredItems = useMemo(() => {
+    return itemsList.filter(item => {
+      // Root view (no search): exclude items in folders
+      if (!searchQuery && item.FolderId) {
+        return false;
+      }
+      // When searching: show all matching items regardless of folder
+
+      // Apply type filter
+      let passesTypeFilter = true;
+
+      if (filterType === 'passkeys') {
+        passesTypeFilter = item.HasPasskey === true;
+      } else if (filterType === 'attachments') {
+        passesTypeFilter = item.HasAttachment === true;
+      } else if (isItemTypeFilter(filterType)) {
+        passesTypeFilter = item.ItemType === filterType;
+      }
+
+      if (!passesTypeFilter) {
+        return false;
+      }
+
+      // Apply search filter
+      const searchLower = searchQuery.toLowerCase().trim();
+
+      if (!searchLower) {
+        return true;
+      }
+
+      const searchableFields = [
+        item.Name?.toLowerCase() || '',
+        getFieldValue(item, FieldKey.LoginUsername)?.toLowerCase() || '',
+        getFieldValue(item, FieldKey.LoginEmail)?.toLowerCase() || '',
+        getFieldValue(item, FieldKey.LoginUrl)?.toLowerCase() || '',
+        getFieldValue(item, FieldKey.NotesContent)?.toLowerCase() || '',
+      ];
+
+      const searchWords = searchLower.split(/\s+/).filter(word => word.length > 0);
+
+      return searchWords.every(word =>
+        searchableFields.some(field => field.includes(word))
+      );
+    });
+  }, [itemsList, searchQuery, filterType]);
+
+  /**
+   * Load items (credentials) and folders.
    */
   const loadItems = useCallback(async (): Promise<void> => {
     try {
-      const items = await dbContext.sqliteClient!.getAllItems();
+      const [items, loadedFolders] = await Promise.all([
+        dbContext.sqliteClient!.getAllItems(),
+        dbContext.sqliteClient!.getAllFolders()
+      ]);
       setItemsList(items);
+      setFolders(loadedFolders);
       setIsLoadingItems(false);
     } catch (err) {
-      // Error loading items, show error toast
       Toast.show({
         type: 'error',
         text1: t('items.errorLoadingItems'),
@@ -94,10 +229,7 @@ export default function ItemsScreen() : React.ReactNode {
 
     const tabPressSub = emitter.addListener('tabPress', (routeName: string) => {
       if (routeName === 'credentials' && isTabFocused) {
-        setSearchQuery(''); // Reset search
-        setRefreshing(false); // Reset refreshing
-        // Scroll to top
-        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+        setRefreshing(false);
       }
     });
 
@@ -114,33 +246,29 @@ export default function ItemsScreen() : React.ReactNode {
     };
   }, [isTabFocused, loadItems, navigation, setRefreshing]);
 
+  /**
+   * Handle pull-to-refresh.
+   */
   const onRefresh = useCallback(async () => {
-    // Trigger haptic feedback when pull-to-refresh is activated
-    if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else if (Platform.OS === 'android') {
+    if (Platform.OS === 'ios' || Platform.OS === 'android') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
 
     setRefreshing(true);
     setIsLoadingItems(true);
 
-    // Check if we are in offline mode, if so, we don't need to refresh the credentials
-    const isOffline = authContext.isOffline;
-    if (isOffline) {
+    if (authContext.isOffline) {
       setRefreshing(false);
       setIsLoadingItems(false);
       return;
     }
 
     try {
-      // Sync vault and load credentials
       await syncVault({
         /**
          * On success.
          */
         onSuccess: async (hasNewVault) => {
-          // Calculate remaining time needed to reach minimum duration
           await loadItems();
           setIsLoadingItems(false);
           setRefreshing(false);
@@ -176,10 +304,6 @@ export default function ItemsScreen() : React.ReactNode {
           setRefreshing(false);
           setIsLoadingItems(false);
 
-          /**
-           * Authentication errors are handled in useVaultSync
-           * For other errors, show alert
-           */
           Alert.alert(
             t('common.error'),
             error,
@@ -189,7 +313,7 @@ export default function ItemsScreen() : React.ReactNode {
         /**
          * On upgrade required.
          */
-        onUpgradeRequired: () : void => {
+        onUpgradeRequired: (): void => {
           router.replace('/upgrade');
         },
       });
@@ -198,7 +322,6 @@ export default function ItemsScreen() : React.ReactNode {
       setRefreshing(false);
       setIsLoadingItems(false);
 
-      // Authentication errors are already handled in useVaultSync
       if (!(err instanceof VaultAuthenticationError)) {
         Toast.show({
           type: 'error',
@@ -218,115 +341,85 @@ export default function ItemsScreen() : React.ReactNode {
     loadItems();
   }, [isAuthenticated, isDatabaseAvailable, loadItems, setIsLoadingItems]);
 
+  // Set header for Android
+  useEffect(() => {
+    navigation.setOptions({
+      /**
+       * Define custom header which is shown on Android. iOS displays the custom CollapsibleHeader component instead.
+       */
+      headerTitle: (): React.ReactNode => {
+        if (Platform.OS === 'android') {
+          return (
+            <AndroidHeader title={t('items.title')} />
+          );
+        }
+        return <Text>{t('items.title')}</Text>;
+      },
+    });
+  }, [navigation, t]);
+
   /**
-   * Get the title based on the active filter
+   * Delete an item (move to trash).
    */
-  const getFilterTitle = useCallback(() : string => {
-    switch (filterType) {
-      case 'passkeys':
-        return t('items.filters.passkeys');
-      case 'aliases':
-        return t('items.filters.aliases');
-      case 'userpass':
-        return t('items.filters.userpass');
-      case 'attachments':
-        return t('items.filters.attachments');
-      default:
-        return t('items.title');
-    }
-  }, [filterType, t]);
+  const onItemDelete = useCallback(async (itemId: string): Promise<void> => {
+    setIsSyncing(true);
 
-  const filteredItems = itemsList.filter(item => {
-    // First apply type filter
-    let passesTypeFilter = true;
+    await executeVaultMutation(async () => {
+      await dbContext.sqliteClient!.trashItem(itemId);
+      setIsSyncing(false);
+    });
 
-    if (filterType === 'passkeys') {
-      passesTypeFilter = item.HasPasskey === true;
-    } else if (filterType === 'aliases') {
-      // Check for non-empty alias fields (excluding email which is used everywhere)
-      const firstName = getFieldValue(item, FieldKey.AliasFirstName);
-      const lastName = getFieldValue(item, FieldKey.AliasLastName);
-      const gender = getFieldValue(item, FieldKey.AliasGender);
-      const birthDate = getFieldValue(item, FieldKey.AliasBirthdate);
-      passesTypeFilter = !!(
-        (firstName && firstName.trim()) ||
-        (lastName && lastName.trim()) ||
-        (gender && gender.trim()) ||
-        (birthDate && birthDate.trim() && !birthDate.trim().startsWith('0001-01-01'))
-      );
-    } else if (filterType === 'userpass') {
-      // Show only items that have username/password AND do NOT have alias fields AND do NOT have passkey
-      const firstName = getFieldValue(item, FieldKey.AliasFirstName);
-      const lastName = getFieldValue(item, FieldKey.AliasLastName);
-      const gender = getFieldValue(item, FieldKey.AliasGender);
-      const birthDate = getFieldValue(item, FieldKey.AliasBirthdate);
-      const hasAliasFields = !!(
-        (firstName && firstName.trim()) ||
-        (lastName && lastName.trim()) ||
-        (gender && gender.trim()) ||
-        (birthDate && birthDate.trim() && !birthDate.trim().startsWith('0001-01-01'))
-      );
-      const username = getFieldValue(item, FieldKey.LoginUsername);
-      const password = getFieldValue(item, FieldKey.LoginPassword);
-      const hasUsernameOrPassword = !!(
-        (username && username.trim()) ||
-        (password && password.trim())
-      );
-      passesTypeFilter = hasUsernameOrPassword && !item.HasPasskey && !hasAliasFields;
-    } else if (filterType === 'attachments') {
-      passesTypeFilter = item.HasAttachment === true;
-    }
+    await new Promise(resolve => setTimeout(resolve, 250));
+    await loadItems();
+  }, [dbContext.sqliteClient, executeVaultMutation, loadItems]);
 
-    if (!passesTypeFilter) {
-      return false;
-    }
+  /**
+   * Navigate to a folder.
+   */
+  const handleFolderClick = useCallback((folderId: string) => {
+    router.push(`/(tabs)/items/folder/${folderId}`);
+  }, [router]);
 
-    // Then apply search filter
-    const searchLower = searchQuery.toLowerCase().trim();
+  /**
+   * Create a new folder.
+   */
+  const handleCreateFolder = useCallback(async (folderName: string) => {
+    await executeVaultMutation(async () => {
+      await dbContext.sqliteClient!.createFolder(folderName, null);
+    });
+    await loadItems();
+  }, [dbContext.sqliteClient, executeVaultMutation, loadItems]);
 
-    if (!searchLower) {
-      return true; // No search term, include all
-    }
+  /**
+   * Handle FAB press - navigate to add item screen.
+   */
+  const handleAddItem = useCallback(() => {
+    router.push('/(tabs)/items/add-edit');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [router]);
 
-    /**
-     * We filter items by searching in the following fields:
-     * - Item name
-     * - Username
-     * - Email
-     * - URL
-     * - Notes
-     */
-    const searchableFields = [
-      item.Name?.toLowerCase() || '',
-      getFieldValue(item, FieldKey.LoginUsername)?.toLowerCase() || '',
-      getFieldValue(item, FieldKey.LoginEmail)?.toLowerCase() || '',
-      getFieldValue(item, FieldKey.LoginUrl)?.toLowerCase() || '',
-      getFieldValue(item, FieldKey.NotesContent)?.toLowerCase() || '',
-    ];
-
-    // Split search term into words for AND search
-    const searchWords = searchLower.split(/\s+/).filter(word => word.length > 0);
-
-    // All search words must be found (each in at least one field)
-    return searchWords.every(word =>
-      searchableFields.some(field => field.includes(word))
-    );
-  });
+  // Handle deep link parameters
+  useFocusEffect(
+    useCallback(() => {
+      const currentServiceUrl = serviceUrlParam ? decodeURIComponent(serviceUrlParam) : null;
+      setServiceUrl(currentServiceUrl);
+    }, [serviceUrlParam])
+  );
 
   const styles = StyleSheet.create({
-    clearButton: {
-      padding: 4,
-      position: 'absolute',
-      right: 8,
-      top: 4,
-    },
-    clearButtonText: {
-      color: colors.textMuted,
-      fontSize: 20,
-    },
     container: {
       paddingHorizontal: 0,
     },
+    stepContainer: {
+      flex: 1,
+      gap: 8,
+    },
+    contentContainer: {
+      paddingBottom: Platform.OS === 'ios' ? insets.bottom + 60 : 10,
+      paddingHorizontal: 14,
+      paddingTop: Platform.OS === 'ios' ? 42 : 8,
+    },
+    // Filter button styles
     filterButton: {
       alignItems: 'center',
       flexDirection: 'row',
@@ -344,6 +437,7 @@ export default function ItemsScreen() : React.ReactNode {
       fontSize: 20,
       lineHeight: 28,
     },
+    // Filter menu styles
     filterMenu: {
       backgroundColor: colors.accentBackground,
       borderColor: colors.accentBorder,
@@ -356,6 +450,14 @@ export default function ItemsScreen() : React.ReactNode {
       paddingHorizontal: 16,
       paddingVertical: 12,
     },
+    filterMenuItemWithIcon: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 8,
+    },
+    filterMenuItemIcon: {
+      width: 18,
+    },
     filterMenuItemActive: {
       backgroundColor: colors.primary + '20',
     },
@@ -367,11 +469,86 @@ export default function ItemsScreen() : React.ReactNode {
       color: colors.primary,
       fontWeight: '600',
     },
-    contentContainer: {
-      paddingBottom: Platform.OS === 'ios' ? insets.bottom + 60 : 10,
-      paddingHorizontal: 14,
-      paddingTop: Platform.OS === 'ios' ? 42 : 16,
+    filterMenuSeparator: {
+      backgroundColor: colors.accentBorder,
+      height: 1,
+      marginVertical: 4,
     },
+    // Folder pills styles
+    folderPillsContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 12,
+    },
+    newFolderButton: {
+      alignItems: 'center',
+      backgroundColor: colors.accentBackground,
+      borderColor: colors.accentBorder,
+      borderRadius: 20,
+      borderStyle: 'dashed',
+      borderWidth: 1,
+      flexDirection: 'row',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    newFolderButtonText: {
+      color: colors.textMuted,
+      fontSize: 14,
+    },
+    // Search styles
+    searchContainer: {
+      position: 'relative',
+    },
+    searchIcon: {
+      left: 12,
+      position: 'absolute',
+      top: 11,
+      zIndex: 1,
+    },
+    searchInput: {
+      backgroundColor: colors.accentBackground,
+      borderRadius: 8,
+      color: colors.text,
+      fontSize: 16,
+      height: 40,
+      lineHeight: 20,
+      marginBottom: 16,
+      paddingLeft: 40,
+      paddingRight: Platform.OS === 'android' ? 40 : 12,
+    },
+    clearButton: {
+      padding: 4,
+      position: 'absolute',
+      right: 8,
+      top: 4,
+    },
+    clearButtonText: {
+      color: colors.textMuted,
+      fontSize: 20,
+    },
+    // Service URL styles
+    serviceUrlContainer: {
+      backgroundColor: colors.accentBackground,
+      borderColor: colors.accentBorder,
+      borderRadius: 8,
+      borderWidth: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 12,
+      padding: 12,
+    },
+    serviceUrlText: {
+      color: colors.text,
+      flex: 1,
+      fontSize: 14,
+    },
+    serviceUrlDismiss: {
+      padding: 4,
+    },
+    // Empty state styles
     emptyText: {
       color: colors.textMuted,
       fontSize: 16,
@@ -379,6 +556,7 @@ export default function ItemsScreen() : React.ReactNode {
       opacity: 0.7,
       textAlign: 'center',
     },
+    // FAB styles
     fab: {
       alignItems: 'center',
       backgroundColor: colors.primary,
@@ -403,110 +581,262 @@ export default function ItemsScreen() : React.ReactNode {
       color: colors.primarySurfaceText,
       fontSize: 24,
     },
-    searchContainer: {
-      position: 'relative',
-    },
-    searchIcon: {
-      left: 12,
-      position: 'absolute',
-      top: 11,
-      zIndex: 1,
-    },
-    searchInput: {
-      backgroundColor: colors.accentBackground,
-      borderRadius: 8,
-      color: colors.text,
-      fontSize: 16,
-      height: 40,
-      lineHeight: 20,
-      marginBottom: 16,
-      paddingLeft: 40,
-      paddingRight: Platform.OS === 'android' ? 40 : 12,
-    },
-    stepContainer: {
-      flex: 1,
-      gap: 8,
-    },
   });
 
-  // Set header buttons
-  useEffect(() => {
-    navigation.setOptions({
-      /**
-       * Define custom header which is shown on Android. iOS displays the custom CollapsibleHeader component instead.
-       * @returns
-       */
-      headerTitle: (): React.ReactNode => {
-        if (Platform.OS === 'android') {
-          return (
-            <AndroidHeader
-              title={`${getFilterTitle()} (${filteredItems.length})`}
-              headerButtons={[
-                {
-                  icon: showFilterMenu ? "keyboard-arrow-up" : "keyboard-arrow-down",
-                  /**
-                   * Toggle the filter menu.
-                   */
-                  onPress: () : void => {
-                    setShowFilterMenu(!showFilterMenu);
-                  },
-                  position: 'right'
-                }
-              ]}
+  /**
+   * Render the filter menu.
+   */
+  const renderFilterMenu = (): React.ReactNode => {
+    if (!showFilterMenu) {
+      return null;
+    }
+
+    return (
+      <ThemedView style={styles.filterMenu}>
+        {/* All items filter */}
+        <TouchableOpacity
+          style={[
+            styles.filterMenuItem,
+            filterType === 'all' && styles.filterMenuItemActive
+          ]}
+          onPress={() => {
+            setFilterType('all');
+            setShowFilterMenu(false);
+          }}
+        >
+          <ThemedText style={[
+            styles.filterMenuItemText,
+            filterType === 'all' && styles.filterMenuItemTextActive
+          ]}>
+            {t('items.filters.all')}
+          </ThemedText>
+        </TouchableOpacity>
+
+        <ThemedView style={styles.filterMenuSeparator} />
+
+        {/* Item type filters */}
+        {ITEM_TYPE_OPTIONS.map((option) => (
+          <TouchableOpacity
+            key={option.type}
+            style={[
+              styles.filterMenuItem,
+              styles.filterMenuItemWithIcon,
+              filterType === option.type && styles.filterMenuItemActive
+            ]}
+            onPress={() => {
+              setFilterType(option.type);
+              setShowFilterMenu(false);
+            }}
+          >
+            <MaterialIcons
+              name={option.iconName}
+              size={18}
+              color={filterType === option.type ? colors.primary : colors.textMuted}
+              style={styles.filterMenuItemIcon}
             />
-          );
-        }
-        return <Text>{t('items.title')}</Text>;
-      },
-    });
-  }, [navigation, t, filterType, showFilterMenu, getFilterTitle, filteredItems.length]);
+            <ThemedText style={[
+              styles.filterMenuItemText,
+              filterType === option.type && styles.filterMenuItemTextActive
+            ]}>
+              {t(option.titleKey)}
+            </ThemedText>
+          </TouchableOpacity>
+        ))}
+
+        <ThemedView style={styles.filterMenuSeparator} />
+
+        {/* Passkeys filter */}
+        <TouchableOpacity
+          style={[
+            styles.filterMenuItem,
+            filterType === 'passkeys' && styles.filterMenuItemActive
+          ]}
+          onPress={() => {
+            setFilterType('passkeys');
+            setShowFilterMenu(false);
+          }}
+        >
+          <ThemedText style={[
+            styles.filterMenuItemText,
+            filterType === 'passkeys' && styles.filterMenuItemTextActive
+          ]}>
+            {t('items.filters.passkeys')}
+          </ThemedText>
+        </TouchableOpacity>
+
+        {/* Attachments filter */}
+        <TouchableOpacity
+          style={[
+            styles.filterMenuItem,
+            filterType === 'attachments' && styles.filterMenuItemActive
+          ]}
+          onPress={() => {
+            setFilterType('attachments');
+            setShowFilterMenu(false);
+          }}
+        >
+          <ThemedText style={[
+            styles.filterMenuItemText,
+            filterType === 'attachments' && styles.filterMenuItemTextActive
+          ]}>
+            {t('common.attachments')}
+          </ThemedText>
+        </TouchableOpacity>
+      </ThemedView>
+    );
+  };
 
   /**
-   * Delete an item (move to trash).
+   * Render the list header with filter button, folders, and search.
    */
-  const onItemDelete = useCallback(async (itemId: string): Promise<void> => {
-    setIsSyncing(true);
+  const renderListHeader = (): React.ReactNode => {
+    return (
+      <ThemedView>
+        {/* Large header with logo (iOS only) */}
+        {Platform.OS === 'ios' && (
+          <TouchableOpacity
+            style={styles.filterButton}
+            onPress={() => setShowFilterMenu(!showFilterMenu)}
+          >
+            <Logo width={40} height={40} />
+            <ThemedText style={styles.filterButtonText}>
+              {getFilterTitle()}
+            </ThemedText>
+            <ThemedText style={styles.filterCount}>
+              ({filteredItems.length})
+            </ThemedText>
+            <MaterialIcons
+              name={showFilterMenu ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+              size={28}
+              color={colors.text}
+            />
+          </TouchableOpacity>
+        )}
 
-    await executeVaultMutation(async () => {
-      await dbContext.sqliteClient!.trashItem(itemId);
-      setIsSyncing(false);
-    });
+        {/* Service URL notice */}
+        {serviceUrl && (
+          <View style={styles.serviceUrlContainer}>
+            <MaterialIcons name="link" size={18} color={colors.textMuted} />
+            <Text style={styles.serviceUrlText} numberOfLines={1}>
+              {serviceUrl}
+            </Text>
+            <TouchableOpacity style={styles.serviceUrlDismiss} onPress={() => setServiceUrl(null)}>
+              <MaterialIcons name="close" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+        )}
 
-    // Refresh list after deletion with a small delay to ensure feedback is visible.
-    await new Promise(resolve => setTimeout(resolve, 250));
-    await loadItems();
-  }, [dbContext.sqliteClient, executeVaultMutation, loadItems]);
+        {/* Filter menu */}
+        {renderFilterMenu()}
 
-  // Handle deep link parameters
-  useFocusEffect(
-    useCallback(() => {
-      // Always check the current serviceUrlParam when screen comes into focus
-      const currentServiceUrl = serviceUrlParam ? decodeURIComponent(serviceUrlParam) : null;
-      setServiceUrl(currentServiceUrl);
-    }, [serviceUrlParam])
-  );
+        {/* Folder pills */}
+        {foldersWithCounts.length > 0 && (
+          <View style={styles.folderPillsContainer}>
+            {foldersWithCounts.map((folder) => (
+              <FolderPill
+                key={folder.id}
+                folder={folder}
+                onPress={() => handleFolderClick(folder.id)}
+              />
+            ))}
+            <TouchableOpacity
+              style={styles.newFolderButton}
+              onPress={() => setShowFolderModal(true)}
+            >
+              <MaterialIcons name="create-new-folder" size={16} color={colors.textMuted} />
+              <Text style={styles.newFolderButtonText}>{t('items.folders.newFolder')}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* New folder button when no folders exist */}
+        {foldersWithCounts.length === 0 && !searchQuery && (
+          <View style={styles.folderPillsContainer}>
+            <TouchableOpacity
+              style={styles.newFolderButton}
+              onPress={() => setShowFolderModal(true)}
+            >
+              <MaterialIcons name="create-new-folder" size={16} color={colors.textMuted} />
+              <Text style={styles.newFolderButtonText}>{t('items.folders.newFolder')}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Search input */}
+        <ThemedView style={styles.searchContainer}>
+          <MaterialIcons
+            name="search"
+            size={20}
+            color={colors.textMuted}
+            style={styles.searchIcon}
+          />
+          <TextInput
+            style={styles.searchInput}
+            placeholder={t('items.searchPlaceholder')}
+            placeholderTextColor={colors.textMuted}
+            value={searchQuery}
+            autoCorrect={false}
+            autoCapitalize="none"
+            multiline={false}
+            numberOfLines={1}
+            onChangeText={setSearchQuery}
+            clearButtonMode={Platform.OS === 'ios' ? 'while-editing' : 'never'}
+          />
+          {Platform.OS === 'android' && searchQuery.length > 0 && (
+            <TouchableOpacity
+              style={styles.clearButton}
+              onPress={() => setSearchQuery('')}
+            >
+              <ThemedText style={styles.clearButtonText}>×</ThemedText>
+            </TouchableOpacity>
+          )}
+        </ThemedView>
+      </ThemedView>
+    );
+  };
+
+  /**
+   * Render empty state.
+   */
+  const renderEmptyComponent = (): React.ReactNode => {
+    if (isLoadingItems) {
+      return null;
+    }
+
+    return (
+      <View>
+        <Text style={styles.emptyText}>
+          {searchQuery
+            ? t('items.noMatchingItems')
+            : filterType === 'passkeys'
+              ? t('items.noPasskeysFound')
+              : filterType === 'attachments'
+                ? t('items.noAttachmentsFound')
+                : isItemTypeFilter(filterType)
+                  ? t('items.noItemsOfTypeFound', { type: getFilterTitle() })
+                  : t('items.noItemsFound')
+          }
+        </Text>
+      </View>
+    );
+  };
 
   return (
     <ThemedContainer style={styles.container}>
-      {(isSyncing) && (
-        <LoadingOverlay status={syncStatus} />
-      )}
+      {isSyncing && <LoadingOverlay status={syncStatus} />}
       <CollapsibleHeader
         title={t('items.title')}
         scrollY={scrollY}
         showNavigationHeader={true}
         alwaysVisible={true}
       />
-      <RobustPressable
-        style={styles.fab}
-        onPress={() => {
-          router.push('/(tabs)/items/add-edit');
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }}
-      >
-        <MaterialIcons name="add" style={styles.fabIcon} />
-      </RobustPressable>
       <ThemedView style={styles.stepContainer}>
+        {/* FAB */}
+        <RobustPressable style={styles.fab} onPress={handleAddItem}>
+          <MaterialIcons name="add" style={styles.fabIcon} />
+        </RobustPressable>
+
+        {/* Item list */}
         <Animated.FlatList
           ref={flatListRef}
           data={isLoadingItems ? Array(4).fill(null) : filteredItems}
@@ -523,152 +853,7 @@ export default function ItemsScreen() : React.ReactNode {
           maxToRenderPerBatch={14}
           windowSize={7}
           removeClippedSubviews={false}
-          ListHeaderComponent={
-            <ThemedView>
-              {Platform.OS === 'ios' && (
-                <TouchableOpacity
-                  style={styles.filterButton}
-                  onPress={() => setShowFilterMenu(!showFilterMenu)}
-                >
-                  <Logo width={40} height={40} />
-                  <ThemedText style={styles.filterButtonText}>
-                    {getFilterTitle()}
-                  </ThemedText>
-                  <ThemedText style={styles.filterCount}>
-                    ({filteredItems.length})
-                  </ThemedText>
-                  <MaterialIcons
-                    name={showFilterMenu ? "keyboard-arrow-up" : "keyboard-arrow-down"}
-                    size={28}
-                    color={colors.text}
-                  />
-                </TouchableOpacity>
-              )}
-              {serviceUrl && (
-                <ServiceUrlNotice
-                  serviceUrl={serviceUrl}
-                  onDismiss={() => setServiceUrl(null)}
-                />
-              )}
-              {showFilterMenu && (
-                <ThemedView style={styles.filterMenu}>
-                  <TouchableOpacity
-                    style={[
-                      styles.filterMenuItem,
-                      filterType === 'all' && styles.filterMenuItemActive
-                    ]}
-                    onPress={() => {
-                      setFilterType('all');
-                      setShowFilterMenu(false);
-                    }}
-                  >
-                    <ThemedText style={[
-                      styles.filterMenuItemText,
-                      filterType === 'all' && styles.filterMenuItemTextActive
-                    ]}>
-                      {t('items.filters.all')}
-                    </ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.filterMenuItem,
-                      filterType === 'passkeys' && styles.filterMenuItemActive
-                    ]}
-                    onPress={() => {
-                      setFilterType('passkeys');
-                      setShowFilterMenu(false);
-                    }}
-                  >
-                    <ThemedText style={[
-                      styles.filterMenuItemText,
-                      filterType === 'passkeys' && styles.filterMenuItemTextActive
-                    ]}>
-                      {t('items.filters.passkeys')}
-                    </ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.filterMenuItem,
-                      filterType === 'aliases' && styles.filterMenuItemActive
-                    ]}
-                    onPress={() => {
-                      setFilterType('aliases');
-                      setShowFilterMenu(false);
-                    }}
-                  >
-                    <ThemedText style={[
-                      styles.filterMenuItemText,
-                      filterType === 'aliases' && styles.filterMenuItemTextActive
-                    ]}>
-                      {t('items.filters.aliases')}
-                    </ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.filterMenuItem,
-                      filterType === 'userpass' && styles.filterMenuItemActive
-                    ]}
-                    onPress={() => {
-                      setFilterType('userpass');
-                      setShowFilterMenu(false);
-                    }}
-                  >
-                    <ThemedText style={[
-                      styles.filterMenuItemText,
-                      filterType === 'userpass' && styles.filterMenuItemTextActive
-                    ]}>
-                      {t('items.filters.userpass')}
-                    </ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.filterMenuItem,
-                      filterType === 'attachments' && styles.filterMenuItemActive
-                    ]}
-                    onPress={() => {
-                      setFilterType('attachments');
-                      setShowFilterMenu(false);
-                    }}
-                  >
-                    <ThemedText style={[
-                      styles.filterMenuItemText,
-                      filterType === 'attachments' && styles.filterMenuItemTextActive
-                    ]}>
-                      {t('items.filters.attachments')}
-                    </ThemedText>
-                  </TouchableOpacity>
-                </ThemedView>
-              )}
-              <ThemedView style={styles.searchContainer}>
-                <MaterialIcons
-                  name="search"
-                  size={20}
-                  color={colors.textMuted}
-                  style={styles.searchIcon}
-                />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder={t('items.searchPlaceholder')}
-                  placeholderTextColor={colors.textMuted}
-                  value={searchQuery}
-                  autoCorrect={false}
-                  autoCapitalize="none"
-                  multiline={false}
-                  numberOfLines={1}
-                  onChangeText={setSearchQuery}
-                  clearButtonMode={Platform.OS === 'ios' ? 'while-editing' : 'never'}
-                />
-                {Platform.OS === 'android' && searchQuery.length > 0 && (
-                  <TouchableOpacity
-                    style={styles.clearButton}
-                    onPress={() => setSearchQuery('')}
-                  >
-                    <ThemedText style={styles.clearButtonText}>×</ThemedText>
-                  </TouchableOpacity>
-                )}
-              </ThemedView>
-            </ThemedView>
-          }
+          ListHeaderComponent={renderListHeader() as React.ReactElement}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -684,23 +869,18 @@ export default function ItemsScreen() : React.ReactNode {
               <ItemCard item={itm} onItemDelete={onItemDelete} />
             )
           }
-          ListEmptyComponent={
-            !isLoadingItems ? (
-              <Text style={styles.emptyText}>
-                {searchQuery
-                  ? t('items.noMatchingItems')
-                  : filterType === 'passkeys'
-                    ? t('items.noPasskeysFound')
-                    : filterType === 'attachments'
-                      ? t('items.noAttachmentsFound')
-                      : t('items.noItemsFound')
-                }
-              </Text>
-            ) : null
-          }
+          ListEmptyComponent={renderEmptyComponent() as React.ReactElement}
         />
       </ThemedView>
       {isLoading && <LoadingOverlay status={syncStatus || t('items.deletingItem')} />}
+
+      {/* Create folder modal */}
+      <FolderModal
+        isOpen={showFolderModal}
+        onClose={() => setShowFolderModal(false)}
+        onSave={handleCreateFolder}
+        mode="create"
+      />
     </ThemedContainer>
   );
 }

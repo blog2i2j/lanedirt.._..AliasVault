@@ -22,6 +22,14 @@ export default function ItemsLayout(): React.ReactNode {
         }}
       />
       <Stack.Screen
+        name="folder/[id]"
+        options={{
+          title: t('items.folders.folder'),
+          headerBackTitle: t('items.title'),
+          ...defaultHeaderOptions,
+        }}
+      />
+      <Stack.Screen
         name="add-edit"
         options={{
           title: t('items.addItem'),
