@@ -82,6 +82,8 @@
     "executingOperation": "Executing operation...",
     "checkingVaultUpdates": "Checking vault updates",
     "syncingUpdatedVault": "Syncing updated vault",
+    "mergingVault": "Merging vault changes",
+    "uploadingChanges": "Uploading changes",
     "errors": {
       "failedToGetEncryptedDatabase": "Failed to get encrypted database",
       "usernameNotFound": "Username not found",

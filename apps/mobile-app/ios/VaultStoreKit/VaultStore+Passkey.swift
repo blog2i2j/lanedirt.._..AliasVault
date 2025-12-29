@@ -14,7 +14,7 @@ extension VaultStore {
     private static let passkeysTable = Table("Passkeys")
 
     private static let colId = Expression<String>("Id")
-    private static let colCredentialId = Expression<String>("CredentialId")
+    private static let colItemId = Expression<String>("ItemId")
     private static let colRpId = Expression<String>("RpId")
     private static let colUserHandle = Expression<Blob?>("UserHandle")
     private static let colPublicKey = Expression<String>("PublicKey")
@@ -57,15 +57,15 @@ extension VaultStore {
     }
 
     /**
-     * Get all passkeys for a credential
+     * Get all passkeys for an item (new model)
      */
-    public func getPasskeys(forCredentialId credentialId: UUID) throws -> [Passkey] {
+    public func getPasskeys(forItemId itemId: UUID) throws -> [Passkey] {
         guard let dbConn = dbConnection else {
             throw VaultStoreError.vaultNotUnlocked
         }
 
         let query = Self.passkeysTable
-            .filter(Self.colCredentialId == credentialId.uuidString)
+            .filter(Self.colItemId == itemId.uuidString)
             .filter(Self.colIsDeleted == 0)
             .order(Self.colCreatedAt.desc)
 
@@ -77,6 +77,13 @@ extension VaultStore {
         }
 
         return passkeys
+    }
+
+    /**
+     * Get all passkeys for a credential (legacy alias for backwards compatibility)
+     */
+    public func getPasskeys(forCredentialId credentialId: UUID) throws -> [Passkey] {
+        return try getPasskeys(forItemId: credentialId)
     }
 
     /**
@@ -103,7 +110,7 @@ extension VaultStore {
     }
 
     /**
-     * Get passkeys with credential info for a specific rpId and optionally username
+     * Get passkeys with item info for a specific rpId and optionally username
      * Used for finding existing passkeys that might be replaced during registration
      */
     public func getPasskeysWithCredentialInfo(forRpId rpId: String, userName: String? = nil, userId: Data? = nil) throws -> [(passkey: Passkey, serviceName: String?, username: String?)] {
@@ -111,26 +118,37 @@ extension VaultStore {
             throw VaultStoreError.vaultNotUnlocked
         }
 
-        // Join passkeys with credentials and services to get display info
+        // Join passkeys with items and field values to get display info
         let passkeysTable = Table("Passkeys")
-        let credentialsTable = Table("Credentials")
-        let servicesTable = Table("Services")
+        let itemsTable = Table("Items")
+        let fieldValuesTable = Table("FieldValues")
 
+        // First get passkeys joined with items
         let query = passkeysTable
-            .select(passkeysTable[*], credentialsTable[Expression<String?>("Username")], servicesTable[Expression<String?>("Name")])
-            .join(credentialsTable, on: passkeysTable[Expression<String>("CredentialId")] == credentialsTable[Expression<String>("Id")])
-            .join(servicesTable, on: credentialsTable[Expression<String>("ServiceId")] == servicesTable[Expression<String>("Id")])
+            .select(passkeysTable[*], itemsTable[Expression<String?>("Name")])
+            .join(itemsTable, on: passkeysTable[Expression<String>("ItemId")] == itemsTable[Expression<String>("Id")])
             .filter(passkeysTable[Expression<String>("RpId")] == rpId)
             .filter(passkeysTable[Expression<Int64>("IsDeleted")] == 0)
-            .filter(credentialsTable[Expression<Int64>("IsDeleted")] == 0)
+            .filter(itemsTable[Expression<Int64>("IsDeleted")] == 0)
             .order(passkeysTable[Expression<String>("CreatedAt")].desc)
 
         var results: [(passkey: Passkey, serviceName: String?, username: String?)] = []
 
         for row in try dbConn.prepare(query) {
             if let passkey = try parsePasskeyRow(row) {
-                let credUsername = try? row.get(Expression<String?>("Username"))
                 let serviceName = try? row.get(Expression<String?>("Name"))
+
+                // Get username from field values (login.username)
+                let usernameQuery = fieldValuesTable
+                    .filter(Expression<String>("ItemId") == passkey.parentCredentialId.uuidString)
+                    .filter(Expression<String?>("FieldKey") == FieldKey.loginUsername)
+                    .filter(Expression<Int64>("IsDeleted") == 0)
+                    .limit(1)
+
+                var credUsername: String?
+                if let usernameRow = try? dbConn.pluck(usernameQuery) {
+                    credUsername = try? usernameRow.get(Expression<String?>("Value"))
+                }
 
                 // Filter by username or userId if provided
                 var matches = true
@@ -162,7 +180,7 @@ extension VaultStore {
     private func parsePasskeyRow(_ row: Row) throws -> Passkey? {
         // Extract required fields using column expressions
         let idString = try row.get(Self.colId)
-        let parentCredentialIdString = try row.get(Self.colCredentialId)
+        let parentCredentialIdString = try row.get(Self.colItemId)
         let rpId = try row.get(Self.colRpId)
         let userHandleBlob = try? row.get(Self.colUserHandle)
         let publicKeyString = try row.get(Self.colPublicKey)
@@ -238,8 +256,8 @@ extension VaultStore {
     }
 
     /**
-     * Create a credential with a passkey (proof of concept for passkey registration)
-     * This creates a minimal credential record and links the passkey to it
+     * Create an item with a passkey (for passkey registration)
+     * This creates an Item record with field values and links the passkey to it
      */
     public func createCredentialWithPasskey(
         rpId: String,
@@ -252,67 +270,90 @@ extension VaultStore {
             throw VaultStoreError.vaultNotUnlocked
         }
 
-        let credentialId = passkey.parentCredentialId
+        let itemId = passkey.parentCredentialId
         let now = Date()
         let timestamp = formatDateForDatabase(now)
 
-        // Create a minimal service for the RP
-        let serviceId = UUID()
-        let serviceTable = Table("Services")
+        // Create logo if provided
+        var logoId: UUID?
+        if let logo = logo {
+            logoId = UUID()
+            let logosTable = Table("Logos")
+            let logoBlob = Blob(bytes: [UInt8](logo))
 
-        // Convert logo Data to SQLite Blob if present
-        let logoBlob = logo.map { Blob(bytes: [UInt8]($0)) }
+            // Extract normalized domain from rpId for source
+            let source = rpId.lowercased().replacingOccurrences(of: "www.", with: "")
 
-        let serviceInsert = serviceTable.insert(
-            Expression<String>("Id") <- serviceId.uuidString,
-            Expression<String?>("Name") <- displayName,  // Use displayName as the service name (title)
-            Expression<String?>("Url") <- "https://\(rpId)",
-            Expression<SQLite.Blob?>("Logo") <- logoBlob,
+            let logoInsert = logosTable.insert(
+                Expression<String>("Id") <- logoId!.uuidString,
+                Expression<String>("Source") <- source,
+                Expression<SQLite.Blob?>("FileData") <- logoBlob,
+                Expression<String?>("MimeType") <- "image/png",
+                Expression<String?>("FetchedAt") <- nil,
+                Expression<String>("CreatedAt") <- timestamp,
+                Expression<String>("UpdatedAt") <- timestamp,
+                Expression<Int64>("IsDeleted") <- 0
+            )
+            try dbConn.run(logoInsert)
+        }
+
+        // Create the Item
+        let itemsTable = Table("Items")
+        let itemInsert = itemsTable.insert(
+            Expression<String>("Id") <- itemId.uuidString,
+            Expression<String?>("Name") <- displayName,
+            Expression<String>("ItemType") <- ItemType.login,
+            Expression<String?>("LogoId") <- logoId?.uuidString,
+            Expression<String?>("FolderId") <- nil,
+            Expression<String?>("DeletedAt") <- nil,
             Expression<String>("CreatedAt") <- timestamp,
             Expression<String>("UpdatedAt") <- timestamp,
             Expression<Int64>("IsDeleted") <- 0
         )
-        try dbConn.run(serviceInsert)
+        try dbConn.run(itemInsert)
 
-        // Create a minimal alias with empty fields and default birthdate
-        // TODO: once birthdate is made nullable in datamodel refactor, remove this.
-        let aliasId = UUID()
-        let aliasesTable = Table("Aliases")
-        let aliasInsert = aliasesTable.insert(
-            Expression<String>("Id") <- aliasId.uuidString,
-            Expression<String?>("FirstName") <- "",
-            Expression<String?>("LastName") <- "",
-            Expression<String?>("NickName") <- "",
-            Expression<String?>("BirthDate") <- "0001-01-01 00:00:00",
-            Expression<String?>("Gender") <- "",
-            Expression<String?>("Email") <- "",
+        // Create field values
+        let fieldValuesTable = Table("FieldValues")
+
+        // Add login.url field
+        let urlFieldId = UUID()
+        let urlFieldInsert = fieldValuesTable.insert(
+            Expression<String>("Id") <- urlFieldId.uuidString,
+            Expression<String>("ItemId") <- itemId.uuidString,
+            Expression<String?>("FieldDefinitionId") <- nil,
+            Expression<String?>("FieldKey") <- FieldKey.loginUrl,
+            Expression<String?>("Value") <- "https://\(rpId)",
+            Expression<Int64>("Weight") <- 0,
             Expression<String>("CreatedAt") <- timestamp,
             Expression<String>("UpdatedAt") <- timestamp,
             Expression<Int64>("IsDeleted") <- 0
         )
-        try dbConn.run(aliasInsert)
+        try dbConn.run(urlFieldInsert)
 
-        // Create the credential with the alias
-        let credentialsTable = Table("Credentials")
-        let credentialInsert = credentialsTable.insert(
-            Expression<String>("Id") <- credentialId.uuidString,
-            Expression<String>("ServiceId") <- serviceId.uuidString,
-            Expression<String?>("AliasId") <- aliasId.uuidString,
-            Expression<String?>("Username") <- userName,
-            Expression<String?>("Notes") <- nil,
-            Expression<String>("CreatedAt") <- timestamp,
-            Expression<String>("UpdatedAt") <- timestamp,
-            Expression<Int64>("IsDeleted") <- 0
-        )
-        try dbConn.run(credentialInsert)
+        // Add login.username field if provided
+        if let userName = userName, !userName.isEmpty {
+            let usernameFieldId = UUID()
+            let usernameFieldInsert = fieldValuesTable.insert(
+                Expression<String>("Id") <- usernameFieldId.uuidString,
+                Expression<String>("ItemId") <- itemId.uuidString,
+                Expression<String?>("FieldDefinitionId") <- nil,
+                Expression<String?>("FieldKey") <- FieldKey.loginUsername,
+                Expression<String?>("Value") <- userName,
+                Expression<Int64>("Weight") <- 0,
+                Expression<String>("CreatedAt") <- timestamp,
+                Expression<String>("UpdatedAt") <- timestamp,
+                Expression<Int64>("IsDeleted") <- 0
+            )
+            try dbConn.run(usernameFieldInsert)
+        }
 
         // Insert the passkey
         try insertPasskey(passkey)
 
-        // Return the credential
+        // Return the credential (legacy format for backwards compatibility)
         let service = Service(
-            id: serviceId,
-            name: rpId,
+            id: itemId,
+            name: displayName,
             url: "https://\(rpId)",
             logo: logo,
             createdAt: now,
@@ -320,29 +361,9 @@ extension VaultStore {
             isDeleted: false
         )
 
-        // Create default birthdate (0001-01-01)
-        var defaultBirthDateComponents = DateComponents()
-        defaultBirthDateComponents.year = 1
-        defaultBirthDateComponents.month = 1
-        defaultBirthDateComponents.day = 1
-        let defaultBirthDate = Calendar(identifier: .gregorian).date(from: defaultBirthDateComponents)!
-
-        let alias = Alias(
-            id: aliasId,
-            gender: "",
-            firstName: "",
-            lastName: "",
-            nickName: "",
-            birthDate: defaultBirthDate,
-            email: "",
-            createdAt: now,
-            updatedAt: now,
-            isDeleted: false
-        )
-
         return Credential(
-            id: credentialId,
-            alias: alias,
+            id: itemId,
+            alias: nil,
             service: service,
             username: userName,
             notes: nil,
@@ -364,7 +385,7 @@ extension VaultStore {
 
         let insert = Self.passkeysTable.insert(
             Self.colId <- passkey.id.uuidString,
-            Self.colCredentialId <- passkey.parentCredentialId.uuidString,
+            Self.colItemId <- passkey.parentCredentialId.uuidString,
             Self.colRpId <- passkey.rpId,
             Self.colUserHandle <- passkey.userHandle.map { Blob(bytes: [UInt8]($0)) },
             Self.colPublicKey <- String(data: passkey.publicKey, encoding: .utf8)!,
@@ -381,14 +402,14 @@ extension VaultStore {
 
     /**
      * Replace an existing passkey with a new one
-     * This deletes the old passkey and creates a new one with the same credential
+     * This deletes the old passkey and creates a new one with the same item
      */
     public func replacePasskey(oldPasskeyId: UUID, newPasskey: Passkey, displayName: String, logo: Data? = nil) throws {
         guard let dbConn = dbConnection else {
             throw VaultStoreError.vaultNotUnlocked
         }
 
-        // Get the old passkey to find its credential
+        // Get the old passkey to find its item
         let oldPasskeyQuery = Self.passkeysTable
             .filter(Self.colId == oldPasskeyId.uuidString)
             .filter(Self.colIsDeleted == 0)
@@ -399,34 +420,68 @@ extension VaultStore {
             throw VaultStoreError.databaseError("Passkey not found")
         }
 
-        let credentialId = oldPasskey.parentCredentialId
+        let itemId = oldPasskey.parentCredentialId
         let now = Date()
         let timestamp = formatDateForDatabase(now)
 
-        // Update the credential's service with new logo if provided
+        // Update the item's logo if provided
         if let logo = logo {
-            let logoBlob = Blob(bytes: [UInt8](logo))
-            let credentialsTable = Table("Credentials")
-            let servicesTable = Table("Services")
+            let itemsTable = Table("Items")
+            let logosTable = Table("Logos")
 
-            // Get the service ID from the credential
-            let credQuery = credentialsTable
-                .filter(Expression<String>("Id") == credentialId.uuidString)
+            // Get the current logo ID from the item
+            let itemQuery = itemsTable
+                .filter(Expression<String>("Id") == itemId.uuidString)
                 .limit(1)
 
-            if let credRow = try dbConn.pluck(credQuery) {
-                let serviceId = try credRow.get(Expression<String>("ServiceId"))
+            if let itemRow = try dbConn.pluck(itemQuery) {
+                let existingLogoId = try? itemRow.get(Expression<String?>("LogoId"))
 
-                // Update the service with new logo and displayName
-                let serviceUpdate = servicesTable
-                    .filter(Expression<String>("Id") == serviceId)
+                let logoBlob = Blob(bytes: [UInt8](logo))
+
+                if let logoIdString = existingLogoId, let logoId = UUID(uuidString: logoIdString) {
+                    // Update existing logo
+                    let logoUpdate = logosTable
+                        .filter(Expression<String>("Id") == logoId.uuidString)
+                        .update(
+                            Expression<SQLite.Blob?>("FileData") <- logoBlob,
+                            Expression<String>("UpdatedAt") <- timestamp
+                        )
+                    try dbConn.run(logoUpdate)
+                } else {
+                    // Create new logo
+                    let newLogoId = UUID()
+                    let source = newPasskey.rpId.lowercased().replacingOccurrences(of: "www.", with: "")
+                    let logoInsert = logosTable.insert(
+                        Expression<String>("Id") <- newLogoId.uuidString,
+                        Expression<String>("Source") <- source,
+                        Expression<SQLite.Blob?>("FileData") <- logoBlob,
+                        Expression<String?>("MimeType") <- "image/png",
+                        Expression<String?>("FetchedAt") <- nil,
+                        Expression<String>("CreatedAt") <- timestamp,
+                        Expression<String>("UpdatedAt") <- timestamp,
+                        Expression<Int64>("IsDeleted") <- 0
+                    )
+                    try dbConn.run(logoInsert)
+
+                    // Update item with new logo ID
+                    let itemUpdate = itemsTable
+                        .filter(Expression<String>("Id") == itemId.uuidString)
+                        .update(
+                            Expression<String?>("LogoId") <- newLogoId.uuidString,
+                            Expression<String>("UpdatedAt") <- timestamp
+                        )
+                    try dbConn.run(itemUpdate)
+                }
+
+                // Update item name with displayName
+                let nameUpdate = itemsTable
+                    .filter(Expression<String>("Id") == itemId.uuidString)
                     .update(
-                        Expression<SQLite.Blob?>("Logo") <- logoBlob,
                         Expression<String?>("Name") <- displayName,
                         Expression<String>("UpdatedAt") <- timestamp
                     )
-
-                try dbConn.run(serviceUpdate)
+                try dbConn.run(nameUpdate)
             }
         }
 
@@ -440,11 +495,10 @@ extension VaultStore {
 
         try dbConn.run(deleteQuery)
 
-        // Create the new passkey with the same credential ID
-        var updatedPasskey = newPasskey
-        updatedPasskey = Passkey(
+        // Create the new passkey with the same item ID
+        let updatedPasskey = Passkey(
             id: newPasskey.id,
-            parentCredentialId: credentialId,  // Use the old credential ID
+            parentCredentialId: itemId,  // Use the old item ID
             rpId: newPasskey.rpId,
             userHandle: newPasskey.userHandle,
             userName: newPasskey.userName,

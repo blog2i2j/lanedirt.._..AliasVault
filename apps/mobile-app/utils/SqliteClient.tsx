@@ -1,16 +1,16 @@
 import { Buffer } from 'buffer';
 
 import type { EncryptionKeyDerivationParams, VaultMetadata } from '@/utils/dist/core/models/metadata';
-import type { Attachment, Credential, EncryptionKey, PasswordSettings, TotpCode, Passkey, Item } from '@/utils/dist/core/models/vault';
+import type { Attachment, EncryptionKey, PasswordSettings, TotpCode, Passkey, Item } from '@/utils/dist/core/models/vault';
 import { VaultSqlGenerator, VaultVersion, checkVersionCompatibility, extractVersionFromMigrationId } from '@/utils/dist/core/vault';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
 
 import NativeVaultManager from '@/specs/NativeVaultManager';
-import * as dateFormatter from '@/utils/dateFormatter';
 import { ItemRepository } from '@/utils/db/repositories/ItemRepository';
 import { SettingsRepository } from '@/utils/db/repositories/SettingsRepository';
 import { LogoRepository } from '@/utils/db/repositories/LogoRepository';
 import { FolderRepository, type Folder } from '@/utils/db/repositories/FolderRepository';
+import { PasskeyRepository, type PasskeyWithItemInfo } from '@/utils/db/repositories/PasskeyRepository';
 import type { IDatabaseClient, SqliteBindValue } from '@/utils/db/BaseRepository';
 import type { ItemWithDeletedAt } from '@/utils/db/mappers/ItemMapper';
 
@@ -21,89 +21,64 @@ type SQLiteBindValue = string | number | null | Uint8Array;
  * Implements IDatabaseClient interface for repository pattern.
  */
 class SqliteClient implements IDatabaseClient {
-  // Repositories for Item-based access (lazy initialized)
-  private _itemRepository: ItemRepository | null = null;
-  private _settingsRepository: SettingsRepository | null = null;
-  private _logoRepository: LogoRepository | null = null;
-  private _folderRepository: FolderRepository | null = null;
+  // Lazy-initialized repositories
+  private _items: ItemRepository | null = null;
+  private _passkeys: PasskeyRepository | null = null;
+  private _folders: FolderRepository | null = null;
+  private _settings: SettingsRepository | null = null;
+  private _logos: LogoRepository | null = null;
 
   /**
-   * Get the ItemRepository instance (lazy initialization).
+   * Repository for Item CRUD operations.
    */
-  public get itemRepository(): ItemRepository {
-    if (!this._itemRepository) {
-      // Use a factory function to create the repository with 'this' as the client
-      this._itemRepository = Object.setPrototypeOf(
-        { client: this as IDatabaseClient },
-        ItemRepository.prototype
-      ) as ItemRepository;
-      // Manually bind 'this' context to all repository methods
-      Object.getOwnPropertyNames(ItemRepository.prototype).forEach(name => {
-        const method = ItemRepository.prototype[name as keyof typeof ItemRepository.prototype];
-        if (typeof method === 'function' && name !== 'constructor') {
-          (this._itemRepository as unknown as Record<string, unknown>)[name] = method.bind(this._itemRepository);
-        }
-      });
+  public get items(): ItemRepository {
+    if (!this._items) {
+      this._items = new ItemRepository(this);
     }
-    return this._itemRepository;
+    return this._items;
   }
 
   /**
-   * Get the SettingsRepository instance (lazy initialization).
+   * Repository for Passkey operations.
    */
-  public get settingsRepository(): SettingsRepository {
-    if (!this._settingsRepository) {
-      this._settingsRepository = Object.setPrototypeOf(
-        { client: this as IDatabaseClient },
-        SettingsRepository.prototype
-      ) as SettingsRepository;
-      Object.getOwnPropertyNames(SettingsRepository.prototype).forEach(name => {
-        const method = SettingsRepository.prototype[name as keyof typeof SettingsRepository.prototype];
-        if (typeof method === 'function' && name !== 'constructor') {
-          (this._settingsRepository as unknown as Record<string, unknown>)[name] = method.bind(this._settingsRepository);
-        }
-      });
+  public get passkeys(): PasskeyRepository {
+    if (!this._passkeys) {
+      this._passkeys = new PasskeyRepository(this);
     }
-    return this._settingsRepository;
+    return this._passkeys;
   }
 
   /**
-   * Get the LogoRepository instance (lazy initialization).
+   * Repository for Folder operations.
    */
-  public get logoRepository(): LogoRepository {
-    if (!this._logoRepository) {
-      this._logoRepository = Object.setPrototypeOf(
-        { client: this as IDatabaseClient },
-        LogoRepository.prototype
-      ) as LogoRepository;
-      Object.getOwnPropertyNames(LogoRepository.prototype).forEach(name => {
-        const method = LogoRepository.prototype[name as keyof typeof LogoRepository.prototype];
-        if (typeof method === 'function' && name !== 'constructor') {
-          (this._logoRepository as unknown as Record<string, unknown>)[name] = method.bind(this._logoRepository);
-        }
-      });
+  public get folders(): FolderRepository {
+    if (!this._folders) {
+      this._folders = new FolderRepository(this);
     }
-    return this._logoRepository;
+    return this._folders;
   }
 
   /**
-   * Get the FolderRepository instance (lazy initialization).
+   * Repository for Settings and auxiliary data operations.
    */
-  public get folderRepository(): FolderRepository {
-    if (!this._folderRepository) {
-      this._folderRepository = Object.setPrototypeOf(
-        { client: this as IDatabaseClient },
-        FolderRepository.prototype
-      ) as FolderRepository;
-      Object.getOwnPropertyNames(FolderRepository.prototype).forEach(name => {
-        const method = FolderRepository.prototype[name as keyof typeof FolderRepository.prototype];
-        if (typeof method === 'function' && name !== 'constructor') {
-          (this._folderRepository as unknown as Record<string, unknown>)[name] = method.bind(this._folderRepository);
-        }
-      });
+  public get settings(): SettingsRepository {
+    if (!this._settings) {
+      this._settings = new SettingsRepository(this);
     }
-    return this._folderRepository;
+    return this._settings;
   }
+
+  /**
+   * Repository for Logo management operations.
+   */
+  public get logos(): LogoRepository {
+    if (!this._logos) {
+      this._logos = new LogoRepository(this);
+    }
+    return this._logos;
+  }
+
+  // ===== Core Database Operations =====
 
   /**
    * Store the encrypted database via the native code implementation.
@@ -307,22 +282,11 @@ class SqliteClient implements IDatabaseClient {
   }
 
   /**
-   * Close the database connection and free resources.
-   */
-  public close(): void {
-    // No-op since the native code handles connection lifecycle
-  }
-
-  // ============================================================================
-  // NEW: Item-based methods using repository pattern
-  // ============================================================================
-
-  /**
    * Fetch all items (new V5 schema).
    * @returns Array of Item objects
    */
   public async getAllItems(): Promise<Item[]> {
-    return this.itemRepository.getAll();
+    return this.items.getAll();
   }
 
   /**
@@ -331,7 +295,7 @@ class SqliteClient implements IDatabaseClient {
    * @returns Item object or null if not found
    */
   public async getItemById(itemId: string): Promise<Item | null> {
-    return this.itemRepository.getById(itemId);
+    return this.items.getById(itemId);
   }
 
   /**
@@ -339,7 +303,16 @@ class SqliteClient implements IDatabaseClient {
    * @returns Array of email addresses
    */
   public async getAllItemEmailAddresses(): Promise<string[]> {
-    return this.itemRepository.getAllEmailAddresses();
+    return this.items.getAllEmailAddresses();
+  }
+
+  /**
+   * Fetch an item by its email address (case-insensitive).
+   * @param email - The email address to search for
+   * @returns Item object or null if not found
+   */
+  public async getItemByEmail(email: string): Promise<Item | null> {
+    return this.items.getByEmail(email);
   }
 
   /**
@@ -347,7 +320,7 @@ class SqliteClient implements IDatabaseClient {
    * @returns Array of items with DeletedAt field
    */
   public async getRecentlyDeletedItems(): Promise<ItemWithDeletedAt[]> {
-    return this.itemRepository.getRecentlyDeleted();
+    return this.items.getRecentlyDeleted();
   }
 
   /**
@@ -355,7 +328,7 @@ class SqliteClient implements IDatabaseClient {
    * @returns Number of items in trash
    */
   public async getRecentlyDeletedCount(): Promise<number> {
-    return this.itemRepository.getRecentlyDeletedCount();
+    return this.items.getRecentlyDeletedCount();
   }
 
   /**
@@ -366,7 +339,7 @@ class SqliteClient implements IDatabaseClient {
    * @returns The ID of the created item
    */
   public async createItem(item: Item, attachments: Attachment[] = [], totpCodes: TotpCode[] = []): Promise<string> {
-    return this.itemRepository.create(item, attachments, totpCodes);
+    return this.items.create(item, attachments, totpCodes);
   }
 
   /**
@@ -385,7 +358,7 @@ class SqliteClient implements IDatabaseClient {
     originalTotpCodeIds: string[],
     totpCodes: TotpCode[]
   ): Promise<number> {
-    return this.itemRepository.update(item, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes);
+    return this.items.update(item, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes);
   }
 
   /**
@@ -394,7 +367,7 @@ class SqliteClient implements IDatabaseClient {
    * @returns Number of rows affected
    */
   public async trashItem(itemId: string): Promise<number> {
-    return this.itemRepository.trash(itemId);
+    return this.items.trash(itemId);
   }
 
   /**
@@ -403,7 +376,7 @@ class SqliteClient implements IDatabaseClient {
    * @returns Number of rows affected
    */
   public async restoreItem(itemId: string): Promise<number> {
-    return this.itemRepository.restore(itemId);
+    return this.items.restore(itemId);
   }
 
   /**
@@ -412,7 +385,7 @@ class SqliteClient implements IDatabaseClient {
    * @returns Number of rows affected
    */
   public async permanentlyDeleteItem(itemId: string): Promise<number> {
-    return this.itemRepository.permanentlyDelete(itemId);
+    return this.items.permanentlyDelete(itemId);
   }
 
   /**
@@ -421,7 +394,7 @@ class SqliteClient implements IDatabaseClient {
    * @returns Array of TotpCode objects
    */
   public async getTotpCodesForItem(itemId: string): Promise<TotpCode[]> {
-    return this.settingsRepository.getTotpCodesForItem(itemId);
+    return this.settings.getTotpCodesForItem(itemId);
   }
 
   /**
@@ -430,19 +403,15 @@ class SqliteClient implements IDatabaseClient {
    * @returns Array of attachments
    */
   public async getAttachmentsForItem(itemId: string): Promise<Attachment[]> {
-    return this.settingsRepository.getAttachmentsForItem(itemId);
+    return this.settings.getAttachmentsForItem(itemId);
   }
-
-  // ============================================================================
-  // NEW: Folder-based methods using repository pattern
-  // ============================================================================
 
   /**
    * Get all folders.
    * @returns Array of Folder objects
    */
   public async getAllFolders(): Promise<Folder[]> {
-    return this.folderRepository.getAll();
+    return this.folders.getAll();
   }
 
   /**
@@ -451,7 +420,7 @@ class SqliteClient implements IDatabaseClient {
    * @returns Folder object or null if not found
    */
   public async getFolderById(folderId: string): Promise<Omit<Folder, 'Weight'> | null> {
-    return this.folderRepository.getById(folderId);
+    return this.folders.getById(folderId);
   }
 
   /**
@@ -461,7 +430,7 @@ class SqliteClient implements IDatabaseClient {
    * @returns The ID of the created folder
    */
   public async createFolder(name: string, parentFolderId?: string | null): Promise<string> {
-    return this.folderRepository.create(name, parentFolderId);
+    return this.folders.create(name, parentFolderId);
   }
 
   /**
@@ -471,7 +440,7 @@ class SqliteClient implements IDatabaseClient {
    * @returns The number of rows updated
    */
   public async updateFolder(folderId: string, name: string): Promise<number> {
-    return this.folderRepository.update(folderId, name);
+    return this.folders.update(folderId, name);
   }
 
   /**
@@ -480,7 +449,7 @@ class SqliteClient implements IDatabaseClient {
    * @returns The number of rows updated
    */
   public async deleteFolder(folderId: string): Promise<number> {
-    return this.folderRepository.delete(folderId);
+    return this.folders.delete(folderId);
   }
 
   /**
@@ -489,7 +458,7 @@ class SqliteClient implements IDatabaseClient {
    * @returns The number of items trashed
    */
   public async deleteFolderWithContents(folderId: string): Promise<number> {
-    return this.folderRepository.deleteWithContents(folderId);
+    return this.folders.deleteWithContents(folderId);
   }
 
   /**
@@ -499,228 +468,12 @@ class SqliteClient implements IDatabaseClient {
    * @returns The number of rows updated
    */
   public async moveItemToFolder(itemId: string, folderId: string | null): Promise<number> {
-    return this.folderRepository.moveItem(itemId, folderId);
+    return this.folders.moveItem(itemId, folderId);
   }
 
   // ============================================================================
-  // LEGACY: Credential-based methods (kept for backward compatibility)
+  // Utility methods
   // ============================================================================
-
-  /**
-   * Fetch a single credential with its associated service information.
-   * @param credentialId - The ID of the credential to fetch.
-   * @returns Credential object with service details or null if not found.
-   */
-  public async getCredentialById(credentialId: string): Promise<Credential | null> {
-    const query = `
-        SELECT DISTINCT
-            c.Id,
-            c.Username,
-            c.Notes,
-            c.ServiceId,
-            s.Name as ServiceName,
-            s.Url as ServiceUrl,
-            s.Logo as Logo,
-            a.FirstName,
-            a.LastName,
-            a.NickName,
-            a.BirthDate,
-            a.Gender,
-            a.Email,
-            p.Value as Password,
-            CASE
-                WHEN EXISTS (
-                    SELECT 1 FROM Passkeys pk
-                    WHERE pk.CredentialId = c.Id AND pk.IsDeleted = 0
-                ) THEN 1
-                ELSE 0
-            END as HasPasskey,
-            (SELECT pk.RpId FROM Passkeys pk WHERE pk.CredentialId = c.Id AND pk.IsDeleted = 0 LIMIT 1) as PasskeyRpId,
-            (SELECT pk.DisplayName FROM Passkeys pk WHERE pk.CredentialId = c.Id AND pk.IsDeleted = 0 LIMIT 1) as PasskeyDisplayName
-        FROM Credentials c
-        LEFT JOIN Services s ON c.ServiceId = s.Id
-        LEFT JOIN Aliases a ON c.AliasId = a.Id
-        LEFT JOIN Passwords p ON p.CredentialId = c.Id
-        WHERE c.IsDeleted = 0
-        AND c.Id = ?`;
-
-    const results = await this.executeQuery(query, [credentialId]);
-
-    if (results.length === 0) {
-      return null;
-    }
-
-    // Convert the first row to a Credential object
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const row = results[0] as any;
-    return {
-      Id: row.Id,
-      Username: row.Username,
-      Password: row.Password,
-      ServiceName: row.ServiceName,
-      ServiceUrl: row.ServiceUrl,
-      Logo: row.Logo,
-      Notes: row.Notes,
-      HasPasskey: row.HasPasskey === 1,
-      PasskeyRpId: row.PasskeyRpId,
-      PasskeyDisplayName: row.PasskeyDisplayName,
-      Alias: {
-        FirstName: row.FirstName,
-        LastName: row.LastName,
-        NickName: row.NickName,
-        BirthDate: row.BirthDate,
-        Gender: row.Gender,
-        Email: row.Email
-      }
-    };
-  }
-
-  /**
-   * Fetch all credentials with their associated service information.
-   * @returns Array of Credential objects with service details.
-   */
-  public async getAllCredentials(): Promise<Credential[]> {
-    const query = `
-            SELECT DISTINCT
-                c.Id,
-                c.Username,
-                c.Notes,
-                c.ServiceId,
-                s.Name as ServiceName,
-                s.Url as ServiceUrl,
-                s.Logo as Logo,
-                a.FirstName,
-                a.LastName,
-                a.NickName,
-                a.BirthDate,
-                a.Gender,
-                a.Email,
-                p.Value as Password,
-                CASE
-                    WHEN EXISTS (
-                        SELECT 1 FROM Passkeys pk
-                        WHERE pk.CredentialId = c.Id AND pk.IsDeleted = 0
-                    ) THEN 1
-                    ELSE 0
-                END as HasPasskey,
-                (SELECT pk.RpId FROM Passkeys pk WHERE pk.CredentialId = c.Id AND pk.IsDeleted = 0 LIMIT 1) as PasskeyRpId,
-                (SELECT pk.DisplayName FROM Passkeys pk WHERE pk.CredentialId = c.Id AND pk.IsDeleted = 0 LIMIT 1) as PasskeyDisplayName,
-                CASE
-                    WHEN EXISTS (
-                        SELECT 1 FROM Attachments att
-                        WHERE att.CredentialId = c.Id AND att.IsDeleted = 0
-                    ) THEN 1
-                    ELSE 0
-                END as HasAttachment
-            FROM Credentials c
-            LEFT JOIN Services s ON c.ServiceId = s.Id
-            LEFT JOIN Aliases a ON c.AliasId = a.Id
-            LEFT JOIN Passwords p ON p.CredentialId = c.Id
-            WHERE c.IsDeleted = 0
-            ORDER BY c.CreatedAt DESC`;
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const results = await this.executeQuery<any>(query);
-
-    return results.map((row) => ({
-      Id: row.Id,
-      Username: row.Username,
-      Password: row.Password,
-      ServiceName: row.ServiceName,
-      ServiceUrl: row.ServiceUrl,
-      Logo: row.Logo,
-      Notes: row.Notes,
-      HasPasskey: row.HasPasskey === 1,
-      PasskeyRpId: row.PasskeyRpId,
-      PasskeyDisplayName: row.PasskeyDisplayName,
-      HasAttachment: row.HasAttachment === 1,
-      Alias: {
-        FirstName: row.FirstName,
-        LastName: row.LastName,
-        NickName: row.NickName,
-        BirthDate: row.BirthDate,
-        Gender: row.Gender,
-        Email: row.Email
-      }
-    }));
-  }
-
-  /**
-   * Delete a credential by ID
-   * @param credentialId - The ID of the credential to delete
-   * @returns The number of rows deleted
-   */
-  public async deleteCredentialById(credentialId: string): Promise<number> {
-    try {
-      await NativeVaultManager.beginTransaction();
-
-      const currentDateTime = dateFormatter.now();
-
-      // Update the credential, alias, and service to be deleted
-      const query = `
-        UPDATE Credentials
-        SET IsDeleted = 1,
-            UpdatedAt = ?
-        WHERE Id = ?`;
-
-      const aliasQuery = `
-        UPDATE Aliases
-        SET IsDeleted = 1,
-            UpdatedAt = ?
-        WHERE Id = (
-          SELECT AliasId
-          FROM Credentials
-          WHERE Id = ?
-        )`;
-
-      const serviceQuery = `
-        UPDATE Services
-        SET IsDeleted = 1,
-            UpdatedAt = ?
-        WHERE Id = (
-          SELECT ServiceId
-          FROM Credentials
-          WHERE Id = ?
-        )`;
-
-      const passkeyQuery = `
-        UPDATE Passkeys
-        SET IsDeleted = 1,
-            UpdatedAt = ?
-        WHERE CredentialId = ?`;
-
-      const results = await this.executeUpdate(query, [currentDateTime, credentialId]);
-      await this.executeUpdate(aliasQuery, [currentDateTime, credentialId]);
-      await this.executeUpdate(serviceQuery, [currentDateTime, credentialId]);
-      await this.executeUpdate(passkeyQuery, [currentDateTime, credentialId]);
-
-      await NativeVaultManager.commitTransaction();
-      return results;
-    } catch (error) {
-      await NativeVaultManager.rollbackTransaction();
-      console.error('Error deleting credential:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Fetch all unique email addresses from all credentials.
-   * @returns Array of email addresses.
-   */
-  public async getAllEmailAddresses(): Promise<string[]> {
-    const query = `
-      SELECT DISTINCT
-        a.Email
-      FROM Credentials c
-      LEFT JOIN Aliases a ON c.AliasId = a.Id
-      WHERE a.Email IS NOT NULL AND a.Email != '' AND c.IsDeleted = 0
-    `;
-
-    const results = await this.executeQuery(query);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return results.map((row: any) => row.Email);
-  }
 
   /**
    * Fetch all encryption keys.
@@ -858,146 +611,6 @@ class SqliteClient implements IDatabaseClient {
   }
 
   /**
-   * Create a new credential with associated entities
-   * @param credential The credential object to insert
-   * @param attachments The attachments to insert
-   * @returns The ID of the newly created credential
-   */
-  public async createCredential(credential: Credential, attachments: Attachment[], totpCodes: TotpCode[] = []): Promise<string> {
-    try {
-      await NativeVaultManager.beginTransaction();
-
-      // 1. Insert Service
-      let logoData = null;
-      try {
-        if (credential.Logo) {
-          // Handle object-like array conversion
-          if (typeof credential.Logo === 'object' && !ArrayBuffer.isView(credential.Logo)) {
-            const values = Object.values(credential.Logo);
-            logoData = new Uint8Array(values);
-          // Handle existing array types
-          } else if (Array.isArray(credential.Logo) || credential.Logo instanceof ArrayBuffer || credential.Logo instanceof Uint8Array) {
-            logoData = new Uint8Array(credential.Logo);
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to convert logo to Uint8Array:', error);
-        logoData = null;
-      }
-
-      const serviceQuery = `
-                INSERT INTO Services (Id, Name, Url, Logo, CreatedAt, UpdatedAt, IsDeleted)
-                VALUES (?, ?, ?, ?, ?, ?, ?)`;
-      const serviceId = crypto.randomUUID().toUpperCase();
-      const currentDateTime = dateFormatter.now();
-      await this.executeUpdate(serviceQuery, [
-        serviceId,
-        credential.ServiceName,
-        credential.ServiceUrl ?? null,
-        logoData,
-        currentDateTime,
-        currentDateTime,
-        0
-      ]);
-
-      // 2. Insert Alias
-      const aliasQuery = `
-                INSERT INTO Aliases (Id, FirstName, LastName, NickName, BirthDate, Gender, Email, CreatedAt, UpdatedAt, IsDeleted)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-      const aliasId = crypto.randomUUID().toUpperCase();
-      await this.executeUpdate(aliasQuery, [
-        aliasId,
-        credential.Alias.FirstName ?? null,
-        credential.Alias.LastName ?? null,
-        credential.Alias.NickName ?? null,
-        credential.Alias.BirthDate ?? null,
-        credential.Alias.Gender ?? null,
-        credential.Alias.Email ?? null,
-        currentDateTime,
-        currentDateTime,
-        0
-      ]);
-
-      // 3. Insert Credential
-      const credentialQuery = `
-                INSERT INTO Credentials (Id, Username, Notes, ServiceId, AliasId, CreatedAt, UpdatedAt, IsDeleted)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-      const credentialId = crypto.randomUUID().toUpperCase();
-      await this.executeUpdate(credentialQuery, [
-        credentialId,
-        credential.Username ?? null,
-        credential.Notes ?? null,
-        serviceId,
-        aliasId,
-        currentDateTime,
-        currentDateTime,
-        0
-      ]);
-
-      // 4. Insert Password
-      if (credential.Password) {
-        const passwordQuery = `
-                    INSERT INTO Passwords (Id, Value, CredentialId, CreatedAt, UpdatedAt, IsDeleted)
-                    VALUES (?, ?, ?, ?, ?, ?)`;
-        const passwordId = crypto.randomUUID().toUpperCase();
-        await this.executeUpdate(passwordQuery, [
-          passwordId,
-          credential.Password,
-          credentialId,
-          currentDateTime,
-          currentDateTime,
-          0
-        ]);
-      }
-
-      // 5. Insert Attachments
-      for (const attachment of attachments) {
-        const attachmentQuery = `
-          INSERT INTO Attachments (Id, Filename, Blob, CredentialId, CreatedAt, UpdatedAt, IsDeleted)
-          VALUES (?, ?, ?, ?, ?, ?, ?)`;
-        await this.executeUpdate(attachmentQuery, [
-          attachment.Id,
-          attachment.Filename,
-          attachment.Blob as Uint8Array,
-          credentialId,
-          currentDateTime,
-          currentDateTime,
-          0
-        ]);
-      }
-
-      // 6. Insert TOTP codes
-      for (const totpCode of totpCodes) {
-        // Skip deleted codes
-        if (totpCode.IsDeleted) {
-          continue;
-        }
-
-        const totpCodeQuery = `
-          INSERT INTO TotpCodes (Id, Name, SecretKey, CredentialId, CreatedAt, UpdatedAt, IsDeleted)
-          VALUES (?, ?, ?, ?, ?, ?, ?)`;
-        await this.executeUpdate(totpCodeQuery, [
-          totpCode.Id || crypto.randomUUID().toUpperCase(),
-          totpCode.Name,
-          totpCode.SecretKey,
-          credentialId,
-          currentDateTime,
-          currentDateTime,
-          0
-        ]);
-      }
-
-      await NativeVaultManager.commitTransaction();
-      return credentialId;
-
-    } catch (error) {
-      await NativeVaultManager.rollbackTransaction();
-      console.error('Error creating credential:', error);
-      throw error;
-    }
-  }
-
-  /**
    * Get the current database version from the migrations history.
    * Returns the internal version information that matches the current database version.
    * Uses semantic versioning to allow backwards-compatible minor/patch versions.
@@ -1062,674 +675,48 @@ class SqliteClient implements IDatabaseClient {
   }
 
   /**
-   * Get TOTP codes for a credential
-   * @param credentialId - The ID of the credential to get TOTP codes for
-   * @returns Array of TotpCode objects
-   */
-  public async getTotpCodesForCredential(credentialId: string): Promise<TotpCode[]> {
-    try {
-      const query = `
-        SELECT
-          Id,
-          Name,
-          SecretKey,
-          CredentialId
-        FROM TotpCodes
-        WHERE CredentialId = ? AND IsDeleted = 0`;
-
-      return this.executeQuery<TotpCode>(query, [credentialId]);
-    } catch (error) {
-      console.error('Error getting TOTP codes:', error);
-      // Return empty array instead of throwing to be robust
-      return [];
-    }
-  }
-
-  /**
-   * Get attachments for a specific credential
-   * @param credentialId - The ID of the credential
-   * @returns Array of attachments for the credential
-   */
-  public async getAttachmentsForCredential(credentialId: string): Promise<Attachment[]> {
-    try {
-      if (!await this.tableExists('Attachments')) {
-        return [];
-      }
-
-      const query = `
-        SELECT
-          Id,
-          Filename,
-          Blob,
-          CredentialId,
-          CreatedAt,
-          UpdatedAt,
-          IsDeleted
-        FROM Attachments
-        WHERE CredentialId = ? AND IsDeleted = 0`;
-      return this.executeQuery<Attachment>(query, [credentialId]);
-    } catch (error) {
-      console.error('Error getting attachments:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Check if a table exists in the database
-   * @param tableName - The name of the table to check
-   * @returns True if the table exists, false otherwise
-   */
-  private async tableExists(tableName: string): Promise<boolean> {
-    try {
-      const query = `
-        SELECT name FROM sqlite_master
-        WHERE type='table' AND name=?`;
-
-      const results = await this.executeQuery(query, [tableName]);
-      return results.length > 0;
-    } catch (error) {
-      console.error(`Error checking if table ${tableName} exists:`, error);
-      return false;
-    }
-  }
-
-  /**
-   * Get credential by email address
-   * @param email - The email address to look up
-   * @returns Credential object with service details or null if not found
-   */
-  public async getCredentialByEmail(email: string): Promise<Credential | null> {
-    const query = `
-        SELECT DISTINCT
-            c.Id,
-            c.Username,
-            c.Notes,
-            c.ServiceId,
-            s.Name as ServiceName,
-            s.Url as ServiceUrl,
-            s.Logo as Logo,
-            a.FirstName,
-            a.LastName,
-            a.NickName,
-            a.BirthDate,
-            a.Gender,
-            a.Email,
-            p.Value as Password
-        FROM Credentials c
-        LEFT JOIN Services s ON c.ServiceId = s.Id
-        LEFT JOIN Aliases a ON c.AliasId = a.Id
-        LEFT JOIN Passwords p ON p.CredentialId = c.Id
-        WHERE c.IsDeleted = 0
-        AND LOWER(a.Email) = LOWER(?)
-        LIMIT 1`;
-
-    const results = await this.executeQuery(query, [email]);
-
-    if (results.length === 0) {
-      return null;
-    }
-
-    // Convert the first row to a Credential object
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const row = results[0] as any;
-    return {
-      Id: row.Id,
-      Username: row.Username,
-      Password: row.Password,
-      ServiceName: row.ServiceName,
-      ServiceUrl: row.ServiceUrl,
-      Logo: row.Logo,
-      Notes: row.Notes,
-      Alias: {
-        FirstName: row.FirstName,
-        LastName: row.LastName,
-        NickName: row.NickName,
-        BirthDate: row.BirthDate,
-        Gender: row.Gender,
-        Email: row.Email
-      }
-    };
-  }
-
-  /**
-   * Update an existing credential with associated entities
-   * @param credential The credential object to update
-   * @param originalAttachmentIds The IDs of the original attachments
-   * @param attachments The attachments to update
-   * @param originalTotpCodeIds The IDs of the original TOTP codes
-   * @param totpCodes The TOTP codes to update
-   * @returns The number of rows modified
-   */
-  public async updateCredentialById(credential: Credential, originalAttachmentIds: string[], attachments: Attachment[], originalTotpCodeIds: string[], totpCodes: TotpCode[]): Promise<number> {
-    try {
-      await NativeVaultManager.beginTransaction();
-      const currentDateTime = dateFormatter.now();
-
-      // Get existing credential to compare changes
-      const existingCredential = await this.getCredentialById(credential.Id);
-      if (!existingCredential) {
-        throw new Error('Credential not found');
-      }
-
-      // 1. Update Service
-      const serviceQuery = `
-        UPDATE Services
-        SET Name = ?,
-            Url = ?,
-            Logo = COALESCE(?, Logo),
-            UpdatedAt = ?
-        WHERE Id = (
-          SELECT ServiceId
-          FROM Credentials
-          WHERE Id = ?
-        )`;
-
-      let logoData = null;
-      try {
-        if (credential.Logo) {
-          // Handle object-like array conversion
-          if (typeof credential.Logo === 'object' && !ArrayBuffer.isView(credential.Logo)) {
-            const values = Object.values(credential.Logo);
-            logoData = new Uint8Array(values);
-          // Handle existing array types
-          } else if (Array.isArray(credential.Logo) || credential.Logo instanceof ArrayBuffer || credential.Logo instanceof Uint8Array) {
-            logoData = new Uint8Array(credential.Logo);
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to convert logo to Uint8Array:', error);
-        logoData = null;
-      }
-
-      await this.executeUpdate(serviceQuery, [
-        credential.ServiceName,
-        credential.ServiceUrl ?? null,
-        logoData,
-        currentDateTime,
-        credential.Id
-      ]);
-
-      // 2. Update Alias
-      const aliasQuery = `
-        UPDATE Aliases
-        SET FirstName = ?,
-            LastName = ?,
-            NickName = ?,
-            BirthDate = ?,
-            Gender = ?,
-            Email = ?,
-            UpdatedAt = ?
-        WHERE Id = (
-          SELECT AliasId
-          FROM Credentials
-          WHERE Id = ?
-        )`;
-
-      // Only update BirthDate if it's actually different (accounting for format differences)
-      let birthDate = credential.Alias.BirthDate;
-      if (birthDate && existingCredential.Alias.BirthDate) {
-        const newDate = new Date(birthDate);
-        const existingDate = new Date(existingCredential.Alias.BirthDate);
-        if (newDate.getTime() === existingDate.getTime()) {
-          birthDate = existingCredential.Alias.BirthDate;
-        }
-      }
-
-      await this.executeUpdate(aliasQuery, [
-        credential.Alias.FirstName ?? null,
-        credential.Alias.LastName ?? null,
-        credential.Alias.NickName ?? null,
-        birthDate ?? null,
-        credential.Alias.Gender ?? null,
-        credential.Alias.Email ?? null,
-        currentDateTime,
-        credential.Id
-      ]);
-
-      // 3. Update Credential
-      const credentialQuery = `
-        UPDATE Credentials
-        SET Username = ?,
-            Notes = ?,
-            UpdatedAt = ?
-        WHERE Id = ?`;
-
-      await this.executeUpdate(credentialQuery, [
-        credential.Username ?? null,
-        credential.Notes ?? null,
-        currentDateTime,
-        credential.Id
-      ]);
-
-      // 4. Update Password if changed
-      if (credential.Password !== existingCredential.Password) {
-        // Check if a password record already exists for this credential, if not, then create one.
-        const passwordRecordExistsQuery = `
-          SELECT Id
-          FROM Passwords
-          WHERE CredentialId = ?`;
-        const passwordResults = await this.executeQuery(passwordRecordExistsQuery, [credential.Id]);
-
-        if (passwordResults.length === 0) {
-          // Create a new password record
-          const passwordQuery = `
-            INSERT INTO Passwords (Id, Value, CredentialId, CreatedAt, UpdatedAt, IsDeleted)
-            VALUES (?, ?, ?, ?, ?, ?)`;
-
-          await this.executeUpdate(passwordQuery, [
-            crypto.randomUUID().toUpperCase(),
-            credential.Password,
-            credential.Id,
-            currentDateTime,
-            currentDateTime,
-            0
-          ]);
-        } else {
-          // Update the existing password record
-          const passwordQuery = `
-            UPDATE Passwords
-            SET Value = ?, UpdatedAt = ?
-            WHERE CredentialId = ?`;
-
-          await this.executeUpdate(passwordQuery, [
-            credential.Password,
-            currentDateTime,
-            credential.Id
-          ]);
-        }
-      }
-
-      // 5. Handle Attachments
-      if (attachments) {
-        // Get current attachment IDs to track what needs to be deleted
-        const currentAttachmentIds = attachments.map(a => a.Id);
-
-        // Delete attachments that were removed (in originalAttachmentIds but not in current attachments)
-        const attachmentsToDelete = originalAttachmentIds.filter(id => !currentAttachmentIds.includes(id));
-        for (const attachmentId of attachmentsToDelete) {
-          const deleteQuery = `
-            UPDATE Attachments
-            SET IsDeleted = 1,
-                UpdatedAt = ?
-            WHERE Id = ?`;
-          await this.executeUpdate(deleteQuery, [currentDateTime, attachmentId]);
-        }
-
-        // Process each attachment
-        for (const attachment of attachments) {
-          const isExistingAttachment = originalAttachmentIds.includes(attachment.Id);
-
-          if (!isExistingAttachment) {
-            // Insert new attachment
-            const insertQuery = `
-              INSERT INTO Attachments (Id, Filename, Blob, CredentialId, CreatedAt, UpdatedAt, IsDeleted)
-              VALUES (?, ?, ?, ?, ?, ?, ?)`;
-            await this.executeUpdate(insertQuery, [
-              attachment.Id,
-              attachment.Filename,
-              attachment.Blob as Uint8Array,
-              credential.Id,
-              currentDateTime,
-              currentDateTime,
-              0
-            ]);
-          }
-        }
-      }
-
-      // 6. Handle TOTP Codes
-      if (totpCodes) {
-        // Get current TOTP code IDs to track what needs to be deleted
-        const currentTotpCodeIds = totpCodes.filter(tc => !tc.IsDeleted).map(tc => tc.Id);
-
-        // Delete TOTP codes that were removed (in originalTotpCodeIds but not in current codes)
-        const totpCodesToDelete = originalTotpCodeIds.filter(id => !currentTotpCodeIds.includes(id));
-        for (const totpCodeId of totpCodesToDelete) {
-          const deleteQuery = `
-            UPDATE TotpCodes
-            SET IsDeleted = 1,
-                UpdatedAt = ?
-            WHERE Id = ?`;
-          await this.executeUpdate(deleteQuery, [currentDateTime, totpCodeId]);
-        }
-
-        // Process each TOTP code
-        for (const totpCode of totpCodes) {
-          // Skip codes marked as deleted
-          if (totpCode.IsDeleted) {
-            // If it was an original code, mark it as deleted in DB
-            if (originalTotpCodeIds.includes(totpCode.Id)) {
-              const deleteQuery = `
-                UPDATE TotpCodes
-                SET IsDeleted = 1,
-                    UpdatedAt = ?
-                WHERE Id = ?`;
-              await this.executeUpdate(deleteQuery, [currentDateTime, totpCode.Id]);
-            }
-            continue;
-          }
-
-          const isExistingTotpCode = originalTotpCodeIds.includes(totpCode.Id);
-
-          if (!isExistingTotpCode) {
-            // Insert new TOTP code
-            const insertQuery = `
-              INSERT INTO TotpCodes (Id, Name, SecretKey, CredentialId, CreatedAt, UpdatedAt, IsDeleted)
-              VALUES (?, ?, ?, ?, ?, ?, ?)`;
-            await this.executeUpdate(insertQuery, [
-              totpCode.Id,
-              totpCode.Name,
-              totpCode.SecretKey,
-              credential.Id,
-              currentDateTime,
-              currentDateTime,
-              0
-            ]);
-          } else {
-            // Update existing TOTP code
-            const updateQuery = `
-              UPDATE TotpCodes
-              SET Name = ?,
-                  SecretKey = ?,
-                  UpdatedAt = ?
-              WHERE Id = ?`;
-            await this.executeUpdate(updateQuery, [
-              totpCode.Name,
-              totpCode.SecretKey,
-              currentDateTime,
-              totpCode.Id
-            ]);
-          }
-        }
-      }
-
-      await NativeVaultManager.commitTransaction();
-      return 1;
-
-    } catch (error) {
-      console.error('Error updating credential:', error);
-      await NativeVaultManager.rollbackTransaction();
-      throw error;
-    }
-  }
-
-  /**
-   * Get all passkeys for a specific relying party (rpId)
+   * Get all passkeys for a specific relying party (rpId).
    * @param rpId - The relying party identifier (domain)
-   * @returns Array of passkey objects with credential info
+   * @returns Array of passkey objects with item info
    */
-  public async getPasskeysByRpId(rpId: string): Promise<Array<Passkey & { Username?: string | null; ServiceName?: string | null }>> {
-    const query = `
-      SELECT
-        p.Id,
-        p.CredentialId,
-        p.RpId,
-        p.UserId,
-        p.PublicKey,
-        p.PrivateKey,
-        p.DisplayName,
-        p.PrfKey,
-        p.AdditionalData,
-        p.CreatedAt,
-        p.UpdatedAt,
-        p.IsDeleted,
-        c.Username,
-        s.Name as ServiceName
-      FROM Passkeys p
-      LEFT JOIN Credentials c ON p.CredentialId = c.Id
-      LEFT JOIN Services s ON c.ServiceId = s.Id
-      WHERE p.RpId = ? AND p.IsDeleted = 0
-      ORDER BY p.CreatedAt DESC
-    `;
-
-    const results = await this.executeQuery(query, [rpId]);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return results.map((row: any) => ({
-      Id: row.Id,
-      ItemId: row.ItemId ?? row.CredentialId, // Support both old and new schema
-      RpId: row.RpId,
-      PublicKey: row.PublicKey,
-      PrivateKey: row.PrivateKey,
-      DisplayName: row.DisplayName,
-      PrfKey: row.PrfKey,
-      AdditionalData: row.AdditionalData,
-      CreatedAt: row.CreatedAt,
-      UpdatedAt: row.UpdatedAt,
-      IsDeleted: row.IsDeleted,
-      Username: row.Username,
-      ServiceName: row.ServiceName
-    }));
+  public async getPasskeysByRpId(rpId: string): Promise<PasskeyWithItemInfo[]> {
+    return this.passkeys.getByRpId(rpId);
   }
 
   /**
-   * Get a passkey by its ID
+   * Get a passkey by its ID.
    * @param passkeyId - The passkey ID
    * @returns The passkey object or null if not found
    */
-  public async getPasskeyById(passkeyId: string): Promise<(Passkey & { Username?: string | null; ServiceName?: string | null }) | null> {
-    const query = `
-      SELECT
-        p.Id,
-        p.CredentialId,
-        p.RpId,
-        p.UserId,
-        p.PublicKey,
-        p.PrivateKey,
-        p.DisplayName,
-        p.PrfKey,
-        p.AdditionalData,
-        p.CreatedAt,
-        p.UpdatedAt,
-        p.IsDeleted,
-        c.Username,
-        s.Name as ServiceName
-      FROM Passkeys p
-      LEFT JOIN Credentials c ON p.CredentialId = c.Id
-      LEFT JOIN Services s ON c.ServiceId = s.Id
-      WHERE p.Id = ? AND p.IsDeleted = 0
-    `;
-
-    const results = await this.executeQuery(query, [passkeyId]);
-
-    if (results.length === 0) {
-      return null;
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const row: any = results[0];
-    return {
-      Id: row.Id,
-      ItemId: row.ItemId ?? row.CredentialId, // Support both old and new schema
-      RpId: row.RpId,
-      PublicKey: row.PublicKey,
-      PrivateKey: row.PrivateKey,
-      DisplayName: row.DisplayName,
-      PrfKey: row.PrfKey,
-      AdditionalData: row.AdditionalData,
-      CreatedAt: row.CreatedAt,
-      UpdatedAt: row.UpdatedAt,
-      IsDeleted: row.IsDeleted,
-      Username: row.Username,
-      ServiceName: row.ServiceName
-    };
+  public async getPasskeyById(passkeyId: string): Promise<PasskeyWithItemInfo | null> {
+    return this.passkeys.getById(passkeyId);
   }
 
   /**
-   * Get all passkeys for a specific credential
-   * @param credentialId - The credential ID
-   * @returns Array of passkey objects
-   */
-  public async getPasskeysByCredentialId(credentialId: string): Promise<Passkey[]> {
-    const query = `
-      SELECT
-        p.Id,
-        p.CredentialId,
-        p.RpId,
-        p.UserId,
-        p.PublicKey,
-        p.PrivateKey,
-        p.DisplayName,
-        p.PrfKey,
-        p.AdditionalData,
-        p.CreatedAt,
-        p.UpdatedAt,
-        p.IsDeleted
-      FROM Passkeys p
-      WHERE p.CredentialId = ? AND p.IsDeleted = 0
-      ORDER BY p.CreatedAt DESC
-    `;
-
-    const results = await this.executeQuery(query, [credentialId]);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return results.map((row: any) => ({
-      Id: row.Id,
-      ItemId: row.ItemId ?? row.CredentialId, // Support both old and new schema
-      RpId: row.RpId,
-      PublicKey: row.PublicKey,
-      PrivateKey: row.PrivateKey,
-      DisplayName: row.DisplayName,
-      PrfKey: row.PrfKey,
-      AdditionalData: row.AdditionalData,
-      CreatedAt: row.CreatedAt,
-      UpdatedAt: row.UpdatedAt,
-      IsDeleted: row.IsDeleted
-    }));
-  }
-
-  /**
-   * Create a new passkey linked to an item
+   * Create a new passkey linked to an item.
    * @param passkey - The passkey object to create
    */
   public async createPasskey(passkey: Omit<Passkey, 'CreatedAt' | 'UpdatedAt' | 'IsDeleted'>): Promise<void> {
-    try {
-      await NativeVaultManager.beginTransaction();
-
-      const currentDateTime = dateFormatter.now();
-
-      const query = `
-        INSERT INTO Passkeys (
-          Id, ItemId, RpId, PublicKey, PrivateKey,
-          PrfKey, DisplayName, AdditionalData, CreatedAt, UpdatedAt, IsDeleted
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `;
-
-      // Convert PrfKey to Uint8Array if it's a number array
-      let prfKeyData: Uint8Array | null = null;
-      if (passkey.PrfKey) {
-        prfKeyData = passkey.PrfKey instanceof Uint8Array ? passkey.PrfKey : new Uint8Array(passkey.PrfKey);
-      }
-
-      await this.executeUpdate(query, [
-        passkey.Id,
-        passkey.ItemId,
-        passkey.RpId,
-        passkey.PublicKey,
-        passkey.PrivateKey,
-        prfKeyData,
-        passkey.DisplayName,
-        passkey.AdditionalData ?? null,
-        currentDateTime,
-        currentDateTime,
-        0
-      ]);
-
-      await NativeVaultManager.commitTransaction();
-    } catch (error) {
-      await NativeVaultManager.rollbackTransaction();
-      console.error('Error creating passkey:', error);
-      throw error;
-    }
+    return this.passkeys.create(passkey);
   }
 
   /**
-   * Delete a passkey by its ID (soft delete)
+   * Delete a passkey by its ID (soft delete).
    * @param passkeyId - The ID of the passkey to delete
    * @returns The number of rows updated
    */
   public async deletePasskeyById(passkeyId: string): Promise<number> {
-    try {
-      await NativeVaultManager.beginTransaction();
-
-      const currentDateTime = dateFormatter.now();
-
-      const query = `
-        UPDATE Passkeys
-        SET IsDeleted = 1,
-            UpdatedAt = ?
-        WHERE Id = ?
-      `;
-
-      const result = await this.executeUpdate(query, [currentDateTime, passkeyId]);
-
-      await NativeVaultManager.commitTransaction();
-      return result;
-    } catch (error) {
-      await NativeVaultManager.rollbackTransaction();
-      console.error('Error deleting passkey:', error);
-      throw error;
-    }
+    return this.passkeys.delete(passkeyId);
   }
 
   /**
-   * Delete all passkeys for a specific credential (soft delete)
-   * @param credentialId - The ID of the credential
-   * @returns The number of rows updated
-   */
-  public async deletePasskeysByCredentialId(credentialId: string): Promise<number> {
-    try {
-      await NativeVaultManager.beginTransaction();
-
-      const currentDateTime = dateFormatter.now();
-
-      const query = `
-        UPDATE Passkeys
-        SET IsDeleted = 1,
-            UpdatedAt = ?
-        WHERE CredentialId = ?
-      `;
-
-      const result = await this.executeUpdate(query, [currentDateTime, credentialId]);
-
-      await NativeVaultManager.commitTransaction();
-      return result;
-    } catch (error) {
-      await NativeVaultManager.rollbackTransaction();
-      console.error('Error deleting passkeys for credential:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Update a passkey's display name
+   * Update a passkey's display name.
    * @param passkeyId - The ID of the passkey to update
    * @param displayName - The new display name
    * @returns The number of rows updated
    */
   public async updatePasskeyDisplayName(passkeyId: string, displayName: string): Promise<number> {
-    try {
-      await NativeVaultManager.beginTransaction();
-
-      const currentDateTime = dateFormatter.now();
-
-      const query = `
-        UPDATE Passkeys
-        SET DisplayName = ?,
-            UpdatedAt = ?
-        WHERE Id = ?
-      `;
-
-      const result = await this.executeUpdate(query, [displayName, currentDateTime, passkeyId]);
-
-      await NativeVaultManager.commitTransaction();
-      return result;
-    } catch (error) {
-      await NativeVaultManager.rollbackTransaction();
-      console.error('Error updating passkey display name:', error);
-      throw error;
-    }
+    return this.passkeys.updateDisplayName(passkeyId, displayName);
   }
 }
 

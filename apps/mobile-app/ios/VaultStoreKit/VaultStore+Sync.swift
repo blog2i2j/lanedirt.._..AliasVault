@@ -31,6 +31,46 @@ public struct VaultResponse: Codable {
     public let vault: VaultData
 }
 
+/// Sync state result
+public struct SyncStateResult {
+    public let isDirty: Bool
+    public let mutationSequence: Int
+    public let serverRevision: Int
+    public let isSyncing: Bool
+
+    public init(isDirty: Bool, mutationSequence: Int, serverRevision: Int, isSyncing: Bool) {
+        self.isDirty = isDirty
+        self.mutationSequence = mutationSequence
+        self.serverRevision = serverRevision
+        self.isSyncing = isSyncing
+    }
+}
+
+/// Result of checking for new vault version
+public struct VaultVersionCheckResult {
+    public let isNewVersionAvailable: Bool
+    public let newRevision: Int?
+    public let serverRevision: Int
+    public let syncState: SyncStateResult
+}
+
+/// Result of vault upload
+public struct VaultUploadResult {
+    public let success: Bool
+    public let status: Int
+    public let newRevisionNumber: Int
+    public let mutationSeqAtStart: Int
+    public let error: String?
+
+    public init(success: Bool, status: Int, newRevisionNumber: Int, mutationSeqAtStart: Int, error: String? = nil) {
+        self.success = success
+        self.status = status
+        self.newRevisionNumber = newRevisionNumber
+        self.mutationSeqAtStart = mutationSeqAtStart
+        self.error = error
+    }
+}
+
 /// Extension for the VaultStore class to handle vault sync operations
 extension VaultStore {
     // MARK: - Vault Sync
@@ -47,6 +87,49 @@ extension VaultStore {
         }
 
         return nil
+    }
+
+    /// Check if a new vault version is available, including sync state for merge decision
+    /// This enhanced version returns sync state so the caller can decide whether to merge
+    public func checkVaultVersion(using webApiService: WebApiService) async throws -> VaultVersionCheckResult {
+        let status = try await fetchAndValidateStatus(using: webApiService)
+        setOfflineMode(false)
+
+        let syncState = getSyncState()
+        let isNewVersionAvailable = status.vaultRevision > syncState.serverRevision
+
+        return VaultVersionCheckResult(
+            isNewVersionAvailable: isNewVersionAvailable,
+            newRevision: isNewVersionAvailable ? status.vaultRevision : nil,
+            serverRevision: status.vaultRevision,
+            syncState: syncState
+        )
+    }
+
+    /// Fetch the server vault (encrypted blob)
+    /// Use this for merge operations where you need both local and server vaults
+    public func fetchServerVault(using webApiService: WebApiService) async throws -> VaultResponse {
+        let vaultResponse: WebApiResponse
+        do {
+            vaultResponse = try await webApiService.executeRequest(
+                method: "GET",
+                endpoint: "Vault",
+                body: nil,
+                headers: [:],
+                requiresAuth: true
+            )
+        } catch {
+            throw VaultSyncError.networkError(underlyingError: error)
+        }
+
+        guard vaultResponse.statusCode == 200 else {
+            if vaultResponse.statusCode == 401 {
+                throw VaultSyncError.sessionExpired
+            }
+            throw VaultSyncError.serverUnavailable(statusCode: vaultResponse.statusCode)
+        }
+
+        return try parseVaultResponse(vaultResponse.body)
     }
 
     /// Download and store the vault from the server

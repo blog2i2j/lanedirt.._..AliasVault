@@ -93,6 +93,58 @@ export interface Spec extends TurboModule {
   downloadVault(newRevision: number): Promise<boolean>;
   mutateVault(): Promise<boolean>;
 
+  // Sync state management
+  getSyncState(): Promise<{
+    isDirty: boolean;
+    mutationSequence: number;
+    serverRevision: number;
+    isSyncing: boolean;
+  }>;
+  setIsDirty(isDirty: boolean): Promise<void>;
+  setIsSyncing(isSyncing: boolean): Promise<void>;
+  storeEncryptedVaultWithSyncState(
+    encryptedVault: string,
+    markDirty: boolean,
+    serverRevision: number | null,
+    expectedMutationSeq: number | null
+  ): Promise<{ success: boolean; mutationSequence: number }>;
+  markVaultClean(mutationSeqAtStart: number, newServerRevision: number): Promise<boolean>;
+  uploadVault(): Promise<{
+    success: boolean;
+    status: number;
+    newRevisionNumber: number;
+    mutationSeqAtStart: number;
+    error: string | null;
+  }>;
+  fetchServerVault(): Promise<{
+    status: number;
+    vault: {
+      username: string;
+      blob: string;
+      version: string;
+      currentRevisionNumber: number;
+      encryptionPublicKey: string;
+      credentialsCount: number;
+      emailAddressList: string[];
+      privateEmailDomainList: string[];
+      hiddenPrivateEmailDomainList: string[];
+      publicEmailDomainList: string[];
+      createdAt: string;
+      updatedAt: string;
+    };
+  }>;
+  checkVaultVersion(): Promise<{
+    isNewVersionAvailable: boolean;
+    newRevision: number | null;
+    serverRevision: number;
+    syncState: {
+      isDirty: boolean;
+      mutationSequence: number;
+      serverRevision: number;
+      isSyncing: boolean;
+    };
+  }>;
+
   // PIN unlock methods
   isPinEnabled(): Promise<boolean>;
   removeAndDisablePin(): Promise<void>;

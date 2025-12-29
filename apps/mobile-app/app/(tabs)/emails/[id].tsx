@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { StyleSheet, View, ActivityIndicator, Alert, Share, useColorScheme, Linking, Text, TextInput, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 
-import type { Credential } from '@/utils/dist/core/models/vault';
+import type { Item } from '@/utils/dist/core/models/vault';
 import type { Email } from '@/utils/dist/core/models/webapi';
 import EncryptionUtility from '@/utils/EncryptionUtility';
 import emitter from '@/utils/EventEmitter';
@@ -40,7 +40,7 @@ export default function EmailDetailsScreen() : React.ReactNode {
   const [isMetadataMaximized, setMetadataMaximized] = useState(false);
   const [isHtmlView, setHtmlView] = useState(true);
   const isDarkMode = useColorScheme() === 'dark';
-  const [associatedCredential, setAssociatedCredential] = useState<Credential | null>(null);
+  const [associatedItem, setAssociatedItem] = useState<Item | null>(null);
 
   /**
    * Load the email.
@@ -61,11 +61,11 @@ export default function EmailDetailsScreen() : React.ReactNode {
       const decryptedEmail = await EncryptionUtility.decryptEmail(response, encryptionKeys);
       setEmail(decryptedEmail);
 
-      // Look up associated credential
+      // Look up associated item
       if (decryptedEmail.toLocal && decryptedEmail.toDomain) {
         const emailAddress = `${decryptedEmail.toLocal}@${decryptedEmail.toDomain}`;
-        const credential = await dbContext.sqliteClient.getCredentialByEmail(emailAddress);
-        setAssociatedCredential(credential);
+        const item = await dbContext.sqliteClient.getItemByEmail(emailAddress);
+        setAssociatedItem(item);
       }
 
       // Set initial view mode based on content
@@ -171,8 +171,8 @@ export default function EmailDetailsScreen() : React.ReactNode {
    * Handle the open item button press.
    */
   const handleOpenItem = () : void => {
-    if (associatedCredential) {
-      router.push(`/(tabs)/items/${associatedCredential.Id}`);
+    if (associatedItem) {
+      router.push(`/(tabs)/items/${associatedItem.Id}`);
     }
   };
 
@@ -405,7 +405,7 @@ export default function EmailDetailsScreen() : React.ReactNode {
           <View style={styles.metadataRow}>
             <View style={styles.metadataValue}>
               <ThemedText style={[styles.metadataText, styles.metadataSubject]}>{email.subject}</ThemedText>
-              {associatedCredential && (
+              {associatedItem && (
                 <View>
                   <RobustPressable
                     onPress={handleOpenItem}
@@ -413,7 +413,7 @@ export default function EmailDetailsScreen() : React.ReactNode {
                   >
                     <IconSymbol size={16} name={IconSymbolName.Key} color={colors.primary} style={styles.metadataItemIcon} />
                     <ThemedText style={[styles.metadataText, { color: colors.primary }]}>
-                      {associatedCredential.ServiceName}
+                      {associatedItem.Name}
                     </ThemedText>
                   </RobustPressable>
                 </View>

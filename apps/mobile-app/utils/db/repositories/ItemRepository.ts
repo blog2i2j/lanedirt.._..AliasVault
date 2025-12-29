@@ -124,6 +124,35 @@ export class ItemRepository extends BaseRepository {
   }
 
   /**
+   * Fetch an item by its email address (case-insensitive).
+   * @param email - The email address to search for
+   * @returns Item object or null if not found
+   */
+  public async getByEmail(email: string): Promise<Item | null> {
+    // 1. Fetch item row by email
+    const itemRows = await this.client.executeQuery<ItemRow>(
+      ItemQueries.GET_BY_EMAIL,
+      [email, FieldKey.LoginEmail]
+    );
+
+    if (itemRows.length === 0) {
+      return null;
+    }
+
+    const itemRow = itemRows[0];
+
+    // 2. Fetch field values
+    const fieldRows = await this.client.executeQuery<Omit<FieldRow, 'ItemId'>>(
+      ItemQueries.GET_FIELD_VALUES_FOR_ITEM,
+      [itemRow.Id]
+    );
+    const fields = FieldMapper.processFieldRowsForSingleItem(fieldRows);
+
+    // 3. Map to Item object
+    return ItemMapper.mapRow(itemRow, fields, []);
+  }
+
+  /**
    * Get recently deleted items (in trash).
    * @returns Array of items with DeletedAt field
    */

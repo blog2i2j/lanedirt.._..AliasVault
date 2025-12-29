@@ -1017,6 +1017,167 @@ public class VaultManager: NSObject {
         }
     }
 
+    // MARK: - Sync State Management
+
+    @objc
+    func getSyncState(_ resolve: @escaping RCTPromiseResolveBlock,
+                     rejecter reject: @escaping RCTPromiseRejectBlock) {
+        let syncState = vaultStore.getSyncState()
+        let result: [String: Any] = [
+            "isDirty": syncState.isDirty,
+            "mutationSequence": syncState.mutationSequence,
+            "serverRevision": syncState.serverRevision,
+            "isSyncing": syncState.isSyncing
+        ]
+        resolve(result)
+    }
+
+    @objc
+    func setIsDirty(_ isDirty: Bool,
+                   resolver resolve: @escaping RCTPromiseResolveBlock,
+                   rejecter reject: @escaping RCTPromiseRejectBlock) {
+        vaultStore.setIsDirty(isDirty)
+        resolve(nil)
+    }
+
+    @objc
+    func setIsSyncing(_ isSyncing: Bool,
+                     resolver resolve: @escaping RCTPromiseResolveBlock,
+                     rejecter reject: @escaping RCTPromiseRejectBlock) {
+        vaultStore.setIsSyncing(isSyncing)
+        resolve(nil)
+    }
+
+    @objc
+    func storeEncryptedVaultWithSyncState(_ encryptedVault: String,
+                                          markDirty: Bool,
+                                          serverRevision: NSNumber?,
+                                          expectedMutationSeq: NSNumber?,
+                                          resolver resolve: @escaping RCTPromiseResolveBlock,
+                                          rejecter reject: @escaping RCTPromiseRejectBlock) {
+        do {
+            let result = try vaultStore.storeEncryptedVaultWithSyncState(
+                encryptedVault: encryptedVault,
+                markDirty: markDirty,
+                serverRevision: serverRevision?.intValue,
+                expectedMutationSeq: expectedMutationSeq?.intValue
+            )
+            let response: [String: Any] = [
+                "success": result.success,
+                "mutationSequence": result.mutationSequence
+            ]
+            resolve(response)
+        } catch {
+            reject("STORE_VAULT_ERROR", "Failed to store vault: \(error.localizedDescription)", error)
+        }
+    }
+
+    @objc
+    func markVaultClean(_ mutationSeqAtStart: Int,
+                       newServerRevision: Int,
+                       resolver resolve: @escaping RCTPromiseResolveBlock,
+                       rejecter reject: @escaping RCTPromiseRejectBlock) {
+        let cleared = vaultStore.markVaultClean(mutationSeqAtStart: mutationSeqAtStart, newServerRevision: newServerRevision)
+        resolve(cleared)
+    }
+
+    @objc
+    func uploadVault(_ resolve: @escaping RCTPromiseResolveBlock,
+                    rejecter reject: @escaping RCTPromiseRejectBlock) {
+        Task {
+            do {
+                let result = try await vaultStore.uploadVault(using: webApiService)
+                await MainActor.run {
+                    let response: [String: Any] = [
+                        "success": result.success,
+                        "status": result.status,
+                        "newRevisionNumber": result.newRevisionNumber,
+                        "mutationSeqAtStart": result.mutationSeqAtStart,
+                        "error": result.error as Any
+                    ]
+                    resolve(response)
+                }
+            } catch {
+                await MainActor.run {
+                    reject("UPLOAD_VAULT_ERROR", "Failed to upload vault: \(error.localizedDescription)", error)
+                }
+            }
+        }
+    }
+
+    @objc
+    func fetchServerVault(_ resolve: @escaping RCTPromiseResolveBlock,
+                         rejecter reject: @escaping RCTPromiseRejectBlock) {
+        Task {
+            do {
+                let vaultResponse = try await vaultStore.fetchServerVault(using: webApiService)
+
+                // Convert VaultResponse to dictionary for React Native
+                let vaultDict: [String: Any] = [
+                    "status": vaultResponse.status,
+                    "vault": [
+                        "username": vaultResponse.vault.username,
+                        "blob": vaultResponse.vault.blob,
+                        "version": vaultResponse.vault.version,
+                        "currentRevisionNumber": vaultResponse.vault.currentRevisionNumber,
+                        "encryptionPublicKey": vaultResponse.vault.encryptionPublicKey,
+                        "credentialsCount": vaultResponse.vault.credentialsCount,
+                        "emailAddressList": vaultResponse.vault.emailAddressList,
+                        "privateEmailDomainList": vaultResponse.vault.privateEmailDomainList,
+                        "hiddenPrivateEmailDomainList": vaultResponse.vault.hiddenPrivateEmailDomainList,
+                        "publicEmailDomainList": vaultResponse.vault.publicEmailDomainList,
+                        "createdAt": vaultResponse.vault.createdAt,
+                        "updatedAt": vaultResponse.vault.updatedAt
+                    ]
+                ]
+
+                await MainActor.run {
+                    resolve(vaultDict)
+                }
+            } catch {
+                await MainActor.run {
+                    if let syncError = error as? VaultSyncError {
+                        reject(syncError.code, syncError.message, error)
+                    } else {
+                        reject("FETCH_VAULT_ERROR", "Failed to fetch vault: \(error.localizedDescription)", error)
+                    }
+                }
+            }
+        }
+    }
+
+    @objc
+    func checkVaultVersion(_ resolve: @escaping RCTPromiseResolveBlock,
+                          rejecter reject: @escaping RCTPromiseRejectBlock) {
+        Task {
+            do {
+                let result = try await vaultStore.checkVaultVersion(using: webApiService)
+                await MainActor.run {
+                    let response: [String: Any] = [
+                        "isNewVersionAvailable": result.isNewVersionAvailable,
+                        "newRevision": result.newRevision as Any,
+                        "serverRevision": result.serverRevision,
+                        "syncState": [
+                            "isDirty": result.syncState.isDirty,
+                            "mutationSequence": result.syncState.mutationSequence,
+                            "serverRevision": result.syncState.serverRevision,
+                            "isSyncing": result.syncState.isSyncing
+                        ]
+                    ]
+                    resolve(response)
+                }
+            } catch {
+                await MainActor.run {
+                    if let syncError = error as? VaultSyncError {
+                        reject(syncError.code, syncError.message, error)
+                    } else {
+                        reject("CHECK_VERSION_ERROR", "Failed to check vault version: \(error.localizedDescription)", error)
+                    }
+                }
+            }
+        }
+    }
+
     @objc
     func requiresMainQueueSetup() -> Bool {
         return false

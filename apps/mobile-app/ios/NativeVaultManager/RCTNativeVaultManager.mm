@@ -261,6 +261,40 @@
     [vaultManager mutateVault:resolve rejecter:reject];
 }
 
+// MARK: - Sync State Management
+
+- (void)getSyncState:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager getSyncState:resolve rejecter:reject];
+}
+
+- (void)setIsDirty:(BOOL)isDirty resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager setIsDirty:isDirty resolver:resolve rejecter:reject];
+}
+
+- (void)setIsSyncing:(BOOL)isSyncing resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager setIsSyncing:isSyncing resolver:resolve rejecter:reject];
+}
+
+- (void)storeEncryptedVaultWithSyncState:(NSString *)encryptedVault markDirty:(BOOL)markDirty serverRevision:(NSNumber *)serverRevision expectedMutationSeq:(NSNumber *)expectedMutationSeq resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager storeEncryptedVaultWithSyncState:encryptedVault markDirty:markDirty serverRevision:serverRevision expectedMutationSeq:expectedMutationSeq resolver:resolve rejecter:reject];
+}
+
+- (void)markVaultClean:(double)mutationSeqAtStart newServerRevision:(double)newServerRevision resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager markVaultClean:(NSInteger)mutationSeqAtStart newServerRevision:(NSInteger)newServerRevision resolver:resolve rejecter:reject];
+}
+
+- (void)uploadVault:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager uploadVault:resolve rejecter:reject];
+}
+
+- (void)fetchServerVault:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager fetchServerVault:resolve rejecter:reject];
+}
+
+- (void)checkVaultVersion:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager checkVaultVersion:resolve rejecter:reject];
+}
+
 // MARK: - PIN Unlock
 
 - (void)isPinEnabled:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {

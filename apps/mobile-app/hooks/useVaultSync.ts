@@ -1,17 +1,24 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
-import { AppInfo } from '@/utils/AppInfo';
-import type { VaultResponse } from '@/utils/dist/core/models/webapi';
 import { VaultAuthenticationError } from '@/utils/types/errors/VaultAuthenticationError';
-
 import { useTranslation } from '@/hooks/useTranslation';
 
 import { useApp } from '@/context/AppContext';
 import { useDb } from '@/context/DbContext';
-import { useWebApi } from '@/context/WebApiContext';
 import NativeVaultManager from '@/specs/NativeVaultManager';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
 import { VaultSyncErrorCode, getVaultSyncErrorCode } from '@/utils/types/errors/VaultSyncErrorCodes';
+import { VaultMergeService } from '@/utils/VaultMergeService';
+
+/**
+ * Sync state tracking for race detection and offline support.
+ */
+export type SyncState = {
+  isDirty: boolean;
+  mutationSequence: number;
+  serverRevision: number;
+  isSyncing: boolean;
+};
 
 /**
  * Utility function to ensure a minimum time has elapsed for an operation
@@ -35,21 +42,56 @@ type VaultSyncOptions = {
   onOffline?: () => void;
   onUpgradeRequired?: () => void;
   abortSignal?: AbortSignal;
-}
+  /** Internal retry count for race detection */
+  _retryCount?: number;
+};
+
+/**
+ * Maximum number of sync retries for race detection.
+ */
+const MAX_SYNC_RETRIES = 3;
 
 /**
  * Hook to sync the vault with the server.
- * Now delegates core sync logic to native layer while keeping UI orchestration in React Native.
+ *
+ * Implements the offline sync pattern from OFFLINE_MODE.md:
+ * 1. Check isDirty before overwriting local vault
+ * 2. Upload pending changes - sync is responsible for uploading, not just downloading
+ * 3. Race detection - use mutation sequence to detect concurrent edits
+ * 4. Recursive retry - if race detected, restart sync
  */
-export const useVaultSync = () : {
+export const useVaultSync = (): {
   syncVault: (options?: VaultSyncOptions) => Promise<boolean>;
+  getSyncState: () => Promise<SyncState>;
 } => {
   const { t } = useTranslation();
   const app = useApp();
   const dbContext = useDb();
+  const syncInProgressRef = useRef(false);
 
-  const syncVault = useCallback(async (options: VaultSyncOptions = {}) => {
-    const { onSuccess, onError, onStatus, onOffline, onUpgradeRequired, abortSignal } = options;
+  const getSyncState = useCallback(async (): Promise<SyncState> => {
+    return await NativeVaultManager.getSyncState();
+  }, []);
+
+  const syncVault = useCallback(async (options: VaultSyncOptions = {}): Promise<boolean> => {
+    const { onSuccess, onError, onStatus, onOffline, onUpgradeRequired, abortSignal, _retryCount = 0 } = options;
+
+    // Prevent infinite recursion
+    if (_retryCount >= MAX_SYNC_RETRIES) {
+      console.error('[useVaultSync] Max sync retries reached, aborting');
+      onError?.('Sync failed after multiple retries');
+      return false;
+    }
+
+    // Prevent concurrent syncs (only for the first call, not retries)
+    if (_retryCount === 0 && syncInProgressRef.current) {
+      console.log('[useVaultSync] Sync already in progress, skipping');
+      return false;
+    }
+
+    if (_retryCount === 0) {
+      syncInProgressRef.current = true;
+    }
 
     try {
       // Check if operation was aborted
@@ -61,101 +103,149 @@ export const useVaultSync = () : {
       const { isLoggedIn } = await app.initializeAuth();
 
       if (!isLoggedIn) {
-        // Not authenticated, return false immediately
         return false;
       }
 
-      // Check if operation was aborted
       if (abortSignal?.aborted) {
         console.debug('VaultSync: Operation aborted after auth check');
         return false;
       }
 
-      // Update status
+      // Mark as syncing
+      await NativeVaultManager.setIsSyncing(true);
+
       onStatus?.(t('vault.checkingVaultUpdates'));
 
-      // Check if operation was aborted
+      // Capture sync state at start for race detection
+      let versionCheck;
+      try {
+        versionCheck = await NativeVaultManager.checkVaultVersion();
+      } catch (err) {
+        const errorCode = getVaultSyncErrorCode(err);
+        return await handleSyncError(err, errorCode, app, t, onError, onOffline);
+      }
+
+      const { isNewVersionAvailable, serverRevision, syncState } = versionCheck;
+      const mutationSeqAtStart = syncState.mutationSequence;
+      const isDirty = syncState.isDirty;
+
       if (abortSignal?.aborted) {
-        console.debug('VaultSync: Operation aborted after status update');
+        console.debug('VaultSync: Operation aborted after version check');
         return false;
       }
 
-      // Step 1: Check if a new vault version is available
-      // This calls Auth/status endpoint and compares vault revisions
-      let hasNewVault = false;
-      let newRevision: number | null = null;
+      if (serverRevision > syncState.serverRevision) {
+        // Server has newer vault - download it
+        onStatus?.(t('vault.syncingUpdatedVault'));
 
-      try {
-        const versionCheckResult = await NativeVaultManager.isNewVaultVersionAvailable();
+        try {
+          const serverVaultResponse = await NativeVaultManager.fetchServerVault();
 
-        // Check if operation was aborted after version check
-        if (abortSignal?.aborted) {
-          console.debug('VaultSync: Operation aborted after version check');
-          return false;
-        }
+          if (isDirty) {
+            // CRITICAL: We have local changes - must merge!
+            console.log('[useVaultSync] Local changes detected, merging with server vault');
+            onStatus?.(t('vault.mergingVault'));
 
-        hasNewVault = versionCheckResult.isNewVersionAvailable;
-        newRevision = versionCheckResult.newRevision;
+            const localVault = await NativeVaultManager.getEncryptedDatabase();
+            if (!localVault) {
+              throw new Error('No local vault available for merge');
+            }
 
-        // Step 2: If a new version is available, download it
-        if (hasNewVault && newRevision != null) {
-          // Check if operation was aborted before download
-          if (abortSignal?.aborted) {
-            console.debug('VaultSync: Operation aborted before download');
-            return false;
+            // Perform LWW merge
+            // Note: For now, VaultMergeService returns localVault as placeholder.
+            // Full merge implementation will use Rust core library via native bindings.
+            const mergedVault = await VaultMergeService.mergeVaults(
+              localVault,
+              serverVaultResponse.vault.blob,
+              null // Encryption key not needed for current placeholder implementation
+            );
+
+            // Store merged vault with race detection
+            const storeResult = await NativeVaultManager.storeEncryptedVaultWithSyncState(
+              mergedVault,
+              false, // Not marking dirty - this is a sync operation
+              null, // Server revision will be updated after upload
+              mutationSeqAtStart
+            );
+
+            if (!storeResult.success) {
+              // Race detected - concurrent mutation happened during sync
+              console.log('[useVaultSync] Race detected during merge, retrying sync');
+              await NativeVaultManager.setIsSyncing(false);
+              return syncVault({ ...options, _retryCount: _retryCount + 1 });
+            }
+
+            // Upload merged vault to server
+            const uploadResult = await NativeVaultManager.uploadVault();
+
+            if (uploadResult.success) {
+              // Mark vault clean only if no mutations happened during upload
+              await NativeVaultManager.markVaultClean(mutationSeqAtStart, uploadResult.newRevisionNumber);
+            } else if (uploadResult.status === 2) {
+              // Vault outdated - server moved forward, retry sync
+              console.log('[useVaultSync] Vault outdated during upload, retrying sync');
+              await NativeVaultManager.setIsSyncing(false);
+              return syncVault({ ...options, _retryCount: _retryCount + 1 });
+            } else {
+              console.warn('[useVaultSync] Failed to upload merged vault:', uploadResult.error);
+              // Keep isDirty true for next sync attempt
+            }
+          } else {
+            // No local changes - safe to overwrite with server vault
+            const storeResult = await NativeVaultManager.storeEncryptedVaultWithSyncState(
+              serverVaultResponse.vault.blob,
+              false,
+              serverRevision,
+              mutationSeqAtStart
+            );
+
+            if (!storeResult.success) {
+              // Race detected - mutation happened during download
+              console.log('[useVaultSync] Race detected during download, retrying sync');
+              await NativeVaultManager.setIsSyncing(false);
+              return syncVault({ ...options, _retryCount: _retryCount + 1 });
+            }
           }
-
-          onStatus?.(t('vault.syncingUpdatedVault'));
-
-          // Run downloadVault with a min delay for UX purposes
-          await withMinimumDelay(
-            () => NativeVaultManager.downloadVault(newRevision!),
-            300
-          );
+        } catch (err) {
+          console.error('[useVaultSync] Error during vault download/merge:', err);
+          const errorCode = getVaultSyncErrorCode(err);
+          await NativeVaultManager.setIsSyncing(false);
+          return await handleSyncError(err, errorCode, app, t, onError, onOffline);
         }
-      } catch (err) {
-        console.error('VaultSync: syncVault error:', err);
+      } else if (serverRevision === syncState.serverRevision && isDirty) {
+        // Local changes at same revision - upload them!
+        console.log('[useVaultSync] Uploading local changes to server');
+        onStatus?.(t('vault.uploadingChanges'));
 
-        // Get the error code from the native layer
-        const errorCode = getVaultSyncErrorCode(err);
+        try {
+          const uploadResult = await NativeVaultManager.uploadVault();
 
-        // Handle specific error codes
-        switch (errorCode) {
-          case VaultSyncErrorCode.SESSION_EXPIRED:
-          case VaultSyncErrorCode.AUTHENTICATION_FAILED:
-            await app.logout('Your session has expired. Please login again.');
-            return false;
-
-          case VaultSyncErrorCode.PASSWORD_CHANGED:
-            await app.logout(t('vault.errors.passwordChanged'));
-            return false;
-
-          case VaultSyncErrorCode.CLIENT_VERSION_NOT_SUPPORTED:
-            onError?.(t('vault.errors.versionNotSupported'));
-            return false;
-
-          case VaultSyncErrorCode.SERVER_VERSION_NOT_SUPPORTED:
-            await app.logout(t('vault.errors.serverVersionNotSupported'));
-            return false;
-
-          case VaultSyncErrorCode.SERVER_UNAVAILABLE:
-            onOffline?.();
-            return false;
-
-          case VaultSyncErrorCode.NETWORK_ERROR:
-          case VaultSyncErrorCode.TIMEOUT:
-            onOffline?.();
-            return false;
-
-          default:
-            // Unknown error or no error code - rethrow
-            throw err;
+          if (uploadResult.success) {
+            // Mark vault clean only if no mutations happened during upload
+            await NativeVaultManager.markVaultClean(mutationSeqAtStart, uploadResult.newRevisionNumber);
+          } else if (uploadResult.status === 2) {
+            // Vault outdated - another device uploaded, retry to merge
+            console.log('[useVaultSync] Vault outdated, another device uploaded, retrying sync');
+            await NativeVaultManager.setIsSyncing(false);
+            return syncVault({ ...options, _retryCount: _retryCount + 1 });
+          } else {
+            console.warn('[useVaultSync] Failed to upload vault:', uploadResult.error);
+            // Keep isDirty true for next sync attempt
+          }
+        } catch (err) {
+          console.error('[useVaultSync] Error during vault upload:', err);
+          const errorCode = getVaultSyncErrorCode(err);
+          await NativeVaultManager.setIsSyncing(false);
+          return await handleSyncError(err, errorCode, app, t, onError, onOffline);
         }
       }
+      // else: Already in sync - nothing to do
 
+      // Mark syncing as complete
+      await NativeVaultManager.setIsSyncing(false);
+
+      // Unlock vault to refresh database connection
       try {
-        // We always re-unlock the vault to force reload of database connection
-        // This ensures React Native's SQLite connection sees changes made by native layer
         await NativeVaultManager.unlockVault();
 
         // Check if the vault needs migration
@@ -164,35 +254,34 @@ export const useVaultSync = () : {
           return false;
         }
 
-        onSuccess?.(hasNewVault);
+        onSuccess?.(isNewVersionAvailable);
 
         // Register credential identities after sync
         try {
           await NativeVaultManager.registerCredentialIdentities();
         } catch (error) {
           console.warn('Vault sync: Failed to register credential identities:', error);
-          // Don't fail the sync if credential registration fails
         }
 
-        return hasNewVault;
-      } catch (err: any) {
+        return isNewVersionAvailable;
+      } catch (err) {
         if (err instanceof VaultVersionIncompatibleError) {
           await app.logout(t(err.message));
           return false;
         }
 
-        // Log detailed error information for database setup failures
-        if (err?.code === 'DATABASE_SETUP_ERROR') {
-          console.error('Database setup error during unlock:', err.message);
-          throw new Error(t('common.errors.unknownErrorTryAgain'));
-        }
-
-        // Vault could not be unlocked
         console.error('Failed to unlock vault:', err);
         throw new Error(t('common.errors.unknownErrorTryAgain'));
       }
     } catch (err) {
       console.error('Vault sync error:', err);
+
+      // Ensure syncing flag is cleared on error
+      try {
+        await NativeVaultManager.setIsSyncing(false);
+      } catch {
+        // Ignore
+      }
 
       // Handle authentication errors
       if (err instanceof VaultAuthenticationError) {
@@ -208,44 +297,63 @@ export const useVaultSync = () : {
       // Check if it's a vault sync error with error code
       const errorCode = getVaultSyncErrorCode(err);
       if (errorCode) {
-        switch (errorCode) {
-          case VaultSyncErrorCode.SESSION_EXPIRED:
-          case VaultSyncErrorCode.AUTHENTICATION_FAILED:
-            await app.logout('Your session has expired. Please login again.');
-            return false;
-
-          case VaultSyncErrorCode.PASSWORD_CHANGED:
-            await app.logout(t('vault.errors.passwordChanged'));
-            return false;
-
-          case VaultSyncErrorCode.CLIENT_VERSION_NOT_SUPPORTED:
-            onError?.(t('vault.errors.versionNotSupported'));
-            return false;
-
-          case VaultSyncErrorCode.SERVER_VERSION_NOT_SUPPORTED:
-            await app.logout(t('vault.errors.serverVersionNotSupported'));
-            return false;
-
-          case VaultSyncErrorCode.SERVER_UNAVAILABLE:
-            await NativeVaultManager.setOfflineMode(true);
-            return true;
-
-          case VaultSyncErrorCode.NETWORK_ERROR:
-          case VaultSyncErrorCode.TIMEOUT:
-            await NativeVaultManager.setOfflineMode(true);
-            return true;
-
-          default:
-            // Let the error be handled below
-            break;
-        }
+        return await handleSyncError(err, errorCode, app, t, onError, onOffline);
       }
 
       const errorMessage = err instanceof Error ? err.message : t('common.errors.unknownError');
       onError?.(errorMessage);
       return false;
+    } finally {
+      if (_retryCount === 0) {
+        syncInProgressRef.current = false;
+      }
     }
   }, [app, dbContext, t]);
 
-  return { syncVault };
+  return { syncVault, getSyncState };
 };
+
+/**
+ * Handle sync errors by mapping error codes to appropriate actions.
+ */
+async function handleSyncError(
+  err: unknown,
+  errorCode: VaultSyncErrorCode | null,
+  app: ReturnType<typeof useApp>,
+  t: (key: string) => string,
+  onError?: (error: string) => void,
+  onOffline?: () => void
+): Promise<boolean> {
+  switch (errorCode) {
+    case VaultSyncErrorCode.SESSION_EXPIRED:
+    case VaultSyncErrorCode.AUTHENTICATION_FAILED:
+      await app.logout('Your session has expired. Please login again.');
+      return false;
+
+    case VaultSyncErrorCode.PASSWORD_CHANGED:
+      await app.logout(t('vault.errors.passwordChanged'));
+      return false;
+
+    case VaultSyncErrorCode.CLIENT_VERSION_NOT_SUPPORTED:
+      onError?.(t('vault.errors.versionNotSupported'));
+      return false;
+
+    case VaultSyncErrorCode.SERVER_VERSION_NOT_SUPPORTED:
+      await app.logout(t('vault.errors.serverVersionNotSupported'));
+      return false;
+
+    case VaultSyncErrorCode.SERVER_UNAVAILABLE:
+    case VaultSyncErrorCode.NETWORK_ERROR:
+    case VaultSyncErrorCode.TIMEOUT:
+      await NativeVaultManager.setOfflineMode(true);
+      onOffline?.();
+      // Return true to continue with local vault
+      return true;
+
+    default:
+      // Unknown error
+      const errorMessage = err instanceof Error ? err.message : t('common.errors.unknownError');
+      onError?.(errorMessage);
+      return false;
+  }
+}

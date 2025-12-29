@@ -72,6 +72,52 @@ class VaultSync(
         return false
     }
 
+    /**
+     * Check if a new vault version is available, including sync state for merge decision.
+     * This enhanced version returns sync state so the caller can decide whether to merge.
+     */
+    suspend fun checkVaultVersion(webApiService: net.aliasvault.app.webapi.WebApiService): VaultVersionCheckResult {
+        val status = fetchAndValidateStatus(webApiService)
+        metadata.setOfflineMode(false)
+
+        val syncState = metadata.getSyncState()
+        val isNewVersionAvailable = status.vaultRevision > syncState.serverRevision
+
+        return VaultVersionCheckResult(
+            isNewVersionAvailable = isNewVersionAvailable,
+            newRevision = if (isNewVersionAvailable) status.vaultRevision else null,
+            serverRevision = status.vaultRevision,
+            syncState = syncState,
+        )
+    }
+
+    /**
+     * Fetch the server vault (encrypted blob).
+     * Use this for merge operations where you need both local and server vaults.
+     */
+    suspend fun fetchServerVault(webApiService: net.aliasvault.app.webapi.WebApiService): VaultResponse {
+        val vaultResponse = try {
+            webApiService.executeRequest(
+                method = "GET",
+                endpoint = "Vault",
+                body = null,
+                headers = emptyMap(),
+                requiresAuth = true,
+            )
+        } catch (e: Exception) {
+            throw VaultSyncError.NetworkError(e)
+        }
+
+        if (vaultResponse.statusCode != 200) {
+            if (vaultResponse.statusCode == 401) {
+                throw VaultSyncError.SessionExpired()
+            }
+            throw VaultSyncError.ServerUnavailable(vaultResponse.statusCode)
+        }
+
+        return parseVaultResponsePublic(vaultResponse.body)
+    }
+
     // endregion
 
     // region Internal Helpers
@@ -201,7 +247,7 @@ class VaultSync(
         metadata.storeMetadata(json.toString())
     }
 
-    private fun parseVaultResponse(body: String): VaultResponse {
+    private fun parseVaultResponse(body: String): InternalVaultResponse {
         return try {
             val json = JSONObject(body)
             val vaultJson = json.getJSONObject("vault")
@@ -230,9 +276,9 @@ class VaultSync(
                 publicList.add(publicArray.getString(i))
             }
 
-            VaultResponse(
+            InternalVaultResponse(
                 status = json.getInt("status"),
-                vault = VaultData(
+                vault = InternalVaultData(
                     username = vaultJson.getString("username"),
                     blob = vaultJson.getString("blob"),
                     version = vaultJson.getString("version"),
@@ -251,6 +297,27 @@ class VaultSync(
             Log.e(TAG, "Failed to decode vault response", e)
             throw SerializationException("Failed to decode vault response: ${e.message}", e)
         }
+    }
+
+    private fun parseVaultResponsePublic(body: String): VaultResponse {
+        val internal = parseVaultResponse(body)
+        return VaultResponse(
+            status = internal.status,
+            vault = VaultData(
+                username = internal.vault.username,
+                blob = internal.vault.blob,
+                version = internal.vault.version,
+                currentRevisionNumber = internal.vault.currentRevisionNumber,
+                encryptionPublicKey = internal.vault.encryptionPublicKey,
+                credentialsCount = internal.vault.credentialsCount,
+                emailAddressList = internal.vault.emailAddressList,
+                privateEmailDomainList = internal.vault.privateEmailDomainList,
+                hiddenPrivateEmailDomainList = internal.vault.hiddenPrivateEmailDomainList,
+                publicEmailDomainList = internal.vault.publicEmailDomainList,
+                createdAt = internal.vault.createdAt,
+                updatedAt = internal.vault.updatedAt,
+            ),
+        )
     }
 
     private fun validateVaultStatus(status: Int) {
@@ -273,7 +340,7 @@ class VaultSync(
         val srpSalt: String,
     )
 
-    private data class VaultData(
+    private data class InternalVaultData(
         val username: String,
         val blob: String,
         val version: String,
@@ -288,9 +355,9 @@ class VaultSync(
         val updatedAt: String,
     )
 
-    private data class VaultResponse(
+    private data class InternalVaultResponse(
         val status: Int,
-        val vault: VaultData,
+        val vault: InternalVaultData,
     )
 
     // endregion

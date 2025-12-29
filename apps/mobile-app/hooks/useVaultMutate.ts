@@ -7,6 +7,7 @@ import srp from 'secure-remote-password/client';
 
 import type { EncryptionKeyDerivationParams } from '@/utils/dist/core/models/metadata';
 import type { PasswordChangeInitiateResponse, Vault, VaultPasswordChangeRequest } from '@/utils/dist/core/models/webapi';
+import { FieldKey, getFieldValue } from '@/utils/dist/core/models/vault';
 import EncryptionUtility from '@/utils/EncryptionUtility';
 
 import { useVaultSync } from '@/hooks/useVaultSync';
@@ -55,10 +56,10 @@ export function useVaultMutate() : {
     }
 
     const privateEmailDomains = await dbContext.sqliteClient!.getPrivateEmailDomains();
-    const credentials = await dbContext.sqliteClient!.getAllCredentials();
-    const privateEmailAddresses = credentials
-      .filter(cred => cred.Alias?.Email != null)
-      .map(cred => cred.Alias!.Email!)
+    const items = await dbContext.sqliteClient!.items.getAll();
+    const privateEmailAddresses = items
+      .map(item => getFieldValue(item, FieldKey.LoginEmail))
+      .filter((email): email is string => email != null && email !== '')
       .filter((email, index, self) => self.indexOf(email) === index)
       .filter(email => {
         return privateEmailDomains.some(domain => email.toLowerCase().endsWith(`@${domain.toLowerCase()}`));
@@ -72,7 +73,7 @@ export function useVaultMutate() : {
     return {
       blob: encryptedDb,
       createdAt: new Date().toISOString(),
-      credentialsCount: credentials.length,
+      credentialsCount: items.length,
       currentRevisionNumber: currentRevision,
       emailAddressList: privateEmailAddresses,
       privateEmailDomainList: [],
@@ -88,65 +89,94 @@ export function useVaultMutate() : {
 
   /**
    * Execute the provided operation (e.g. create/update/delete credential)
-   * Now delegates to native layer for vault upload.
+   *
+   * Implements the mutation pattern from OFFLINE_MODE.md:
+   * 1. Apply mutation to local database
+   * 2. Export and encrypt
+   * 3. Store locally with dirty flag (ATOMIC!)
+   * 4. Sync in background (or immediately if blocking)
    */
   const executeMutateOperation = useCallback(async (
     operation: () => Promise<void>,
     options: VaultMutationOptions
-  ) : Promise<void> => {
+  ): Promise<void> => {
     setSyncStatus(t('vault.savingChangesToVault'));
 
     // Execute the provided operation (e.g. create/update/delete credential)
     // The operation should wrap its changes in beginTransaction/commitTransaction
     await operation();
 
+    // After the operation completes, the native layer has the updated encrypted database.
+    // We need to store it with the isDirty flag set atomically.
+    const encryptedDb = await NativeVaultManager.getEncryptedDatabase();
+    if (!encryptedDb) {
+      throw new Error(t('vault.errors.failedToGetEncryptedDatabase'));
+    }
+
+    // Store locally with dirty flag (atomic operation)
+    await NativeVaultManager.storeEncryptedVaultWithSyncState(
+      encryptedDb,
+      true, // markDirty - increments mutation sequence and sets isDirty
+      null, // serverRevision - don't change
+      null  // expectedMutationSeq - not checking for race (local mutation)
+    );
+
     setSyncStatus(t('vault.uploadingVaultToServer'));
 
+    // Upload to server
     try {
-      // Call native mutateVault which handles:
-      // - Preparing vault metadata (credentials count, email addresses, etc.)
-      // - Uploading to server
-      // - Updating revision number
-      // - Clearing offline mode on success
-      const result = await NativeVaultManager.mutateVault();
+      const uploadResult = await NativeVaultManager.uploadVault();
 
-      // Verify success
-      if (result !== true) {
-        console.error('VaultMutate: Native mutateVault did not return true, result:', result);
-        throw new Error('Vault mutation did not complete successfully');
+      if (uploadResult.success) {
+        // Mark vault clean only if no mutations happened during upload
+        await NativeVaultManager.markVaultClean(
+          uploadResult.mutationSeqAtStart,
+          uploadResult.newRevisionNumber
+        );
+
+        // Register credential identities after successful mutation
+        try {
+          await NativeVaultManager.registerCredentialIdentities();
+        } catch (error) {
+          console.warn('VaultMutate: Failed to register credential identities:', error);
+        }
+
+        options.onSuccess?.();
+      } else if (uploadResult.status === 2) {
+        // Vault outdated - need to sync first
+        // The sync will handle merging our local changes
+        console.log('[VaultMutate] Vault outdated, triggering sync');
+        await syncVault({
+          onSuccess: () => options.onSuccess?.(),
+          onError: (error) => options.onError?.(new Error(error)),
+        });
+      } else {
+        // Other error - keep isDirty true for next sync
+        console.warn('[VaultMutate] Failed to upload vault:', uploadResult.error);
+
+        // Check if it's a network error
+        if (uploadResult.error?.includes('Network') || uploadResult.error?.includes('network')) {
+          await NativeVaultManager.setOfflineMode(true);
+          // Still call success - the local change is saved
+          options.onSuccess?.();
+        } else {
+          options.onError?.(new Error(uploadResult.error ?? t('common.errors.unknownError')));
+        }
       }
-
-      // Register credential identities after successful mutation
-      try {
-        await NativeVaultManager.registerCredentialIdentities();
-      } catch (error) {
-        console.warn('VaultMutate: Failed to register credential identities:', error);
-        // Don't fail the mutation if credential registration fails
-      }
-
-      // Success
-      options.onSuccess?.();
     } catch (error) {
-      console.error('VaultMutate: Error during vault mutation:', error);
+      console.error('VaultMutate: Error during vault upload:', error);
 
       // Check if it's a network error
       if (error instanceof Error && (error.message.includes('network') || error.message.includes('timeout'))) {
-        // Network error, mark as offline and track pending changes
         await NativeVaultManager.setOfflineMode(true);
+        // Still call success - the local change is saved and isDirty is set
         options.onSuccess?.();
         return;
       }
 
-      // Check for vault outdated error
-      if (error instanceof Error && error.message.includes('Vault is outdated')) {
-        options.onError?.(new Error(t('vault.errors.vaultOutdated')));
-        return;
-      }
-
-      // Re-throw the error so it's handled by the caller
       options.onError?.(new Error(t('common.errors.unknownError')));
     }
-  }, [t]);
+  }, [t, syncVault]);
 
   /**
    * Execute the provided operation (e.g. create/update/delete credential)
