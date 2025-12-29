@@ -411,7 +411,7 @@ export default function AddEditItemScreen(): React.ReactNode {
    */
   const loadExistingItem = useCallback(async (): Promise<void> => {
     try {
-      const existingItem = await dbContext.sqliteClient!.getItemById(id);
+      const existingItem = await dbContext.sqliteClient!.items.getById(id);
       if (existingItem) {
         setItem(existingItem);
 
@@ -448,7 +448,7 @@ export default function AddEditItemScreen(): React.ReactNode {
         setInitiallyVisibleFields(fieldsWithValues);
 
         // Load attachments for this item
-        const itemAttachments = await dbContext.sqliteClient!.getAttachmentsForItem(id);
+        const itemAttachments = await dbContext.sqliteClient!.settings.getAttachmentsForItem(id);
         setAttachments(itemAttachments);
         setOriginalAttachmentIds(itemAttachments.map(a => a.Id));
         if (itemAttachments.length > 0) {
@@ -456,7 +456,7 @@ export default function AddEditItemScreen(): React.ReactNode {
         }
 
         // Load TOTP codes for this item
-        const itemTotpCodes = await dbContext.sqliteClient!.getTotpCodesForItem(id);
+        const itemTotpCodes = await dbContext.sqliteClient!.settings.getTotpCodesForItem(id);
         setTotpCodes(itemTotpCodes);
         setOriginalTotpCodeIds(itemTotpCodes.map(tc => tc.Id));
         if (itemTotpCodes.length > 0) {
@@ -495,7 +495,7 @@ export default function AddEditItemScreen(): React.ReactNode {
 
       // Load folders for folder selection
       try {
-        const loadedFolders = await dbContext.sqliteClient!.getAllFolders();
+        const loadedFolders = await dbContext.sqliteClient!.folders.getAll();
         setFolders(loadedFolders);
       } catch (err) {
         console.error('Error loading folders:', err);
@@ -799,16 +799,16 @@ export default function AddEditItemScreen(): React.ReactNode {
 
     await executeVaultMutation(async () => {
       if (isEditMode) {
-        await dbContext.sqliteClient!.updateItem(itemToSave, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes);
+        await dbContext.sqliteClient!.items.update(itemToSave, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes);
 
         // Delete passkeys if marked for deletion
         if (passkeyIdsMarkedForDeletion.length > 0) {
           for (const passkeyId of passkeyIdsMarkedForDeletion) {
-            await dbContext.sqliteClient!.deletePasskeyById(passkeyId);
+            await dbContext.sqliteClient!.passkeys.delete(passkeyId);
           }
         }
       } else {
-        await dbContext.sqliteClient!.createItem(itemToSave, attachments, totpCodes);
+        await dbContext.sqliteClient!.items.create(itemToSave, attachments, totpCodes);
       }
 
       // Emit event to notify list and detail views to refresh
@@ -891,7 +891,7 @@ export default function AddEditItemScreen(): React.ReactNode {
             setIsSyncing(true);
 
             await executeVaultMutation(async () => {
-              await dbContext.sqliteClient!.trashItem(id);
+              await dbContext.sqliteClient!.items.trash(id);
             });
 
             emitter.emit('credentialChanged', id);

@@ -89,7 +89,7 @@ export default function ImportExportScreen(): React.ReactNode {
     // Get all items with their TOTP codes
     for (const item of items) {
       // Get TOTP codes for this item
-      const totpCodes = await dbContext.sqliteClient?.getTotpCodesForItem(item.Id) ?? [];
+      const totpCodes = await dbContext.sqliteClient?.settings.getTotpCodesForItem(item.Id) ?? [];
       const totpSecret = totpCodes.length > 0 ? totpCodes[0].SecretKey : '';
 
       // Convert item to credential format for backward compatibility with CSV export
@@ -223,7 +223,7 @@ export default function ImportExportScreen(): React.ReactNode {
       const dateStr = new Date().toISOString().split('T')[0];
 
       // Export as CSV
-      const items = await dbContext.sqliteClient?.getAllItems() ?? [];
+      const items = await dbContext.sqliteClient?.items.getAll() ?? [];
       const csvContent = await itemsToCsv(items);
 
       const filename = `aliasvault-export-${dateStr}.csv`;

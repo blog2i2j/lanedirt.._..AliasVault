@@ -61,7 +61,7 @@ export default function EmailsScreen() : React.ReactNode {
       }
 
       // Get unique email addresses from all items
-      const emailAddresses = await dbContext.sqliteClient.getAllItemEmailAddresses();
+      const emailAddresses = await dbContext.sqliteClient.items.getAllEmailAddresses();
 
       try {
         // For now we only show the latest 50 emails. No pagination.

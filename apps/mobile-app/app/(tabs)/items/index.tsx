@@ -205,9 +205,9 @@ export default function ItemsScreen(): React.ReactNode {
   const loadItems = useCallback(async (): Promise<void> => {
     try {
       const [items, loadedFolders, deletedCount] = await Promise.all([
-        dbContext.sqliteClient!.getAllItems(),
-        dbContext.sqliteClient!.getAllFolders(),
-        dbContext.sqliteClient!.getRecentlyDeletedCount()
+        dbContext.sqliteClient!.items.getAll(),
+        dbContext.sqliteClient!.folders.getAll(),
+        dbContext.sqliteClient!.items.getRecentlyDeletedCount()
       ]);
       setItemsList(items);
       setFolders(loadedFolders);
@@ -370,7 +370,7 @@ export default function ItemsScreen(): React.ReactNode {
     setIsSyncing(true);
 
     await executeVaultMutation(async () => {
-      await dbContext.sqliteClient!.trashItem(itemId);
+      await dbContext.sqliteClient!.items.trash(itemId);
       setIsSyncing(false);
     });
 
@@ -390,7 +390,7 @@ export default function ItemsScreen(): React.ReactNode {
    */
   const handleCreateFolder = useCallback(async (folderName: string) => {
     await executeVaultMutation(async () => {
-      await dbContext.sqliteClient!.createFolder(folderName, null);
+      await dbContext.sqliteClient!.folders.create(folderName, null);
     });
     await loadItems();
   }, [dbContext.sqliteClient, executeVaultMutation, loadItems]);

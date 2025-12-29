@@ -63,7 +63,7 @@ export default function RecentlyDeletedScreen(): React.ReactNode {
     }
 
     try {
-      const results = await dbContext.sqliteClient.getRecentlyDeletedItems();
+      const results = await dbContext.sqliteClient.items.getRecentlyDeleted();
       setItems(results);
     } catch (err) {
       console.error('Error loading deleted items:', err);
@@ -94,7 +94,7 @@ export default function RecentlyDeletedScreen(): React.ReactNode {
     }
 
     await executeVaultMutation(async () => {
-      await dbContext.sqliteClient!.restoreItem(itemId);
+      await dbContext.sqliteClient!.items.restore(itemId);
     });
 
     await loadItems();
@@ -115,7 +115,7 @@ export default function RecentlyDeletedScreen(): React.ReactNode {
     }
 
     await executeVaultMutation(async () => {
-      await dbContext.sqliteClient!.permanentlyDeleteItem(selectedItemId);
+      await dbContext.sqliteClient!.items.permanentlyDelete(selectedItemId);
     });
 
     await loadItems();
@@ -139,7 +139,7 @@ export default function RecentlyDeletedScreen(): React.ReactNode {
 
     await executeVaultMutation(async () => {
       for (const item of items) {
-        await dbContext.sqliteClient!.permanentlyDeleteItem(item.Id);
+        await dbContext.sqliteClient!.items.permanentlyDelete(item.Id);
       }
     });
 

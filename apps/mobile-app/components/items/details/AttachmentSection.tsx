@@ -176,7 +176,7 @@ export const AttachmentSection: React.FC<AttachmentSectionProps> = ({ item }): R
     }
 
     try {
-      const attachmentList = await dbContext.sqliteClient.getAttachmentsForItem(item.Id);
+      const attachmentList = await dbContext.sqliteClient.settings.getAttachmentsForItem(item.Id);
       setAttachments(attachmentList);
     } catch (error) {
       console.error('Error loading attachments:', error);

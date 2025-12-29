@@ -102,8 +102,8 @@ export default function FolderViewScreen(): React.ReactNode {
 
     try {
       const [items, folders] = await Promise.all([
-        dbContext.sqliteClient!.getAllItems(),
-        dbContext.sqliteClient!.getAllFolders()
+        dbContext.sqliteClient!.items.getAll(),
+        dbContext.sqliteClient!.folders.getAll()
       ]);
       // Filter to only items in this folder
       const folderItems = items.filter((item: Item) => item.FolderId === folderId);
@@ -271,7 +271,7 @@ export default function FolderViewScreen(): React.ReactNode {
     setIsSyncing(true);
 
     await executeVaultMutation(async () => {
-      await dbContext.sqliteClient!.trashItem(itemId);
+      await dbContext.sqliteClient!.items.trash(itemId);
       setIsSyncing(false);
     });
 
@@ -288,7 +288,7 @@ export default function FolderViewScreen(): React.ReactNode {
     }
 
     await executeVaultMutation(async () => {
-      await dbContext.sqliteClient!.updateFolder(folderId, newName);
+      await dbContext.sqliteClient!.folders.update(folderId, newName);
     });
     await loadItems();
     setShowEditFolderModal(false);
@@ -303,7 +303,7 @@ export default function FolderViewScreen(): React.ReactNode {
     }
 
     await executeVaultMutation(async () => {
-      await dbContext.sqliteClient!.deleteFolder(folderId);
+      await dbContext.sqliteClient!.folders.delete(folderId);
     });
     router.back();
   }, [dbContext.sqliteClient, folderId, executeVaultMutation, router]);
@@ -317,7 +317,7 @@ export default function FolderViewScreen(): React.ReactNode {
     }
 
     await executeVaultMutation(async () => {
-      await dbContext.sqliteClient!.deleteFolderWithContents(folderId);
+      await dbContext.sqliteClient!.folders.deleteWithContents(folderId);
     });
     router.back();
   }, [dbContext.sqliteClient, folderId, executeVaultMutation, router]);

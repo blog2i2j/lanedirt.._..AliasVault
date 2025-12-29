@@ -1,7 +1,7 @@
 import { Buffer } from 'buffer';
 
 import type { EncryptionKeyDerivationParams, VaultMetadata } from '@/utils/dist/core/models/metadata';
-import type { Attachment, EncryptionKey, PasswordSettings, TotpCode, Passkey, Item } from '@/utils/dist/core/models/vault';
+import type { EncryptionKey, PasswordSettings } from '@/utils/dist/core/models/vault';
 import { VaultSqlGenerator, VaultVersion, checkVersionCompatibility, extractVersionFromMigrationId } from '@/utils/dist/core/vault';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
 
@@ -9,10 +9,9 @@ import NativeVaultManager from '@/specs/NativeVaultManager';
 import { ItemRepository } from '@/utils/db/repositories/ItemRepository';
 import { SettingsRepository } from '@/utils/db/repositories/SettingsRepository';
 import { LogoRepository } from '@/utils/db/repositories/LogoRepository';
-import { FolderRepository, type Folder } from '@/utils/db/repositories/FolderRepository';
-import { PasskeyRepository, type PasskeyWithItemInfo } from '@/utils/db/repositories/PasskeyRepository';
+import { FolderRepository } from '@/utils/db/repositories/FolderRepository';
+import { PasskeyRepository } from '@/utils/db/repositories/PasskeyRepository';
 import type { IDatabaseClient, SqliteBindValue } from '@/utils/db/BaseRepository';
-import type { ItemWithDeletedAt } from '@/utils/db/mappers/ItemMapper';
 
 type SQLiteBindValue = string | number | null | Uint8Array;
 
@@ -281,196 +280,6 @@ class SqliteClient implements IDatabaseClient {
     }
   }
 
-  /**
-   * Fetch all items (new V5 schema).
-   * @returns Array of Item objects
-   */
-  public async getAllItems(): Promise<Item[]> {
-    return this.items.getAll();
-  }
-
-  /**
-   * Fetch a single item by ID (new V5 schema).
-   * @param itemId - The ID of the item to fetch
-   * @returns Item object or null if not found
-   */
-  public async getItemById(itemId: string): Promise<Item | null> {
-    return this.items.getById(itemId);
-  }
-
-  /**
-   * Fetch all unique email addresses from items.
-   * @returns Array of email addresses
-   */
-  public async getAllItemEmailAddresses(): Promise<string[]> {
-    return this.items.getAllEmailAddresses();
-  }
-
-  /**
-   * Fetch an item by its email address (case-insensitive).
-   * @param email - The email address to search for
-   * @returns Item object or null if not found
-   */
-  public async getItemByEmail(email: string): Promise<Item | null> {
-    return this.items.getByEmail(email);
-  }
-
-  /**
-   * Get recently deleted items (in trash).
-   * @returns Array of items with DeletedAt field
-   */
-  public async getRecentlyDeletedItems(): Promise<ItemWithDeletedAt[]> {
-    return this.items.getRecentlyDeleted();
-  }
-
-  /**
-   * Get count of items in trash.
-   * @returns Number of items in trash
-   */
-  public async getRecentlyDeletedCount(): Promise<number> {
-    return this.items.getRecentlyDeletedCount();
-  }
-
-  /**
-   * Create a new item with its fields and related entities.
-   * @param item - The item to create
-   * @param attachments - Array of attachments
-   * @param totpCodes - Array of TOTP codes
-   * @returns The ID of the created item
-   */
-  public async createItem(item: Item, attachments: Attachment[] = [], totpCodes: TotpCode[] = []): Promise<string> {
-    return this.items.create(item, attachments, totpCodes);
-  }
-
-  /**
-   * Update an existing item.
-   * @param item - The item to update
-   * @param originalAttachmentIds - IDs of attachments before edit
-   * @param attachments - Current attachments
-   * @param originalTotpCodeIds - IDs of TOTP codes before edit
-   * @param totpCodes - Current TOTP codes
-   * @returns Number of rows affected
-   */
-  public async updateItem(
-    item: Item,
-    originalAttachmentIds: string[],
-    attachments: Attachment[],
-    originalTotpCodeIds: string[],
-    totpCodes: TotpCode[]
-  ): Promise<number> {
-    return this.items.update(item, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes);
-  }
-
-  /**
-   * Move an item to trash.
-   * @param itemId - The ID of the item
-   * @returns Number of rows affected
-   */
-  public async trashItem(itemId: string): Promise<number> {
-    return this.items.trash(itemId);
-  }
-
-  /**
-   * Restore an item from trash.
-   * @param itemId - The ID of the item
-   * @returns Number of rows affected
-   */
-  public async restoreItem(itemId: string): Promise<number> {
-    return this.items.restore(itemId);
-  }
-
-  /**
-   * Permanently delete an item.
-   * @param itemId - The ID of the item
-   * @returns Number of rows affected
-   */
-  public async permanentlyDeleteItem(itemId: string): Promise<number> {
-    return this.items.permanentlyDelete(itemId);
-  }
-
-  /**
-   * Get TOTP codes for an item (new V5 schema).
-   * @param itemId - The ID of the item
-   * @returns Array of TotpCode objects
-   */
-  public async getTotpCodesForItem(itemId: string): Promise<TotpCode[]> {
-    return this.settings.getTotpCodesForItem(itemId);
-  }
-
-  /**
-   * Get attachments for an item (new V5 schema).
-   * @param itemId - The ID of the item
-   * @returns Array of attachments
-   */
-  public async getAttachmentsForItem(itemId: string): Promise<Attachment[]> {
-    return this.settings.getAttachmentsForItem(itemId);
-  }
-
-  /**
-   * Get all folders.
-   * @returns Array of Folder objects
-   */
-  public async getAllFolders(): Promise<Folder[]> {
-    return this.folders.getAll();
-  }
-
-  /**
-   * Get a folder by ID.
-   * @param folderId - The ID of the folder
-   * @returns Folder object or null if not found
-   */
-  public async getFolderById(folderId: string): Promise<Omit<Folder, 'Weight'> | null> {
-    return this.folders.getById(folderId);
-  }
-
-  /**
-   * Create a new folder.
-   * @param name - The name of the folder
-   * @param parentFolderId - Optional parent folder ID for nested folders
-   * @returns The ID of the created folder
-   */
-  public async createFolder(name: string, parentFolderId?: string | null): Promise<string> {
-    return this.folders.create(name, parentFolderId);
-  }
-
-  /**
-   * Update a folder's name.
-   * @param folderId - The ID of the folder to update
-   * @param name - The new name for the folder
-   * @returns The number of rows updated
-   */
-  public async updateFolder(folderId: string, name: string): Promise<number> {
-    return this.folders.update(folderId, name);
-  }
-
-  /**
-   * Delete a folder (soft delete). Items in the folder will be moved to root.
-   * @param folderId - The ID of the folder to delete
-   * @returns The number of rows updated
-   */
-  public async deleteFolder(folderId: string): Promise<number> {
-    return this.folders.delete(folderId);
-  }
-
-  /**
-   * Delete a folder and all its contents. Items will be moved to trash.
-   * @param folderId - The ID of the folder to delete
-   * @returns The number of items trashed
-   */
-  public async deleteFolderWithContents(folderId: string): Promise<number> {
-    return this.folders.deleteWithContents(folderId);
-  }
-
-  /**
-   * Move an item to a folder.
-   * @param itemId - The ID of the item to move
-   * @param folderId - The ID of the destination folder (null to remove from folder)
-   * @returns The number of rows updated
-   */
-  public async moveItemToFolder(itemId: string, folderId: string | null): Promise<number> {
-    return this.folders.moveItem(itemId, folderId);
-  }
-
   // ============================================================================
   // Utility methods
   // ============================================================================
@@ -674,50 +483,6 @@ class SqliteClient implements IDatabaseClient {
     return allVersions[allVersions.length - 1];
   }
 
-  /**
-   * Get all passkeys for a specific relying party (rpId).
-   * @param rpId - The relying party identifier (domain)
-   * @returns Array of passkey objects with item info
-   */
-  public async getPasskeysByRpId(rpId: string): Promise<PasskeyWithItemInfo[]> {
-    return this.passkeys.getByRpId(rpId);
-  }
-
-  /**
-   * Get a passkey by its ID.
-   * @param passkeyId - The passkey ID
-   * @returns The passkey object or null if not found
-   */
-  public async getPasskeyById(passkeyId: string): Promise<PasskeyWithItemInfo | null> {
-    return this.passkeys.getById(passkeyId);
-  }
-
-  /**
-   * Create a new passkey linked to an item.
-   * @param passkey - The passkey object to create
-   */
-  public async createPasskey(passkey: Omit<Passkey, 'CreatedAt' | 'UpdatedAt' | 'IsDeleted'>): Promise<void> {
-    return this.passkeys.create(passkey);
-  }
-
-  /**
-   * Delete a passkey by its ID (soft delete).
-   * @param passkeyId - The ID of the passkey to delete
-   * @returns The number of rows updated
-   */
-  public async deletePasskeyById(passkeyId: string): Promise<number> {
-    return this.passkeys.delete(passkeyId);
-  }
-
-  /**
-   * Update a passkey's display name.
-   * @param passkeyId - The ID of the passkey to update
-   * @param displayName - The new display name
-   * @returns The number of rows updated
-   */
-  public async updatePasskeyDisplayName(passkeyId: string, displayName: string): Promise<number> {
-    return this.passkeys.updateDisplayName(passkeyId, displayName);
-  }
 }
 
 export default SqliteClient;

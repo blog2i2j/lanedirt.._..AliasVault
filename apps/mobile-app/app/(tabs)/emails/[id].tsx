@@ -64,7 +64,7 @@ export default function EmailDetailsScreen() : React.ReactNode {
       // Look up associated item
       if (decryptedEmail.toLocal && decryptedEmail.toDomain) {
         const emailAddress = `${decryptedEmail.toLocal}@${decryptedEmail.toDomain}`;
-        const item = await dbContext.sqliteClient.getItemByEmail(emailAddress);
+        const item = await dbContext.sqliteClient.items.getByEmail(emailAddress);
         setAssociatedItem(item);
       }
 

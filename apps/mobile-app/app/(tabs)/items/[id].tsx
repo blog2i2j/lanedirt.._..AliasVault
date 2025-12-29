@@ -76,7 +76,7 @@ export default function ItemDetailsScreen() : React.ReactNode {
       }
 
       try {
-        const result = await dbContext.sqliteClient!.getItemById(id as string);
+        const result = await dbContext.sqliteClient!.items.getById(id as string);
         setItem(result);
       } catch (err) {
         console.error('Error loading item:', err);

@@ -103,7 +103,7 @@ export const TotpSection: React.FC<TotpSectionProps> = ({ item }) : React.ReactN
       }
 
       try {
-        const codes = await dbContext.sqliteClient.getTotpCodesForItem(item.Id);
+        const codes = await dbContext.sqliteClient.settings.getTotpCodesForItem(item.Id);
         setTotpCodes(codes);
       } catch (error) {
         console.error('Error loading TOTP codes:', error);
