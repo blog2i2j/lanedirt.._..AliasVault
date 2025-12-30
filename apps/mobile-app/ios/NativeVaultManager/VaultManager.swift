@@ -468,7 +468,7 @@ public class VaultManager: NSObject {
         Task {
             do {
                 // Get all credentials from the vault
-                let credentials = try vaultStore.getAllCredentials()
+                let credentials = try vaultStore.getAllAutofillCredentials()
 
                 // Register both passwords and passkeys for QuickType and manual selection
                 try await CredentialIdentityStore.shared.saveCredentialIdentities(credentials)

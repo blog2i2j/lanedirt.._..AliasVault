@@ -15,7 +15,7 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
     func setupPasskeyView(vaultStore: VaultStore, rpId: String, clientDataHash: Data) throws -> UIViewController {
         let viewModel = PasskeyProviderViewModel(
             loader: {
-                return try vaultStore.getAllCredentialsWithPasskeys()
+                return try vaultStore.getAllAutofillCredentialsWithPasskeys()
             },
             selectionHandler: { credential in
                 // For passkey authentication, we assume the data is available
@@ -419,7 +419,7 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 }
 
                 // Step 6: Update the IdentityStore with the new credential (async call)
-                let credentials = try vaultStore.getAllCredentials()
+                let credentials = try vaultStore.getAllAutofillCredentials()
                 try await CredentialIdentityStore.shared.saveCredentialIdentities(credentials)
 
                 // Step 7: Create the ASPasskeyRegistrationCredential to return to the system
@@ -543,7 +543,7 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
     /**
      * Handle passkey credential selection from picker
      */
-    internal func handlePasskeySelection(credential: Credential, clientDataHash: Data, rpId: String) {
+    internal func handlePasskeySelection(credential: AutofillCredential, clientDataHash: Data, rpId: String) {
         do {
             // Get the first matching passkey for the RP ID
             guard let passkeys = credential.passkeys,

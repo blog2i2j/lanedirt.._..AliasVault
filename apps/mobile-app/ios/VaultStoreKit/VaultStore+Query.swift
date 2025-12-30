@@ -270,92 +270,30 @@ extension VaultStore {
         return try itemRepository.update(item)
     }
 
-    // MARK: - Legacy Credentials (Compatibility Layer)
+    // MARK: - Autofill Credentials
 
-    /// Get all credentials from the database.
-    /// This method converts the new Items model back to the legacy Credential model for compatibility.
-    /// Used by iOS Autofill extension which expects the old Credential structure.
-    public func getAllCredentials() throws -> [Credential] {
+    /// Get all items for autofill from the database.
+    /// This method converts Items to AutofillCredential for iOS Autofill extension.
+    public func getAllAutofillCredentials() throws -> [AutofillCredential] {
         let items = try getAllItems()
-        return items.compactMap { convertItemToCredential($0) }
+        return items.compactMap { convertItemToAutofillCredential($0) }
     }
 
-    /// Convert an Item to the legacy Credential format.
-    /// Used to maintain backwards compatibility with iOS Autofill extension.
-    private func convertItemToCredential(_ item: Item) -> Credential? {
-        // Create a Service from the item
-        let service = Service(
-            id: item.id, // Use item ID as service ID (they're now the same entity)
-            name: item.name,
-            url: item.url,
-            logo: item.logo,
-            createdAt: item.createdAt,
-            updatedAt: item.updatedAt,
-            isDeleted: false
-        )
-
-        // Create an Alias if the item has alias fields
-        var alias: Alias?
-        if item.firstName != nil || item.lastName != nil || item.email != nil {
-            // Default birth date for backwards compatibility
-            var dateComponents = DateComponents()
-            dateComponents.year = 1
-            dateComponents.month = 1
-            dateComponents.day = 1
-            let defaultBirthDate = Calendar(identifier: .gregorian).date(from: dateComponents)!
-
-            alias = Alias(
-                id: item.id, // Use item ID as alias ID
-                gender: item.getFieldValue(FieldKey.aliasGender),
-                firstName: item.firstName,
-                lastName: item.lastName,
-                nickName: nil,
-                birthDate: defaultBirthDate, // TODO: Parse birthdate from field value
-                email: item.email,
-                createdAt: item.createdAt,
-                updatedAt: item.updatedAt,
-                isDeleted: false
-            )
-        }
-
-        // Create a Password if the item has a password field
-        var password: Password?
-        if let passwordValue = item.password {
-            password = Password(
-                id: UUID(), // Generate a new ID for the password
-                credentialId: item.id,
-                value: passwordValue,
-                createdAt: item.createdAt,
-                updatedAt: item.updatedAt,
-                isDeleted: false
-            )
-        }
-
+    /// Convert an Item to an AutofillCredential for iOS Autofill.
+    private func convertItemToAutofillCredential(_ item: Item) -> AutofillCredential? {
         // Load passkeys for this item
         let passkeys = try? getPasskeys(forItemId: item.id)
 
-        return Credential(
-            id: item.id,
-            alias: alias,
-            service: service,
-            username: item.username,
-            notes: item.getFieldValue("login.notes"),
-            password: password,
-            passkeys: passkeys,
-            createdAt: item.createdAt,
-            updatedAt: item.updatedAt,
-            isDeleted: false
-        )
+        return AutofillCredential(from: item, passkeys: passkeys)
     }
 
-    /// Get all credentials that have passkeys by filtering the result of getAllCredentials.
-    public func getAllCredentialsWithPasskeys() throws -> [Credential] {
-        var credentials = try getAllCredentials()
+    /// Get all items that have passkeys for passkey autofill.
+    public func getAllAutofillCredentialsWithPasskeys() throws -> [AutofillCredential] {
+        var credentials = try getAllAutofillCredentials()
 
         // Filter to only include credentials that actually have passkeys
         credentials = credentials.filter { credential in
-            guard let passkeys = credential.passkeys else { return false }
-            return !passkeys.isEmpty
+            return credential.hasPasskeys
         }
 
         return credentials

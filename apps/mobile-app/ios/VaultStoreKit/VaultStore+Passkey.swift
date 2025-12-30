@@ -60,14 +60,15 @@ extension VaultStore {
      * Create an item with a passkey (for passkey registration)
      * This creates an Item record with field values and links the passkey to it
      */
+    @discardableResult
     public func createCredentialWithPasskey(
         rpId: String,
         userName: String?,
         displayName: String,
         passkey: Passkey,
         logo: Data? = nil
-    ) throws -> Credential {
-        _ = try passkeyRepository.createItemWithPasskey(
+    ) throws -> UUID {
+        let itemIdString = try passkeyRepository.createItemWithPasskey(
             rpId: rpId,
             userName: userName,
             displayName: displayName,
@@ -75,32 +76,12 @@ extension VaultStore {
             logo: logo
         )
 
-        // Return the credential (legacy format for backwards compatibility)
-        let itemId = passkey.parentCredentialId
-        let now = Date()
+        // Return the created item ID
+        guard let itemId = UUID(uuidString: itemIdString) else {
+            throw VaultStoreError.databaseError("Invalid item ID returned")
+        }
 
-        let service = Service(
-            id: itemId,
-            name: displayName,
-            url: "https://\(rpId)",
-            logo: logo,
-            createdAt: now,
-            updatedAt: now,
-            isDeleted: false
-        )
-
-        return Credential(
-            id: itemId,
-            alias: nil,
-            service: service,
-            username: userName,
-            notes: nil,
-            password: nil,
-            passkeys: [passkey],
-            createdAt: now,
-            updatedAt: now,
-            isDeleted: false
-        )
+        return itemId
     }
 
     /**
