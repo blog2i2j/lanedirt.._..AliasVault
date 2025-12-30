@@ -9,4 +9,10 @@ extension VaultStore: DatabaseClient {
     public var itemRepository: ItemRepository {
         return ItemRepository(client: self)
     }
+
+    /// The PasskeyRepository instance for this VaultStore.
+    /// Lazily initialized to use self as the database client.
+    public var passkeyRepository: PasskeyRepository {
+        return PasskeyRepository(client: self)
+    }
 }
