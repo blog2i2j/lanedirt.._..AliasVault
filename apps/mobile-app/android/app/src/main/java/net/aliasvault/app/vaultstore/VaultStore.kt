@@ -512,6 +512,21 @@ class VaultStore(
     }
 
     /**
+     * Persist the in-memory vault to storage and mark as dirty.
+     * Combines getting the encrypted database and storing it with dirty flag in one call.
+     * This is used after local mutations to persist changes.
+     */
+    fun markVaultDirty() {
+        val encryptedVault = databaseComponent.getEncryptedDatabase()
+        storeEncryptedVaultWithSyncState(
+            encryptedVault = encryptedVault,
+            markDirty = true,
+            serverRevision = null,
+            expectedMutationSeq = null
+        )
+    }
+
+    /**
      * Upload the vault to the server.
      */
     suspend fun uploadVault(webApiService: net.aliasvault.app.webapi.WebApiService): VaultUploadResult {

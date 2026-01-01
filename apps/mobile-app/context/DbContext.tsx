@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 
 import type { EncryptionKeyDerivationParams, VaultMetadata } from '@/utils/dist/core/models/metadata';
-import type { VaultResponse } from '@/utils/dist/core/models/webapi';
 import SqliteClient from '@/utils/SqliteClient';
 
 import NativeVaultManager from '@/specs/NativeVaultManager';
@@ -12,7 +11,6 @@ type DbContextType = {
   dbAvailable: boolean;
   storeEncryptionKey: (derivedKey: string) => Promise<void>;
   storeEncryptionKeyDerivationParams: (keyDerivationParams: EncryptionKeyDerivationParams) => Promise<void>;
-  initializeDatabase: (vaultResponse: VaultResponse) => Promise<void>;
   hasPendingMigrations: () => Promise<boolean>;
   clearDatabase: () => void;
   getVaultMetadata: () => Promise<VaultMetadata | null>;
@@ -79,39 +77,6 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const storeEncryptionKeyDerivationParams = useCallback(async (keyDerivationParams: EncryptionKeyDerivationParams) => {
     await sqliteClient.storeEncryptionKeyDerivationParams(keyDerivationParams);
   }, [sqliteClient]);
-
-  /**
-   * Initialize the database in the native module.
-   * This is called during initial login/registration to set up the vault.
-   * Note: During sync operations, metadata is stored automatically by native VaultSync.
-   *
-   * @param vaultResponse The vault response from the API
-   */
-  const initializeDatabase = useCallback(async (vaultResponse: VaultResponse) => {
-    const metadata: VaultMetadata = {
-      publicEmailDomains: vaultResponse.vault.publicEmailDomainList ?? [],
-      privateEmailDomains: vaultResponse.vault.privateEmailDomainList ?? [],
-      hiddenPrivateEmailDomains: vaultResponse.vault.hiddenPrivateEmailDomainList ?? [],
-      vaultRevisionNumber: vaultResponse.vault.currentRevisionNumber,
-    };
-
-    // Store vault blob atomically with sync state (fresh from server, not dirty)
-    await NativeVaultManager.storeEncryptedVaultWithSyncState(
-      vaultResponse.vault.blob,
-      false, // markDirty = false (fresh from server)
-      vaultResponse.vault.currentRevisionNumber, // serverRevision
-      null // expectedMutationSeq (not checking race on initial login)
-    );
-
-    // Store metadata separately (email domains - not critical for race conditions)
-    await sqliteClient.storeMetadata(JSON.stringify(metadata));
-
-    // Unlock the vault to make it available for queries
-    await unlockVault();
-
-    setDbInitialized(true);
-    setDbAvailable(true);
-  }, [sqliteClient, unlockVault]);
 
   /**
    * Check if there are any pending migrations. This method also checks if the current vault version is known to the client.
@@ -212,7 +177,6 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     sqliteClient,
     dbInitialized,
     dbAvailable,
-    initializeDatabase,
     hasPendingMigrations,
     clearDatabase,
     getVaultMetadata,
@@ -222,7 +186,7 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     storeEncryptionKeyDerivationParams,
     checkStoredVault,
     setDatabaseAvailable,
-  }), [sqliteClient, dbInitialized, dbAvailable, initializeDatabase, hasPendingMigrations, clearDatabase, getVaultMetadata, testDatabaseConnection, unlockVault, storeEncryptionKey, storeEncryptionKeyDerivationParams, checkStoredVault, setDatabaseAvailable]);
+  }), [sqliteClient, dbInitialized, dbAvailable, hasPendingMigrations, clearDatabase, getVaultMetadata, testDatabaseConnection, unlockVault, storeEncryptionKey, storeEncryptionKeyDerivationParams, checkStoredVault, setDatabaseAvailable]);
 
   return (
     <DbContext.Provider value={contextValue}>

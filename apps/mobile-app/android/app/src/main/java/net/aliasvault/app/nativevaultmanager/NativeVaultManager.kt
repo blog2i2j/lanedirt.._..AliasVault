@@ -1533,4 +1533,20 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
         }
     }
 
+    /**
+     * Persist the in-memory vault to storage and mark as dirty.
+     * Combines getting the encrypted database and storing it with dirty flag in one call.
+     * This is used after local mutations to persist changes.
+     */
+    @ReactMethod
+    fun markVaultDirty(promise: Promise) {
+        try {
+            vaultStore.markVaultDirty()
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error persisting vault", e)
+            promise.reject("ERR_PERSIST_VAULT", "Failed to persist vault: ${e.message}", e)
+        }
+    }
+
 }

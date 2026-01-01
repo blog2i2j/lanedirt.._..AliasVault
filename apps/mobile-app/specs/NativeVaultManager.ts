@@ -29,6 +29,8 @@ export interface Spec extends TurboModule {
   getSyncState(): Promise<{isDirty: boolean; mutationSequence: number; serverRevision: number; isSyncing: boolean}>;
   storeEncryptedVaultWithSyncState(encryptedVault: string, markDirty: boolean, serverRevision: number | null, expectedMutationSeq: number | null): Promise<{ success: boolean; mutationSequence: number }>;
   markVaultClean(mutationSeqAtStart: number, newServerRevision: number): Promise<boolean>;
+  markVaultDirty(): Promise<void>;
+
   uploadVault(): Promise<{ success: boolean; status: number; newRevisionNumber: number; mutationSeqAtStart: number; error: string | null }>;
 
   // Vault SQL operations

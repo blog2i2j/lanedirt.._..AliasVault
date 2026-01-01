@@ -259,6 +259,10 @@
     [vaultManager uploadVault:resolve rejecter:reject];
 }
 
+- (void)markVaultDirty:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager markVaultDirty:resolve rejecter:reject];
+}
+
 // MARK: - PIN Unlock
 
 - (void)isPinEnabled:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {

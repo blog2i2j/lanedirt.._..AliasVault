@@ -107,20 +107,8 @@ export function useVaultMutate() : {
     // The operation should wrap its changes in beginTransaction/commitTransaction
     await operation();
 
-    // After the operation completes, the native layer has the updated encrypted database.
-    // We need to store it with the isDirty flag set atomically.
-    const encryptedDb = await NativeVaultManager.getEncryptedDatabase();
-    if (!encryptedDb) {
-      throw new Error(t('vault.errors.failedToGetEncryptedDatabase'));
-    }
-
-    // Store locally with dirty flag (atomic operation)
-    await NativeVaultManager.storeEncryptedVaultWithSyncState(
-      encryptedDb,
-      true, // markDirty - increments mutation sequence and sets isDirty
-      null, // serverRevision - don't change
-      null  // expectedMutationSeq - not checking for race (local mutation)
-    );
+    // Persist the updated vault to storage and mark as dirty
+    await NativeVaultManager.markVaultDirty();
 
     setSyncStatus(t('vault.uploadingVaultToServer'));
 

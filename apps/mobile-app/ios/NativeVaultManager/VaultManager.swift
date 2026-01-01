@@ -999,6 +999,24 @@ public class VaultManager: NSObject {
         }
     }
 
+    /// Persist the in-memory vault to storage and mark as dirty (for local mutations).
+    @objc
+    func markVaultDirty(_ resolve: @escaping RCTPromiseResolveBlock,
+                                  rejecter reject: @escaping RCTPromiseRejectBlock) {
+        Task {
+            do {
+                try vaultStore.markVaultDirty()
+                await MainActor.run {
+                    resolve(nil)
+                }
+            } catch {
+                await MainActor.run {
+                    reject("PERSIST_VAULT_ERROR", "Failed to persist vault: \(error.localizedDescription)", error)
+                }
+            }
+        }
+    }
+
     @objc
     func requiresMainQueueSetup() -> Bool {
         return false
