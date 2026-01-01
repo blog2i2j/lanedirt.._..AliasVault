@@ -184,22 +184,6 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Store the encrypted database.
-     * @param base64EncryptedDb The encrypted database as a base64 encoded string
-     * @param promise The promise to resolve
-     */
-    @ReactMethod
-    override fun storeDatabase(base64EncryptedDb: String, promise: Promise) {
-        try {
-            vaultStore.storeEncryptedDatabase(base64EncryptedDb)
-            promise.resolve(null)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error storing database", e)
-            promise.reject("ERR_STORE_DB", "Failed to store database: ${e.message}", e)
-        }
-    }
-
-    /**
      * Store the metadata.
      * @param metadata The metadata as a string
      * @param promise The promise to resolve
@@ -337,37 +321,6 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
         } catch (e: Exception) {
             Log.e(TAG, "Error getting encrypted database", e)
             promise.reject("ERR_GET_DB", "Failed to get encrypted database: ${e.message}", e)
-        }
-    }
-
-    /**
-     * Get the current vault revision number.
-     * @param promise The promise to resolve
-     */
-    @ReactMethod
-    override fun getCurrentVaultRevisionNumber(promise: Promise) {
-        try {
-            val revision = vaultStore.getVaultRevisionNumber()
-            promise.resolve(revision)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error getting vault revision", e)
-            promise.reject("ERR_GET_REVISION", "Failed to get vault revision: ${e.message}", e)
-        }
-    }
-
-    /**
-     * Set the current vault revision number.
-     * @param revisionNumber The revision number
-     * @param promise The promise to resolve
-     */
-    @ReactMethod
-    override fun setCurrentVaultRevisionNumber(revisionNumber: Double, promise: Promise?) {
-        try {
-            vaultStore.setVaultRevisionNumber(revisionNumber.toInt())
-            promise?.resolve(null)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error setting vault revision", e)
-            promise?.reject("ERR_SET_REVISION", "Failed to set vault revision: ${e.message}", e)
         }
     }
 

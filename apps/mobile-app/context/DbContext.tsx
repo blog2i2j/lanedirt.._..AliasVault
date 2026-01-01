@@ -95,8 +95,15 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       vaultRevisionNumber: vaultResponse.vault.currentRevisionNumber,
     };
 
-    // Store the encrypted database and metadata (metadata is stored in plain text in UserDefaults)
-    await sqliteClient.storeEncryptedDatabase(vaultResponse.vault.blob);
+    // Store vault blob atomically with sync state (fresh from server, not dirty)
+    await NativeVaultManager.storeEncryptedVaultWithSyncState(
+      vaultResponse.vault.blob,
+      false, // markDirty = false (fresh from server)
+      vaultResponse.vault.currentRevisionNumber, // serverRevision
+      null // expectedMutationSeq (not checking race on initial login)
+    );
+
+    // Store metadata separately (email domains - not critical for race conditions)
     await sqliteClient.storeMetadata(JSON.stringify(metadata));
 
     // Unlock the vault to make it available for queries

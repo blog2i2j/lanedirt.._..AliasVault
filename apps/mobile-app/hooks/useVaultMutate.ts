@@ -49,7 +49,8 @@ export function useVaultMutate() : {
    * Prepare vault for password change operation.
    */
   const prepareVaultForPasswordChange = useCallback(async (): Promise<Vault> => {
-    const currentRevision = await NativeVaultManager.getCurrentVaultRevisionNumber();
+    const syncState = await NativeVaultManager.getSyncState();
+    const currentRevision = syncState.serverRevision;
     const encryptedDb = await NativeVaultManager.getEncryptedDatabase();
     if (!encryptedDb) {
       throw new Error(t('vault.errors.failedToGetEncryptedDatabase'));
@@ -261,6 +262,9 @@ export function useVaultMutate() : {
     };
 
     try {
+      // Capture mutation sequence before upload for atomic state update
+      const syncState = await NativeVaultManager.getSyncState();
+
       // Upload to server
       const response = await webApi.post<typeof passwordChangeVault, VaultPostResponse>('Vault/change-password', passwordChangeVault);
 
@@ -273,7 +277,8 @@ export function useVaultMutate() : {
       // If we get here, it means we have a valid connection to the server.
       await NativeVaultManager.setOfflineMode(false);
 
-      await NativeVaultManager.setCurrentVaultRevisionNumber(newRevisionNumber);
+      // Update revision atomically with sync state (clears dirty flag if no mutations during upload)
+      await NativeVaultManager.markVaultClean(syncState.mutationSequence, newRevisionNumber);
       options.onSuccess?.();
     } catch (error) {
       console.error('Error during password change operation:', error);

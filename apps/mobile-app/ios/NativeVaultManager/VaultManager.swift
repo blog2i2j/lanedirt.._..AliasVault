@@ -24,18 +24,6 @@ public class VaultManager: NSObject {
     }
 
     @objc
-    func storeDatabase(_ base64EncryptedDb: String,
-                       resolver resolve: @escaping RCTPromiseResolveBlock,
-                       rejecter reject: @escaping RCTPromiseRejectBlock) {
-        do {
-            try vaultStore.storeEncryptedDatabase(base64EncryptedDb)
-            resolve(nil)
-        } catch {
-            reject("DB_ERROR", "Failed to store database: \(error.localizedDescription)", error)
-        }
-    }
-
-    @objc
     func storeMetadata(_ metadata: String,
                       resolver resolve: @escaping RCTPromiseResolveBlock,
                       rejecter reject: @escaping RCTPromiseRejectBlock) {
@@ -199,21 +187,6 @@ public class VaultManager: NSObject {
         } else {
             reject("DB_ERROR", "Failed to get encrypted database", nil)
         }
-    }
-
-    @objc
-    func getCurrentVaultRevisionNumber(_ resolve: @escaping RCTPromiseResolveBlock,
-                                     rejecter reject: @escaping RCTPromiseRejectBlock) {
-        let revisionNumber = vaultStore.getCurrentVaultRevisionNumber()
-        resolve(revisionNumber)
-    }
-
-    @objc
-    func setCurrentVaultRevisionNumber(_ revisionNumber: Int,
-                                     resolver resolve: @escaping RCTPromiseResolveBlock,
-                                     rejecter reject: @escaping RCTPromiseRejectBlock) {
-        vaultStore.setCurrentVaultRevisionNumber(revisionNumber)
-        resolve(nil)
     }
 
     @objc

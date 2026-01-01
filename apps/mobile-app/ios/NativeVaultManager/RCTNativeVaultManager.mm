@@ -93,10 +93,6 @@
     [vaultManager clearClipboardAfterDelay:delayInSeconds resolver:resolve rejecter:reject];
 }
 
-- (void)storeDatabase:(NSString *)base64EncryptedDb resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
-    [vaultManager storeDatabase:base64EncryptedDb resolver:resolve rejecter:reject];
-}
-
 - (void)storeMetadata:(NSString *)metadata resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     [vaultManager storeMetadata:metadata resolver:resolve rejecter:reject];
 }
@@ -123,14 +119,6 @@
 
 - (void)getEncryptedDatabase:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     [vaultManager getEncryptedDatabase:resolve rejecter:reject];
-}
-
-- (void)getCurrentVaultRevisionNumber:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
-    [vaultManager getCurrentVaultRevisionNumber:resolve rejecter:reject];
-}
-
-- (void)setCurrentVaultRevisionNumber:(double)revisionNumber resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
-    [vaultManager setCurrentVaultRevisionNumber:revisionNumber resolver:resolve rejecter:reject];
 }
 
 - (void)deriveKeyFromPassword:(NSString *)password salt:(NSString *)salt encryptionType:(NSString *)encryptionType encryptionSettings:(NSString *)encryptionSettings resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {

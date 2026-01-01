@@ -77,20 +77,6 @@ class SqliteClient implements IDatabaseClient {
     return this._logos;
   }
 
-  // ===== Core Database Operations =====
-
-  /**
-   * Store the encrypted database via the native code implementation.
-   */
-  public async storeEncryptedDatabase(base64EncryptedDb: string): Promise<void> {
-    try {
-      await NativeVaultManager.storeDatabase(base64EncryptedDb);
-    } catch (error) {
-      console.error('Error initializing SQLite database:', error);
-      throw error;
-    }
-  }
-
   /**
    * Store the vault metadata via the native code implementation.
    *
@@ -279,10 +265,6 @@ class SqliteClient implements IDatabaseClient {
       throw error;
     }
   }
-
-  // ============================================================================
-  // Utility methods
-  // ============================================================================
 
   /**
    * Fetch all encryption keys.
@@ -482,7 +464,6 @@ class SqliteClient implements IDatabaseClient {
     const allVersions = vaultSqlGenerator.getAllVersions();
     return allVersions[allVersions.length - 1];
   }
-
 }
 
 export default SqliteClient;
