@@ -88,20 +88,23 @@ export interface Spec extends TurboModule {
   // Server version management
   isServerVersionGreaterThanOrEqualTo(targetVersion: string): Promise<boolean>;
 
-  // Vault sync and mutate
-  isNewVaultVersionAvailable(): Promise<{ isNewVersionAvailable: boolean; newRevision: number | null }>;
-  downloadVault(newRevision: number): Promise<boolean>;
-  mutateVault(): Promise<boolean>;
+  // Vault sync - single method handles all sync logic including merge
+  // Returns detailed result about what action was taken
+  syncVaultWithServer(): Promise<{
+    success: boolean;
+    action: 'uploaded' | 'downloaded' | 'merged' | 'already_in_sync' | 'error';
+    newRevision: number;
+    wasOffline: boolean;
+    error: string | null;
+  }>;
 
-  // Sync state management
+  // Sync state management (kept for local mutation tracking)
   getSyncState(): Promise<{
     isDirty: boolean;
     mutationSequence: number;
     serverRevision: number;
     isSyncing: boolean;
   }>;
-  setIsDirty(isDirty: boolean): Promise<void>;
-  setIsSyncing(isSyncing: boolean): Promise<void>;
   storeEncryptedVaultWithSyncState(
     encryptedVault: string,
     markDirty: boolean,
@@ -115,34 +118,6 @@ export interface Spec extends TurboModule {
     newRevisionNumber: number;
     mutationSeqAtStart: number;
     error: string | null;
-  }>;
-  fetchServerVault(): Promise<{
-    status: number;
-    vault: {
-      username: string;
-      blob: string;
-      version: string;
-      currentRevisionNumber: number;
-      encryptionPublicKey: string;
-      credentialsCount: number;
-      emailAddressList: string[];
-      privateEmailDomainList: string[];
-      hiddenPrivateEmailDomainList: string[];
-      publicEmailDomainList: string[];
-      createdAt: string;
-      updatedAt: string;
-    };
-  }>;
-  checkVaultVersion(): Promise<{
-    isNewVersionAvailable: boolean;
-    newRevision: number | null;
-    serverRevision: number;
-    syncState: {
-      isDirty: boolean;
-      mutationSequence: number;
-      serverRevision: number;
-      isSyncing: boolean;
-    };
   }>;
 
   // PIN unlock methods

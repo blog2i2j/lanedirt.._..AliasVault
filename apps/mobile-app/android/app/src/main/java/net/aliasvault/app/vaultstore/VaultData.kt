@@ -46,3 +46,25 @@ data class VaultUploadResult(
     val mutationSeqAtStart: Int,
     val error: String? = null,
 )
+
+/**
+ * Action taken during sync.
+ */
+enum class SyncAction(val value: String) {
+    UPLOADED("uploaded"),
+    DOWNLOADED("downloaded"),
+    MERGED("merged"),
+    ALREADY_IN_SYNC("already_in_sync"),
+    ERROR("error"),
+}
+
+/**
+ * Result of syncVaultWithServer operation.
+ */
+data class VaultSyncResult(
+    val success: Boolean,
+    val action: SyncAction,
+    val newRevision: Int,
+    val wasOffline: Boolean,
+    val error: String? = null,
+)

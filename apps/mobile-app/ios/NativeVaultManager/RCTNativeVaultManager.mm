@@ -247,32 +247,16 @@
     [vaultManager getOfflineMode:resolve rejecter:reject];
 }
 
-// MARK: - Vault Sync and Mutate
+// MARK: - Vault Sync
 
-- (void)isNewVaultVersionAvailable:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
-    [vaultManager isNewVaultVersionAvailable:resolve rejecter:reject];
-}
-
-- (void)downloadVault:(double)newRevision resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
-    [vaultManager downloadVault:newRevision resolver:resolve rejecter:reject];
-}
-
-- (void)mutateVault:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
-    [vaultManager mutateVault:resolve rejecter:reject];
+- (void)syncVaultWithServer:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager syncVaultWithServer:resolve rejecter:reject];
 }
 
 // MARK: - Sync State Management
 
 - (void)getSyncState:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     [vaultManager getSyncState:resolve rejecter:reject];
-}
-
-- (void)setIsDirty:(BOOL)isDirty resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
-    [vaultManager setIsDirty:isDirty resolver:resolve rejecter:reject];
-}
-
-- (void)setIsSyncing:(BOOL)isSyncing resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
-    [vaultManager setIsSyncing:isSyncing resolver:resolve rejecter:reject];
 }
 
 - (void)storeEncryptedVaultWithSyncState:(NSString *)encryptedVault markDirty:(BOOL)markDirty serverRevision:(NSNumber *)serverRevision expectedMutationSeq:(NSNumber *)expectedMutationSeq resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
@@ -285,14 +269,6 @@
 
 - (void)uploadVault:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     [vaultManager uploadVault:resolve rejecter:reject];
-}
-
-- (void)fetchServerVault:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
-    [vaultManager fetchServerVault:resolve rejecter:reject];
-}
-
-- (void)checkVaultVersion:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
-    [vaultManager checkVaultVersion:resolve rejecter:reject];
 }
 
 // MARK: - PIN Unlock

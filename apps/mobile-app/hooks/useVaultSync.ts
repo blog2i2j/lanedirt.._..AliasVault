@@ -8,7 +8,6 @@ import { useDb } from '@/context/DbContext';
 import NativeVaultManager from '@/specs/NativeVaultManager';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
 import { VaultSyncErrorCode, getVaultSyncErrorCode } from '@/utils/types/errors/VaultSyncErrorCodes';
-import { VaultMergeService } from '@/utils/VaultMergeService';
 
 /**
  * Sync state tracking for race detection and offline support.
@@ -20,21 +19,6 @@ export type SyncState = {
   isSyncing: boolean;
 };
 
-/**
- * Utility function to ensure a minimum time has elapsed for an operation
- */
-const withMinimumDelay = async <T>(operation: () => Promise<T>, minDelayMs: number): Promise<T> => {
-  const startTime = Date.now();
-  const result = await operation();
-  const elapsedTime = Date.now() - startTime;
-
-  if (elapsedTime < minDelayMs) {
-    await new Promise(resolve => setTimeout(resolve, minDelayMs - elapsedTime));
-  }
-
-  return result;
-};
-
 type VaultSyncOptions = {
   onSuccess?: (hasNewVault: boolean) => void;
   onError?: (error: string) => void;
@@ -42,23 +26,18 @@ type VaultSyncOptions = {
   onOffline?: () => void;
   onUpgradeRequired?: () => void;
   abortSignal?: AbortSignal;
-  /** Internal retry count for race detection */
-  _retryCount?: number;
 };
-
-/**
- * Maximum number of sync retries for race detection.
- */
-const MAX_SYNC_RETRIES = 3;
 
 /**
  * Hook to sync the vault with the server.
  *
- * Implements the offline sync pattern from OFFLINE_MODE.md:
+ * This hook delegates all sync logic to native code via syncVaultWithServer().
+ * The native layer handles:
  * 1. Check isDirty before overwriting local vault
- * 2. Upload pending changes - sync is responsible for uploading, not just downloading
- * 3. Race detection - use mutation sequence to detect concurrent edits
- * 4. Recursive retry - if race detected, restart sync
+ * 2. Upload pending changes
+ * 3. Race detection using mutation sequence
+ * 4. Retry logic for race conditions
+ * 5. Merge using LWW strategy (via Rust core)
  */
 export const useVaultSync = (): {
   syncVault: (options?: VaultSyncOptions) => Promise<boolean>;
@@ -74,24 +53,15 @@ export const useVaultSync = (): {
   }, []);
 
   const syncVault = useCallback(async (options: VaultSyncOptions = {}): Promise<boolean> => {
-    const { onSuccess, onError, onStatus, onOffline, onUpgradeRequired, abortSignal, _retryCount = 0 } = options;
+    const { onSuccess, onError, onStatus, onOffline, onUpgradeRequired, abortSignal } = options;
 
-    // Prevent infinite recursion
-    if (_retryCount >= MAX_SYNC_RETRIES) {
-      console.error('[useVaultSync] Max sync retries reached, aborting');
-      onError?.('Sync failed after multiple retries');
-      return false;
-    }
-
-    // Prevent concurrent syncs (only for the first call, not retries)
-    if (_retryCount === 0 && syncInProgressRef.current) {
+    // Prevent concurrent syncs
+    if (syncInProgressRef.current) {
       console.log('[useVaultSync] Sync already in progress, skipping');
       return false;
     }
 
-    if (_retryCount === 0) {
-      syncInProgressRef.current = true;
-    }
+    syncInProgressRef.current = true;
 
     try {
       // Check if operation was aborted
@@ -111,138 +81,57 @@ export const useVaultSync = (): {
         return false;
       }
 
-      // Mark as syncing
-      await NativeVaultManager.setIsSyncing(true);
-
       onStatus?.(t('vault.checkingVaultUpdates'));
 
-      // Capture sync state at start for race detection
-      let versionCheck;
-      try {
-        versionCheck = await NativeVaultManager.checkVaultVersion();
-      } catch (err) {
-        const errorCode = getVaultSyncErrorCode(err);
-        return await handleSyncError(err, errorCode, app, t, onError, onOffline);
-      }
-
-      const { isNewVersionAvailable, serverRevision, syncState } = versionCheck;
-      const mutationSeqAtStart = syncState.mutationSequence;
-      const isDirty = syncState.isDirty;
+      // Call the unified native sync method
+      // This handles all sync scenarios: download, upload, merge, race detection
+      const result = await NativeVaultManager.syncVaultWithServer();
 
       if (abortSignal?.aborted) {
-        console.debug('VaultSync: Operation aborted after version check');
+        console.debug('VaultSync: Operation aborted after sync');
         return false;
       }
 
-      if (serverRevision > syncState.serverRevision) {
-        // Server has newer vault - download it
-        onStatus?.(t('vault.syncingUpdatedVault'));
-
-        try {
-          const serverVaultResponse = await NativeVaultManager.fetchServerVault();
-
-          if (isDirty) {
-            // CRITICAL: We have local changes - must merge!
-            console.log('[useVaultSync] Local changes detected, merging with server vault');
-            onStatus?.(t('vault.mergingVault'));
-
-            const localVault = await NativeVaultManager.getEncryptedDatabase();
-            if (!localVault) {
-              throw new Error('No local vault available for merge');
-            }
-
-            // Perform LWW merge
-            // Note: For now, VaultMergeService returns localVault as placeholder.
-            // Full merge implementation will use Rust core library via native bindings.
-            const mergedVault = await VaultMergeService.mergeVaults(
-              localVault,
-              serverVaultResponse.vault.blob,
-              null // Encryption key not needed for current placeholder implementation
-            );
-
-            // Store merged vault with race detection
-            const storeResult = await NativeVaultManager.storeEncryptedVaultWithSyncState(
-              mergedVault,
-              false, // Not marking dirty - this is a sync operation
-              null, // Server revision will be updated after upload
-              mutationSeqAtStart
-            );
-
-            if (!storeResult.success) {
-              // Race detected - concurrent mutation happened during sync
-              console.log('[useVaultSync] Race detected during merge, retrying sync');
-              await NativeVaultManager.setIsSyncing(false);
-              return syncVault({ ...options, _retryCount: _retryCount + 1 });
-            }
-
-            // Upload merged vault to server
-            const uploadResult = await NativeVaultManager.uploadVault();
-
-            if (uploadResult.success) {
-              // Mark vault clean only if no mutations happened during upload
-              await NativeVaultManager.markVaultClean(mutationSeqAtStart, uploadResult.newRevisionNumber);
-            } else if (uploadResult.status === 2) {
-              // Vault outdated - server moved forward, retry sync
-              console.log('[useVaultSync] Vault outdated during upload, retrying sync');
-              await NativeVaultManager.setIsSyncing(false);
-              return syncVault({ ...options, _retryCount: _retryCount + 1 });
-            } else {
-              console.warn('[useVaultSync] Failed to upload merged vault:', uploadResult.error);
-              // Keep isDirty true for next sync attempt
-            }
-          } else {
-            // No local changes - safe to overwrite with server vault
-            const storeResult = await NativeVaultManager.storeEncryptedVaultWithSyncState(
-              serverVaultResponse.vault.blob,
-              false,
-              serverRevision,
-              mutationSeqAtStart
-            );
-
-            if (!storeResult.success) {
-              // Race detected - mutation happened during download
-              console.log('[useVaultSync] Race detected during download, retrying sync');
-              await NativeVaultManager.setIsSyncing(false);
-              return syncVault({ ...options, _retryCount: _retryCount + 1 });
-            }
+      // Handle sync result
+      if (!result.success) {
+        // Check for specific error conditions
+        if (result.error) {
+          const errorCode = getVaultSyncErrorCodeFromString(result.error);
+          if (errorCode) {
+            return await handleSyncError(result.error, errorCode, app, t, onError, onOffline);
           }
-        } catch (err) {
-          console.error('[useVaultSync] Error during vault download/merge:', err);
-          const errorCode = getVaultSyncErrorCode(err);
-          await NativeVaultManager.setIsSyncing(false);
-          return await handleSyncError(err, errorCode, app, t, onError, onOffline);
         }
-      } else if (serverRevision === syncState.serverRevision && isDirty) {
-        // Local changes at same revision - upload them!
-        console.log('[useVaultSync] Uploading local changes to server');
-        onStatus?.(t('vault.uploadingChanges'));
 
-        try {
-          const uploadResult = await NativeVaultManager.uploadVault();
-
-          if (uploadResult.success) {
-            // Mark vault clean only if no mutations happened during upload
-            await NativeVaultManager.markVaultClean(mutationSeqAtStart, uploadResult.newRevisionNumber);
-          } else if (uploadResult.status === 2) {
-            // Vault outdated - another device uploaded, retry to merge
-            console.log('[useVaultSync] Vault outdated, another device uploaded, retrying sync');
-            await NativeVaultManager.setIsSyncing(false);
-            return syncVault({ ...options, _retryCount: _retryCount + 1 });
-          } else {
-            console.warn('[useVaultSync] Failed to upload vault:', uploadResult.error);
-            // Keep isDirty true for next sync attempt
-          }
-        } catch (err) {
-          console.error('[useVaultSync] Error during vault upload:', err);
-          const errorCode = getVaultSyncErrorCode(err);
-          await NativeVaultManager.setIsSyncing(false);
-          return await handleSyncError(err, errorCode, app, t, onError, onOffline);
+        if (result.wasOffline) {
+          await NativeVaultManager.setOfflineMode(true);
+          onOffline?.();
+          // Return true to continue with local vault
+          return true;
         }
+
+        onError?.(result.error ?? t('common.errors.unknownError'));
+        return false;
       }
-      // else: Already in sync - nothing to do
 
-      // Mark syncing as complete
-      await NativeVaultManager.setIsSyncing(false);
+      // Update status based on action taken
+      switch (result.action) {
+        case 'uploaded':
+          console.log('[useVaultSync] Successfully uploaded local changes');
+          break;
+        case 'downloaded':
+          onStatus?.(t('vault.syncingUpdatedVault'));
+          console.log('[useVaultSync] Downloaded new vault from server');
+          break;
+        case 'merged':
+          onStatus?.(t('vault.mergingVault'));
+          console.log('[useVaultSync] Merged local and server changes');
+          break;
+        case 'already_in_sync':
+          console.log('[useVaultSync] Vault already in sync');
+          break;
+      }
+
+      const hasNewVault = result.action === 'downloaded' || result.action === 'merged';
 
       // Unlock vault to refresh database connection
       try {
@@ -254,7 +143,7 @@ export const useVaultSync = (): {
           return false;
         }
 
-        onSuccess?.(isNewVersionAvailable);
+        onSuccess?.(hasNewVault);
 
         // Register credential identities after sync
         try {
@@ -263,7 +152,7 @@ export const useVaultSync = (): {
           console.warn('Vault sync: Failed to register credential identities:', error);
         }
 
-        return isNewVersionAvailable;
+        return hasNewVault;
       } catch (err) {
         if (err instanceof VaultVersionIncompatibleError) {
           await app.logout(t(err.message));
@@ -275,13 +164,6 @@ export const useVaultSync = (): {
       }
     } catch (err) {
       console.error('Vault sync error:', err);
-
-      // Ensure syncing flag is cleared on error
-      try {
-        await NativeVaultManager.setIsSyncing(false);
-      } catch {
-        // Ignore
-      }
 
       // Handle authentication errors
       if (err instanceof VaultAuthenticationError) {
@@ -304,14 +186,38 @@ export const useVaultSync = (): {
       onError?.(errorMessage);
       return false;
     } finally {
-      if (_retryCount === 0) {
-        syncInProgressRef.current = false;
-      }
+      syncInProgressRef.current = false;
     }
   }, [app, dbContext, t]);
 
   return { syncVault, getSyncState };
 };
+
+/**
+ * Map error string from native to VaultSyncErrorCode.
+ */
+function getVaultSyncErrorCodeFromString(error: string): VaultSyncErrorCode | null {
+  switch (error) {
+    case VaultSyncErrorCode.SESSION_EXPIRED:
+      return VaultSyncErrorCode.SESSION_EXPIRED;
+    case VaultSyncErrorCode.AUTHENTICATION_FAILED:
+      return VaultSyncErrorCode.AUTHENTICATION_FAILED;
+    case VaultSyncErrorCode.PASSWORD_CHANGED:
+      return VaultSyncErrorCode.PASSWORD_CHANGED;
+    case VaultSyncErrorCode.CLIENT_VERSION_NOT_SUPPORTED:
+      return VaultSyncErrorCode.CLIENT_VERSION_NOT_SUPPORTED;
+    case VaultSyncErrorCode.SERVER_VERSION_NOT_SUPPORTED:
+      return VaultSyncErrorCode.SERVER_VERSION_NOT_SUPPORTED;
+    case VaultSyncErrorCode.SERVER_UNAVAILABLE:
+      return VaultSyncErrorCode.SERVER_UNAVAILABLE;
+    case VaultSyncErrorCode.NETWORK_ERROR:
+      return VaultSyncErrorCode.NETWORK_ERROR;
+    case VaultSyncErrorCode.TIMEOUT:
+      return VaultSyncErrorCode.TIMEOUT;
+    default:
+      return null;
+  }
+}
 
 /**
  * Handle sync errors by mapping error codes to appropriate actions.

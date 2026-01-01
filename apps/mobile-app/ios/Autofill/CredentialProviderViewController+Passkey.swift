@@ -326,15 +326,14 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 // Step 1: Check server connectivity by syncing vault before creating passkey
                 viewModel.setLoading(true, message: NSLocalizedString("vault_syncing", comment: "Checking connection..."))
 
-                do {
-                    try _ = await vaultStore.syncVault(using: webApiService)
-                } catch {
+                let syncResult = await vaultStore.syncVaultWithServer(using: webApiService)
+                if !syncResult.success && !syncResult.wasOffline {
                     // Server connectivity check failed
                     viewModel.setLoading(false)
 
                     // Show appropriate error dialog based on error type
                     await MainActor.run {
-                        self.showSyncErrorAlert(error: error)
+                        self.showSyncErrorAlert(error: VaultSyncError.unknownError(message: syncResult.error ?? "Sync failed"))
                     }
                     return
                 }

@@ -1243,94 +1243,32 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     // MARK: - Vault Sync and Mutate
 
     /**
-     * Check if a new vault version is available on the server.
-     * @param promise The promise to resolve with object containing isNewVersionAvailable and newRevision.
+     * Unified vault sync method that handles all sync scenarios.
+     * @param promise The promise to resolve with VaultSyncResult.
      */
     @ReactMethod
-    override fun isNewVaultVersionAvailable(promise: Promise) {
+    fun syncVaultWithServer(promise: Promise) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val result = vaultStore.isNewVaultVersionAvailable(webApiService)
-                val resultMap = Arguments.createMap()
-                resultMap.putBoolean("isNewVersionAvailable", result["isNewVersionAvailable"] as Boolean)
-                val newRevision = result["newRevision"] as? Int
-                if (newRevision != null) {
-                    resultMap.putInt("newRevision", newRevision)
-                } else {
-                    resultMap.putNull("newRevision")
+                val result = vaultStore.syncVaultWithServer(webApiService)
+                val resultMap = Arguments.createMap().apply {
+                    putBoolean("success", result.success)
+                    putString("action", result.action.value)
+                    putInt("newRevision", result.newRevision)
+                    putBoolean("wasOffline", result.wasOffline)
+                    if (result.error != null) {
+                        putString("error", result.error)
+                    } else {
+                        putNull("error")
+                    }
                 }
-
                 withContext(Dispatchers.Main) {
                     promise.resolve(resultMap)
                 }
-            } catch (e: VaultSyncError) {
-                withContext(Dispatchers.Main) {
-                    Log.e(TAG, "Vault sync error checking vault version", e)
-                    // Map VaultSyncError to proper error codes for React Native
-                    promise.reject(e.code, e.message, e)
-                }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Log.e(TAG, "Error checking vault version", e)
-                    // Fallback for unknown errors
-                    promise.reject("VAULT_CHECK_VERSION_ERROR", "Failed to check vault version: ${e.message}", e)
-                }
-            }
-        }
-    }
-
-    /**
-     * Download and store the vault from the server.
-     * @param newRevision The new revision number to download.
-     * @param promise The promise to resolve.
-     */
-    @ReactMethod
-    override fun downloadVault(newRevision: Double, promise: Promise) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val success = vaultStore.downloadVault(webApiService, newRevision.toInt())
-                withContext(Dispatchers.Main) {
-                    promise.resolve(success)
-                }
-            } catch (e: VaultSyncError) {
-                withContext(Dispatchers.Main) {
-                    Log.e(TAG, "Vault sync error downloading vault", e)
-                    // Map VaultSyncError to proper error codes for React Native
-                    promise.reject(e.code, e.message, e)
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Log.e(TAG, "Error downloading vault", e)
-                    // Fallback for unknown errors
-                    promise.reject("VAULT_DOWNLOAD_ERROR", "Failed to download vault: ${e.message}", e)
-                }
-            }
-        }
-    }
-
-    /**
-     * Mutate vault (upload changes to server).
-     * @param promise The promise to resolve.
-     */
-    @ReactMethod
-    override fun mutateVault(promise: Promise) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val success = vaultStore.mutateVault(webApiService)
-                withContext(Dispatchers.Main) {
-                    promise.resolve(success)
-                }
-            } catch (e: VaultSyncError) {
-                withContext(Dispatchers.Main) {
-                    Log.e(TAG, "Vault sync error mutating vault", e)
-                    // Map VaultSyncError to proper error codes for React Native
-                    promise.reject(e.code, e.message, e)
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Log.e(TAG, "Error mutating vault", e)
-                    // Fallback for unknown errors
-                    promise.reject("VAULT_MUTATE_ERROR", "Failed to mutate vault: ${e.message}", e)
+                    Log.e(TAG, "Error syncing vault with server", e)
+                    promise.reject("VAULT_SYNC_ERROR", "Failed to sync vault: ${e.message}", e)
                 }
             }
         }
@@ -1551,38 +1489,6 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Set the isDirty flag.
-     * @param isDirty Whether the vault has unsynced changes.
-     * @param promise The promise to resolve.
-     */
-    @ReactMethod
-    fun setIsDirty(isDirty: Boolean, promise: Promise) {
-        try {
-            vaultStore.setIsDirty(isDirty)
-            promise.resolve(null)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error setting isDirty", e)
-            promise.reject("ERR_SET_IS_DIRTY", "Failed to set isDirty: ${e.message}", e)
-        }
-    }
-
-    /**
-     * Set the isSyncing flag.
-     * @param isSyncing Whether a sync operation is in progress.
-     * @param promise The promise to resolve.
-     */
-    @ReactMethod
-    fun setIsSyncing(isSyncing: Boolean, promise: Promise) {
-        try {
-            vaultStore.setIsSyncing(isSyncing)
-            promise.resolve(null)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error setting isSyncing", e)
-            promise.reject("ERR_SET_IS_SYNCING", "Failed to set isSyncing: ${e.message}", e)
-        }
-    }
-
-    /**
      * Store encrypted vault with sync state atomically.
      * Two modes:
      * 1. markDirty=true: Local mutation - always succeeds, increments mutation sequence
@@ -1674,106 +1580,4 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
         }
     }
 
-    /**
-     * Fetch the server vault (encrypted blob).
-     * Use this for merge operations where you need both local and server vaults.
-     *
-     * @param promise The promise to resolve with VaultResponse.
-     */
-    @ReactMethod
-    fun fetchServerVault(promise: Promise) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val vaultResponse = vaultStore.fetchServerVault(webApiService)
-                withContext(Dispatchers.Main) {
-                    val vaultDict = Arguments.createMap()
-                    vaultDict.putInt("status", vaultResponse.status)
-
-                    val vaultData = Arguments.createMap()
-                    vaultData.putString("username", vaultResponse.vault.username)
-                    vaultData.putString("blob", vaultResponse.vault.blob)
-                    vaultData.putString("version", vaultResponse.vault.version)
-                    vaultData.putInt("currentRevisionNumber", vaultResponse.vault.currentRevisionNumber)
-                    vaultData.putString("encryptionPublicKey", vaultResponse.vault.encryptionPublicKey)
-                    vaultData.putInt("credentialsCount", vaultResponse.vault.credentialsCount)
-
-                    val emailList = Arguments.createArray()
-                    vaultResponse.vault.emailAddressList.forEach { emailList.pushString(it) }
-                    vaultData.putArray("emailAddressList", emailList)
-
-                    val privateEmailList = Arguments.createArray()
-                    vaultResponse.vault.privateEmailDomainList.forEach { privateEmailList.pushString(it) }
-                    vaultData.putArray("privateEmailDomainList", privateEmailList)
-
-                    val hiddenPrivateEmailList = Arguments.createArray()
-                    vaultResponse.vault.hiddenPrivateEmailDomainList.forEach { hiddenPrivateEmailList.pushString(it) }
-                    vaultData.putArray("hiddenPrivateEmailDomainList", hiddenPrivateEmailList)
-
-                    val publicEmailList = Arguments.createArray()
-                    vaultResponse.vault.publicEmailDomainList.forEach { publicEmailList.pushString(it) }
-                    vaultData.putArray("publicEmailDomainList", publicEmailList)
-
-                    vaultData.putString("createdAt", vaultResponse.vault.createdAt)
-                    vaultData.putString("updatedAt", vaultResponse.vault.updatedAt)
-
-                    vaultDict.putMap("vault", vaultData)
-                    promise.resolve(vaultDict)
-                }
-            } catch (e: VaultSyncError) {
-                withContext(Dispatchers.Main) {
-                    Log.e(TAG, "Vault sync error fetching vault", e)
-                    promise.reject(e.code, e.message, e)
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Log.e(TAG, "Error fetching vault", e)
-                    promise.reject("ERR_FETCH_VAULT", "Failed to fetch vault: ${e.message}", e)
-                }
-            }
-        }
-    }
-
-    /**
-     * Check if a new vault version is available, including sync state for merge decision.
-     * This enhanced version returns sync state so the caller can decide whether to merge.
-     *
-     * @param promise The promise to resolve with VaultVersionCheckResult.
-     */
-    @ReactMethod
-    fun checkVaultVersion(promise: Promise) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val result = vaultStore.checkVaultVersion(webApiService)
-                withContext(Dispatchers.Main) {
-                    val response = Arguments.createMap()
-                    response.putBoolean("isNewVersionAvailable", result.isNewVersionAvailable)
-                    if (result.newRevision != null) {
-                        response.putInt("newRevision", result.newRevision)
-                    } else {
-                        response.putNull("newRevision")
-                    }
-                    response.putInt("serverRevision", result.serverRevision)
-
-                    val syncStateMap = Arguments.createMap()
-                    syncStateMap.putBoolean("isDirty", result.syncState.isDirty)
-                    syncStateMap.putInt("mutationSequence", result.syncState.mutationSequence)
-                    syncStateMap.putInt("serverRevision", result.syncState.serverRevision)
-                    syncStateMap.putBoolean("isSyncing", result.syncState.isSyncing)
-                    response.putMap("syncState", syncStateMap)
-
-                    promise.resolve(response)
-                }
-            } catch (e: VaultSyncError) {
-                withContext(Dispatchers.Main) {
-                    Log.e(TAG, "Vault sync error checking version", e)
-                    promise.reject(e.code, e.message, e)
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Log.e(TAG, "Error checking vault version", e)
-                    promise.reject("ERR_CHECK_VERSION", "Failed to check vault version: ${e.message}", e)
-                }
-            }
-        }
-    }
 }

@@ -446,13 +446,6 @@ class VaultStore(
     }
 
     /**
-     * Sync the vault with the server.
-     */
-    suspend fun syncVault(webApiService: net.aliasvault.app.webapi.WebApiService): Boolean {
-        return sync.syncVault(webApiService)
-    }
-
-    /**
      * Get the sync state.
      */
     fun getSyncState(): net.aliasvault.app.vaultstore.models.SyncState {
@@ -537,6 +530,18 @@ class VaultStore(
      */
     suspend fun checkVaultVersion(webApiService: net.aliasvault.app.webapi.WebApiService): VaultVersionCheckResult {
         return sync.checkVaultVersion(webApiService)
+    }
+
+    /**
+     * Unified vault sync method that handles all sync scenarios.
+     */
+    suspend fun syncVaultWithServer(webApiService: net.aliasvault.app.webapi.WebApiService): VaultSyncResult {
+        val result = sync.syncVaultWithServer(webApiService, mutate)
+        // Re-unlock vault if it was unlocked before sync and action was download/merge
+        if (result.success && (result.action == SyncAction.DOWNLOADED || result.action == SyncAction.MERGED) && isVaultUnlocked()) {
+            unlockVault()
+        }
+        return result
     }
 
     // endregion
