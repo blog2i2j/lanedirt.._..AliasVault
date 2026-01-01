@@ -81,7 +81,7 @@ public class PasskeyRepository: BaseRepository {
 
             try client.executeUpdate(PasskeyQueries.insert, params: [
                 passkeyId,
-                passkey.parentCredentialId.uuidString.uppercased(),
+                passkey.parentItemId.uuidString.uppercased(),
                 passkey.rpId,
                 userHandleParam,
                 publicKeyString,
@@ -149,7 +149,7 @@ public class PasskeyRepository: BaseRepository {
 
             try client.executeUpdate(PasskeyQueries.insert, params: [
                 newPasskeyId,
-                newPasskey.parentCredentialId.uuidString.uppercased(),
+                newPasskey.parentItemId.uuidString.uppercased(),
                 newPasskey.rpId,
                 userHandleParam,
                 publicKeyString,
@@ -185,7 +185,7 @@ public class PasskeyRepository: BaseRepository {
         logo: Data? = nil
     ) throws -> String {
         return try withTransaction {
-            let itemId = passkey.parentCredentialId.uuidString.uppercased()
+            let itemId = passkey.parentItemId.uuidString.uppercased()
             let now = self.now()
 
             // Create logo if provided

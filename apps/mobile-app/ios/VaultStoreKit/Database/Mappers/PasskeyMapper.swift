@@ -94,7 +94,7 @@ public struct PasskeyMapper {
     public static func mapRow(_ row: PasskeyRow) -> Passkey? {
         // Parse UUIDs
         guard let id = UUID(uuidString: row.id),
-              let parentCredentialId = UUID(uuidString: row.itemId) else {
+              let parentItemId = UUID(uuidString: row.itemId) else {
             print("PasskeyMapper: Invalid UUID - id=\(row.id), itemId=\(row.itemId)")
             return nil
         }
@@ -115,7 +115,7 @@ public struct PasskeyMapper {
 
         return Passkey(
             id: id,
-            parentCredentialId: parentCredentialId,
+            parentItemId: parentItemId,
             rpId: row.rpId,
             userHandle: row.userHandle,
             userName: nil, // userName not stored in DB, derived from parent credential

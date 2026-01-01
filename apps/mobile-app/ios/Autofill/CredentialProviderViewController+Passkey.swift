@@ -369,7 +369,7 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 let now = Date()
                 let passkey = Passkey(
                     id: passkeyId,
-                    parentCredentialId: UUID(), // Will be set by createCredentialWithPasskey
+                    parentItemId: UUID(), // Will be set by createItemWithPasskey
                     rpId: rpId,
                     userHandle: userId,
                     userName: userName,
@@ -396,9 +396,9 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                         logo: logo
                     )
                 } else {
-                    // Store credential with passkey and logo in database
-                    // Use viewModel.displayName as the title (Service.name)
-                    _ = try vaultStore.createCredentialWithPasskey(
+                    // Store item with passkey and logo in database
+                    // Use viewModel.displayName as the title (Item.name)
+                    _ = try vaultStore.createItemWithPasskey(
                         rpId: rpId,
                         userName: userName,
                         displayName: viewModel.displayName,

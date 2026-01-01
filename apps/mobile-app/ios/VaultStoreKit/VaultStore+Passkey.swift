@@ -61,7 +61,7 @@ extension VaultStore {
      * This creates an Item record with field values and links the passkey to it
      */
     @discardableResult
-    public func createCredentialWithPasskey(
+    public func createItemWithPasskey(
         rpId: String,
         userName: String?,
         displayName: String,
@@ -101,7 +101,7 @@ extension VaultStore {
             throw VaultStoreError.passkeyNotFound
         }
 
-        let itemId = oldPasskey.parentCredentialId
+        let itemId = oldPasskey.parentItemId
 
         // Update logo if provided
         if let logo = logo {
@@ -115,7 +115,7 @@ extension VaultStore {
         // Create the new passkey with the same item ID
         let updatedPasskey = Passkey(
             id: newPasskey.id,
-            parentCredentialId: itemId,  // Use the old item ID
+            parentItemId: itemId,  // Use the old item ID
             rpId: newPasskey.rpId,
             userHandle: newPasskey.userHandle,
             userName: newPasskey.userName,
@@ -142,6 +142,6 @@ extension VaultStore {
 public enum VaultStoreError: Error {
     case vaultNotUnlocked
     case passkeyNotFound
-    case credentialNotFound
+    case itemNotFound
     case databaseError(String)
 }

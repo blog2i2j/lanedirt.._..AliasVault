@@ -306,7 +306,7 @@ public class PasskeyProviderViewModel: ObservableObject {
 #Preview("Light Mode - With Passkeys") {
     let mockPasskey1 = Passkey(
         id: UUID(),
-        parentCredentialId: UUID(),
+        parentItemId: UUID(),
         rpId: "github.com",
         userHandle: Data(),
         userName: "user@example.com",
@@ -321,7 +321,7 @@ public class PasskeyProviderViewModel: ObservableObject {
 
     let mockPasskey2 = Passkey(
         id: UUID(),
-        parentCredentialId: UUID(),
+        parentItemId: UUID(),
         rpId: "google.com",
         userHandle: Data(),
         userName: "johndoe@gmail.com",
@@ -380,7 +380,7 @@ public class PasskeyProviderViewModel: ObservableObject {
 #Preview("Dark Mode - With Passkeys") {
     let mockPasskey = Passkey(
         id: UUID(),
-        parentCredentialId: UUID(),
+        parentItemId: UUID(),
         rpId: "github.com",
         userHandle: Data(),
         userName: "user@example.com",
