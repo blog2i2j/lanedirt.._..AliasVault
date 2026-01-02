@@ -91,11 +91,13 @@ export function useVaultMutate() : {
   /**
    * Execute the provided operation (e.g. create/update/delete credential)
    *
-   * Implements the mutation pattern from OFFLINE_MODE.md:
-   * 1. Apply mutation to local database
-   * 2. Export and encrypt
-   * 3. Store locally with dirty flag (ATOMIC!)
-   * 4. Sync in background (or immediately if blocking)
+   * Implements the mutation pattern from OFFLINE_MODE.md (matching browser extension):
+   * 1. Apply mutation to local database (via beginTransaction/commitTransaction)
+   * 2. commitTransaction atomically: exports, encrypts, stores vault AND marks dirty + increments mutation sequence
+   * 3. Call syncVault() which handles everything: check isDirty, merge if needed, upload
+   *
+   * Note: The dirty flag and mutation sequence are now set atomically in native commitTransaction(),
+   * so we don't need to call markVaultDirty() separately.
    */
   const executeMutateOperation = useCallback(async (
     operation: () => Promise<void>,
@@ -104,67 +106,35 @@ export function useVaultMutate() : {
     setSyncStatus(t('vault.savingChangesToVault'));
 
     // Execute the provided operation (e.g. create/update/delete credential)
-    // The operation should wrap its changes in beginTransaction/commitTransaction
+    // The operation wraps its changes in beginTransaction/commitTransaction
+    // commitTransaction atomically persists vault AND marks dirty + increments mutation sequence
     await operation();
 
-    // Persist the updated vault to storage and mark as dirty
-    await NativeVaultManager.markVaultDirty();
-
-    setSyncStatus(t('vault.uploadingVaultToServer'));
-
-    // Upload to server
-    try {
-      const uploadResult = await NativeVaultManager.uploadVault();
-
-      if (uploadResult.success) {
-        // Mark vault clean only if no mutations happened during upload
-        await NativeVaultManager.markVaultClean(
-          uploadResult.mutationSeqAtStart,
-          uploadResult.newRevisionNumber
-        );
-
-        // Register credential identities after successful mutation
+    // Sync vault - this handles everything:
+    // - Checks if server has newer vault
+    // - Merges if isDirty and server has updates
+    // - Uploads local changes
+    // - Handles race detection and retries
+    setSyncStatus(t('vault.syncingVault'));
+    await syncVault({
+      onStatus: (message) => setSyncStatus(message),
+      onSuccess: async () => {
+        // Register credential identities after successful sync
         try {
           await NativeVaultManager.registerCredentialIdentities();
         } catch (error) {
           console.warn('VaultMutate: Failed to register credential identities:', error);
         }
-
         options.onSuccess?.();
-      } else if (uploadResult.status === 2) {
-        // Vault outdated - need to sync first
-        // The sync will handle merging our local changes
-        console.log('[VaultMutate] Vault outdated, triggering sync');
-        await syncVault({
-          onSuccess: () => options.onSuccess?.(),
-          onError: (error) => options.onError?.(new Error(error)),
-        });
-      } else {
-        // Other error - keep isDirty true for next sync
-        console.warn('[VaultMutate] Failed to upload vault:', uploadResult.error);
-
-        // Check if it's a network error
-        if (uploadResult.error?.includes('Network') || uploadResult.error?.includes('network')) {
-          await NativeVaultManager.setOfflineMode(true);
-          // Still call success - the local change is saved
-          options.onSuccess?.();
-        } else {
-          options.onError?.(new Error(uploadResult.error ?? t('common.errors.unknownError')));
-        }
-      }
-    } catch (error) {
-      console.error('VaultMutate: Error during vault upload:', error);
-
-      // Check if it's a network error
-      if (error instanceof Error && (error.message.includes('network') || error.message.includes('timeout'))) {
-        await NativeVaultManager.setOfflineMode(true);
-        // Still call success - the local change is saved and isDirty is set
+      },
+      onError: (error) => {
+        options.onError?.(new Error(error));
+      },
+      onOffline: () => {
+        // Local change is saved and isDirty is set - will sync when back online
         options.onSuccess?.();
-        return;
       }
-
-      options.onError?.(new Error(t('common.errors.unknownError')));
-    }
+    });
   }, [t, syncVault]);
 
   /**
@@ -275,7 +245,12 @@ export function useVaultMutate() : {
   }, [dbContext, authContext, webApi, prepareVaultForPasswordChange, t]);
 
   /**
-   * Hook to execute a vault mutation which uploads a new encrypted vault to the server
+   * Hook to execute a vault mutation which uploads a new encrypted vault to the server.
+   *
+   * Follows the pattern from OFFLINE_MODE.md - no pre-sync needed because:
+   * 1. LWW merge resolves conflicts - even if mutating a stale vault, merge picks latest
+   * 2. Popup open triggers sync - vault is reasonably fresh when user starts interacting
+   * 3. Simpler mental model - Mutation = save locally + sync, that's it
    */
   const executeVaultMutation = useCallback(async (
     operation: () => Promise<void>,
@@ -283,68 +258,12 @@ export function useVaultMutate() : {
   ) => {
     try {
       setIsLoading(true);
-      setSyncStatus(t('vault.checkingForVaultUpdates'));
 
-      // Skip sync check if requested (e.g., during upgrade operations)
-      if (options.skipSyncCheck) {
-        setSyncStatus(t('vault.executingOperation'));
-        await executeMutateOperation(operation, options);
-        return;
-      }
-
-      // If we're in offline mode, try to sync once to see if we can get back online
-      if (authContext.isOffline) {
-        await syncVault({
-          /**
-           * Handle the status update.
-           */
-          onStatus: (message) => setSyncStatus(message),
-          /**
-           * Handle successful vault sync and continue with vault mutation.
-           */
-          onSuccess: async (hasNewVault) => {
-            if (hasNewVault) {
-              // Vault was changed, but has now been reloaded so we can continue with the operation.
-            }
-            await executeMutateOperation(operation, options);
-          },
-          /**
-           * Handle offline state and prompt user for action.
-           */
-          onError: () => {
-            // Still offline, proceed with local operation
-            executeMutateOperation(operation, options);
-          }
-        });
-      } else {
-        await syncVault({
-          /**
-           * Handle the status update.
-           */
-          onStatus: (message) => setSyncStatus(message),
-          /**
-           * Handle successful vault sync and continue with vault mutation.
-           */
-          onSuccess: async (hasNewVault) => {
-            if (hasNewVault) {
-              // Vault was changed, but has now been reloaded so we can continue with the operation.
-            }
-            await executeMutateOperation(operation, options);
-          },
-          /**
-           * Handle error during vault sync.
-           */
-          onError: (error) => {
-            Toast.show({
-              type: 'error',
-              text1: t('vault.errors.failedToSyncVault'),
-              text2: error,
-              position: 'bottom'
-            });
-            options.onError?.(new Error(error));
-          }
-        });
-      }
+      // Execute the mutation operation, which:
+      // 1. Runs the operation (beginTransaction + SQL + commitTransaction)
+      // 2. commitTransaction atomically stores vault + marks dirty + increments mutation sequence
+      // 3. Calls syncVault() which handles merge/upload
+      await executeMutateOperation(operation, options);
     } catch (error) {
       console.error('Error during vault mutation:', error);
       Toast.show({
@@ -357,11 +276,14 @@ export function useVaultMutate() : {
       setIsLoading(false);
       setSyncStatus('');
     }
-  }, [syncVault, executeMutateOperation, authContext.isOffline, t]);
+  }, [executeMutateOperation, t]);
 
   /**
    * Hook to execute a password change which uploads a new encrypted vault to the server
-   * with updated SRP verifier and salt. It shares common logic with the regular vault mutation upload.
+   * with updated SRP verifier and salt.
+   *
+   * Unlike regular mutations, password change REQUIRES a pre-sync to ensure we're
+   * re-encrypting the latest vault. Cannot proceed offline.
    */
   const executeVaultPasswordChange = useCallback(async (
     currentPasswordHashBase64: string,
@@ -372,61 +294,42 @@ export function useVaultMutate() : {
       setIsLoading(true);
       setSyncStatus(t('vault.checkingForVaultUpdates'));
 
-      // If we're in offline mode, try to sync once to see if we can get back online
-      if (authContext.isOffline) {
-        await syncVault({
-          /**
-           * Handle the status update.
-           */
+      // Password change requires online - must sync first to get latest vault before re-encryption
+      const syncSuccess = await new Promise<boolean>((resolve) => {
+        syncVault({
           onStatus: (message) => setSyncStatus(message),
-          /**
-           * Handle successful vault sync and continue with vault mutation.
-           */
-          onSuccess: async (hasNewVault) => {
-            if (hasNewVault) {
-              // Vault was changed, but has now been reloaded so we can continue with the operation.
-            }
-            await executePasswordChangeOperation(currentPasswordHashBase64, newPasswordPlainText, options);
-          },
-          /**
-           * Handle offline state and prompt user for action.
-           */
-          onError: () => {
-            // Still offline, proceed with local operation
-            executePasswordChangeOperation(currentPasswordHashBase64, newPasswordPlainText, options);
-          }
-        });
-      } else {
-        await syncVault({
-          /**
-           * Handle the status update.
-           */
-          onStatus: (message) => setSyncStatus(message),
-          /**
-           * Handle successful vault sync and continue with vault mutation.
-           */
-          onSuccess: async (hasNewVault) => {
-            if (hasNewVault) {
-              // Vault was changed, but has now been reloaded so we can continue with the operation.
-            }
-            await executePasswordChangeOperation(currentPasswordHashBase64, newPasswordPlainText, options);
-          },
-          /**
-           * Handle error during vault sync.
-           */
+          onSuccess: () => resolve(true),
           onError: (error) => {
             Toast.show({
               type: 'error',
               text1: t('common.error'),
-              text2: t('common.errors.unknownError'),
+              text2: error,
               position: 'bottom'
             });
             options.onError?.(new Error(error));
+            resolve(false);
+          },
+          onOffline: () => {
+            Toast.show({
+              type: 'error',
+              text1: t('common.error'),
+              text2: t('vault.errors.passwordChangeRequiresOnline'),
+              position: 'bottom'
+            });
+            options.onError?.(new Error(t('vault.errors.passwordChangeRequiresOnline')));
+            resolve(false);
           }
         });
+      });
+
+      if (!syncSuccess) {
+        return;
       }
+
+      // Now execute the password change operation
+      await executePasswordChangeOperation(currentPasswordHashBase64, newPasswordPlainText, options);
     } catch (error) {
-      console.error('Error during vault mutation:', error);
+      console.error('Error during password change:', error);
       Toast.show({
         type: 'error',
         text1: t('common.error'),
@@ -438,7 +341,7 @@ export function useVaultMutate() : {
       setIsLoading(false);
       setSyncStatus('');
     }
-  }, [syncVault, executePasswordChangeOperation, authContext.isOffline, t]);
+  }, [syncVault, executePasswordChangeOperation, t]);
 
   return {
     executeVaultMutation,

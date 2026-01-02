@@ -222,7 +222,7 @@ class VaultQuery(
                         hasAttachment = hasAttachment,
                         hasTotp = hasTotp,
                         createdAt = createdAt,
-                        updatedAt = updatedAt
+                        updatedAt = updatedAt,
                     )
                     items.add(item)
                     itemIds.add(idString)
@@ -286,7 +286,7 @@ class VaultQuery(
                         customFieldType = customFieldType,
                         customIsHidden = customIsHidden,
                         customEnableHistory = customEnableHistory,
-                        isCustomField = isCustomField
+                        isCustomField = isCustomField,
                     )
 
                     val field = ItemField(
@@ -297,7 +297,7 @@ class VaultQuery(
                         isHidden = metadata.isHidden,
                         displayOrder = displayOrder,
                         isCustomField = isCustomField,
-                        enableHistory = metadata.enableHistory
+                        enableHistory = metadata.enableHistory,
                     )
 
                     fieldsByItemId.getOrPut(itemIdString) { mutableListOf() }.add(field)
@@ -321,7 +321,7 @@ class VaultQuery(
         val label: String,
         val fieldType: String,
         val isHidden: Boolean,
-        val enableHistory: Boolean
+        val enableHistory: Boolean,
     )
 
     /**
@@ -334,14 +334,14 @@ class VaultQuery(
         customFieldType: String?,
         customIsHidden: Boolean,
         customEnableHistory: Boolean,
-        isCustomField: Boolean
+        isCustomField: Boolean,
     ): FieldMetadata {
         if (isCustomField) {
             return FieldMetadata(
                 label = customLabel ?: fieldKey,
                 fieldType = customFieldType ?: FieldType.TEXT,
                 isHidden = customIsHidden,
-                enableHistory = customEnableHistory
+                enableHistory = customEnableHistory,
             )
         }
 
@@ -391,7 +391,7 @@ class VaultQuery(
             logo = item.logo,
             createdAt = item.createdAt,
             updatedAt = item.updatedAt,
-            isDeleted = false
+            isDeleted = false,
         )
 
         // Create an Alias if the item has alias fields
@@ -407,7 +407,7 @@ class VaultQuery(
                 email = item.email,
                 createdAt = item.createdAt,
                 updatedAt = item.updatedAt,
-                isDeleted = false
+                isDeleted = false,
             )
         }
 
@@ -420,7 +420,7 @@ class VaultQuery(
                 value = passwordValue,
                 createdAt = item.createdAt,
                 updatedAt = item.updatedAt,
-                isDeleted = false
+                isDeleted = false,
             )
         }
 
@@ -433,7 +433,7 @@ class VaultQuery(
             password = password,
             createdAt = item.createdAt,
             updatedAt = item.updatedAt,
-            isDeleted = false
+            isDeleted = false,
         )
     }
 

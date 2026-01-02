@@ -23,7 +23,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import net.aliasvault.app.qrscanner.QRScannerActivity
 import net.aliasvault.app.vaultstore.VaultStore
-import net.aliasvault.app.vaultstore.VaultSyncError
 import net.aliasvault.app.vaultstore.keystoreprovider.AndroidKeystoreProvider
 import net.aliasvault.app.vaultstore.storageprovider.AndroidStorageProvider
 import net.aliasvault.app.webapi.WebApiService
@@ -1548,5 +1547,4 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
             promise.reject("ERR_PERSIST_VAULT", "Failed to persist vault: ${e.message}", e)
         }
     }
-
 }

@@ -175,6 +175,7 @@ extension VaultStore {
 
     /// Commit a transaction on the database. This is required for all database operations that modify the database.
     /// Committing a transaction will also trigger a persist from the in-memory database to the encrypted database file.
+    /// It also atomically marks the vault as dirty and increments the mutation sequence for proper sync tracking.
     public func commitTransaction() throws {
         guard let dbConnection = self.dbConnection else {
             throw NSError(domain: "VaultStore", code: 4, userInfo: [NSLocalizedDescriptionKey: "Database not initialized"])
@@ -182,6 +183,11 @@ extension VaultStore {
 
         try dbConnection.execute("COMMIT")
         try persistDatabaseToEncryptedStorage()
+
+        // Atomically mark vault as dirty and increment mutation sequence
+        // This ensures sync can properly detect local changes
+        setIsDirty(true)
+        _ = incrementMutationSequence()
     }
 
     /// Rollback a transaction on the database on error.

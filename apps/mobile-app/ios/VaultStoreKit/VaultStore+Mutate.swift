@@ -108,11 +108,14 @@ extension VaultStore {
     /// 1. Executes the provided SQL operation (already wrapped in a transaction by caller)
     /// 2. Prepares the vault for upload
     /// 3. Uploads the vault to the server
-    /// 4. Updates the local revision number
+    /// 4. Updates the local revision number and clears dirty flag (if no mutations during upload)
     ///
     /// Note: The caller must wrap their database operations in beginTransaction()/commitTransaction()
-    /// which will trigger the encryption and local storage of the database.
+    /// which will trigger the encryption and local storage of the database, and atomically mark dirty.
     public func mutateVault(using webApiService: WebApiService) async throws {
+        // Capture mutation sequence for race detection
+        let mutationSeqAtStart = getMutationSequence()
+
         // Prepare vault for upload
         let vault = try prepareVault()
 
@@ -183,8 +186,8 @@ extension VaultStore {
 
         // Check vault response status
         if vaultResponse.status == 0 {
-            // Success - update local revision number
-            setCurrentVaultRevisionNumber(vaultResponse.newRevisionNumber)
+            // Success - update local revision number and clear dirty (if no mutations during upload)
+            _ = markVaultClean(mutationSeqAtStart: mutationSeqAtStart, newServerRevision: vaultResponse.newRevisionNumber)
 
             // Clear offline mode on successful upload
             setOfflineMode(false)

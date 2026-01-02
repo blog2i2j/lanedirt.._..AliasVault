@@ -3,7 +3,10 @@
 use thiserror::Error;
 
 /// Errors that can occur during vault operations.
-#[derive(Error, Debug)]
+///
+/// This enum is exposed to Swift/Kotlin via UniFFI as a flat error type,
+/// meaning the error variants are exposed as simple enum cases with string messages.
+#[derive(Error, Debug, Clone)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Error))]
 #[cfg_attr(feature = "uniffi", uniffi(flat_error))]
 pub enum VaultError {

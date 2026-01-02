@@ -18,10 +18,14 @@ cd "$SCRIPT_DIR"
 DIST_DIR="$SCRIPT_DIR/dist"
 WASM_DIR="$DIST_DIR/wasm"
 DOTNET_DIR="$DIST_DIR/dotnet"
+IOS_DIR="$DIST_DIR/ios"
+ANDROID_DIR="$DIST_DIR/android"
 
 # Target directories in consumer apps
 BROWSER_EXT_DIST="$SCRIPT_DIR/../../apps/browser-extension/src/utils/dist/core/rust"
 BLAZOR_CLIENT_DIST="$SCRIPT_DIR/../../apps/server/AliasVault.Client/wwwroot/wasm"
+IOS_APP_DIST="$SCRIPT_DIR/../../apps/mobile-app/ios/VaultStoreKit/RustCore"
+ANDROID_APP_DIST="$SCRIPT_DIR/../../apps/mobile-app/android/app/src/main/jniLibs"
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}  AliasVault Rust Core Build Script${NC}"
@@ -50,6 +54,8 @@ echo -e "  Rust version: ${GREEN}$RUST_VERSION${NC}"
 BUILD_ALL=false
 BUILD_BROWSER=false
 BUILD_DOTNET=false
+BUILD_IOS=false
+BUILD_ANDROID=false
 FAST_MODE=false
 
 # Parse arguments
@@ -63,9 +69,24 @@ while [[ $# -gt 0 ]]; do
             BUILD_DOTNET=true
             shift
             ;;
+        --ios)
+            BUILD_IOS=true
+            shift
+            ;;
+        --android)
+            BUILD_ANDROID=true
+            shift
+            ;;
+        --mobile)
+            BUILD_IOS=true
+            BUILD_ANDROID=true
+            shift
+            ;;
         --all)
             BUILD_BROWSER=true
             BUILD_DOTNET=true
+            BUILD_IOS=true
+            BUILD_ANDROID=true
             shift
             ;;
         --fast|--dev)
@@ -79,6 +100,9 @@ while [[ $# -gt 0 ]]; do
             echo "Target options:"
             echo "  --browser     Build WASM for browser extension and Blazor WASM client"
             echo "  --dotnet      Build native library for .NET server-side use (macOS/Linux/Windows)"
+            echo "  --ios         Build for iOS (device + simulator) with Swift bindings"
+            echo "  --android     Build for Android (arm64-v8a, armeabi-v7a, x86_64) with Kotlin bindings"
+            echo "  --mobile      Build for both iOS and Android"
             echo "  --all         Build all targets"
             echo ""
             echo "Speed options:"
@@ -97,12 +121,15 @@ while [[ $# -gt 0 ]]; do
 done
 
 # If no targets specified, show help
-if ! $BUILD_BROWSER && ! $BUILD_DOTNET; then
+if ! $BUILD_BROWSER && ! $BUILD_DOTNET && ! $BUILD_IOS && ! $BUILD_ANDROID; then
     echo "No target specified. Use --help for usage."
     echo ""
     echo "Quick start:"
     echo "  ./build.sh --browser    # Build for browser extension"
     echo "  ./build.sh --dotnet     # Build for .NET"
+    echo "  ./build.sh --ios        # Build for iOS"
+    echo "  ./build.sh --android    # Build for Android"
+    echo "  ./build.sh --mobile     # Build for iOS and Android"
     exit 0
 fi
 
@@ -269,6 +296,319 @@ build_dotnet() {
 }
 
 # ============================================
+# iOS Build (Universal Binary + Swift Bindings)
+# ============================================
+build_ios() {
+    echo ""
+    echo -e "${BLUE}Building for iOS...${NC}"
+
+    local start_time=$(date +%s)
+
+    # Check for Xcode (required for iOS builds)
+    if ! command -v xcrun &> /dev/null; then
+        echo -e "${RED}Error: Xcode command line tools not found${NC}"
+        echo "Install with: xcode-select --install"
+        exit 1
+    fi
+
+    # Install iOS targets if needed
+    echo -e "  Checking iOS build targets..."
+    for target in aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios; do
+        if ! rustup target list --installed 2>/dev/null | grep -q "$target"; then
+            echo -e "  Installing $target..."
+            rustup target add "$target"
+        fi
+    done
+
+    # Create output directories
+    mkdir -p "$IOS_DIR/device"
+    mkdir -p "$IOS_DIR/simulator"
+    mkdir -p "$IOS_DIR/swift"
+
+    local cargo_profile
+    if $FAST_MODE; then
+        cargo_profile="debug"
+        cargo_flags=""
+    else
+        cargo_profile="release"
+        cargo_flags="--release"
+    fi
+
+    # Build for iOS device (arm64)
+    # Note: Use only 'uniffi' feature for library builds (not uniffi-cli which includes heavy bindgen deps)
+    echo -e "  Building for iOS device (aarch64-apple-ios)..."
+    cargo build $cargo_flags --target aarch64-apple-ios --features uniffi
+
+    # Build for iOS simulator (arm64 - Apple Silicon)
+    echo -e "  Building for iOS simulator arm64 (aarch64-apple-ios-sim)..."
+    cargo build $cargo_flags --target aarch64-apple-ios-sim --features uniffi
+
+    # Build for iOS simulator (x86_64 - Intel Macs)
+    echo -e "  Building for iOS simulator x86_64 (x86_64-apple-ios)..."
+    cargo build $cargo_flags --target x86_64-apple-ios --features uniffi
+
+    # Copy device library
+    cp "target/aarch64-apple-ios/$cargo_profile/libaliasvault_core.a" "$IOS_DIR/device/"
+
+    # Create universal simulator library (arm64 + x86_64)
+    echo -e "  Creating universal simulator library..."
+    lipo -create \
+        "target/aarch64-apple-ios-sim/$cargo_profile/libaliasvault_core.a" \
+        "target/x86_64-apple-ios/$cargo_profile/libaliasvault_core.a" \
+        -output "$IOS_DIR/simulator/libaliasvault_core.a"
+
+    # Strip debug symbols from static libraries to reduce size
+    # Note: -S strips debug symbols but keeps the symbol table needed for linking
+    if ! $FAST_MODE; then
+        echo -e "  Stripping debug symbols from libraries..."
+        strip -S "$IOS_DIR/device/libaliasvault_core.a" 2>/dev/null || true
+        strip -S "$IOS_DIR/simulator/libaliasvault_core.a" 2>/dev/null || true
+    fi
+
+    # Generate Swift bindings using UniFFI
+    # Note: Use uniffi-cli feature here since we need the bindgen CLI tool
+    echo -e "  Generating Swift bindings..."
+    cargo run $cargo_flags --features uniffi-cli --bin uniffi-bindgen -- generate \
+        --library "target/aarch64-apple-ios/$cargo_profile/libaliasvault_core.a" \
+        --language swift \
+        --out-dir "$IOS_DIR/swift"
+
+    local end_time=$(date +%s)
+    local duration=$((end_time - start_time))
+
+    # Show output sizes
+    if [ -f "$IOS_DIR/device/libaliasvault_core.a" ]; then
+        local device_size=$(ls -lh "$IOS_DIR/device/libaliasvault_core.a" | awk '{print $5}')
+        local sim_size=$(ls -lh "$IOS_DIR/simulator/libaliasvault_core.a" | awk '{print $5}')
+        echo -e "${GREEN}iOS build complete! (${duration}s)${NC}"
+        echo -e "  Device library: ${YELLOW}$device_size${NC}"
+        echo -e "  Simulator library: ${YELLOW}$sim_size${NC}"
+
+        if [ -d "$IOS_DIR/swift" ] && [ -n "$(ls -A "$IOS_DIR/swift" 2>/dev/null)" ]; then
+            echo -e "  Swift bindings: ${GREEN}Generated${NC}"
+            ls "$IOS_DIR/swift/"
+        fi
+    fi
+}
+
+# ============================================
+# iOS Distribution
+# ============================================
+distribute_ios() {
+    echo ""
+    echo -e "${BLUE}Distributing to iOS app...${NC}"
+
+    mkdir -p "$IOS_APP_DIST/device"
+    mkdir -p "$IOS_APP_DIST/simulator"
+    mkdir -p "$IOS_APP_DIST/swift"
+
+    # Copy libraries
+    if [ -f "$IOS_DIR/device/libaliasvault_core.a" ]; then
+        cp "$IOS_DIR/device/libaliasvault_core.a" "$IOS_APP_DIST/device/"
+        echo -e "  Copied device library"
+    fi
+
+    if [ -f "$IOS_DIR/simulator/libaliasvault_core.a" ]; then
+        cp "$IOS_DIR/simulator/libaliasvault_core.a" "$IOS_APP_DIST/simulator/"
+        echo -e "  Copied simulator library"
+    fi
+
+    # Copy Swift bindings
+    if [ -d "$IOS_DIR/swift" ] && [ -n "$(ls -A "$IOS_DIR/swift" 2>/dev/null)" ]; then
+        cp "$IOS_DIR/swift"/*.swift "$IOS_APP_DIST/swift/" 2>/dev/null || true
+        cp "$IOS_DIR/swift"/*.h "$IOS_APP_DIST/swift/" 2>/dev/null || true
+        cp "$IOS_DIR/swift"/*.modulemap "$IOS_APP_DIST/swift/" 2>/dev/null || true
+        echo -e "  Copied Swift bindings"
+    fi
+
+    # Create README
+    cat > "$IOS_APP_DIST/README.md" << 'README_EOF'
+# Rust Core iOS Library
+
+Auto-generated from `/core/rust`. Do not edit manually.
+
+## Contents
+
+- `device/libaliasvault_core.a` - Static library for iOS devices (arm64)
+- `simulator/libaliasvault_core.a` - Universal static library for iOS simulator (arm64 + x86_64)
+- `swift/` - Swift bindings generated by UniFFI
+
+## Regenerate
+
+```bash
+cd /core/rust
+./build.sh --ios
+```
+
+## Integration
+
+1. Add the static library to your Xcode project
+2. Add the Swift bindings to your project
+3. Import `aliasvault_core` in your Swift code
+README_EOF
+
+    echo -e "${GREEN}Distributed to: $IOS_APP_DIST${NC}"
+    ls -la "$IOS_APP_DIST/"
+}
+
+# ============================================
+# Android Build (Multiple ABIs + Kotlin Bindings)
+# ============================================
+build_android() {
+    echo ""
+    echo -e "${BLUE}Building for Android...${NC}"
+
+    local start_time=$(date +%s)
+
+    # Check for Android NDK
+    if [ -z "${ANDROID_NDK_HOME:-}" ]; then
+        # Try to find NDK in common locations
+        if [ -d "$HOME/Library/Android/sdk/ndk" ]; then
+            # Find the latest NDK version
+            ANDROID_NDK_HOME=$(ls -d "$HOME/Library/Android/sdk/ndk"/*/ 2>/dev/null | sort -V | tail -1)
+            ANDROID_NDK_HOME="${ANDROID_NDK_HOME%/}"
+        elif [ -d "$HOME/Android/Sdk/ndk" ]; then
+            ANDROID_NDK_HOME=$(ls -d "$HOME/Android/Sdk/ndk"/*/ 2>/dev/null | sort -V | tail -1)
+            ANDROID_NDK_HOME="${ANDROID_NDK_HOME%/}"
+        fi
+
+        if [ -z "${ANDROID_NDK_HOME:-}" ]; then
+            echo -e "${RED}Error: Android NDK not found${NC}"
+            echo "Set ANDROID_NDK_HOME environment variable or install NDK via Android Studio"
+            exit 1
+        fi
+    fi
+
+    echo -e "  Using Android NDK: ${YELLOW}$ANDROID_NDK_HOME${NC}"
+
+    # Install Android targets if needed
+    echo -e "  Checking Android build targets..."
+    for target in aarch64-linux-android armv7-linux-androideabi x86_64-linux-android; do
+        if ! rustup target list --installed 2>/dev/null | grep -q "$target"; then
+            echo -e "  Installing $target..."
+            rustup target add "$target"
+        fi
+    done
+
+    # Create output directories
+    mkdir -p "$ANDROID_DIR/arm64-v8a"
+    mkdir -p "$ANDROID_DIR/armeabi-v7a"
+    mkdir -p "$ANDROID_DIR/x86_64"
+    mkdir -p "$ANDROID_DIR/kotlin"
+
+    local cargo_profile
+    if $FAST_MODE; then
+        cargo_profile="debug"
+        cargo_flags=""
+    else
+        cargo_profile="release"
+        cargo_flags="--release"
+    fi
+
+    # Set up Android toolchain
+    local host_tag
+    case "$(uname -s)" in
+        Darwin) host_tag="darwin-x86_64" ;;
+        Linux) host_tag="linux-x86_64" ;;
+        *) host_tag="windows-x86_64" ;;
+    esac
+
+    local toolchain="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/$host_tag"
+    local api_level=24  # Android 7.0 minimum
+
+    # Build for each ABI
+    # Note: Use only 'uniffi' feature for library builds (not uniffi-cli which includes heavy bindgen deps)
+    echo -e "  Building for arm64-v8a..."
+    AR="$toolchain/bin/llvm-ar" \
+    CC="$toolchain/bin/aarch64-linux-android${api_level}-clang" \
+    CXX="$toolchain/bin/aarch64-linux-android${api_level}-clang++" \
+    CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$toolchain/bin/aarch64-linux-android${api_level}-clang" \
+    cargo build $cargo_flags --target aarch64-linux-android --features uniffi
+
+    echo -e "  Building for armeabi-v7a..."
+    AR="$toolchain/bin/llvm-ar" \
+    CC="$toolchain/bin/armv7a-linux-androideabi${api_level}-clang" \
+    CXX="$toolchain/bin/armv7a-linux-androideabi${api_level}-clang++" \
+    CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER="$toolchain/bin/armv7a-linux-androideabi${api_level}-clang" \
+    cargo build $cargo_flags --target armv7-linux-androideabi --features uniffi
+
+    echo -e "  Building for x86_64..."
+    AR="$toolchain/bin/llvm-ar" \
+    CC="$toolchain/bin/x86_64-linux-android${api_level}-clang" \
+    CXX="$toolchain/bin/x86_64-linux-android${api_level}-clang++" \
+    CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER="$toolchain/bin/x86_64-linux-android${api_level}-clang" \
+    cargo build $cargo_flags --target x86_64-linux-android --features uniffi
+
+    # Copy libraries
+    cp "target/aarch64-linux-android/$cargo_profile/libaliasvault_core.so" "$ANDROID_DIR/arm64-v8a/"
+    cp "target/armv7-linux-androideabi/$cargo_profile/libaliasvault_core.so" "$ANDROID_DIR/armeabi-v7a/"
+    cp "target/x86_64-linux-android/$cargo_profile/libaliasvault_core.so" "$ANDROID_DIR/x86_64/"
+
+    # Strip debug symbols from shared libraries using NDK strip
+    # This removes debug info while keeping symbols needed for JNI
+    if ! $FAST_MODE; then
+        echo -e "  Stripping debug symbols from libraries..."
+        local llvm_strip="$toolchain/bin/llvm-strip"
+        if [ -x "$llvm_strip" ]; then
+            "$llvm_strip" --strip-debug "$ANDROID_DIR/arm64-v8a/libaliasvault_core.so" 2>/dev/null || true
+            "$llvm_strip" --strip-debug "$ANDROID_DIR/armeabi-v7a/libaliasvault_core.so" 2>/dev/null || true
+            "$llvm_strip" --strip-debug "$ANDROID_DIR/x86_64/libaliasvault_core.so" 2>/dev/null || true
+        fi
+    fi
+
+    # Generate Kotlin bindings using UniFFI
+    # Note: Use uniffi-cli feature here since we need the bindgen CLI tool
+    echo -e "  Generating Kotlin bindings..."
+    cargo run $cargo_flags --features uniffi-cli --bin uniffi-bindgen -- generate \
+        --library "target/aarch64-linux-android/$cargo_profile/libaliasvault_core.so" \
+        --language kotlin \
+        --out-dir "$ANDROID_DIR/kotlin"
+
+    local end_time=$(date +%s)
+    local duration=$((end_time - start_time))
+
+    # Show output sizes
+    echo -e "${GREEN}Android build complete! (${duration}s)${NC}"
+    for abi in arm64-v8a armeabi-v7a x86_64; do
+        if [ -f "$ANDROID_DIR/$abi/libaliasvault_core.so" ]; then
+            local size=$(ls -lh "$ANDROID_DIR/$abi/libaliasvault_core.so" | awk '{print $5}')
+            echo -e "  $abi: ${YELLOW}$size${NC}"
+        fi
+    done
+
+    if [ -d "$ANDROID_DIR/kotlin" ] && [ -n "$(ls -A "$ANDROID_DIR/kotlin" 2>/dev/null)" ]; then
+        echo -e "  Kotlin bindings: ${GREEN}Generated${NC}"
+    fi
+}
+
+# ============================================
+# Android Distribution
+# ============================================
+distribute_android() {
+    echo ""
+    echo -e "${BLUE}Distributing to Android app...${NC}"
+
+    # Copy native libraries to jniLibs
+    for abi in arm64-v8a armeabi-v7a x86_64; do
+        if [ -f "$ANDROID_DIR/$abi/libaliasvault_core.so" ]; then
+            mkdir -p "$ANDROID_APP_DIST/$abi"
+            cp "$ANDROID_DIR/$abi/libaliasvault_core.so" "$ANDROID_APP_DIST/$abi/"
+            echo -e "  Copied $abi library"
+        fi
+    done
+
+    # Copy Kotlin bindings to app source
+    local kotlin_dist="$SCRIPT_DIR/../../apps/mobile-app/android/app/src/main/java/net/aliasvault/app/rustcore"
+    if [ -d "$ANDROID_DIR/kotlin" ] && [ -n "$(ls -A "$ANDROID_DIR/kotlin" 2>/dev/null)" ]; then
+        mkdir -p "$kotlin_dist"
+        cp "$ANDROID_DIR/kotlin"/*.kt "$kotlin_dist/" 2>/dev/null || true
+        echo -e "  Copied Kotlin bindings to $kotlin_dist"
+    fi
+
+    echo -e "${GREEN}Distributed to: $ANDROID_APP_DIST${NC}"
+}
+
+# ============================================
 # Main Build Process
 # ============================================
 TOTAL_START=$(date +%s)
@@ -283,6 +623,16 @@ if $BUILD_DOTNET; then
     # Note: dotnet native libs are built to dist/dotnet/ but not distributed
     # Blazor WASM uses the WASM module via JS interop instead
     echo -e "${YELLOW}Note: Native library built to dist/dotnet/ (for server-side .NET use)${NC}"
+fi
+
+if $BUILD_IOS; then
+    build_ios
+    distribute_ios
+fi
+
+if $BUILD_ANDROID; then
+    build_android
+    distribute_android
 fi
 
 TOTAL_END=$(date +%s)

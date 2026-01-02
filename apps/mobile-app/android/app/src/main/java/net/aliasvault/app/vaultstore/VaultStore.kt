@@ -280,9 +280,16 @@ class VaultStore(
 
     /**
      * Commit a SQL transaction on the vault.
+     * This also atomically marks the vault as dirty and increments the mutation sequence
+     * for proper sync tracking.
      */
     fun commitTransaction() {
         databaseComponent.commitTransaction()
+
+        // Atomically mark vault as dirty and increment mutation sequence
+        // This ensures sync can properly detect local changes
+        metadata.setIsDirty(true)
+        metadata.incrementMutationSequence()
     }
 
     /**
@@ -522,7 +529,7 @@ class VaultStore(
             encryptedVault = encryptedVault,
             markDirty = true,
             serverRevision = null,
-            expectedMutationSeq = null
+            expectedMutationSeq = null,
         )
     }
 

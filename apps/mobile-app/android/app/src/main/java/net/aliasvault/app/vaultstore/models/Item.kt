@@ -18,7 +18,7 @@ data class Item(
     val hasAttachment: Boolean,
     val hasTotp: Boolean,
     val createdAt: Date,
-    val updatedAt: Date
+    val updatedAt: Date,
 ) {
     /**
      * Get the value of a field by its key.
@@ -86,5 +86,5 @@ data class ItemField(
     val isHidden: Boolean,
     val displayOrder: Int,
     val isCustomField: Boolean,
-    val enableHistory: Boolean
+    val enableHistory: Boolean,
 )

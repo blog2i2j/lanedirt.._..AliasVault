@@ -54,6 +54,13 @@ pub use wasm::*;
 #[cfg(feature = "ffi")]
 pub mod ffi;
 
-// UniFFI scaffolding
+// UniFFI bindings for Swift/Kotlin
+#[cfg(feature = "uniffi")]
+pub mod uniffi_api;
+
+#[cfg(feature = "uniffi")]
+pub use uniffi_api::*;
+
+// UniFFI scaffolding - generates the FFI glue code
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();

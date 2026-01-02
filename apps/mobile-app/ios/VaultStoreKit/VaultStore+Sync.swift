@@ -384,16 +384,15 @@ extension VaultStore {
                 )
             }
 
-            // Perform LWW merge using Rust core library
-            // TODO: Call actual Rust merge function via native bindings
-            // For now, we preserve local changes (same as before)
+            // Perform LWW merge using Rust core library via VaultMergeService
             let mergedVault = try performLWWMerge(localVault: localVault, serverVault: serverVault.vault.blob)
 
             // Store merged vault with race detection
+            // Set serverRevision to the server's revision so prepareVault() sends correct revision when uploading
             let storeResult = try storeEncryptedVaultWithSyncState(
                 encryptedVault: mergedVault,
                 markDirty: false,
-                serverRevision: nil,  // Will be updated after upload
+                serverRevision: serverVault.vault.currentRevisionNumber,
                 expectedMutationSeq: mutationSeqAtStart
             )
 
@@ -453,13 +452,40 @@ extension VaultStore {
         }
     }
 
-    /// Perform Last-Write-Wins merge between local and server vaults
-    /// TODO: Integrate with Rust core library for actual merge logic
+    /// Perform Last-Write-Wins merge between local and server vaults using Rust core library.
+    ///
+    /// This method delegates to VaultMergeService which handles:
+    /// 1. Decrypting both vaults
+    /// 2. Reading all syncable tables as JSON
+    /// 3. Calling Rust core's LWW merge function
+    /// 4. Applying resulting SQL statements
+    /// 5. Re-encrypting the merged result
+    ///
+    /// - Parameters:
+    ///   - localVault: Base64-encoded encrypted local vault blob
+    ///   - serverVault: Base64-encoded encrypted server vault blob
+    /// - Returns: Base64-encoded encrypted merged vault blob
+    /// - Throws: VaultSyncError if merge fails
     private func performLWWMerge(localVault: String, serverVault: String) throws -> String {
-        // TODO: Call Rust core's merge function via Swift bindings
-        // For now, preserve local changes (temporary behavior)
-        print("[VaultSync] LWW merge not yet implemented - preserving local changes")
-        return localVault
+        guard let encryptionKey = self.encryptionKey else {
+            throw VaultSyncError.unknownError(message: "Encryption key not available for merge")
+        }
+
+        do {
+            let mergedVault = try VaultMergeService.shared.mergeVaults(
+                localVaultBase64: localVault,
+                serverVaultBase64: serverVault,
+                encryptionKey: encryptionKey
+            )
+            print("[VaultSync] LWW merge completed successfully via Rust core")
+            return mergedVault
+        } catch let error as VaultMergeService.VaultMergeError {
+            print("[VaultSync] Merge error: \(error.localizedDescription)")
+            throw VaultSyncError.unknownError(message: "Merge failed: \(error.localizedDescription)")
+        } catch {
+            print("[VaultSync] Unexpected merge error: \(error)")
+            throw VaultSyncError.unknownError(message: "Merge failed: \(error.localizedDescription)")
+        }
     }
 
     /// Handle sync errors and return appropriate result

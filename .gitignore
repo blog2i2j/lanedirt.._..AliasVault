@@ -444,10 +444,10 @@ core/rust/target/
 apps/browser-extension/src/utils/dist/core/rust
 
 # iOS Swift bindings (built by: cd core/rust && ./build.sh --ios)
-apps/mobile-app/ios/AliasVaultCore/
+apps/mobile-app/ios/VaultStoreKit/RustCore/
 
 # Android Kotlin bindings (built by: cd core/rust && ./build.sh --android)
-apps/mobile-app/android/app/src/main/java/com/aliasvault/core/
+apps/mobile-app/android/app/src/main/java/net/aliasvault/app/rustcore/uniffi/
 apps/mobile-app/android/app/src/main/jniLibs/
 
 # Server .NET bindings (built by: cd core/rust && ./build.sh --server)

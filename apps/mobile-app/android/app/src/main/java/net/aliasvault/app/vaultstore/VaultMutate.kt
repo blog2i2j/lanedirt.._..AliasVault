@@ -3,7 +3,6 @@ package net.aliasvault.app.vaultstore
 import android.util.Log
 import net.aliasvault.app.exceptions.SerializationException
 import net.aliasvault.app.exceptions.VaultOperationException
-import net.aliasvault.app.vaultstore.models.FieldKey
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -23,8 +22,12 @@ class VaultMutate(
 
     /**
      * Execute a vault mutation operation.
+     * This captures mutation sequence for race detection and clears dirty after successful upload.
      */
     suspend fun mutateVault(webApiService: net.aliasvault.app.webapi.WebApiService): Boolean {
+        // Capture mutation sequence for race detection
+        val mutationSeqAtStart = metadata.getMutationSequence()
+
         try {
             val vault = prepareVault()
 
@@ -65,7 +68,8 @@ class VaultMutate(
 
             when (vaultResponse.status) {
                 0 -> {
-                    metadata.setVaultRevisionNumber(vaultResponse.newRevisionNumber)
+                    // Success - update revision and clear dirty (if no mutations during upload)
+                    metadata.markVaultClean(mutationSeqAtStart, vaultResponse.newRevisionNumber)
                     metadata.setOfflineMode(false)
                     return true
                 }
