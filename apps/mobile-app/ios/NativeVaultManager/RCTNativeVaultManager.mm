@@ -89,10 +89,6 @@
     [vaultManager setAutoLockTimeout:timeout resolver:resolve rejecter:reject];
 }
 
-- (void)clearClipboardAfterDelay:(double)delayInSeconds resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
-    [vaultManager clearClipboardAfterDelay:delayInSeconds resolver:resolve rejecter:reject];
-}
-
 - (void)storeMetadata:(NSString *)metadata resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     [vaultManager storeMetadata:metadata resolver:resolve rejecter:reject];
 }
@@ -142,16 +138,6 @@
 }
 
 // MARK: - Android-specific methods (stubs for iOS)
-
-- (void)canScheduleExactAlarms:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
-    // Only used by Android, return true.
-    resolve(@(YES));
-}
-
-- (void)requestExactAlarmPermission:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
-    // Only used by Android, return true.
-    resolve(@"Not applicable on iOS");
-}
 
 - (void)isIgnoringBatteryOptimizations:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     // Only used by Android, return true.
@@ -247,20 +233,8 @@
     [vaultManager getSyncState:resolve rejecter:reject];
 }
 
-- (void)storeEncryptedVaultWithSyncState:(NSString *)encryptedVault markDirty:(BOOL)markDirty serverRevision:(NSNumber *)serverRevision expectedMutationSeq:(NSNumber *)expectedMutationSeq resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
-    [vaultManager storeEncryptedVaultWithSyncState:encryptedVault markDirty:markDirty serverRevision:serverRevision expectedMutationSeq:expectedMutationSeq resolver:resolve rejecter:reject];
-}
-
 - (void)markVaultClean:(double)mutationSeqAtStart newServerRevision:(double)newServerRevision resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     [vaultManager markVaultClean:(NSInteger)mutationSeqAtStart newServerRevision:(NSInteger)newServerRevision resolver:resolve rejecter:reject];
-}
-
-- (void)uploadVault:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
-    [vaultManager uploadVault:resolve rejecter:reject];
-}
-
-- (void)markVaultDirty:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
-    [vaultManager markVaultDirty:resolve rejecter:reject];
 }
 
 // MARK: - PIN Unlock

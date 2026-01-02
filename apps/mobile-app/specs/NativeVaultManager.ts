@@ -27,11 +27,7 @@ export interface Spec extends TurboModule {
 
   // Sync state management (kept for local mutation tracking)
   getSyncState(): Promise<{isDirty: boolean; mutationSequence: number; serverRevision: number; isSyncing: boolean}>;
-  storeEncryptedVaultWithSyncState(encryptedVault: string, markDirty: boolean, serverRevision: number | null, expectedMutationSeq: number | null): Promise<{ success: boolean; mutationSequence: number }>;
   markVaultClean(mutationSeqAtStart: number, newServerRevision: number): Promise<boolean>;
-  markVaultDirty(): Promise<void>;
-
-  uploadVault(): Promise<{ success: boolean; status: number; newRevisionNumber: number; mutationSeqAtStart: number; error: string | null }>;
 
   // Vault SQL operations
   executeQuery(query: string, params: (string | number | null)[]): Promise<string[]>;
@@ -62,12 +58,7 @@ export interface Spec extends TurboModule {
   setAutofillShowSearchText(showSearchText: boolean): Promise<void>;
 
   // Clipboard management
-  clearClipboardAfterDelay(delayInSeconds: number): Promise<void>;
   copyToClipboardWithExpiration(text: string, expirationSeconds: number): Promise<void>;
-
-  // Exact alarm permission management
-  canScheduleExactAlarms(): Promise<boolean>;
-  requestExactAlarmPermission(): Promise<string>;
 
   // Battery optimization management
   isIgnoringBatteryOptimizations(): Promise<boolean>;

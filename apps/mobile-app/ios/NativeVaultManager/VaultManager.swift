@@ -16,8 +16,6 @@ import AVFoundation
 public class VaultManager: NSObject {
     private let vaultStore = VaultStore()
     private let webApiService = WebApiService()
-    private var backgroundTaskIdentifier: UIBackgroundTaskIdentifier = .invalid
-    private var clipboardClearTimer: DispatchSourceTimer?
 
     override init() {
         super.init()
@@ -233,55 +231,6 @@ public class VaultManager: NSObject {
 
             // Default error handling
             reject("INIT_ERROR", "Failed to unlock vault: \(error.localizedDescription)", error)
-        }
-    }
-
-    @objc
-    func clearClipboardAfterDelay(_ delayInSeconds: Double,
-                                 resolver resolve: @escaping RCTPromiseResolveBlock,
-                                 rejecter reject: @escaping RCTPromiseRejectBlock) {
-        NSLog("VaultManager: Scheduling clipboard clear after %.0f seconds", delayInSeconds)
-
-        if delayInSeconds <= 0 {
-            NSLog("VaultManager: Delay is 0 or negative, not scheduling clipboard clear")
-            resolve(nil)
-            return
-        }
-
-        // Cancel any existing clipboard clear operations
-        cancelClipboardClear()
-
-        // Start background task to keep app alive during clipboard clear
-        backgroundTaskIdentifier = UIApplication.shared.beginBackgroundTask(withName: "ClipboardClear") { [weak self] in
-            NSLog("VaultManager: Background task expired, cleaning up")
-            self?.endBackgroundTask()
-        }
-
-        clipboardClearTimer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
-        clipboardClearTimer?.schedule(deadline: .now() + delayInSeconds)
-        clipboardClearTimer?.setEventHandler { [weak self] in
-            NSLog("VaultManager: Clearing clipboard after %.0f seconds delay", delayInSeconds)
-            UIPasteboard.general.string = ""
-            NSLog("VaultManager: Clipboard cleared successfully")
-            self?.endBackgroundTask()
-            self?.clipboardClearTimer?.cancel()
-            self?.clipboardClearTimer = nil
-        }
-        clipboardClearTimer?.resume()
-
-        resolve(nil)
-    }
-
-    private func cancelClipboardClear() {
-        clipboardClearTimer?.cancel()
-        clipboardClearTimer = nil
-        endBackgroundTask()
-    }
-
-    private func endBackgroundTask() {
-        if backgroundTaskIdentifier != .invalid {
-            UIApplication.shared.endBackgroundTask(backgroundTaskIdentifier)
-            backgroundTaskIdentifier = .invalid
         }
     }
 
@@ -943,78 +892,12 @@ public class VaultManager: NSObject {
     }
 
     @objc
-    func storeEncryptedVaultWithSyncState(_ encryptedVault: String,
-                                          markDirty: Bool,
-                                          serverRevision: NSNumber?,
-                                          expectedMutationSeq: NSNumber?,
-                                          resolver resolve: @escaping RCTPromiseResolveBlock,
-                                          rejecter reject: @escaping RCTPromiseRejectBlock) {
-        do {
-            let result = try vaultStore.storeEncryptedVaultWithSyncState(
-                encryptedVault: encryptedVault,
-                markDirty: markDirty,
-                serverRevision: serverRevision?.intValue,
-                expectedMutationSeq: expectedMutationSeq?.intValue
-            )
-            let response: [String: Any] = [
-                "success": result.success,
-                "mutationSequence": result.mutationSequence
-            ]
-            resolve(response)
-        } catch {
-            reject("STORE_VAULT_ERROR", "Failed to store vault: \(error.localizedDescription)", error)
-        }
-    }
-
-    @objc
     func markVaultClean(_ mutationSeqAtStart: Int,
                        newServerRevision: Int,
                        resolver resolve: @escaping RCTPromiseResolveBlock,
                        rejecter reject: @escaping RCTPromiseRejectBlock) {
         let cleared = vaultStore.markVaultClean(mutationSeqAtStart: mutationSeqAtStart, newServerRevision: newServerRevision)
         resolve(cleared)
-    }
-
-    @objc
-    func uploadVault(_ resolve: @escaping RCTPromiseResolveBlock,
-                    rejecter reject: @escaping RCTPromiseRejectBlock) {
-        Task {
-            do {
-                let result = try await vaultStore.uploadVault(using: webApiService)
-                await MainActor.run {
-                    let response: [String: Any] = [
-                        "success": result.success,
-                        "status": result.status,
-                        "newRevisionNumber": result.newRevisionNumber,
-                        "mutationSeqAtStart": result.mutationSeqAtStart,
-                        "error": result.error as Any
-                    ]
-                    resolve(response)
-                }
-            } catch {
-                await MainActor.run {
-                    reject("UPLOAD_VAULT_ERROR", "Failed to upload vault: \(error.localizedDescription)", error)
-                }
-            }
-        }
-    }
-
-    /// Persist the in-memory vault to storage and mark as dirty (for local mutations).
-    @objc
-    func markVaultDirty(_ resolve: @escaping RCTPromiseResolveBlock,
-                                  rejecter reject: @escaping RCTPromiseRejectBlock) {
-        Task {
-            do {
-                try vaultStore.markVaultDirty()
-                await MainActor.run {
-                    resolve(nil)
-                }
-            } catch {
-                await MainActor.run {
-                    reject("PERSIST_VAULT_ERROR", "Failed to persist vault: \(error.localizedDescription)", error)
-                }
-            }
-        }
     }
 
     @objc

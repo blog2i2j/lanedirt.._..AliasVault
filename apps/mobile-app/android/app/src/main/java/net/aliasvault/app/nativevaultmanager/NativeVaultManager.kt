@@ -503,10 +503,9 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     /**
      * Clear clipboard after a delay.
      * @param delayInSeconds The delay in seconds after which to clear the clipboard
-     * @param promise The promise to resolve
+     * @param promise Optional promise to resolve (for internal calls)
      */
-    @ReactMethod
-    override fun clearClipboardAfterDelay(delayInSeconds: Double, promise: Promise?) {
+    private fun clearClipboardAfterDelay(delayInSeconds: Double, promise: Promise?) {
         Log.d(TAG, "Scheduling clipboard clear after $delayInSeconds seconds")
 
         if (delayInSeconds <= 0) {
@@ -658,59 +657,6 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
         } catch (e: Exception) {
             Log.e(TAG, "Error copying to clipboard", e)
             promise?.reject("ERR_CLIPBOARD", "Failed to copy to clipboard: ${e.message}", e)
-        }
-    }
-
-    /**
-     * Check if the app can schedule exact alarms.
-     * @param promise The promise to resolve with boolean result
-     */
-    @ReactMethod
-    override fun canScheduleExactAlarms(promise: Promise?) {
-        try {
-            val canSchedule = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                val alarmManager = reactApplicationContext.getSystemService(android.content.Context.ALARM_SERVICE) as android.app.AlarmManager
-                alarmManager.canScheduleExactAlarms()
-            } else {
-                true // Pre-Android 12 doesn't require permission
-            }
-            Log.d(TAG, "Can schedule exact alarms: $canSchedule")
-            promise?.resolve(canSchedule)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error checking exact alarm permission", e)
-            promise?.reject("ERR_EXACT_ALARM_CHECK", "Failed to check exact alarm permission: ${e.message}", e)
-        }
-    }
-
-    /**
-     * Request exact alarm permission by opening system settings.
-     * @param promise The promise to resolve
-     */
-    @ReactMethod
-    override fun requestExactAlarmPermission(promise: Promise?) {
-        try {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                val alarmManager = reactApplicationContext.getSystemService(android.content.Context.ALARM_SERVICE) as android.app.AlarmManager
-
-                if (!alarmManager.canScheduleExactAlarms()) {
-                    val intent = Intent().apply {
-                        action = Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM
-                        data = Uri.parse("package:${reactApplicationContext.packageName}")
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                    }
-                    reactApplicationContext.startActivity(intent)
-                    promise?.resolve("Permission request sent - user will be taken to settings")
-                } else {
-                    Log.d(TAG, "Exact alarm permission already granted")
-                    promise?.resolve("Permission already granted")
-                }
-            } else {
-                Log.d(TAG, "Exact alarm permission not required on this Android version")
-                promise?.resolve("Permission not required on this Android version")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error requesting exact alarm permission", e)
-            promise?.reject("ERR_EXACT_ALARM_REQUEST", "Failed to request exact alarm permission: ${e.message}", e)
         }
     }
 
@@ -1441,43 +1387,6 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Store encrypted vault with sync state atomically.
-     * Two modes:
-     * 1. markDirty=true: Local mutation - always succeeds, increments mutation sequence
-     * 2. expectedMutationSeq provided: Sync operation - only succeeds if no mutations happened
-     *
-     * @param encryptedVault The encrypted vault blob.
-     * @param markDirty If true, marks vault as dirty and increments mutation sequence.
-     * @param serverRevision Optional server revision to set.
-     * @param expectedMutationSeq If provided, only store if current sequence matches.
-     * @param promise The promise to resolve with { success: boolean, mutationSequence: number }.
-     */
-    @ReactMethod
-    fun storeEncryptedVaultWithSyncState(
-        encryptedVault: String,
-        markDirty: Boolean,
-        serverRevision: Double?,
-        expectedMutationSeq: Double?,
-        promise: Promise,
-    ) {
-        try {
-            val result = vaultStore.storeEncryptedVaultWithSyncState(
-                encryptedVault = encryptedVault,
-                markDirty = markDirty,
-                serverRevision = serverRevision?.toInt(),
-                expectedMutationSeq = expectedMutationSeq?.toInt(),
-            )
-            val response = Arguments.createMap()
-            response.putBoolean("success", result.success)
-            response.putInt("mutationSequence", result.mutationSequence)
-            promise.resolve(response)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error storing vault with sync state", e)
-            promise.reject("ERR_STORE_VAULT_SYNC", "Failed to store vault with sync state: ${e.message}", e)
-        }
-    }
-
-    /**
      * Mark the vault as clean after successful sync.
      * Only clears dirty flag if no mutations happened during sync.
      *
@@ -1496,55 +1405,6 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
         } catch (e: Exception) {
             Log.e(TAG, "Error marking vault clean", e)
             promise.reject("ERR_MARK_VAULT_CLEAN", "Failed to mark vault clean: ${e.message}", e)
-        }
-    }
-
-    /**
-     * Upload the vault to the server.
-     * This is used for sync operations where race detection is needed.
-     *
-     * @param promise The promise to resolve with upload result.
-     */
-    @ReactMethod
-    fun uploadVault(promise: Promise) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val result = vaultStore.uploadVault(webApiService)
-                withContext(Dispatchers.Main) {
-                    val response = Arguments.createMap()
-                    response.putBoolean("success", result.success)
-                    response.putInt("status", result.status)
-                    response.putInt("newRevisionNumber", result.newRevisionNumber)
-                    response.putInt("mutationSeqAtStart", result.mutationSeqAtStart)
-                    if (result.error != null) {
-                        response.putString("error", result.error)
-                    } else {
-                        response.putNull("error")
-                    }
-                    promise.resolve(response)
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Log.e(TAG, "Error uploading vault", e)
-                    promise.reject("ERR_UPLOAD_VAULT", "Failed to upload vault: ${e.message}", e)
-                }
-            }
-        }
-    }
-
-    /**
-     * Persist the in-memory vault to storage and mark as dirty.
-     * Combines getting the encrypted database and storing it with dirty flag in one call.
-     * This is used after local mutations to persist changes.
-     */
-    @ReactMethod
-    fun markVaultDirty(promise: Promise) {
-        try {
-            vaultStore.markVaultDirty()
-            promise.resolve(null)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error persisting vault", e)
-            promise.reject("ERR_PERSIST_VAULT", "Failed to persist vault: ${e.message}", e)
         }
     }
 }
