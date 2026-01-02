@@ -276,12 +276,20 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
         // Check if item type has changed
         var typeChanged = existingItem.ItemType != item.ItemType;
 
-        // Update basic item info
-        existingItem.Name = item.Name;
-        existingItem.ItemType = item.ItemType;
-        existingItem.LogoId = item.LogoId;
-        existingItem.FolderId = item.FolderId;
-        existingItem.UpdatedAt = updateDateTime;
+        // Update basic item info only if values changed
+        var itemLevelChanged = existingItem.Name != item.Name ||
+                               existingItem.ItemType != item.ItemType ||
+                               existingItem.LogoId != item.LogoId ||
+                               existingItem.FolderId != item.FolderId;
+
+        if (itemLevelChanged)
+        {
+            existingItem.Name = item.Name;
+            existingItem.ItemType = item.ItemType;
+            existingItem.LogoId = item.LogoId;
+            existingItem.FolderId = item.FolderId;
+            existingItem.UpdatedAt = updateDateTime;
+        }
 
         // Clear inapplicable fields/relations when type changes
         if (typeChanged && item.ItemType != null)

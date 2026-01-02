@@ -309,15 +309,30 @@ export class ItemRepository extends BaseRepository {
     return this.withTransaction(async () => {
       const now = this.now();
 
-      // 1. Update Item
-      await this.client.executeUpdate(ItemQueries.UPDATE_ITEM, [
-        item.Name,
-        item.ItemType,
-        item.FolderId || null,
-        null, // LogoId update handled separately if needed
-        now,
-        item.Id
-      ]);
+      // 1. Update Item only if item-level fields changed
+      const existing = await this.client.executeQuery<{
+        Name: string | null;
+        ItemType: string | null;
+        FolderId: string | null;
+      }>(`SELECT Name, ItemType, FolderId FROM Items WHERE Id = ?`, [item.Id]);
+
+      if (existing.length > 0) {
+        const existingItem = existing[0];
+        const nameChanged = item.Name !== existingItem.Name;
+        const itemTypeChanged = String(item.ItemType) !== String(existingItem.ItemType);
+        const folderIdChanged = (item.FolderId || null) !== existingItem.FolderId;
+
+        if (nameChanged || itemTypeChanged || folderIdChanged) {
+          await this.client.executeUpdate(ItemQueries.UPDATE_ITEM, [
+            item.Name,
+            item.ItemType,
+            item.FolderId || null,
+            null, // LogoId update handled separately if needed
+            now,
+            item.Id
+          ]);
+        }
+      }
 
       // 2. Update FieldValues using preserve-and-track strategy
       await this.updateFieldValues(item.Id, item.Fields, now);

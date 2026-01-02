@@ -177,15 +177,31 @@ export class ItemRepository extends BaseRepository {
       // 1. Handle Logo
       const logoId = this.resolveLogoId(item, currentDateTime);
 
-      // 2. Update Item
-      this.client.executeUpdate(ItemQueries.UPDATE_ITEM, [
-        item.Name ?? null,
-        item.ItemType,
-        item.FolderId ?? null,
-        logoId,
-        currentDateTime,
-        item.Id
-      ]);
+      // 2. Update Item only if item-level fields changed
+      const existing = this.client.executeQuery<{
+        Name: string | null;
+        ItemType: number;
+        FolderId: string | null;
+        LogoId: string | null;
+      }>(`SELECT Name, ItemType, FolderId, LogoId FROM Items WHERE Id = ?`, [item.Id])[0];
+
+      if (existing) {
+        const nameChanged = (item.Name ?? null) !== existing.Name;
+        const itemTypeChanged = String(item.ItemType) !== String(existing.ItemType);
+        const folderIdChanged = (item.FolderId ?? null) !== existing.FolderId;
+        const logoIdChanged = logoId !== null && logoId !== existing.LogoId;
+
+        if (nameChanged || itemTypeChanged || folderIdChanged || logoIdChanged) {
+          this.client.executeUpdate(ItemQueries.UPDATE_ITEM, [
+            item.Name ?? null,
+            item.ItemType,
+            item.FolderId ?? null,
+            logoId,
+            currentDateTime,
+            item.Id
+          ]);
+        }
+      }
 
       // 3. Track history for fields that have EnableHistory=true before updating
       await this.trackFieldHistory(item.Id, item.Fields, currentDateTime);
