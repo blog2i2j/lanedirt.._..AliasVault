@@ -81,7 +81,6 @@ export function useVaultMutate() : {
       hiddenPrivateEmailDomainList: [],
       publicEmailDomainList: [],
       encryptionPublicKey: '',
-      client: '',
       updatedAt: new Date().toISOString(),
       username: username,
       version: (await dbContext.sqliteClient!.getDatabaseVersion())?.version ?? '0.0.0'

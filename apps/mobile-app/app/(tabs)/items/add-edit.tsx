@@ -817,8 +817,10 @@ export default function AddEditItemScreen(): React.ReactNode {
        * Handle successful save
        */
       onSuccess: () => {
-        // Emit event to notify list and detail views to refresh
-        // Must be after sync completes so merged data is available
+        /*
+         * Emit event to notify list and detail views to refresh
+         * Must be after sync completes so merged data is available
+         */
         emitter.emit('credentialChanged', itemToSave.Id);
 
         setHasUnsavedChanges(false);
