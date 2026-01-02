@@ -51,6 +51,7 @@ public class VaultMergeService {
         // Step 1: Decode outer base64 to get encrypted bytes
         guard let localVaultData = Data(base64Encoded: localVaultBase64),
               let serverVaultData = Data(base64Encoded: serverVaultBase64) else {
+            print("[VaultMergeService] Failed to decode outer base64")
             throw VaultMergeError.invalidInput("Invalid base64 vault data")
         }
 
@@ -82,13 +83,16 @@ public class VaultMergeService {
         var serverTables: [[String: Any]] = []
 
         for tableName in tableNames {
+            let localRecords = try readTable(from: localDb, tableName: tableName)
             localTables.append([
                 "name": tableName,
-                "records": try readTable(from: localDb, tableName: tableName)
+                "records": localRecords
             ])
+
+            let serverRecords = try readTable(from: serverDb, tableName: tableName)
             serverTables.append([
                 "name": tableName,
-                "records": try readTable(from: serverDb, tableName: tableName)
+                "records": serverRecords
             ])
         }
 
@@ -103,8 +107,9 @@ public class VaultMergeService {
         let outputJson = try mergeVaultsJson(inputJson: inputJson)
         let output = try parseOutput(outputJson)
 
+
         // Apply SQL statements to local database
-        for statement in output.statements {
+        for (index, statement) in output.statements.enumerated() {
             try executeStatement(on: localDb, sql: statement.sql, params: statement.params)
         }
 
@@ -234,6 +239,7 @@ public class VaultMergeService {
 
         guard result == SQLITE_OK else {
             sqlite3_close(db)
+            print("[VaultMergeService] Failed to deserialize database: \(result)")
             throw VaultMergeError.databaseError("Failed to deserialize database: \(result)")
         }
 
@@ -256,17 +262,32 @@ public class VaultMergeService {
         // Check if table exists
         let checkSql = "SELECT name FROM sqlite_master WHERE type='table' AND name=?"
         var checkStmt: OpaquePointer?
-        guard sqlite3_prepare_v2(db, checkSql, -1, &checkStmt, nil) == SQLITE_OK else { return records }
+        let prepareResult = sqlite3_prepare_v2(db, checkSql, -1, &checkStmt, nil)
+        guard prepareResult == SQLITE_OK else {
+            let errorMsg = String(cString: sqlite3_errmsg(db))
+            print("[VaultMergeService] Failed to prepare table check for \(tableName): \(errorMsg) (code: \(prepareResult))")
+            return records
+        }
         defer { sqlite3_finalize(checkStmt) }
 
-        sqlite3_bind_text(checkStmt, 1, tableName, -1, nil)
-        if sqlite3_step(checkStmt) != SQLITE_ROW { return records }
+        // Use SQLITE_TRANSIENT to ensure SQLite copies the string data
+        let sqliteTransient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        sqlite3_bind_text(checkStmt, 1, tableName, -1, sqliteTransient)
+
+        let stepResult = sqlite3_step(checkStmt)
+        if stepResult != SQLITE_ROW {
+            print("[VaultMergeService] Table '\(tableName)' does not exist (step result: \(stepResult))")
+            return records
+        }
 
         // Read all records
         let sql = "SELECT * FROM \(tableName)"
         var stmt: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
-            throw VaultMergeError.databaseError("Failed to prepare statement for \(tableName)")
+        let selectPrepareResult = sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+        guard selectPrepareResult == SQLITE_OK else {
+            let errorMsg = String(cString: sqlite3_errmsg(db))
+            print("[VaultMergeService] Failed to prepare SELECT for \(tableName): \(errorMsg) (code: \(selectPrepareResult))")
+            throw VaultMergeError.databaseError("Failed to prepare statement for \(tableName): \(errorMsg)")
         }
         defer { sqlite3_finalize(stmt) }
 
@@ -310,6 +331,9 @@ public class VaultMergeService {
         }
         defer { sqlite3_finalize(stmt) }
 
+        // Use SQLITE_TRANSIENT to ensure SQLite copies string data
+        let sqliteTransient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+
         for (index, param) in params.enumerated() {
             let bindIndex = Int32(index + 1)
             switch param {
@@ -320,11 +344,11 @@ public class VaultMergeService {
             case let doubleValue as Double:
                 sqlite3_bind_double(stmt, bindIndex, doubleValue)
             case let stringValue as String:
-                sqlite3_bind_text(stmt, bindIndex, stringValue, -1, nil)
+                sqlite3_bind_text(stmt, bindIndex, stringValue, -1, sqliteTransient)
             case is NSNull:
                 sqlite3_bind_null(stmt, bindIndex)
             default:
-                sqlite3_bind_text(stmt, bindIndex, "\(param)", -1, nil)
+                sqlite3_bind_text(stmt, bindIndex, "\(param)", -1, sqliteTransient)
             }
         }
 
@@ -358,5 +382,43 @@ public class VaultMergeService {
         }
 
         return ParsedOutput(statements: statements)
+    }
+
+    // MARK: - Debug Helpers
+
+    /// Debug record for FieldValue comparison
+    private struct DebugFieldValue {
+        let id: String
+        let itemId: String
+        let value: String
+        let updatedAt: String
+    }
+
+    /// Query FieldValues for a specific FieldKey
+    private func queryFieldValues(from db: OpaquePointer, fieldKey: String) throws -> [DebugFieldValue] {
+        var results: [DebugFieldValue] = []
+
+        let sql = "SELECT Id, ItemId, Value, UpdatedAt FROM FieldValues WHERE FieldKey = ? AND IsDeleted = 0 ORDER BY UpdatedAt DESC"
+        var stmt: OpaquePointer?
+
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            let error = String(cString: sqlite3_errmsg(db))
+            print("[VaultMergeService] Failed to prepare debug query: \(error)")
+            return results
+        }
+        defer { sqlite3_finalize(stmt) }
+
+        let sqliteTransient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+        sqlite3_bind_text(stmt, 1, fieldKey, -1, sqliteTransient)
+
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let id = sqlite3_column_text(stmt, 0).map { String(cString: $0) } ?? ""
+            let itemId = sqlite3_column_text(stmt, 1).map { String(cString: $0) } ?? ""
+            let value = sqlite3_column_text(stmt, 2).map { String(cString: $0) } ?? ""
+            let updatedAt = sqlite3_column_text(stmt, 3).map { String(cString: $0) } ?? ""
+            results.append(DebugFieldValue(id: id, itemId: itemId, value: value, updatedAt: updatedAt))
+        }
+
+        return results
     }
 }

@@ -403,16 +403,17 @@ extension VaultStore {
                 return await syncVaultWithServer(using: webApiService, retryCount: retryCount + 1)
             }
 
+            // Re-unlock immediately after merge to load merged vault into memory
+            // This ensures prepareVault() gets correct item counts and the UI shows merged data
+            if isVaultUnlocked {
+                try unlockVault()
+            }
+
             // Upload merged vault
             let uploadResult = try await uploadVault(using: webApiService)
 
             if uploadResult.success {
                 _ = markVaultClean(mutationSeqAtStart: mutationSeqAtStart, newServerRevision: uploadResult.newRevisionNumber)
-
-                // Re-unlock if was unlocked
-                if isVaultUnlocked {
-                    try unlockVault()
-                }
 
                 setIsSyncing(false)
                 return VaultSyncResult(
