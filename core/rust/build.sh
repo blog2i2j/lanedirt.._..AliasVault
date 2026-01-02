@@ -57,6 +57,8 @@ BUILD_DOTNET=false
 BUILD_IOS=false
 BUILD_ANDROID=false
 FAST_MODE=false
+INCREMENTAL=false
+FORCE_BUILD=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -94,19 +96,29 @@ while [[ $# -gt 0 ]]; do
             echo -e "${YELLOW}Fast/dev mode enabled${NC}"
             shift
             ;;
+        --incremental)
+            INCREMENTAL=true
+            shift
+            ;;
+        --force)
+            FORCE_BUILD=true
+            shift
+            ;;
         --help)
             echo "Usage: $0 [options]"
             echo ""
             echo "Target options:"
             echo "  --browser     Build WASM for browser extension and Blazor WASM client"
             echo "  --dotnet      Build native library for .NET server-side use (macOS/Linux/Windows)"
-            echo "  --ios         Build for iOS (device + simulator) with Swift bindings"
+            echo "  --ios         Build for iOS (device + simulator arm64) with Swift bindings"
             echo "  --android     Build for Android (arm64-v8a, armeabi-v7a, x86_64) with Kotlin bindings"
             echo "  --mobile      Build for both iOS and Android"
             echo "  --all         Build all targets"
             echo ""
             echo "Speed options:"
             echo "  --fast, --dev Faster builds (for development)"
+            echo "  --incremental Skip build if sources unchanged (for Xcode build phases)"
+            echo "  --force       Force rebuild even with --incremental"
             echo ""
             echo "Other options:"
             echo "  --help        Show this help message"
@@ -296,7 +308,7 @@ build_dotnet() {
 }
 
 # ============================================
-# iOS Build (Universal Binary + Swift Bindings)
+# iOS Build (ARM64 only - device + simulator)
 # ============================================
 build_ios() {
     echo ""
@@ -311,9 +323,26 @@ build_ios() {
         exit 1
     fi
 
-    # Install iOS targets if needed
+    # Incremental build check
+    local checksum_file="$IOS_APP_DIST/.rust-core-checksum"
+    local current_checksum=""
+    if [ -d "$SCRIPT_DIR/src" ]; then
+        current_checksum=$(find "$SCRIPT_DIR/src" -name "*.rs" -type f -exec md5 -q {} \; 2>/dev/null | md5 -q || echo "unknown")
+    fi
+
+    if $INCREMENTAL && [ "$FORCE_BUILD" = false ] && [ -f "$checksum_file" ] && [ -f "$IOS_APP_DIST/lib/device/libaliasvault_core.a" ]; then
+        local stored_checksum=$(cat "$checksum_file" 2>/dev/null || echo "")
+        if [ "$current_checksum" = "$stored_checksum" ]; then
+            echo -e "${GREEN}Rust Core is up to date, skipping build${NC}"
+            IOS_BUILD_SKIPPED=true
+            return 0
+        fi
+    fi
+    IOS_BUILD_SKIPPED=false
+
+    # Install iOS targets if needed (ARM64 only - no Intel simulator support)
     echo -e "  Checking iOS build targets..."
-    for target in aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios; do
+    for target in aarch64-apple-ios aarch64-apple-ios-sim; do
         if ! rustup target list --installed 2>/dev/null | grep -q "$target"; then
             echo -e "  Installing $target..."
             rustup target add "$target"
@@ -339,23 +368,13 @@ build_ios() {
     echo -e "  Building for iOS device (aarch64-apple-ios)..."
     cargo build $cargo_flags --target aarch64-apple-ios --features uniffi
 
-    # Build for iOS simulator (arm64 - Apple Silicon)
+    # Build for iOS simulator (arm64 - Apple Silicon only)
     echo -e "  Building for iOS simulator arm64 (aarch64-apple-ios-sim)..."
     cargo build $cargo_flags --target aarch64-apple-ios-sim --features uniffi
 
-    # Build for iOS simulator (x86_64 - Intel Macs)
-    echo -e "  Building for iOS simulator x86_64 (x86_64-apple-ios)..."
-    cargo build $cargo_flags --target x86_64-apple-ios --features uniffi
-
-    # Copy device library
+    # Copy libraries (no lipo needed - single architecture for simulator)
     cp "target/aarch64-apple-ios/$cargo_profile/libaliasvault_core.a" "$IOS_DIR/device/"
-
-    # Create universal simulator library (arm64 + x86_64)
-    echo -e "  Creating universal simulator library..."
-    lipo -create \
-        "target/aarch64-apple-ios-sim/$cargo_profile/libaliasvault_core.a" \
-        "target/x86_64-apple-ios/$cargo_profile/libaliasvault_core.a" \
-        -output "$IOS_DIR/simulator/libaliasvault_core.a"
+    cp "target/aarch64-apple-ios-sim/$cargo_profile/libaliasvault_core.a" "$IOS_DIR/simulator/"
 
     # Strip debug symbols from static libraries to reduce size
     # Note: -S strips debug symbols but keeps the symbol table needed for linking
@@ -398,28 +417,46 @@ distribute_ios() {
     echo ""
     echo -e "${BLUE}Distributing to iOS app...${NC}"
 
-    mkdir -p "$IOS_APP_DIST/device"
-    mkdir -p "$IOS_APP_DIST/simulator"
-    mkdir -p "$IOS_APP_DIST/swift"
+    mkdir -p "$IOS_APP_DIST/lib/device"
+    mkdir -p "$IOS_APP_DIST/lib/simulator"
+    mkdir -p "$IOS_APP_DIST/include"
+    mkdir -p "$IOS_APP_DIST/Generated"
 
     # Copy libraries
     if [ -f "$IOS_DIR/device/libaliasvault_core.a" ]; then
-        cp "$IOS_DIR/device/libaliasvault_core.a" "$IOS_APP_DIST/device/"
+        cp "$IOS_DIR/device/libaliasvault_core.a" "$IOS_APP_DIST/lib/device/"
         echo -e "  Copied device library"
     fi
 
     if [ -f "$IOS_DIR/simulator/libaliasvault_core.a" ]; then
-        cp "$IOS_DIR/simulator/libaliasvault_core.a" "$IOS_APP_DIST/simulator/"
+        cp "$IOS_DIR/simulator/libaliasvault_core.a" "$IOS_APP_DIST/lib/simulator/"
         echo -e "  Copied simulator library"
     fi
 
-    # Copy Swift bindings
+    # Copy headers and modulemap
     if [ -d "$IOS_DIR/swift" ] && [ -n "$(ls -A "$IOS_DIR/swift" 2>/dev/null)" ]; then
-        cp "$IOS_DIR/swift"/*.swift "$IOS_APP_DIST/swift/" 2>/dev/null || true
-        cp "$IOS_DIR/swift"/*.h "$IOS_APP_DIST/swift/" 2>/dev/null || true
-        cp "$IOS_DIR/swift"/*.modulemap "$IOS_APP_DIST/swift/" 2>/dev/null || true
+        cp "$IOS_DIR/swift"/*.h "$IOS_APP_DIST/include/" 2>/dev/null || true
+
+        # Create module.modulemap for the C header
+        cat > "$IOS_APP_DIST/include/module.modulemap" << 'EOF'
+module aliasvault_coreFFI {
+    header "aliasvault_coreFFI.h"
+    export *
+}
+EOF
+        echo -e "  Copied headers and modulemap"
+
+        # Copy Swift bindings
+        cp "$IOS_DIR/swift"/*.swift "$IOS_APP_DIST/Generated/" 2>/dev/null || true
         echo -e "  Copied Swift bindings"
     fi
+
+    # Save checksum for incremental builds
+    local current_checksum=""
+    if [ -d "$SCRIPT_DIR/src" ]; then
+        current_checksum=$(find "$SCRIPT_DIR/src" -name "*.rs" -type f -exec md5 -q {} \; 2>/dev/null | md5 -q || echo "unknown")
+    fi
+    echo "$current_checksum" > "$IOS_APP_DIST/.rust-core-checksum"
 
     # Create README
     cat > "$IOS_APP_DIST/README.md" << 'README_EOF'
@@ -429,9 +466,10 @@ Auto-generated from `/core/rust`. Do not edit manually.
 
 ## Contents
 
-- `device/libaliasvault_core.a` - Static library for iOS devices (arm64)
-- `simulator/libaliasvault_core.a` - Universal static library for iOS simulator (arm64 + x86_64)
-- `swift/` - Swift bindings generated by UniFFI
+- `lib/device/libaliasvault_core.a` - Static library for iOS devices (arm64)
+- `lib/simulator/libaliasvault_core.a` - Static library for iOS simulator (arm64 Apple Silicon)
+- `include/` - C headers and modulemap for UniFFI bindings
+- `Generated/` - Swift bindings generated by UniFFI
 
 ## Regenerate
 
@@ -440,11 +478,14 @@ cd /core/rust
 ./build.sh --ios
 ```
 
-## Integration
+## Xcode Integration
 
-1. Add the static library to your Xcode project
-2. Add the Swift bindings to your project
-3. Import `aliasvault_core` in your Swift code
+The library is automatically built by the Xcode build phase which calls:
+```bash
+../../core/rust/build.sh --ios --incremental
+```
+
+Build settings use `RUST_LIB_PLATFORM` to select device vs simulator library.
 README_EOF
 
     echo -e "${GREEN}Distributed to: $IOS_APP_DIST${NC}"
@@ -626,8 +667,11 @@ if $BUILD_DOTNET; then
 fi
 
 if $BUILD_IOS; then
+    IOS_BUILD_SKIPPED=false
     build_ios
-    distribute_ios
+    if [ "$IOS_BUILD_SKIPPED" = false ]; then
+        distribute_ios
+    fi
 fi
 
 if $BUILD_ANDROID; then
