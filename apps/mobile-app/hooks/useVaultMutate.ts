@@ -88,53 +88,58 @@ export function useVaultMutate() : {
   }, [dbContext, authContext, t]);
 
   /**
+   * Trigger background sync without blocking the UI.
+   * This is fire-and-forget - the ServerSyncIndicator shows progress.
+   */
+  const triggerBackgroundSync = useCallback(async (options: VaultMutationOptions): Promise<void> => {
+    dbContext.setIsSyncing(true);
+
+    try {
+      await syncVault({
+        onSuccess: async () => {
+          // Register credential identities after successful sync
+          try {
+            await NativeVaultManager.registerCredentialIdentities();
+          } catch (error) {
+            console.warn('VaultMutate: Failed to register credential identities:', error);
+          }
+          await dbContext.refreshSyncState();
+          options.onSuccess?.();
+        },
+        onError: async (error) => {
+          await dbContext.refreshSyncState();
+          // Don't show error toast - the indicator shows offline/pending state
+          console.warn('Background sync failed:', error);
+          options.onError?.(new Error(error));
+        },
+        onOffline: async () => {
+          // Local change is saved and isDirty is set - will sync when back online
+          await dbContext.refreshSyncState();
+          options.onSuccess?.();
+        }
+      });
+    } finally {
+      dbContext.setIsSyncing(false);
+      await dbContext.refreshSyncState();
+    }
+  }, [syncVault, dbContext]);
+
+  /**
    * Execute the provided operation (e.g. create/update/delete credential)
-   *
-   * Implements the mutation pattern from OFFLINE_MODE.md (matching browser extension):
-   * 1. Apply mutation to local database (via beginTransaction/commitTransaction)
-   * 2. commitTransaction atomically: exports, encrypts, stores vault AND marks dirty + increments mutation sequence
-   * 3. Call syncVault() which handles everything: check isDirty, merge if needed, upload
-   *
-   * Note: The dirty flag and mutation sequence are now set atomically in native commitTransaction(),
-   * so we don't need to call markVaultDirty() separately.
    */
   const executeMutateOperation = useCallback(async (
     operation: () => Promise<void>,
     options: VaultMutationOptions
   ): Promise<void> => {
-    setSyncStatus(t('vault.savingChangesToVault'));
-
-    // Execute the provided operation (e.g. create/update/delete credential)
-    // The operation wraps its changes in beginTransaction/commitTransaction
-    // commitTransaction atomically persists vault AND marks dirty + increments mutation sequence
     await operation();
 
-    // Sync vault - this handles everything:
-    // - Checks if server has newer vault
-    // - Merges if isDirty and server has updates
-    // - Uploads local changes
-    // - Handles race detection and retries
-    setSyncStatus(t('vault.syncingVault'));
-    await syncVault({
-      onStatus: (message) => setSyncStatus(message),
-      onSuccess: async () => {
-        // Register credential identities after successful sync
-        try {
-          await NativeVaultManager.registerCredentialIdentities();
-        } catch (error) {
-          console.warn('VaultMutate: Failed to register credential identities:', error);
-        }
-        options.onSuccess?.();
-      },
-      onError: (error) => {
-        options.onError?.(new Error(error));
-      },
-      onOffline: () => {
-        // Local change is saved and isDirty is set - will sync when back online
-        options.onSuccess?.();
-      }
-    });
-  }, [t, syncVault]);
+    // Refresh sync state to show "Pending" indicator immediately
+    await dbContext.refreshSyncState();
+
+    // Trigger background sync - fire-and-forget, don't await
+    // The ServerSyncIndicator will show syncing/pending/offline state
+    void triggerBackgroundSync(options);
+  }, [dbContext, triggerBackgroundSync]);
 
   /**
    * Execute the provided operation (e.g. create/update/delete credential)
@@ -245,23 +250,12 @@ export function useVaultMutate() : {
 
   /**
    * Hook to execute a vault mutation which uploads a new encrypted vault to the server.
-   *
-   * Follows the pattern from OFFLINE_MODE.md - no pre-sync needed because:
-   * 1. LWW merge resolves conflicts - even if mutating a stale vault, merge picks latest
-   * 2. Popup open triggers sync - vault is reasonably fresh when user starts interacting
-   * 3. Simpler mental model - Mutation = save locally + sync, that's it
    */
   const executeVaultMutation = useCallback(async (
     operation: () => Promise<void>,
     options: VaultMutationOptions = {}
   ) => {
     try {
-      setIsLoading(true);
-
-      // Execute the mutation operation, which:
-      // 1. Runs the operation (beginTransaction + SQL + commitTransaction)
-      // 2. commitTransaction atomically stores vault + marks dirty + increments mutation sequence
-      // 3. Calls syncVault() which handles merge/upload
       await executeMutateOperation(operation, options);
     } catch (error) {
       console.error('Error during vault mutation:', error);
@@ -271,9 +265,6 @@ export function useVaultMutate() : {
         position: 'bottom'
       });
       options.onError?.(error instanceof Error ? error : new Error(t('common.errors.unknownError')));
-    } finally {
-      setIsLoading(false);
-      setSyncStatus('');
     }
   }, [executeMutateOperation, t]);
 

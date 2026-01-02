@@ -19,7 +19,6 @@ import { useColors } from '@/hooks/useColorScheme';
 import { useVaultMutate } from '@/hooks/useVaultMutate';
 
 import { ConfirmDeleteModal } from '@/components/items/ConfirmDeleteModal';
-import LoadingOverlay from '@/components/LoadingOverlay';
 import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedScrollView } from '@/components/themed/ThemedScrollView';
 import { ThemedText } from '@/components/themed/ThemedText';
@@ -46,7 +45,7 @@ export default function RecentlyDeletedScreen(): React.ReactNode {
   const { t } = useTranslation();
   const colors = useColors();
   const dbContext = useDb();
-  const { executeVaultMutation, isLoading, syncStatus } = useVaultMutate();
+  const { executeVaultMutation } = useVaultMutate();
 
   const [items, setItems] = useState<ItemWithDeletedAt[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(true);
@@ -340,7 +339,6 @@ export default function RecentlyDeletedScreen(): React.ReactNode {
 
   return (
     <ThemedContainer>
-      {isLoading && <LoadingOverlay status={syncStatus} />}
 
       {isLoadingItems ? (
         <View style={styles.loadingContainer}>

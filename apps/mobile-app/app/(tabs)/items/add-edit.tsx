@@ -36,7 +36,6 @@ import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { AliasVaultToast } from '@/components/Toast';
 import { RobustPressable } from '@/components/ui/RobustPressable';
-import { useAuth } from '@/context/AuthContext';
 import { useDb } from '@/context/DbContext';
 import { useWebApi } from '@/context/WebApiContext';
 
@@ -69,15 +68,15 @@ export default function AddEditItemScreen(): React.ReactNode {
   const router = useRouter();
   const colors = useColors();
   const dbContext = useDb();
-  const authContext = useAuth();
-  const { executeVaultMutation, syncStatus } = useVaultMutate();
+  const { executeVaultMutation } = useVaultMutate();
   const navigation = useNavigation();
   const webApi = useWebApi();
   const { t } = useTranslation();
 
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const itemNameRef = useRef<ItemNameFieldRef>(null);
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('');
   const [isSaveDisabled, setIsSaveDisabled] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [originalAttachmentIds, setOriginalAttachmentIds] = useState<string[]>([]);
@@ -478,21 +477,11 @@ export default function AddEditItemScreen(): React.ReactNode {
    */
   useEffect(() => {
     /**
-     * Initialize the component
+     * Initialize the component.
+     * Offline mode is fully supported - items can be added/edited locally
+     * and will sync when back online.
      */
     const initializeComponent = async (): Promise<void> => {
-      if (authContext.isOffline) {
-        setTimeout(() => {
-          Toast.show({
-            type: 'error',
-            text1: t('items.offlineMessage'),
-            position: 'bottom'
-          });
-        }, 100);
-        router.dismiss();
-        return;
-      }
-
       // Load folders for folder selection
       try {
         const loadedFolders = await dbContext.sqliteClient!.folders.getAll();
@@ -547,7 +536,7 @@ export default function AddEditItemScreen(): React.ReactNode {
     };
 
     initializeComponent();
-  }, [id, isEditMode, serviceUrl, itemTypeParam, loadExistingItem, authContext.isOffline, router, t, dbContext.sqliteClient]);
+  }, [id, isEditMode, serviceUrl, itemTypeParam, loadExistingItem, router, t, dbContext.sqliteClient]);
 
   /**
    * Auto-generate alias when alias fields are shown by default in create mode.
@@ -713,6 +702,7 @@ export default function AddEditItemScreen(): React.ReactNode {
 
   /**
    * Submit the form.
+   * Non-blocking for local saves. Only shows loading indicator when fetching favicon.
    */
   const onSubmit = useCallback(async (): Promise<void> => {
     if (isSaveDisabled || !item) {
@@ -721,7 +711,6 @@ export default function AddEditItemScreen(): React.ReactNode {
 
     setIsSaveDisabled(true);
     Keyboard.dismiss();
-    setIsSyncing(true);
 
     // Build the fields array from fieldValues
     const fields: ItemField[] = [];
@@ -777,10 +766,16 @@ export default function AddEditItemScreen(): React.ReactNode {
       UpdatedAt: new Date().toISOString()
     };
 
-    // Extract favicon from URL if present
+    // Extract favicon from URL if present (only show loading for this network operation)
     const urlValue = fieldValues['login.url'];
     const urlString = Array.isArray(urlValue) ? urlValue[0] : urlValue;
-    if (urlString && urlString !== 'https://' && urlString !== 'http://') {
+    const shouldFetchFavicon = urlString && urlString !== 'https://' && urlString !== 'http://';
+
+    if (shouldFetchFavicon) {
+      // Only show loading indicator when fetching favicon
+      setIsSaving(true);
+      setSaveStatus(t('vault.savingChangesToVault'));
+
       try {
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Favicon extraction timed out')), 5000)
@@ -793,7 +788,7 @@ export default function AddEditItemScreen(): React.ReactNode {
           itemToSave.Logo = decodedImage;
         }
       } catch {
-        // Favicon extraction failed or timed out - not critical
+        // Favicon extraction failed or timed out - not critical, continue with save
       }
     }
 
@@ -828,7 +823,7 @@ export default function AddEditItemScreen(): React.ReactNode {
         if (serviceUrl && !isEditMode) {
           router.replace('/items/autofill-item-created');
         } else {
-          setIsSyncing(false);
+          setIsSaving(false);
           setIsSaveDisabled(false);
           router.dismiss();
 
@@ -861,7 +856,7 @@ export default function AddEditItemScreen(): React.ReactNode {
           position: 'bottom'
         });
         console.error('Error saving item:', error.message);
-        setIsSyncing(false);
+        setIsSaving(false);
         setIsSaveDisabled(false);
       }
     });
@@ -892,8 +887,6 @@ export default function AddEditItemScreen(): React.ReactNode {
            * Delete the item
            */
           onPress: async (): Promise<void> => {
-            setIsSyncing(true);
-
             await executeVaultMutation(async () => {
               await dbContext.sqliteClient!.items.trash(id);
             });
@@ -908,7 +901,6 @@ export default function AddEditItemScreen(): React.ReactNode {
               });
             }, 200);
 
-            setIsSyncing(false);
             router.back();
             router.back();
           }
@@ -1227,8 +1219,8 @@ export default function AddEditItemScreen(): React.ReactNode {
   return (
     <>
       <Stack.Screen options={{ title: isEditMode ? t('items.editItem') : t('items.addItem') }} />
-      {(isSyncing) && (
-        <LoadingOverlay status={syncStatus} />
+      {isSaving && (
+        <LoadingOverlay status={saveStatus} />
       )}
 
       <ThemedContainer style={styles.container}>

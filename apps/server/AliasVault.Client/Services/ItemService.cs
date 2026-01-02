@@ -277,10 +277,7 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
         var typeChanged = existingItem.ItemType != item.ItemType;
 
         // Update basic item info only if values changed
-        var itemLevelChanged = existingItem.Name != item.Name ||
-                               existingItem.ItemType != item.ItemType ||
-                               existingItem.LogoId != item.LogoId ||
-                               existingItem.FolderId != item.FolderId;
+        var itemLevelChanged = existingItem.Name != item.Name || existingItem.ItemType != item.ItemType || existingItem.LogoId != item.LogoId || existingItem.FolderId != item.FolderId;
 
         if (itemLevelChanged)
         {

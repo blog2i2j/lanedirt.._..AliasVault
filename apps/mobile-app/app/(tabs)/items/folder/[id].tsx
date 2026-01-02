@@ -22,7 +22,6 @@ import { useVaultSync } from '@/hooks/useVaultSync';
 import { DeleteFolderModal } from '@/components/folders/DeleteFolderModal';
 import { FolderModal } from '@/components/folders/FolderModal';
 import { ItemCard } from '@/components/items/ItemCard';
-import LoadingOverlay from '@/components/LoadingOverlay';
 import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedView } from '@/components/themed/ThemedView';
@@ -49,8 +48,7 @@ export default function FolderViewScreen(): React.ReactNode {
   const [folder, setFolder] = useState<Folder | null>(null);
   const [isLoadingItems, setIsLoadingItems] = useMinDurationLoading(false, 200);
   const [refreshing, setRefreshing] = useMinDurationLoading(false, 200);
-  const { executeVaultMutation, isLoading, syncStatus } = useVaultMutate();
-  const [isSyncing, setIsSyncing] = useState(false);
+  const { executeVaultMutation } = useVaultMutate();
 
   // Search state (scoped to this folder)
   const [searchQuery, setSearchQuery] = useState('');
@@ -170,19 +168,12 @@ export default function FolderViewScreen(): React.ReactNode {
           }, 200);
         },
         /**
-         * On offline.
+         * On offline - just set offline mode, ServerSyncIndicator shows status.
          */
         onOffline: () => {
           setRefreshing(false);
           setIsLoadingItems(false);
           authContext.setOfflineMode(true);
-          setTimeout(() => {
-            Toast.show({
-              type: 'error',
-              text1: t('items.offlineMessage'),
-              position: 'bottom',
-            });
-          }, 200);
         },
         /**
          * On error.
@@ -266,16 +257,14 @@ export default function FolderViewScreen(): React.ReactNode {
 
   /**
    * Delete an item (move to trash).
+   * Non-blocking: saves locally and syncs in background via ServerSyncIndicator.
    */
   const onItemDelete = useCallback(async (itemId: string): Promise<void> => {
-    setIsSyncing(true);
-
     await executeVaultMutation(async () => {
       await dbContext.sqliteClient!.items.trash(itemId);
-      setIsSyncing(false);
     });
 
-    await new Promise(resolve => setTimeout(resolve, 250));
+    // Reload items to reflect the deletion
     await loadItems();
   }, [dbContext.sqliteClient, executeVaultMutation, loadItems]);
 
@@ -500,8 +489,6 @@ export default function FolderViewScreen(): React.ReactNode {
 
   return (
     <ThemedContainer style={styles.container}>
-      {isSyncing && <LoadingOverlay status={syncStatus} />}
-
       {/* FAB */}
       <RobustPressable style={styles.fab} onPress={handleAddItem}>
         <MaterialIcons name="add" style={styles.fabIcon} />
@@ -537,8 +524,6 @@ export default function FolderViewScreen(): React.ReactNode {
         }
         ListEmptyComponent={renderEmptyComponent() as React.ReactElement}
       />
-
-      {isLoading && <LoadingOverlay status={syncStatus || t('items.deletingItem')} />}
 
       {/* Folder modals */}
       <FolderModal

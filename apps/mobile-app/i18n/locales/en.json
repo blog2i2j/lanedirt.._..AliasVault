@@ -694,6 +694,16 @@
     "INTERNAL_SERVER_ERROR": "Internal server error.",
     "VAULT_ERROR": "The local vault is not up-to-date. Please synchronize your vault by refreshing the page and try again."
   },
+  "sync": {
+    "offline": "Offline",
+    "offlineWithPending": "Offline (pending)",
+    "syncing": "Syncing...",
+    "pending": "Pending sync",
+    "retrySync": "Tap to retry",
+    "backOnline": "Back online",
+    "stillOffline": "Still offline",
+    "syncFailed": "Sync failed"
+  },
   "app": {
     "status": {
       "unlockingVault": "Unlocking vault",
@@ -702,13 +712,13 @@
       "retryingConnection": "Retrying connection..."
     },
     "offline": {
-      "banner": "Offline mode (read-only)",
+      "banner": "Offline - changes will sync when online",
       "backOnline": "Back online",
       "stillOffline": "Still offline"
     },
     "alerts": {
       "syncIssue": "No Connection",
-      "syncIssueMessage": "The AliasVault server could not be reached and your vault could not be synced. Would you like to open your local vault in read-only mode or retry the connection?",
+      "syncIssueMessage": "The AliasVault server could not be reached and your vault could not be synced. Would you like to open your local vault or retry the connection?",
       "openLocalVault": "Open Local Vault",
       "retrySync": "Retry Sync"
     },

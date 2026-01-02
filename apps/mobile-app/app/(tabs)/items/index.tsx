@@ -23,7 +23,6 @@ import Logo from '@/assets/images/logo.svg';
 import { FolderModal } from '@/components/folders/FolderModal';
 import { FolderPill, type FolderWithCount } from '@/components/folders/FolderPill';
 import { ItemCard } from '@/components/items/ItemCard';
-import LoadingOverlay from '@/components/LoadingOverlay';
 import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedView } from '@/components/themed/ThemedView';
@@ -84,8 +83,7 @@ export default function ItemsScreen(): React.ReactNode {
   const [isLoadingItems, setIsLoadingItems] = useMinDurationLoading(false, 200);
   const [refreshing, setRefreshing] = useMinDurationLoading(false, 200);
   const [serviceUrl, setServiceUrl] = useState<string | null>(null);
-  const { executeVaultMutation, isLoading, syncStatus } = useVaultMutate();
-  const [isSyncing, setIsSyncing] = useState(false);
+  const { executeVaultMutation } = useVaultMutate();
   const [showFolderModal, setShowFolderModal] = useState(false);
 
   // Search and filter state
@@ -287,19 +285,13 @@ export default function ItemsScreen(): React.ReactNode {
           }, 200);
         },
         /**
-         * On offline.
+         * On offline - just update state, ServerSyncIndicator shows offline status.
          */
-        onOffline: () => {
+        onOffline: async () => {
           setRefreshing(false);
           setIsLoadingItems(false);
-          authContext.setOfflineMode(true);
-          setTimeout(() => {
-            Toast.show({
-              type: 'error',
-              text1: t('items.offlineMessage'),
-              position: 'bottom',
-            });
-          }, 200);
+          await dbContext.setIsOffline(true);
+          await dbContext.refreshSyncState();
         },
         /**
          * On error.
@@ -335,7 +327,7 @@ export default function ItemsScreen(): React.ReactNode {
         });
       }
     }
-  }, [syncVault, loadItems, setIsLoadingItems, setRefreshing, authContext, router, t]);
+  }, [syncVault, loadItems, setIsLoadingItems, setRefreshing, authContext, dbContext, router, t]);
 
   useEffect(() => {
     if (!isAuthenticated || !isDatabaseAvailable) {
@@ -365,16 +357,14 @@ export default function ItemsScreen(): React.ReactNode {
 
   /**
    * Delete an item (move to trash).
+   * Non-blocking: saves locally and syncs in background via ServerSyncIndicator.
    */
   const onItemDelete = useCallback(async (itemId: string): Promise<void> => {
-    setIsSyncing(true);
-
     await executeVaultMutation(async () => {
       await dbContext.sqliteClient!.items.trash(itemId);
-      setIsSyncing(false);
     });
 
-    await new Promise(resolve => setTimeout(resolve, 250));
+    // Reload items to reflect the deletion
     await loadItems();
   }, [dbContext.sqliteClient, executeVaultMutation, loadItems]);
 
@@ -860,7 +850,6 @@ export default function ItemsScreen(): React.ReactNode {
 
   return (
     <ThemedContainer style={styles.container}>
-      {isSyncing && <LoadingOverlay status={syncStatus} />}
       <CollapsibleHeader
         title={t('items.title')}
         scrollY={scrollY}
@@ -909,7 +898,6 @@ export default function ItemsScreen(): React.ReactNode {
           ListEmptyComponent={renderEmptyComponent() as React.ReactElement}
         />
       </ThemedView>
-      {isLoading && <LoadingOverlay status={syncStatus || t('items.deletingItem')} />}
 
       {/* Create folder modal */}
       <FolderModal
