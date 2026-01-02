@@ -25,7 +25,7 @@ export abstract class BaseRepository {
    * Constructor for the BaseRepository class.
    * @param client - The database client to use for the repository
    */
-  protected constructor(protected client: IDatabaseClient) {}
+  public constructor(protected client: IDatabaseClient) {}
 
   /**
    * Execute a function within a transaction.

@@ -299,7 +299,6 @@ export async function createAutofillPopup(input: HTMLInputElement, items: Item[]
         const faviconBytes = await getFaviconBytes(document);
         const serviceUrl = getValidServiceUrl();
 
-        // Build fields using factory - metadata comes from SystemFieldRegistry
         const fields: ItemField[] = [];
         if (serviceUrl) {
           fields.push(createSystemField(FieldKey.LoginUrl, { value: serviceUrl }));

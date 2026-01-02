@@ -23,7 +23,7 @@ export class ItemRepository extends BaseRepository {
    * @param client - The database client to use for the repository
    * @param logoRepository - The logo repository to use for the repository
    */
-  protected constructor(
+  public constructor(
     client: IDatabaseClient,
     private logoRepository: LogoRepository
   ) {
@@ -710,6 +710,15 @@ export class ItemRepository extends BaseRepository {
     originalIds: string[],
     currentDateTime: string
   ): void {
+    // Fetch existing TOTP codes to compare values
+    const existingTotpCodes = this.client.executeQuery<{
+      Id: string;
+      Name: string;
+      SecretKey: string;
+    }>(`SELECT Id, Name, SecretKey FROM TotpCodes WHERE ItemId = ? AND IsDeleted = 0`, [itemId]);
+
+    const existingByIdMap = new Map(existingTotpCodes.map(tc => [tc.Id, tc]));
+
     for (const totpCode of totpCodes) {
       const wasOriginal = originalIds.includes(totpCode.Id);
 
@@ -721,10 +730,14 @@ export class ItemRepository extends BaseRepository {
           );
         }
       } else if (wasOriginal) {
-        this.client.executeUpdate(
-          `UPDATE TotpCodes SET Name = ?, SecretKey = ?, UpdatedAt = ? WHERE Id = ?`,
-          [totpCode.Name, totpCode.SecretKey, currentDateTime, totpCode.Id]
-        );
+        // Only update if values actually changed
+        const existing = existingByIdMap.get(totpCode.Id);
+        if (existing && (existing.Name !== totpCode.Name || existing.SecretKey !== totpCode.SecretKey)) {
+          this.client.executeUpdate(
+            `UPDATE TotpCodes SET Name = ?, SecretKey = ?, UpdatedAt = ? WHERE Id = ?`,
+            [totpCode.Name, totpCode.SecretKey, currentDateTime, totpCode.Id]
+          );
+        }
       } else {
         this.client.executeUpdate(
           `INSERT INTO TotpCodes (Id, Name, SecretKey, ItemId, CreatedAt, UpdatedAt, IsDeleted)

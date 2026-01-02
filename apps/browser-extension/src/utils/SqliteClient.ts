@@ -31,8 +31,6 @@ export class SqliteClient implements IDatabaseClient {
   private _settings: SettingsRepository | null = null;
   private _logos: LogoRepository | null = null;
 
-  // ===== Repository Accessors =====
-
   /**
    * Repository for Item CRUD operations.
    */
