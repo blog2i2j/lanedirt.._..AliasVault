@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
@@ -14,12 +14,18 @@ import { useApp } from '@/context/AppContext';
 import { useDb } from '@/context/DbContext';
 
 /**
+ * Minimum time (ms) to show the syncing indicator.
+ * Prevents flickering when sync completes quickly.
+ */
+const MIN_SYNC_DISPLAY_TIME = 1500;
+
+/**
  * Floating sync status indicator component.
  * Displays sync state badges for offline mode, syncing, and pending sync.
  *
  * Priority order (highest to lowest):
  * 1. Offline (amber) - network unavailable
- * 2. Syncing (green spinner) - sync in progress
+ * 2. Syncing (green spinner) - sync in progress (minimum 1.5s display)
  * 3. Pending (blue spinner) - local changes waiting to be uploaded
  * 4. Hidden - when synced
  */
@@ -31,6 +37,38 @@ export function ServerSyncIndicator(): React.ReactNode {
   const dbContext = useDb();
   const { syncVault } = useVaultSync();
   const [isRetrying, setIsRetrying] = useState(false);
+
+  // Track syncing state with minimum display time
+  const [showSyncing, setShowSyncing] = useState(false);
+  const syncStartTimeRef = useRef<number | null>(null);
+
+  /**
+   * Handle syncing state changes with minimum display time.
+   * When syncing starts, show indicator immediately.
+   * When syncing ends, wait until minimum time has passed.
+   */
+  useEffect(() => {
+    if (dbContext.isSyncing) {
+      // Sync started - show immediately and record start time
+      setShowSyncing(true);
+      syncStartTimeRef.current = Date.now();
+    } else if (syncStartTimeRef.current !== null) {
+      // Sync ended - wait for minimum display time
+      const elapsed = Date.now() - syncStartTimeRef.current;
+      const remaining = MIN_SYNC_DISPLAY_TIME - elapsed;
+
+      if (remaining > 0) {
+        const timer = setTimeout(() => {
+          setShowSyncing(false);
+          syncStartTimeRef.current = null;
+        }, remaining);
+        return () => clearTimeout(timer);
+      } else {
+        setShowSyncing(false);
+        syncStartTimeRef.current = null;
+      }
+    }
+  }, [dbContext.isSyncing]);
 
   // Only show when logged in AND vault is unlocked (dbAvailable)
   if (!app.isLoggedIn || !dbContext.dbAvailable) {
@@ -152,7 +190,8 @@ export function ServerSyncIndicator(): React.ReactNode {
   }
 
   // Priority 2: Syncing indicator (not tappable, shows progress)
-  if (dbContext.isSyncing) {
+  // Uses showSyncing which has minimum display time to prevent flickering
+  if (showSyncing) {
     return (
       <View style={[styles.container, styles.syncing]}>
         <ActivityIndicator size="small" color={colors.success ?? '#16a34a'} />

@@ -180,6 +180,17 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   }, []);
 
   /**
+   * Refresh sync state when database becomes available.
+   * This ensures isDirty is populated from native storage on app boot,
+   * so ServerSyncIndicator shows pending changes from previous sessions.
+   */
+  useEffect(() : void => {
+    if (dbAvailable) {
+      void refreshSyncState();
+    }
+  }, [dbAvailable, refreshSyncState]);
+
+  /**
    * Set syncing state - exposed for use by sync hooks.
    */
   const setIsSyncing = useCallback((syncing: boolean): void => {

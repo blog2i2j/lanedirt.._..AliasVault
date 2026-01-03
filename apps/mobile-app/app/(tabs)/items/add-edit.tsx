@@ -792,74 +792,66 @@ export default function AddEditItemScreen(): React.ReactNode {
       }
     }
 
-    await executeVaultMutation(async () => {
-      if (isEditMode) {
-        await dbContext.sqliteClient!.items.update(itemToSave, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes);
+    /*
+     * Execute mutation - local save + background sync (non-blocking).
+     * Navigate immediately after local save; sync happens in background via ServerSyncIndicator.
+     */
+    try {
+      await executeVaultMutation(async () => {
+        if (isEditMode) {
+          await dbContext.sqliteClient!.items.update(itemToSave, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes);
 
-        // Delete passkeys if marked for deletion
-        if (passkeyIdsMarkedForDeletion.length > 0) {
-          for (const passkeyId of passkeyIdsMarkedForDeletion) {
-            await dbContext.sqliteClient!.passkeys.delete(passkeyId);
-          }
-        }
-      } else {
-        await dbContext.sqliteClient!.items.create(itemToSave, attachments, totpCodes);
-      }
-
-    },
-    {
-      /**
-       * Handle successful save
-       */
-      onSuccess: () => {
-        /*
-         * Emit event to notify list and detail views to refresh
-         * Must be after sync completes so merged data is available
-         */
-        emitter.emit('credentialChanged', itemToSave.Id);
-
-        setHasUnsavedChanges(false);
-
-        if (serviceUrl && !isEditMode) {
-          router.replace('/items/autofill-item-created');
-        } else {
-          setIsSaving(false);
-          setIsSaveDisabled(false);
-          router.dismiss();
-
-          setTimeout(() => {
-            if (isEditMode) {
-              Toast.show({
-                type: 'success',
-                text1: t('items.toasts.itemUpdated'),
-                position: 'bottom'
-              });
-            } else {
-              Toast.show({
-                type: 'success',
-                text1: t('items.toasts.itemCreated'),
-                position: 'bottom'
-              });
-              router.push(`/items/${itemToSave.Id}`);
+          // Delete passkeys if marked for deletion
+          if (passkeyIdsMarkedForDeletion.length > 0) {
+            for (const passkeyId of passkeyIdsMarkedForDeletion) {
+              await dbContext.sqliteClient!.passkeys.delete(passkeyId);
             }
-          }, 100);
+          }
+        } else {
+          await dbContext.sqliteClient!.items.create(itemToSave, attachments, totpCodes);
         }
-      },
-      /**
-       * Handle error saving item
-       */
-      onError: (error) => {
-        Toast.show({
-          type: 'error',
-          text1: t('items.errors.saveFailed'),
-          text2: error.message,
-          position: 'bottom'
-        });
-        console.error('Error saving item:', error.message);
-        setIsSaving(false);
-        setIsSaveDisabled(false);
+      });
+
+      // Emit event to notify list and detail views to refresh
+      emitter.emit('credentialChanged', itemToSave.Id);
+      setHasUnsavedChanges(false);
+      setIsSaving(false);
+      setIsSaveDisabled(false);
+
+      // Navigate immediately - sync continues in background
+      if (serviceUrl && !isEditMode) {
+        router.replace('/items/autofill-item-created');
+      } else {
+        router.dismiss();
+
+        setTimeout(() => {
+          if (isEditMode) {
+            Toast.show({
+              type: 'success',
+              text1: t('items.toasts.itemUpdated'),
+              position: 'bottom'
+            });
+          } else {
+            Toast.show({
+              type: 'success',
+              text1: t('items.toasts.itemCreated'),
+              position: 'bottom'
+            });
+            router.push(`/items/${itemToSave.Id}`);
+          }
+        }, 100);
       }
-    });
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: t('items.errors.saveFailed'),
+        text2: error instanceof Error ? error.message : t('common.errors.unknownError'),
+        position: 'bottom'
+      });
+      console.error('Error saving item:', error);
+      setIsSaving(false);
+      setIsSaveDisabled(false);
+    }
   }, [isEditMode, id, serviceUrl, router, executeVaultMutation, dbContext.sqliteClient, webApi, isSaveDisabled, item, fieldValues, applicableSystemFields, customFields, t, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes, passkeyIdsMarkedForDeletion]);
 
   /**
