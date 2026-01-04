@@ -25,7 +25,7 @@ public struct AutofillCredentialCard: View {
         Button(action: action) {
             HStack(spacing: 16) {
                 // Service logo
-                ServiceLogoView(logoData: credential.logo)
+                ItemLogoView(logoData: credential.logo)
                     .frame(width: 32, height: 32)
 
                 VStack(alignment: .leading, spacing: 4) {

@@ -1,10 +1,8 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
-  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -19,6 +17,7 @@ import { useColors } from '@/hooks/useColorScheme';
 import { useVaultMutate } from '@/hooks/useVaultMutate';
 
 import { ConfirmDeleteModal } from '@/components/items/ConfirmDeleteModal';
+import { ItemIcon } from '@/components/items/ItemIcon';
 import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedScrollView } from '@/components/themed/ThemedScrollView';
 import { ThemedText } from '@/components/themed/ThemedText';
@@ -215,15 +214,6 @@ export default function RecentlyDeletedScreen(): React.ReactNode {
       marginRight: 12,
       width: 32,
     },
-    itemLogoPlaceholder: {
-      alignItems: 'center',
-      backgroundColor: colors.primary + '20',
-      borderRadius: 4,
-      height: 32,
-      justifyContent: 'center',
-      marginRight: 12,
-      width: 32,
-    },
     itemInfo: {
       flex: 1,
     },
@@ -284,16 +274,7 @@ export default function RecentlyDeletedScreen(): React.ReactNode {
       <View key={item.Id} style={styles.itemCard}>
         <View style={styles.itemContent}>
           {/* Item logo */}
-          {item.Logo ? (
-            <Image
-              source={{ uri: `data:image/png;base64,${Buffer.from(item.Logo).toString('base64')}` }}
-              style={styles.itemLogo}
-            />
-          ) : (
-            <View style={styles.itemLogoPlaceholder}>
-              <MaterialIcons name="lock" size={18} color={colors.primary} />
-            </View>
-          )}
+          <ItemIcon item={item} style={styles.itemLogo} />
 
           {/* Item info */}
           <View style={styles.itemInfo}>

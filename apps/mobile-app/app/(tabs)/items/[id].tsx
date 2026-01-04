@@ -125,7 +125,7 @@ export default function ItemDetailsScreen() : React.ReactNode {
     <ThemedContainer>
       <ThemedScrollView>
         <ThemedView style={styles.header}>
-          <ItemIcon logo={item.Logo} style={styles.logo} />
+          <ItemIcon item={item} style={styles.logo} />
           <View style={styles.headerText}>
             <ThemedText type="title" style={styles.serviceName}>
               {item.Name}

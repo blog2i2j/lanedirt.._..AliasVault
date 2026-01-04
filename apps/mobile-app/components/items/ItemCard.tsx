@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -289,7 +290,7 @@ export function ItemCard({ item, onItemDelete }: ItemCardProps): React.ReactNode
         activeOpacity={0.7}
       >
         <View style={styles.itemContent}>
-          <ItemIcon logo={item.Logo} style={styles.logo} />
+          <ItemIcon item={item} style={styles.logo} />
           <View style={styles.itemInfo}>
             <View style={styles.serviceNameRow}>
               <Text style={styles.serviceName}>
