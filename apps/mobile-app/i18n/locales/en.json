@@ -20,7 +20,7 @@
     "notice": "Notice",
     "enabled": "Enabled",
     "disabled": "Disabled",
-    "twoFactorAuthentication": "Two-Factor Authentication",
+    "twoFactorAuthentication": "Two-factor authentication",
     "add": "Add",
     "attachments": "Attachments",
     "deleteItemConfirmTitle": "Delete Item",
@@ -169,7 +169,6 @@
       "userpass": "Passwords",
       "attachments": "Attachments"
     },
-    "twoFactorAuth": "Two-factor authentication",
     "totpCode": "TOTP Code",
     "attachments": "Attachments",
     "deleteAttachment": "Delete",
@@ -566,7 +565,6 @@
       "userpass": "Passwords",
       "attachments": "Attachments"
     },
-    "twoFactorAuth": "Two-factor authentication",
     "totpCode": "TOTP Code",
     "attachments": "Attachments",
     "deleteAttachment": "Delete",

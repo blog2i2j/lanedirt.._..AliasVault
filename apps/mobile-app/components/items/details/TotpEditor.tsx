@@ -326,9 +326,6 @@ export const TotpEditor: React.FC<TotpEditorProps> = ({
   return (
     <View>
       <View style={styles.header}>
-        <ThemedText style={styles.sectionTitle}>
-          {t('common.twoFactorAuthentication')}
-        </ThemedText>
         {hasActiveTotpCodes && (
           <TouchableOpacity
             style={styles.addButtonCompact}

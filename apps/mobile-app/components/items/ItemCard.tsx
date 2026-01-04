@@ -313,7 +313,7 @@ export function ItemCard({ item, onItemDelete }: ItemCardProps): React.ReactNode
               )}
               {item.HasTotp && (
                 <MaterialIcons
-                  name="schedule"
+                  name="pin"
                   size={14}
                   color={colors.textMuted}
                   style={styles.iconStyle}

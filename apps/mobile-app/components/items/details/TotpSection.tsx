@@ -194,7 +194,7 @@ export const TotpSection: React.FC<TotpSectionProps> = ({ item }) : React.ReactN
   return (
     <ThemedView style={styles.container}>
       <ThemedText type="subtitle">
-        {t('credentials.twoFactorAuth')}
+        {t('common.twoFactorAuthentication')}
       </ThemedText>
       {totpCodes.map(totpCode => (
         <TouchableOpacity
