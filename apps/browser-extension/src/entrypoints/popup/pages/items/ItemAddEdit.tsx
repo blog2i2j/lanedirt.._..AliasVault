@@ -1059,7 +1059,6 @@ const ItemAddEdit: React.FC = () => {
         return (
           <EmailDomainField
             id={fieldKey}
-            label={label}
             value={stringValue}
             onChange={(value) => handleFieldChange(fieldKey, value)}
             onRemove={onRemove}
