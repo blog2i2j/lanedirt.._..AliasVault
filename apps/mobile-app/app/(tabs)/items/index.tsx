@@ -231,8 +231,8 @@ export default function ItemsScreen(): React.ReactNode {
     });
 
     const tabPressSub = emitter.addListener('tabPress', (routeName: string) => {
-      if (routeName === 'credentials' && isTabFocused) {
-        setRefreshing(false);
+      if (routeName === 'items' && isTabFocused) {
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
       }
     });
 
