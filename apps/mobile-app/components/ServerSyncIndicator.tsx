@@ -166,10 +166,19 @@ export function ServerSyncIndicator(): React.ReactNode {
     pendingText: {
       color: colors.info,
     },
+    badge: {
+      backgroundColor: colors.destructive,
+      borderRadius: 4,
+      height: 8,
+      width: 8,
+      position: 'absolute',
+      right: -2,
+      top: -2,
+    },
   });
 
   // Priority 1: Offline indicator (tappable to retry)
-  // Shows both offline status and pending count if dirty
+  // Shows offline status with badge dot if there are pending changes
   if (dbContext.isOffline) {
     return (
       <RobustPressable
@@ -177,13 +186,20 @@ export function ServerSyncIndicator(): React.ReactNode {
         onPress={handleRetry}
         disabled={isRetrying}
       >
-        {isRetrying ? (
-          <ActivityIndicator size="small" color={colors.warning} />
-        ) : (
-          <Ionicons name="cloud-offline" size={18} color={colors.warning} />
-        )}
+        <View>
+          {isRetrying ? (
+            <ActivityIndicator size="small" color={colors.warning} />
+          ) : (
+            <>
+              <Ionicons name="cloud-offline" size={18} color={colors.warning} />
+              {dbContext.isDirty && (
+                <View style={styles.badge} />
+              )}
+            </>
+          )}
+        </View>
         <ThemedText style={[styles.text, styles.offlineText]}>
-          {dbContext.isDirty ? t('sync.offlineWithPending') : t('sync.offline')}
+          {t('sync.offline')}
         </ThemedText>
       </RobustPressable>
     );
