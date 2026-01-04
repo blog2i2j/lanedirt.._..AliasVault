@@ -1,8 +1,8 @@
-import type { Item, ItemField, TotpCode, Attachment } from '@/utils/dist/core/models/vault';
-import { FieldKey } from '@/utils/dist/core/models/vault';
+import type { Item, ItemField, TotpCode, Attachment, FieldHistory } from '@/utils/dist/core/models/vault';
+import { FieldKey, MAX_FIELD_HISTORY_RECORDS } from '@/utils/dist/core/models/vault';
 
 import { BaseRepository } from '../BaseRepository';
-import { ItemQueries, FieldValueQueries } from '../queries/ItemQueries';
+import { ItemQueries, FieldValueQueries, FieldHistoryQueries } from '../queries/ItemQueries';
 import { FieldMapper, type FieldRow } from '../mappers/FieldMapper';
 import { ItemMapper, type ItemRow, type TagRow, type ItemWithDeletedAt } from '../mappers/ItemMapper';
 
@@ -184,6 +184,34 @@ export class ItemRepository extends BaseRepository {
   }
 
   /**
+   * Get field history for a specific field.
+   * @param itemId - The ID of the item
+   * @param fieldKey - The field key to get history for
+   * @returns Array of field history records
+   */
+  public async getFieldHistory(itemId: string, fieldKey: string): Promise<FieldHistory[]> {
+    const results = await this.client.executeQuery<{
+      Id: string;
+      ItemId: string;
+      FieldKey: string;
+      ValueSnapshot: string;
+      ChangedAt: string;
+      CreatedAt: string;
+      UpdatedAt: string;
+    }>(FieldHistoryQueries.GET_FOR_FIELD, [itemId, fieldKey, MAX_FIELD_HISTORY_RECORDS]);
+
+    return results.map(row => ({
+      Id: row.Id,
+      ItemId: row.ItemId,
+      FieldKey: row.FieldKey,
+      ValueSnapshot: row.ValueSnapshot,
+      ChangedAt: row.ChangedAt,
+      CreatedAt: row.CreatedAt,
+      UpdatedAt: row.UpdatedAt
+    }));
+  }
+
+  /**
    * Move an item to trash (set DeletedAt timestamp).
    * @param itemId - The ID of the item to trash
    * @returns Number of rows affected
@@ -334,10 +362,13 @@ export class ItemRepository extends BaseRepository {
         }
       }
 
-      // 2. Update FieldValues using preserve-and-track strategy
+      // 2. Track history for fields that have EnableHistory=true before updating
+      await this.trackFieldHistory(item.Id, item.Fields, now);
+
+      // 3. Update FieldValues using preserve-and-track strategy
       await this.updateFieldValues(item.Id, item.Fields, now);
 
-      // 3. Handle TOTP codes
+      // 4. Handle TOTP codes
       await this.syncRelatedEntities(
         'TotpCodes',
         'ItemId',
@@ -348,7 +379,7 @@ export class ItemRepository extends BaseRepository {
         `INSERT INTO TotpCodes (Id, Name, SecretKey, ItemId, CreatedAt, UpdatedAt, IsDeleted) VALUES (?, ?, ?, ?, ?, ?, ?)`
       );
 
-      // 4. Handle Attachments
+      // 5. Handle Attachments
       await this.syncRelatedEntities(
         'Attachments',
         'ItemId',
@@ -492,6 +523,98 @@ export class ItemRepository extends BaseRepository {
     for (const entity of currentEntities) {
       if (!originalIds.includes(entity.Id)) {
         await this.client.executeUpdate(insertQuery, toParams(entity));
+      }
+    }
+  }
+
+  /**
+   * Track field history for fields with EnableHistory=true.
+   * Compares old values with new values and creates history records.
+   */
+  private async trackFieldHistory(
+    itemId: string,
+    newFields: ItemField[],
+    currentDateTime: string
+  ): Promise<void> {
+    // Check if FieldHistories table exists
+    if (!(await this.tableExists('FieldHistories'))) {
+      return;
+    }
+
+    const existingFields = await this.client.executeQuery<{ FieldKey: string; Value: string }>(
+      FieldHistoryQueries.GET_FOR_HISTORY,
+      [itemId]
+    );
+
+    // Create a map of existing values by FieldKey
+    const existingValuesMap: { [key: string]: string[] } = {};
+    for (const field of existingFields) {
+      if (!existingValuesMap[field.FieldKey]) {
+        existingValuesMap[field.FieldKey] = [];
+      }
+      existingValuesMap[field.FieldKey].push(field.Value);
+    }
+
+    for (const newField of newFields) {
+      /**
+       * Check if history tracking is enabled for this field.
+       * EnableHistory comes from SystemFieldRegistry for system fields,
+       * or from the FieldDefinitions table for custom fields.
+       */
+      if (!newField.EnableHistory) {
+        continue;
+      }
+
+      const oldValues = existingValuesMap[newField.FieldKey] || [];
+      const newValues = Array.isArray(newField.Value) ? newField.Value : [newField.Value];
+
+      const valuesChanged = oldValues.length !== newValues.length ||
+        !oldValues.every((val, idx) => val === newValues[idx]);
+
+      if (valuesChanged && oldValues.length > 0) {
+        const historyId = this.generateId();
+        const valueSnapshot = JSON.stringify(oldValues);
+
+        await this.client.executeUpdate(FieldHistoryQueries.INSERT, [
+          historyId,
+          itemId,
+          null,
+          newField.FieldKey,
+          valueSnapshot,
+          currentDateTime,
+          currentDateTime,
+          currentDateTime,
+          0
+        ]);
+
+        await this.pruneFieldHistory(itemId, newField.FieldKey, currentDateTime);
+      }
+    }
+  }
+
+  /**
+   * Prune old field history records.
+   * Keeps only the most recent MAX_FIELD_HISTORY_RECORDS records.
+   */
+  private async pruneFieldHistory(
+    itemId: string,
+    fieldKey: string,
+    currentDateTime: string
+  ): Promise<void> {
+    const matchingHistory = await this.client.executeQuery<{ Id: string; ChangedAt: string }>(
+      FieldHistoryQueries.GET_FOR_PRUNING,
+      [itemId, fieldKey]
+    );
+
+    if (matchingHistory.length > MAX_FIELD_HISTORY_RECORDS) {
+      const recordsToDelete = matchingHistory.slice(MAX_FIELD_HISTORY_RECORDS);
+      const idsToDelete = recordsToDelete.map(r => r.Id);
+
+      if (idsToDelete.length > 0) {
+        await this.client.executeUpdate(
+          FieldHistoryQueries.softDeleteOld(idsToDelete.length),
+          [currentDateTime, ...idsToDelete]
+        );
       }
     }
   }

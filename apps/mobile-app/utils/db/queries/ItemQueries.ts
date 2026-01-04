@@ -294,3 +294,62 @@ export class FieldDefinitionQueries {
         UpdatedAt = ?
     WHERE Id = ?`;
 }
+
+/**
+ * SQL query constants for FieldHistory operations.
+ */
+export class FieldHistoryQueries {
+  /**
+   * Insert a history record.
+   */
+  public static readonly INSERT = `
+    INSERT INTO FieldHistories (Id, ItemId, FieldDefinitionId, FieldKey, ValueSnapshot, ChangedAt, CreatedAt, UpdatedAt, IsDeleted)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+  /**
+   * Get history records for a field.
+   */
+  public static readonly GET_FOR_FIELD = `
+    SELECT
+      Id,
+      ItemId,
+      FieldKey,
+      ValueSnapshot,
+      ChangedAt,
+      CreatedAt,
+      UpdatedAt
+    FROM FieldHistories
+    WHERE ItemId = ? AND FieldKey = ? AND IsDeleted = 0
+    ORDER BY ChangedAt DESC
+    LIMIT ?`;
+
+  /**
+   * Get field values for history comparison (before update).
+   */
+  public static readonly GET_FOR_HISTORY = `
+    SELECT FieldKey, Value
+    FROM FieldValues
+    WHERE ItemId = ? AND IsDeleted = 0`;
+
+  /**
+   * Get all history records for pruning.
+   */
+  public static readonly GET_FOR_PRUNING = `
+    SELECT Id, ChangedAt
+    FROM FieldHistories
+    WHERE ItemId = ? AND FieldKey = ? AND IsDeleted = 0
+    ORDER BY ChangedAt DESC`;
+
+  /**
+   * Soft delete old history records.
+   * @param count - Number of records to delete
+   * @returns Query with placeholders
+   */
+  public static softDeleteOld(count: number): string {
+    const placeholders = Array(count).fill('?').join(',');
+    return `
+      UPDATE FieldHistories
+      SET IsDeleted = 1, UpdatedAt = ?
+      WHERE Id IN (${placeholders})`;
+  }
+}

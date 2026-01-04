@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 
-import { useColors } from '@/hooks/useColorScheme';
+import { useColors, useColorScheme } from '@/hooks/useColorScheme';
 
 interface IConfirmDeleteModalProps {
   isOpen: boolean;
@@ -33,6 +33,7 @@ export const ConfirmDeleteModal: React.FC<IConfirmDeleteModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const colors = useColors();
+  const colorScheme = useColorScheme();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   /**
@@ -61,7 +62,8 @@ export const ConfirmDeleteModal: React.FC<IConfirmDeleteModalProps> = ({
   const styles = StyleSheet.create({
     backdrop: {
       alignItems: 'center',
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      // Lighter backdrop in dark mode for better contrast against black background
+      backgroundColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.5)',
       flex: 1,
       justifyContent: 'center',
     },

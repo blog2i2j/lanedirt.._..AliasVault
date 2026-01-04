@@ -2,12 +2,12 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
-import type { Item } from '@/utils/dist/core/models/vault';
-import { getFieldValue, FieldKey } from '@/utils/dist/core/models/vault';
+import type { Item, ItemField } from '@/utils/dist/core/models/vault';
+import { FieldKey } from '@/utils/dist/core/models/vault';
 
 import { useColors } from '@/hooks/useColorScheme';
 
-import FormInputCopyToClipboard from '@/components/form/FormInputCopyToClipboard';
+import FieldBlock from '@/components/items/details/FieldBlock';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedView } from '@/components/themed/ThemedView';
 
@@ -17,16 +17,22 @@ type LoginFieldsProps = {
 
 /**
  * Login fields component.
+ * Now uses FieldBlock for automatic field type handling and history support.
  */
 export const LoginFields: React.FC<LoginFieldsProps> = ({ item }) : React.ReactNode => {
   const { t } = useTranslation();
   const colors = useColors();
-  const email = getFieldValue(item, FieldKey.LoginEmail)?.trim();
-  const username = getFieldValue(item, FieldKey.LoginUsername)?.trim();
-  const password = getFieldValue(item, FieldKey.LoginPassword)?.trim();
+
+  // Get login-related fields from the item
+  const loginFields = item.Fields.filter(
+    (field: ItemField) =>
+      field.FieldKey === FieldKey.LoginEmail ||
+      field.FieldKey === FieldKey.LoginUsername ||
+      field.FieldKey === FieldKey.LoginPassword
+  );
 
   // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-  const hasLoginCredentials = email || username || password || item.HasPasskey;
+  const hasLoginCredentials = loginFields.length > 0 || item.HasPasskey;
 
   if (!hasLoginCredentials) {
     return null;
@@ -74,21 +80,32 @@ export const LoginFields: React.FC<LoginFieldsProps> = ({ item }) : React.ReactN
     },
   });
 
+  // Sort login fields: email first, then username, then password
+  const sortedLoginFields = [...loginFields].sort((a, b) => {
+    const order: Record<string, number> = {
+      [FieldKey.LoginEmail]: 0,
+      [FieldKey.LoginUsername]: 1,
+      [FieldKey.LoginPassword]: 2
+    };
+    const aOrder = order[a.FieldKey] ?? 99;
+    const bOrder = order[b.FieldKey] ?? 99;
+    return aOrder - bOrder;
+  });
+
   return (
     <ThemedView style={styles.section}>
       <ThemedText type="subtitle">{t('credentials.loginCredentials')}</ThemedText>
-      {email && (
-        <FormInputCopyToClipboard
-          label={t('credentials.email')}
-          value={email}
+
+      {/* Render login fields using FieldBlock */}
+      {sortedLoginFields.map((field: ItemField) => (
+        <FieldBlock
+          key={field.FieldKey}
+          field={field}
+          itemId={item.Id}
         />
-      )}
-      {username && (
-        <FormInputCopyToClipboard
-          label={t('credentials.username')}
-          value={username}
-        />
-      )}
+      ))}
+
+      {/* Passkey display */}
       {item.HasPasskey && (
         <View style={passkeyStyles.container}>
           <View style={passkeyStyles.contentRow}>
@@ -108,13 +125,6 @@ export const LoginFields: React.FC<LoginFieldsProps> = ({ item }) : React.ReactN
             </View>
           </View>
         </View>
-      )}
-      {password && (
-        <FormInputCopyToClipboard
-          label={t('credentials.password')}
-          value={password}
-          type="password"
-        />
       )}
     </ThemedView>
   );

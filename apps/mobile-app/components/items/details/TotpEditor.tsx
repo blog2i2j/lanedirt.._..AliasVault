@@ -6,7 +6,7 @@ import { View, StyleSheet, Alert, TextInput, Modal, TouchableOpacity, ScrollView
 
 import type { TotpCode } from '@/utils/dist/core/models/vault';
 
-import { useColors } from '@/hooks/useColorScheme';
+import { useColors, useColorScheme } from '@/hooks/useColorScheme';
 
 import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedView } from '@/components/themed/ThemedView';
@@ -33,6 +33,7 @@ export const TotpEditor: React.FC<TotpEditorProps> = ({
 }) => {
   const { t } = useTranslation();
   const colors = useColors();
+  const colorScheme = useColorScheme();
   const [isAddFormVisible, setIsAddFormVisible] = useState(false);
   const [formData, setFormData] = useState<TotpFormData>({ name: '', secretKey: '' });
   const [formError, setFormError] = useState<string | null>(null);
@@ -275,7 +276,7 @@ export const TotpEditor: React.FC<TotpEditorProps> = ({
       flex: 1,
     },
     modalContainer: {
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      backgroundColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.5)',
       flex: 1,
       justifyContent: 'flex-end',
     },

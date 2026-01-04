@@ -14,7 +14,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 
-import { useColors } from '@/hooks/useColorScheme';
+import { useColors, useColorScheme } from '@/hooks/useColorScheme';
 
 interface IFolderModalProps {
   isOpen: boolean;
@@ -36,6 +36,7 @@ export const FolderModal: React.FC<IFolderModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const colors = useColors();
+  const colorScheme = useColorScheme();
   const [folderName, setFolderName] = useState(initialName);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +84,7 @@ export const FolderModal: React.FC<IFolderModalProps> = ({
   const styles = StyleSheet.create({
     backdrop: {
       alignItems: 'center',
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      backgroundColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.5)',
       flex: 1,
       justifyContent: 'center',
     },

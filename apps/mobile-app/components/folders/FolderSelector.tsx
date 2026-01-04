@@ -10,7 +10,7 @@ import {
   ScrollView,
 } from 'react-native';
 
-import { useColors } from '@/hooks/useColorScheme';
+import { useColors, useColorScheme } from '@/hooks/useColorScheme';
 
 type Folder = {
   Id: string;
@@ -36,6 +36,7 @@ export const FolderSelector: React.FC<IFolderSelectorProps> = ({
 }) => {
   const { t } = useTranslation();
   const colors = useColors();
+  const colorScheme = useColorScheme();
   const [showModal, setShowModal] = useState(false);
 
   const selectedFolder = folders.find(f => f.Id === selectedFolderId);
@@ -51,7 +52,7 @@ export const FolderSelector: React.FC<IFolderSelectorProps> = ({
   const styles = StyleSheet.create({
     backdrop: {
       alignItems: 'center',
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      backgroundColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.5)',
       flex: 1,
       justifyContent: 'center',
     },
