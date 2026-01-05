@@ -1,6 +1,7 @@
 import Foundation
 import SQLite3
 import CryptoKit
+import RustCoreFramework
 
 /// Service for vault merge operations using the Rust core library.
 /// Wraps UniFFI-generated bindings for LWW merge operations on SQLite vault databases.

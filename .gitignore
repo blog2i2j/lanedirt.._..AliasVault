@@ -443,12 +443,5 @@ core/rust/target/
 # Browser extension WASM (built by: cd core/rust && ./build.sh --browser)
 apps/browser-extension/src/utils/dist/core/rust
 
-# iOS Swift bindings (built by: cd core/rust && ./build.sh --ios)
-apps/mobile-app/ios/VaultStoreKit/RustCore/
-
-# Android Kotlin bindings (built by: cd core/rust && ./build.sh --android)
-apps/mobile-app/android/app/src/main/java/net/aliasvault/app/rustcore/uniffi/
-apps/mobile-app/android/app/src/main/jniLibs/
-
 # Server .NET bindings (built by: cd core/rust && ./build.sh --server)
 apps/server/Utilities/AliasVault.RustCore/

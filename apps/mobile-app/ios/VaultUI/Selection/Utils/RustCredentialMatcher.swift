@@ -1,5 +1,6 @@
 import Foundation
 import VaultModels
+import RustCoreFramework
 
 /// Wrapper for the Rust credential matcher using UniFFI bindings.
 public class RustCredentialMatcher {
