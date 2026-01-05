@@ -27,9 +27,9 @@ import android.widget.RemoteViews
 import net.aliasvault.app.MainActivity
 import net.aliasvault.app.R
 import net.aliasvault.app.autofill.models.FieldType
-import net.aliasvault.app.autofill.utils.CredentialMatcher
 import net.aliasvault.app.autofill.utils.FieldFinder
 import net.aliasvault.app.autofill.utils.ImageUtils
+import net.aliasvault.app.autofill.utils.RustCredentialMatcher
 import net.aliasvault.app.utils.ItemTypeIcon
 import net.aliasvault.app.vaultstore.VaultStore
 import net.aliasvault.app.vaultstore.interfaces.CredentialOperationCallback
@@ -151,7 +151,7 @@ class AutofillService : AutofillService() {
 
                             // Filter credentials based on app/website info
                             val filteredByApp = if (appInfo != null) {
-                                CredentialMatcher.filterCredentialsByAppInfo(result, appInfo)
+                                RustCredentialMatcher.filterCredentialsByAppInfo(result, appInfo)
                             } else {
                                 result
                             }

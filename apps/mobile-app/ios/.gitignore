@@ -35,3 +35,8 @@ project.xcworkspace
 /VaultStoreKit/RustCore/lib/
 /VaultStoreKit/RustCore/include/
 /VaultStoreKit/RustCore/.rust-core-checksum
+
+/VaultUI/RustCore/Generated/
+/VaultUI/RustCore/lib/
+/VaultUI/RustCore/include/
+/VaultUI/RustCore/.rust-core-checksum

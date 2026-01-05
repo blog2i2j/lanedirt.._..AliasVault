@@ -257,7 +257,7 @@ public class CredentialProviderViewModel: ObservableObject {
     }
 
     func filterCredentials() {
-        filteredCredentials = CredentialMatcher.filterCredentials(credentials, searchText: searchText)
+        filteredCredentials = RustCredentialMatcher.filterCredentials(credentials, searchText: searchText)
     }
 
     func handleSelection(username: String, password: String) {
