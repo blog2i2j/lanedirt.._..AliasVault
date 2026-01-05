@@ -1495,7 +1495,8 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = net.aliasvault.RustCoreFramework;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				RUST_LIB_PLATFORM = device;
+				"RUST_LIB_PLATFORM[sdk=iphoneos*]" = device;
+				"RUST_LIB_PLATFORM[sdk=iphonesimulator*]" = simulator;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1747,7 +1748,8 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = net.aliasvault.RustCoreFramework;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				RUST_LIB_PLATFORM = simulator;
+				"RUST_LIB_PLATFORM[sdk=iphoneos*]" = device;
+				"RUST_LIB_PLATFORM[sdk=iphonesimulator*]" = simulator;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;

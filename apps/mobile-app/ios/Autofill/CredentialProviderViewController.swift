@@ -70,28 +70,10 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
         super.viewWillAppear(animated)
 
         // Check if we're in quick return mode
-        // Setup the loading view (actual unlock happens in viewDidAppear)
+        // Don't show any UI - Face ID will appear immediately with no background
         if isQuickReturnMode {
-            // Determine the type of credential being retrieved
-            let type: QuickUnlockType = quickReturnPasskeyRequest != nil ? .passkey : .credential
-
-            // Show loading view with appropriate type
-            let loadingView = QuickUnlockLoadingView(type: type)
-            let hostingController = UIHostingController(rootView: loadingView)
-
-            addChild(hostingController)
-            view.addSubview(hostingController.view)
-
-            hostingController.view.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                hostingController.view.topAnchor.constraint(equalTo: view.topAnchor),
-                hostingController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-                hostingController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-                hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-            ])
-
-            hostingController.didMove(toParent: self)
-            self.currentHostingController = hostingController
+            // Make the view transparent so system UI shows through
+            view.backgroundColor = .clear
             return
         }
 
@@ -167,6 +149,7 @@ public class CredentialProviderViewController: ASCredentialProviderViewControlle
                 }
 
                 // Only biometric is enabled - try to unlock with biometric
+                // No loading view shown - Face ID will appear immediately on clean background
                 do {
                     // Try to unlock the vault with biometric
                     try vaultStore.unlockVault()
