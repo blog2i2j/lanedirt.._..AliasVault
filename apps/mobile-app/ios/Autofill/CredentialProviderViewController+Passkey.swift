@@ -347,8 +347,8 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 }
 
                 // Step 3: Create passkey credentials
-                // Generate new credential ID (UUID that will be used as the passkey ID)
-                let passkeyId = UUID()
+                let itemId = UUID()  // Item ID that will contain the passkey
+                let passkeyId = UUID()  // Passkey credential ID
                 let credentialId = try PasskeyHelper.guidToBytes(passkeyId.uuidString)
 
                 // Create the passkey using PasskeyAuthenticator
@@ -364,11 +364,11 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                     prfInputs: prfInputs
                 )
 
-                // Create a Passkey model object
+                // Create a Passkey model object with correct parentItemId
                 let now = Date()
                 let passkey = Passkey(
                     id: passkeyId,
-                    parentItemId: UUID(), // Will be set by createItemWithPasskey
+                    parentItemId: itemId,  // Link to the Item that will be created
                     rpId: rpId,
                     userHandle: userId,
                     userName: userName,
@@ -382,9 +382,6 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                 )
 
                 // Step 4: Store credential with passkey in database
-                // Begin transaction
-                try vaultStore.beginTransaction()
-
                 // Check if we're replacing an existing passkey
                 if let oldPasskeyId = viewModel.selectedPasskeyToReplace {
                     // Replace existing passkey
@@ -405,9 +402,6 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                         logo: logo
                     )
                 }
-
-                // Commit transaction to persist the data
-                try vaultStore.commitTransaction()
 
                 // Step 5: Upload vault changes to server
                 viewModel.setLoading(true, message: NSLocalizedString("creating_passkey", comment: "Uploading vault..."))

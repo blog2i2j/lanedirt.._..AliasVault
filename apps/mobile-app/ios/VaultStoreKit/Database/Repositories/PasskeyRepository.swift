@@ -121,17 +121,28 @@ public class PasskeyRepository: BaseRepository {
         }
     }
 
-    /// Replace an existing passkey with a new one.
+    /// Replace an existing passkey with a new one, optionally updating the item's logo.
     /// Deletes the old passkey and creates a new one linked to the same item.
     /// - Parameters:
     ///   - oldPasskeyId: The ID of the passkey to replace
     ///   - newPasskey: The new passkey to create
     ///   - displayName: The display name for the new passkey
+    ///   - logo: Optional logo data to update
     /// - Returns: The ID of the new passkey
     @discardableResult
-    public func replace(oldPasskeyId: String, with newPasskey: Passkey, displayName: String) throws -> String {
+    public func replace(oldPasskeyId: String, with newPasskey: Passkey, displayName: String, logo: Data? = nil) throws -> String {
         return try withTransaction {
             let now = self.now()
+
+            // Update logo if provided
+            if let logo = logo {
+                try updateItemLogoInternal(
+                    itemId: newPasskey.parentItemId.uuidString.uppercased(),
+                    logo: logo,
+                    displayName: displayName,
+                    now: now
+                )
+            }
 
             // Delete the old passkey
             try client.executeUpdate(PasskeyQueries.softDelete, params: [now, oldPasskeyId])
@@ -284,49 +295,59 @@ public class PasskeyRepository: BaseRepository {
     public func updateItemLogo(itemId: String, logo: Data, displayName: String) throws {
         try withTransaction {
             let now = self.now()
+            try updateItemLogoInternal(itemId: itemId, logo: logo, displayName: displayName, now: now)
+        }
+    }
 
-            // Get current logo ID from item
-            let itemResults = try client.executeQuery(
-                "SELECT LogoId FROM Items WHERE Id = ?",
-                params: [itemId]
-            )
+    /// Internal helper to update item logo without creating a transaction.
+    /// Used within larger transactions to avoid nested transaction issues.
+    /// - Parameters:
+    ///   - itemId: The item ID
+    ///   - logo: The new logo data
+    ///   - displayName: The new display name
+    ///   - now: The current timestamp
+    private func updateItemLogoInternal(itemId: String, logo: Data, displayName: String, now: String) throws {
+        // Get current logo ID from item
+        let itemResults = try client.executeQuery(
+            "SELECT LogoId FROM Items WHERE Id = ?",
+            params: [itemId]
+        )
 
-            let logoDataParam = "av-base64-to-blob:\(logo.base64EncodedString())"
+        let logoDataParam = "av-base64-to-blob:\(logo.base64EncodedString())"
 
-            if let existingLogoId = itemResults.first?["LogoId"] as? String {
-                // Update existing logo
-                try client.executeUpdate(LogoQueries.updateFileData, params: [
-                    logoDataParam,
-                    now,
-                    existingLogoId
-                ])
-            } else {
-                // Create new logo and link to item
-                let newLogoId = generateId()
-                try client.executeUpdate(LogoQueries.insert, params: [
-                    newLogoId,
-                    "", // Source not needed for update
-                    logoDataParam,
-                    "image/png",
-                    nil,
-                    now,
-                    now,
-                    0
-                ])
+        if let existingLogoId = itemResults.first?["LogoId"] as? String {
+            // Update existing logo
+            try client.executeUpdate(LogoQueries.updateFileData, params: [
+                logoDataParam,
+                now,
+                existingLogoId
+            ])
+        } else {
+            // Create new logo and link to item
+            let newLogoId = generateId()
+            try client.executeUpdate(LogoQueries.insert, params: [
+                newLogoId,
+                "", // Source not needed for update
+                logoDataParam,
+                "image/png",
+                nil,
+                now,
+                now,
+                0
+            ])
 
-                // Update item with new logo ID
-                try client.executeUpdate(
-                    "UPDATE Items SET LogoId = ?, UpdatedAt = ? WHERE Id = ?",
-                    params: [newLogoId, now, itemId]
-                )
-            }
-
-            // Update item name
+            // Update item with new logo ID
             try client.executeUpdate(
-                "UPDATE Items SET Name = ?, UpdatedAt = ? WHERE Id = ?",
-                params: [displayName, now, itemId]
+                "UPDATE Items SET LogoId = ?, UpdatedAt = ? WHERE Id = ?",
+                params: [newLogoId, now, itemId]
             )
         }
+
+        // Update item name
+        try client.executeUpdate(
+            "UPDATE Items SET Name = ?, UpdatedAt = ? WHERE Id = ?",
+            params: [displayName, now, itemId]
+        )
     }
 }
 

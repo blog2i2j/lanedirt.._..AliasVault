@@ -103,15 +103,6 @@ extension VaultStore {
 
         let itemId = oldPasskey.parentItemId
 
-        // Update logo if provided
-        if let logo = logo {
-            try passkeyRepository.updateItemLogo(
-                itemId: itemId.uuidString.uppercased(),
-                logo: logo,
-                displayName: displayName
-            )
-        }
-
         // Create the new passkey with the same item ID
         let updatedPasskey = Passkey(
             id: newPasskey.id,
@@ -128,10 +119,12 @@ extension VaultStore {
             isDeleted: false
         )
 
+        // Replace the passkey (handles logo update in same transaction)
         try passkeyRepository.replace(
             oldPasskeyId: oldPasskeyId.uuidString.uppercased(),
             with: updatedPasskey,
-            displayName: displayName
+            displayName: displayName,
+            logo: logo
         )
     }
 }
