@@ -287,19 +287,20 @@ extension VaultStore {
 
     /// Convert an Item to an AutofillCredential for iOS Autofill.
     private func convertItemToAutofillCredential(_ item: Item) -> AutofillCredential? {
-        // Load passkeys for this item
+        // Load passkey for this item (gets first non-deleted passkey)
         let passkeys = try? getPasskeys(forItemId: item.id)
+        let passkey = passkeys?.first
 
-        return AutofillCredential(from: item, passkeys: passkeys)
+        return AutofillCredential(from: item, passkey: passkey)
     }
 
     /// Get all items that have passkeys for passkey autofill.
     public func getAllAutofillCredentialsWithPasskeys() throws -> [AutofillCredential] {
         var credentials = try getAllAutofillCredentials()
 
-        // Filter to only include credentials that actually have passkeys
+        // Filter to only include credentials that actually have a passkey
         credentials = credentials.filter { credential in
-            return credential.hasPasskeys
+            return credential.hasPasskey
         }
 
         return credentials

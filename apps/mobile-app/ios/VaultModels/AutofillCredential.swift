@@ -12,7 +12,7 @@ public struct AutofillCredential: Codable, Hashable, Equatable {
     public let email: String?
     public let password: String?
     public let notes: String?
-    public let passkeys: [Passkey]?
+    public let passkey: Passkey?
     public let createdAt: Date
     public let updatedAt: Date
 
@@ -25,7 +25,7 @@ public struct AutofillCredential: Codable, Hashable, Equatable {
         email: String?,
         password: String?,
         notes: String?,
-        passkeys: [Passkey]?,
+        passkey: Passkey?,
         createdAt: Date,
         updatedAt: Date
     ) {
@@ -37,7 +37,7 @@ public struct AutofillCredential: Codable, Hashable, Equatable {
         self.email = email
         self.password = password
         self.notes = notes
-        self.passkeys = passkeys
+        self.passkey = passkey
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -45,8 +45,8 @@ public struct AutofillCredential: Codable, Hashable, Equatable {
     /// Initialize from an Item model.
     /// - Parameters:
     ///   - item: The Item to convert from
-    ///   - passkeys: Optional passkeys associated with this item
-    public init(from item: Item, passkeys: [Passkey]? = nil) {
+    ///   - passkey: Optional passkey associated with this item
+    public init(from item: Item, passkey: Passkey? = nil) {
         self.id = item.id
         self.serviceName = item.name
         self.serviceUrl = item.url
@@ -55,7 +55,7 @@ public struct AutofillCredential: Codable, Hashable, Equatable {
         self.email = item.email
         self.password = item.password
         self.notes = item.getFieldValue(FieldKey.notesContent)
-        self.passkeys = passkeys
+        self.passkey = passkey
         self.createdAt = item.createdAt
         self.updatedAt = item.updatedAt
     }
@@ -88,9 +88,8 @@ public struct AutofillCredential: Codable, Hashable, Equatable {
         return !password.isEmpty
     }
 
-    /// Returns true if this credential has passkeys.
-    public var hasPasskeys: Bool {
-        guard let passkeys = passkeys else { return false }
-        return !passkeys.isEmpty
+    /// Returns true if this credential has a passkey.
+    public var hasPasskey: Bool {
+        return passkey != nil
     }
 }

@@ -166,7 +166,7 @@ public func truncateText(_ text: String?, limit: Int) -> String {
             email: "john.doe@example.com",
             password: "securepassword123",
             notes: "Sample notes",
-            passkeys: nil,
+            passkey: nil,
             createdAt: Date(),
             updatedAt: Date()
         ),

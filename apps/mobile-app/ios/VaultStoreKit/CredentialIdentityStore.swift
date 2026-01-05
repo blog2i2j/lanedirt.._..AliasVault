@@ -79,8 +79,8 @@ public class CredentialIdentityStore {
     /// Create password credential identities from credentials
     private func createPasswordIdentities(from credentials: [AutofillCredential]) -> [ASPasswordCredentialIdentity] {
         return credentials.compactMap { credential in
-            guard !credential.hasPasskeys else {
-                // Skip if this record has passkeys as they will be saved in createPasskeyIdentities
+            guard !credential.hasPasskey else {
+                // Skip if this record has a passkey as they will be saved in createPasskeyIdentities
                 return nil
             }
 
@@ -112,30 +112,27 @@ public class CredentialIdentityStore {
 
     /// Create passkey credential identities from credentials
     private func createPasskeyIdentities(from credentials: [AutofillCredential]) -> [ASPasskeyCredentialIdentity] {
-        return credentials.flatMap { credential -> [ASPasskeyCredentialIdentity] in
-            guard let passkeys = credential.passkeys else {
-                return []
+        return credentials.compactMap { credential -> ASPasskeyCredentialIdentity? in
+            guard let passkey = credential.passkey, !passkey.isDeleted else {
+                return nil
             }
 
-            return passkeys.filter { !($0.isDeleted) }
-                .compactMap { passkey in
-                    // Get the userName for display in iOS AutoFill UI
-                    // Passkeys may store userName, otherwise use the credential's identifier
-                    let userName = passkey.userName ?? credential.identifier
+            // Get the userName for display in iOS AutoFill UI
+            // Passkeys may store userName, otherwise use the credential's identifier
+            let userName = passkey.userName ?? credential.identifier
 
-                    // Convert passkey.Id to bytes for credentialID
-                    let credentialId = try? PasskeyHelper.guidToBytes(passkey.id.uuidString)
+            // Convert passkey.Id to bytes for credentialID
+            let credentialId = try? PasskeyHelper.guidToBytes(passkey.id.uuidString)
 
-                    // For passkeys, we use the rpId from the passkey itself, not the service URL
-                    // This is because passkeys are tied to the RP ID, which may differ from the service URL
-                    return ASPasskeyCredentialIdentity(
-                        relyingPartyIdentifier: passkey.rpId,
-                        userName: userName,
-                        credentialID: credentialId ?? Data(),  // WebAuthn credential ID (16-byte GUID)
-                        userHandle: passkey.userHandle ?? Data(),
-                        recordIdentifier: passkey.id.uuidString
-                    )
-                }
+            // For passkeys, we use the rpId from the passkey itself, not the service URL
+            // This is because passkeys are tied to the RP ID, which may differ from the service URL
+            return ASPasskeyCredentialIdentity(
+                relyingPartyIdentifier: passkey.rpId,
+                userName: userName,
+                credentialID: credentialId ?? Data(),  // WebAuthn credential ID (16-byte GUID)
+                userHandle: passkey.userHandle ?? Data(),
+                recordIdentifier: passkey.id.uuidString
+            )
         }
     }
 }

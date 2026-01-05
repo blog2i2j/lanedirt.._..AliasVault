@@ -159,8 +159,8 @@ private struct PasskeyCredentialCard: View {
                                 .foregroundColor(colors.textMuted)
                         }
 
-                        // Show passkey count
-                        if credential.hasPasskeys {
+                        // Show passkey indicator
+                        if credential.hasPasskey {
                             Text(String(localized: "passkey", bundle: locBundle))
                                 .font(.caption)
                                 .foregroundColor(colors.primary)
@@ -260,9 +260,9 @@ public class PasskeyProviderViewModel: ObservableObject {
                 credential.notes?.lowercased() ?? ""
             ]
 
-            // Add passkey rpIds to searchable fields
-            if let passkeys = credential.passkeys {
-                searchableFields.append(contentsOf: passkeys.map { $0.rpId.lowercased() })
+            // Add passkey rpId to searchable fields
+            if let passkey = credential.passkey {
+                searchableFields.append(passkey.rpId.lowercased())
             }
 
             // All search words must be found (each in at least one field)
@@ -344,7 +344,7 @@ public class PasskeyProviderViewModel: ObservableObject {
             email: "user@example.com",
             password: "password123",
             notes: nil,
-            passkeys: [mockPasskey1],
+            passkey: mockPasskey1,
             createdAt: Date(),
             updatedAt: Date()
         ),
@@ -357,7 +357,7 @@ public class PasskeyProviderViewModel: ObservableObject {
             email: "johndoe@gmail.com",
             password: "password456",
             notes: nil,
-            passkeys: [mockPasskey2],
+            passkey: mockPasskey2,
             createdAt: Date(),
             updatedAt: Date()
         )
@@ -403,7 +403,7 @@ public class PasskeyProviderViewModel: ObservableObject {
             email: "user@example.com",
             password: nil,
             notes: nil,
-            passkeys: [mockPasskey],
+            passkey: mockPasskey,
             createdAt: Date(),
             updatedAt: Date()
         )

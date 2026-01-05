@@ -544,9 +544,9 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
      */
     internal func handlePasskeySelection(credential: AutofillCredential, clientDataHash: Data, rpId: String) {
         do {
-            // Get the first matching passkey for the RP ID
-            guard let passkeys = credential.passkeys,
-                  let passkey = passkeys.first(where: { $0.rpId.lowercased() == rpId.lowercased() }) else {
+            // Get the passkey and verify it matches the RP ID
+            guard let passkey = credential.passkey,
+                  passkey.rpId.lowercased() == rpId.lowercased() else {
                 extensionContext.cancelRequest(withError: NSError(
                     domain: ASExtensionErrorDomain,
                     code: ASExtensionError.credentialIdentityNotFound.rawValue

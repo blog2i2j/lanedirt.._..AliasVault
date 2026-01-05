@@ -285,7 +285,7 @@ extension AutofillCredential {
             email: "john@example.com",
             password: "password123",
             notes: "Sample credential",
-            passkeys: nil,
+            passkey: nil,
             createdAt: Date(),
             updatedAt: Date()
         )
@@ -306,7 +306,7 @@ public class PreviewCredentialProviderViewModel: CredentialProviderViewModel {
                 email: "another@example.com",
                 password: "password456",
                 notes: "Another sample credential",
-                passkeys: nil,
+                passkey: nil,
                 createdAt: Date(),
                 updatedAt: Date()
             )
