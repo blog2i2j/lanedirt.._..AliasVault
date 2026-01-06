@@ -74,7 +74,7 @@ class VaultStore(
     private val sync = VaultSync(databaseComponent, metadata, crypto)
     private val mutate = VaultMutate(databaseComponent, query, metadata)
     private val cache = VaultCache(crypto, databaseComponent, keystoreProvider, storageProvider)
-    private val passkey = VaultPasskey(databaseComponent)
+    private val passkey = VaultPasskey(databaseComponent, query)
     private val pin by lazy {
         val androidProvider = storageProvider as net.aliasvault.app.vaultstore.storageprovider.AndroidStorageProvider
         // Use reflection to access private context field
@@ -589,14 +589,14 @@ class VaultStore(
     }
 
     /**
-     * Get all passkeys for a credential.
+     * Get all passkeys for an item.
      */
     @Suppress("UnusedParameter")
-    fun getPasskeysForCredential(
-        credentialId: java.util.UUID,
+    fun getPasskeysForItem(
+        itemId: java.util.UUID,
         db: io.requery.android.database.sqlite.SQLiteDatabase,
     ): List<net.aliasvault.app.vaultstore.models.Passkey> {
-        return passkey.getPasskeysForCredential(credentialId)
+        return passkey.getPasskeysForItem(itemId)
     }
 
     /**
@@ -620,10 +620,10 @@ class VaultStore(
     }
 
     /**
-     * Get all passkeys with their associated credentials in a single query.
+     * Get all passkeys with their associated items in a single query.
      */
-    fun getAllPasskeysWithCredentials(): List<PasskeyWithCredential> {
-        return passkey.getAllPasskeysWithCredentials()
+    fun getAllPasskeysWithItems(): List<PasskeyWithItem> {
+        return passkey.getAllPasskeysWithItems()
     }
 
     /**
@@ -646,16 +646,16 @@ class VaultStore(
     }
 
     /**
-     * Create a credential with a passkey.
+     * Create an item with a passkey.
      */
-    fun createCredentialWithPasskey(
+    fun createItemWithPasskey(
         rpId: String,
         userName: String?,
         displayName: String,
         passkeyObj: net.aliasvault.app.vaultstore.models.Passkey,
         logo: ByteArray? = null,
-    ): net.aliasvault.app.vaultstore.models.Credential {
-        return passkey.createCredentialWithPasskey(rpId, userName, displayName, passkeyObj, logo)
+    ): net.aliasvault.app.vaultstore.models.Item {
+        return passkey.createItemWithPasskey(rpId, userName, displayName, passkeyObj, logo)
     }
 
     /**
