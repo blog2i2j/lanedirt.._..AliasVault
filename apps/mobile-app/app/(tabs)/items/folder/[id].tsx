@@ -330,13 +330,12 @@ export default function FolderViewScreen(): React.ReactNode {
     },
   });
 
-  const paddingTop = Platform.OS === 'ios' ? 16 : 16;
+  const paddingTop = Platform.OS === 'ios' ? 56 : 16;
   const paddingBottom = Platform.OS === 'ios' ? insets.bottom + 60 : 40;
 
   const styles = StyleSheet.create({
     container: {
       paddingHorizontal: 0,
-      paddingTop: paddingTop + 100,
     },
     contentContainer: {
       paddingBottom: paddingBottom,
@@ -513,6 +512,7 @@ export default function FolderViewScreen(): React.ReactNode {
             onRefresh={onRefresh}
             colors={[colors.primary]}
             tintColor={colors.primary}
+            progressViewOffset={Platform.OS === 'ios' ? 44 : undefined}
           />
         }
         renderItem={({ item: itm }) =>
