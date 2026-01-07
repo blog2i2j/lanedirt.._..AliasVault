@@ -17,5 +17,9 @@ ktlint_standard_comment-wrapping = true
 ktlint_standard_annotation = true
 ktlint_standard_public-method-documentation = true
 
+[**/uniffi/**/*.kt]
+ktlint_standard_filename = disabled
+ktlint_standard_package-name = disabled
+
 # Detekt rules
 detekt.style.PublicFunctionDocumentation = enabled

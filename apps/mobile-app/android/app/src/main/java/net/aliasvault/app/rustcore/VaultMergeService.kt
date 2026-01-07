@@ -20,10 +20,28 @@ object VaultMergeService {
         Log.d(TAG, "Rust core library loaded")
     }
 
+    /**
+     * Base exception for vault merge operations.
+     */
     sealed class VaultMergeException(message: String) : Exception(message) {
+        /**
+         * Exception thrown when JSON parsing or serialization fails.
+         */
         class JsonError(message: String) : VaultMergeException("JSON error: $message")
+
+        /**
+         * Exception thrown when Rust core operations fail.
+         */
         class RustError(message: String) : VaultMergeException("Rust error: $message")
+
+        /**
+         * Exception thrown when database operations fail.
+         */
         class DatabaseError(message: String) : VaultMergeException("Database error: $message")
+
+        /**
+         * Exception thrown when input validation fails.
+         */
         class InvalidInput(message: String) : VaultMergeException("Invalid input: $message")
     }
 
@@ -37,6 +55,7 @@ object VaultMergeService {
     /**
      * Merge local and server vaults using LWW strategy.
      */
+    @Suppress("SwallowedException") // Exceptions are logged and re-thrown with context
     @Throws(VaultMergeException::class)
     fun mergeVaults(
         localVaultBase64: String,
@@ -48,12 +67,14 @@ object VaultMergeService {
         val localDecrypted = try {
             VaultCrypto.decrypt(Base64.decode(localVaultBase64, Base64.DEFAULT), encryptionKey)
         } catch (e: Exception) {
+            Log.e(TAG, "Failed to decrypt local vault", e)
             throw VaultMergeException.InvalidInput("Failed to decrypt local vault: ${e.message}")
         }
 
         val serverDecrypted = try {
             VaultCrypto.decrypt(Base64.decode(serverVaultBase64, Base64.DEFAULT), encryptionKey)
         } catch (e: Exception) {
+            Log.e(TAG, "Failed to decrypt server vault", e)
             throw VaultMergeException.InvalidInput("Failed to decrypt server vault: ${e.message}")
         }
 
@@ -129,6 +150,7 @@ object VaultMergeService {
     /**
      * Prune expired items from trash.
      */
+    @Suppress("SwallowedException") // Exceptions are logged and re-thrown with context
     @Throws(VaultMergeException::class)
     fun pruneVault(
         vaultBase64: String,
@@ -139,6 +161,7 @@ object VaultMergeService {
         val decrypted = try {
             VaultCrypto.decrypt(Base64.decode(vaultBase64, Base64.DEFAULT), encryptionKey)
         } catch (e: Exception) {
+            Log.e(TAG, "Failed to decrypt vault for pruning", e)
             throw VaultMergeException.InvalidInput("Failed to decrypt vault: ${e.message}")
         }
 

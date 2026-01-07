@@ -5,6 +5,19 @@ import java.util.UUID
 
 /**
  * Item model representing vault entries in the new field-based data model.
+ *
+ * @property id The unique identifier of the item.
+ * @property name The display name of the item.
+ * @property itemType The type of item (Login, Alias, CreditCard, Note).
+ * @property logo The logo image data in bytes.
+ * @property folderId The ID of the folder containing this item.
+ * @property folderPath The path to the folder containing this item.
+ * @property fields The list of field values for this item.
+ * @property hasPasskey Whether this item has an associated passkey.
+ * @property hasAttachment Whether this item has attachments.
+ * @property hasTotp Whether this item has TOTP codes.
+ * @property createdAt The timestamp when this item was created.
+ * @property updatedAt The timestamp when this item was last updated.
  */
 data class Item(
     val id: UUID,
@@ -77,6 +90,15 @@ data class Item(
 
 /**
  * Field value within an item.
+ *
+ * @property fieldKey The key identifying this field.
+ * @property label The display label for this field.
+ * @property fieldType The type of field (text, password, email, etc).
+ * @property value The field value.
+ * @property isHidden Whether this field should be hidden by default.
+ * @property displayOrder The order in which this field should be displayed.
+ * @property isCustomField Whether this is a custom user-defined field.
+ * @property enableHistory Whether to track history for this field.
  */
 data class ItemField(
     val fieldKey: String,

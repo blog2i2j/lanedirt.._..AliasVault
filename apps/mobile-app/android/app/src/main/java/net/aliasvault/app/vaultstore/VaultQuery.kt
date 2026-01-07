@@ -327,7 +327,8 @@ class VaultQuery(
     /**
      * Resolve field metadata for system fields and custom fields.
      */
-    @Suppress("CyclomaticComplexMethod")
+    @Suppress("CyclomaticComplexMethod", "LongParameterList")
+    // LongParameterList suppressed: All parameters are needed to determine field metadata
     private fun resolveFieldMetadata(
         fieldKey: String,
         customLabel: String?,
@@ -350,7 +351,7 @@ class VaultQuery(
             FieldKey.LOGIN_USERNAME -> FieldMetadata("Username", FieldType.TEXT, false, false)
             FieldKey.LOGIN_PASSWORD -> FieldMetadata("Password", FieldType.PASSWORD, true, true)
             FieldKey.LOGIN_EMAIL -> FieldMetadata("Email", FieldType.EMAIL, false, false)
-            FieldKey.LOGIN_URL -> FieldMetadata("URL", FieldType.URL, false, false)
+            FieldKey.LOGIN_URL -> FieldMetadata("URL", FieldType.U_R_L, false, false)
             FieldKey.CARD_NUMBER -> FieldMetadata("Card Number", FieldType.TEXT, true, false)
             FieldKey.CARD_CARDHOLDER_NAME -> FieldMetadata("Cardholder Name", FieldType.TEXT, false, false)
             FieldKey.CARD_EXPIRY_MONTH -> FieldMetadata("Expiry Month", FieldType.TEXT, false, false)

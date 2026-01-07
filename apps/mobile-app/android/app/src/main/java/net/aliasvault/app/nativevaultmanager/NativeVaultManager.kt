@@ -1145,7 +1145,7 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
      * @param promise The promise to resolve with VaultSyncResult.
      */
     @ReactMethod
-    fun syncVaultWithServer(promise: Promise) {
+    override fun syncVaultWithServer(promise: Promise) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val result = vaultStore.syncVaultWithServer(webApiService)
@@ -1371,7 +1371,7 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
      * @param promise The promise to resolve.
      */
     @ReactMethod
-    fun getSyncState(promise: Promise) {
+    override fun getSyncState(promise: Promise) {
         try {
             val syncState = vaultStore.getSyncState()
             val result = Arguments.createMap()
@@ -1395,7 +1395,7 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
      * @param promise The promise to resolve with boolean indicating if dirty flag was cleared.
      */
     @ReactMethod
-    fun markVaultClean(mutationSeqAtStart: Double, newServerRevision: Double, promise: Promise) {
+    override fun markVaultClean(mutationSeqAtStart: Double, newServerRevision: Double, promise: Promise) {
         try {
             val cleared = vaultStore.markVaultClean(
                 mutationSeqAtStart = mutationSeqAtStart.toInt(),

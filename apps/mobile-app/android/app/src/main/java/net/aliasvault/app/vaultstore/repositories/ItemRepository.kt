@@ -11,6 +11,7 @@ import java.util.TimeZone
  * Repository for Item CRUD operations.
  * Handles fetching, creating, updating, and deleting items with their related data.
  */
+@Suppress("UnusedPrivateProperty") // TAG and MIN_DATE reserved for future use
 class ItemRepository(database: VaultDatabase) : BaseRepository(database) {
     companion object {
         private const val TAG = "ItemRepository"
@@ -30,7 +31,8 @@ class ItemRepository(database: VaultDatabase) : BaseRepository(database) {
 
     /**
      * Fetch all active items (not deleted, not in trash) with their fields.
-     * @return List of Item objects
+     *
+     * @return List of Item objects.
      */
     fun getAll(): List<Item> {
         // Implementation delegated to VaultQuery.getAllItems() for now
@@ -40,16 +42,19 @@ class ItemRepository(database: VaultDatabase) : BaseRepository(database) {
 
     /**
      * Fetch a single item by ID with its fields.
-     * @param itemId The ID of the item to fetch
-     * @return Item object or null if not found
+     *
+     * @param itemId The ID of the item to fetch.
+     * @return Item object or null if not found.
      */
+    @Suppress("UNUSED_PARAMETER") // Method under construction, will be implemented
     fun getById(itemId: String): Item? {
         error("Use VaultQuery.getItemById() directly - repository pattern under construction")
     }
 
     /**
      * Fetch all unique email addresses from field values.
-     * @return List of email addresses
+     *
+     * @return List of email addresses.
      */
     fun getAllEmailAddresses(): List<String> {
         val results = executeQuery(
@@ -69,7 +74,8 @@ class ItemRepository(database: VaultDatabase) : BaseRepository(database) {
 
     /**
      * Get recently deleted items (in trash).
-     * @return List of items
+     *
+     * @return List of items.
      */
     fun getRecentlyDeleted(): List<Item> {
         error("Use VaultQuery.getRecentlyDeletedItems() directly - repository pattern under construction")
@@ -77,7 +83,8 @@ class ItemRepository(database: VaultDatabase) : BaseRepository(database) {
 
     /**
      * Get count of items in trash.
-     * @return Number of items in trash
+     *
+     * @return Number of items in trash.
      */
     fun getRecentlyDeletedCount(): Int {
         val results = executeQuery(
@@ -95,8 +102,9 @@ class ItemRepository(database: VaultDatabase) : BaseRepository(database) {
 
     /**
      * Move an item to trash (set DeletedAt timestamp).
-     * @param itemId The ID of the item to trash
-     * @return Number of rows affected
+     *
+     * @param itemId The ID of the item to trash.
+     * @return Number of rows affected.
      */
     fun trash(itemId: String): Int {
         return withTransaction {
@@ -110,8 +118,9 @@ class ItemRepository(database: VaultDatabase) : BaseRepository(database) {
 
     /**
      * Restore an item from trash (clear DeletedAt).
-     * @param itemId The ID of the item to restore
-     * @return Number of rows affected
+     *
+     * @param itemId The ID of the item to restore.
+     * @return Number of rows affected.
      */
     fun restore(itemId: String): Int {
         return withTransaction {
@@ -126,8 +135,9 @@ class ItemRepository(database: VaultDatabase) : BaseRepository(database) {
     /**
      * Permanently delete an item (tombstone).
      * Converts item to tombstone and soft deletes all related data.
-     * @param itemId The ID of the item to permanently delete
-     * @return Number of rows affected
+     *
+     * @param itemId The ID of the item to permanently delete.
+     * @return Number of rows affected.
      */
     fun permanentlyDelete(itemId: String): Int {
         return withTransaction {
@@ -168,18 +178,22 @@ class ItemRepository(database: VaultDatabase) : BaseRepository(database) {
 
     /**
      * Create a new item with its fields.
-     * @param item The item to create
-     * @return The ID of the created item
+     *
+     * @param item The item to create.
+     * @return The ID of the created item.
      */
+    @Suppress("UNUSED_PARAMETER") // Method under construction, will be implemented
     fun create(item: Item): String {
         error("Create operations should use VaultMutate - repository pattern under construction")
     }
 
     /**
      * Update an existing item with its fields.
-     * @param item The item to update
-     * @return Number of rows affected
+     *
+     * @param item The item to update.
+     * @return Number of rows affected.
      */
+    @Suppress("UNUSED_PARAMETER") // Method under construction, will be implemented
     fun update(item: Item): Int {
         error("Update operations should use VaultMutate - repository pattern under construction")
     }

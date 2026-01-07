@@ -1,6 +1,7 @@
 package net.aliasvault.app.vaultstore
 
 import android.util.Log
+import net.aliasvault.app.vaultstore.models.SyncState
 import net.aliasvault.app.vaultstore.models.VaultMetadata
 import net.aliasvault.app.vaultstore.storageprovider.StorageProvider
 import net.aliasvault.app.vaultstore.utils.VersionComparison

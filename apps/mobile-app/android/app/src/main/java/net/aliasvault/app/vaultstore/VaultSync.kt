@@ -616,19 +616,6 @@ class VaultSync(
         }
     }
 
-    /**
-     * Store vault metadata as JSON string.
-     */
-    private fun storeVaultMetadata(vaultMetadata: net.aliasvault.app.vaultstore.models.VaultMetadata) {
-        val json = JSONObject().apply {
-            put("publicEmailDomains", org.json.JSONArray(vaultMetadata.publicEmailDomains))
-            put("privateEmailDomains", org.json.JSONArray(vaultMetadata.privateEmailDomains))
-            put("hiddenPrivateEmailDomains", org.json.JSONArray(vaultMetadata.hiddenPrivateEmailDomains))
-            put("vaultRevisionNumber", vaultMetadata.vaultRevisionNumber)
-        }
-        metadata.storeMetadata(json.toString())
-    }
-
     private fun parseVaultResponse(body: String): InternalVaultResponse {
         return try {
             val json = JSONObject(body)

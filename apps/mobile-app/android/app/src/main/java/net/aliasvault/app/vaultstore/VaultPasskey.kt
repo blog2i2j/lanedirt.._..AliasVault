@@ -164,7 +164,11 @@ class VaultPasskey(
                     val itemName = if (!it.isNull(12)) it.getString(12) else null
                     val itemCreatedAt = DateHelpers.parseDateString(it.getString(13)) ?: MIN_DATE
                     val itemUpdatedAt = DateHelpers.parseDateString(it.getString(14)) ?: MIN_DATE
+
+                    @Suppress("UNUSED_VARIABLE") // Username field loaded for potential future use
                     val username = if (!it.isNull(15)) it.getString(15) else null
+
+                    @Suppress("UNUSED_VARIABLE") // Email field loaded for potential future use
                     val email = if (!it.isNull(16)) it.getString(16) else null
 
                     // Create a minimal Item object with the data we have
@@ -338,23 +342,25 @@ class VaultPasskey(
 
 /**
  * Data class to hold passkey with item info.
+ *
+ * @property passkey The passkey.
+ * @property serviceName The service name from the item.
+ * @property username The username from the item.
  */
 data class PasskeyWithCredentialInfo(
-    /** The passkey. */
     val passkey: Passkey,
-    /** The service name from the item. */
     val serviceName: String?,
-    /** The username from the item. */
     val username: String?,
 )
 
 /**
  * Data class to hold passkey with its associated item.
+ *
+ * @property passkey The passkey.
+ * @property item The item this passkey belongs to.
  */
 data class PasskeyWithItem(
-    /** The passkey. */
     val passkey: Passkey,
-    /** The item this passkey belongs to. */
     val item: Item,
 )
 

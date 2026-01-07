@@ -10,23 +10,30 @@ import android.graphics.RectF
 import android.graphics.Typeface
 
 /**
- * Item type icon helper - provides bitmap-based icons for different item types
- * Matches the design from browser extension and iOS implementations
+ * Item type icon helper - provides bitmap-based icons for different item types.
+ * Matches the design from browser extension and iOS implementations.
  */
 object ItemTypeIcon {
 
     /**
-     * Item type enumeration matching the database model
+     * Item type enumeration matching the database model.
      */
     object ItemType {
+        /** Login item type constant. */
         const val LOGIN = "Login"
+
+        /** Alias item type constant. */
         const val ALIAS = "Alias"
+
+        /** Credit card item type constant. */
         const val CREDIT_CARD = "CreditCard"
+
+        /** Note item type constant. */
         const val NOTE = "Note"
     }
 
     /**
-     * Credit card brand type
+     * Credit card brand type.
      */
     enum class CardBrand {
         VISA,
@@ -38,9 +45,10 @@ object ItemTypeIcon {
 
         companion object {
             /**
-             * Detect credit card brand from card number using industry-standard prefixes
-             * @param cardNumber The card number to detect brand from
-             * @return The detected card brand
+             * Detect credit card brand from card number using industry-standard prefixes.
+             *
+             * @param cardNumber The card number to detect brand from.
+             * @return The detected card brand.
              */
             fun detect(cardNumber: String?): CardBrand {
                 if (cardNumber.isNullOrEmpty()) {
@@ -87,13 +95,15 @@ object ItemTypeIcon {
     private const val COLOR_LIGHTER = "#fbcb74"
 
     /**
-     * Get the appropriate icon bitmap for an item type
-     * @param context Android context
-     * @param itemType The item type (Login, Alias, CreditCard, Note)
-     * @param cardNumber Optional card number for credit card brand detection
-     * @param size Icon size in pixels (default 96)
-     * @return Bitmap icon
+     * Get the appropriate icon bitmap for an item type.
+     *
+     * @param context Android context.
+     * @param itemType The item type (Login, Alias, CreditCard, Note).
+     * @param cardNumber Optional card number for credit card brand detection.
+     * @param size Icon size in pixels (default 96).
+     * @return Bitmap icon.
      */
+    @Suppress("UNUSED_PARAMETER") // Context reserved for future use (loading drawable resources)
     fun getIcon(
         context: Context,
         itemType: String,
@@ -112,7 +122,11 @@ object ItemTypeIcon {
     }
 
     /**
-     * Get the appropriate icon for a credit card brand
+     * Get the appropriate icon for a credit card brand.
+     *
+     * @param brand The credit card brand.
+     * @param size Icon size in pixels (default 96).
+     * @return Bitmap icon.
      */
     fun getCardIcon(brand: CardBrand, size: Int = 96): Bitmap {
         return when (brand) {
@@ -125,7 +139,10 @@ object ItemTypeIcon {
     }
 
     /**
-     * Create generic credit card icon
+     * Create generic credit card icon.
+     *
+     * @param size Icon size in pixels.
+     * @return Bitmap icon.
      */
     private fun createCreditCardIcon(size: Int): Bitmap {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
@@ -169,7 +186,10 @@ object ItemTypeIcon {
     }
 
     /**
-     * Create Visa icon
+     * Create Visa icon.
+     *
+     * @param size Icon size in pixels.
+     * @return Bitmap icon.
      */
     private fun createVisaIcon(size: Int): Bitmap {
         val bitmap = createCreditCardIcon(size)
@@ -185,7 +205,10 @@ object ItemTypeIcon {
     }
 
     /**
-     * Create Mastercard icon
+     * Create Mastercard icon.
+     *
+     * @param size Icon size in pixels.
+     * @return Bitmap icon.
      */
     private fun createMastercardIcon(size: Int): Bitmap {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
@@ -221,7 +244,10 @@ object ItemTypeIcon {
     }
 
     /**
-     * Create Amex icon
+     * Create Amex icon.
+     *
+     * @param size Icon size in pixels.
+     * @return Bitmap icon.
      */
     private fun createAmexIcon(size: Int): Bitmap {
         val bitmap = createCreditCardIcon(size)
@@ -238,7 +264,10 @@ object ItemTypeIcon {
     }
 
     /**
-     * Create Discover icon
+     * Create Discover icon.
+     *
+     * @param size Icon size in pixels.
+     * @return Bitmap icon.
      */
     private fun createDiscoverIcon(size: Int): Bitmap {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
@@ -269,7 +298,10 @@ object ItemTypeIcon {
     }
 
     /**
-     * Create note/document icon
+     * Create note/document icon.
+     *
+     * @param size Icon size in pixels.
+     * @return Bitmap icon.
      */
     private fun createNoteIcon(size: Int): Bitmap {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
@@ -323,7 +355,10 @@ object ItemTypeIcon {
     }
 
     /**
-     * Create placeholder key icon for Login/Alias
+     * Create placeholder key icon for Login/Alias.
+     *
+     * @param size Icon size in pixels.
+     * @return Bitmap icon.
      */
     private fun createPlaceholderIcon(size: Int): Bitmap {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)

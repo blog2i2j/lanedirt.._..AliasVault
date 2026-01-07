@@ -277,11 +277,13 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
 
     /**
      * Replace an existing passkey with a new one.
-     * @param oldPasskeyId The UUID of the passkey to replace
-     * @param newPasskey The new passkey
-     * @param displayName The updated display name
-     * @param logo The updated logo bytes (optional)
+     *
+     * @param oldPasskeyId The UUID of the passkey to replace.
+     * @param newPasskey The new passkey.
+     * @param displayName The updated display name.
+     * @param logo The updated logo bytes (optional).
      */
+    @Suppress("UNUSED_PARAMETER") // Logo update not yet implemented
     fun replace(
         oldPasskeyId: UUID,
         newPasskey: Passkey,
@@ -327,6 +329,7 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
     /**
      * Parse a passkey row from database query results.
      */
+    @Suppress("ReturnCount") // Early returns improve readability for parsing logic
     private fun parsePasskeyRow(row: Map<String, Any?>): Passkey? {
         return try {
             val idString = row["Id"] as? String ?: return null

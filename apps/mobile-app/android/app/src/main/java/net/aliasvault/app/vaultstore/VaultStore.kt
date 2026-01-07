@@ -10,6 +10,7 @@ import net.aliasvault.app.vaultstore.interfaces.CryptoOperationCallback
 import net.aliasvault.app.vaultstore.keystoreprovider.BiometricAuthCallback
 import net.aliasvault.app.vaultstore.keystoreprovider.KeystoreProvider
 import net.aliasvault.app.vaultstore.models.Credential
+import net.aliasvault.app.vaultstore.models.StoreVaultResult
 import net.aliasvault.app.vaultstore.storageprovider.StorageProvider
 import kotlin.coroutines.resume
 
@@ -27,9 +28,10 @@ import kotlin.coroutines.resume
  * - VaultMutate: Handles vault mutation (uploading changes)
  * - VaultCache: Handles cache and storage clearing
  *
- * @param storageProvider The storage provider
- * @param keystoreProvider The keystore provider
+ * @param storageProvider The storage provider.
+ * @param keystoreProvider The keystore provider.
  */
+@Suppress("TooManyFunctions") // This is a facade class that delegates to specialized components
 class VaultStore(
     private val storageProvider: StorageProvider,
     private val keystoreProvider: KeystoreProvider,
