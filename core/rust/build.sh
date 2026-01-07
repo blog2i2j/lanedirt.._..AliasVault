@@ -599,10 +599,19 @@ build_android() {
     fi
 
     # Generate Kotlin bindings using UniFFI
-    # Note: Use uniffi-cli feature here since we need the bindgen CLI tool
+    # Note: We need to build a native macOS library first because UniFFI bindgen
+    # cannot extract metadata from cross-compiled libraries
     echo -e "  Generating Kotlin bindings..."
-    cargo run $cargo_flags --features uniffi-cli --bin uniffi-bindgen -- generate \
-        --library "target/aarch64-linux-android/$cargo_profile/libaliasvault_core.so" \
+
+    # Build native library for bindgen (if not already built)
+    if [ ! -f "target/debug/libaliasvault_core.dylib" ]; then
+        echo -e "    Building native library for bindgen..."
+        cargo build --features uniffi --lib
+    fi
+
+    # Generate bindings from native library
+    cargo run --features uniffi-cli --bin uniffi-bindgen -- generate \
+        --library "target/debug/libaliasvault_core.dylib" \
         --language kotlin \
         --out-dir "$ANDROID_DIR/kotlin"
 
