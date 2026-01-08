@@ -205,6 +205,9 @@ dependencies {
     // Add ZXing library for QR code scanning (F-Droid compatible)
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 
+    // Add JNA library for UniFFI native bindings
+    implementation("net.java.dev.jna:jna:5.14.0@aar")
+
     // Test dependencies
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.mockito:mockito-core:4.0.0'
@@ -300,7 +303,11 @@ detekt {
     config = files("$rootProject.projectDir/detekt.yml")
     baseline = file("$rootProject.projectDir/baseline.xml")
 
-    source.setFrom(files("src/main/java"))
+    source.setFrom(
+        fileTree("src/main/java") {
+            exclude "**/uniffi/**"
+        }
+    )
     reports {
         html.required.set(true)
         xml.required.set(true)
