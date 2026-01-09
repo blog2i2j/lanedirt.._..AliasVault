@@ -16,6 +16,8 @@ object VaultMergeService {
     private const val TAG = "VaultMergeService"
 
     init {
+        // Ensure JNA is initialized before loading the Rust library
+        JnaInitializer.ensureInitialized()
         System.loadLibrary("aliasvault_core")
         Log.d(TAG, "Rust core library loaded")
     }

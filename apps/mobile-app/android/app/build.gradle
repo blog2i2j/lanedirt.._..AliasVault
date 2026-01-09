@@ -205,8 +205,14 @@ dependencies {
     // Add ZXing library for QR code scanning (F-Droid compatible)
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 
-    // Add JNA library for UniFFI native bindings
-    implementation("net.java.dev.jna:jna:5.14.0@aar")
+    // Add JNA library for UniFFI native bindings (Android-specific AAR with native libs)
+    // Version 5.17.0+ required for Android 15 16KB page size support
+    // See: https://github.com/java-native-access/jna/issues/1647
+    implementation("net.java.dev.jna:jna:5.17.0") {
+        artifact {
+            type = "aar"
+        }
+    }
 
     // Test dependencies
     testImplementation 'junit:junit:4.13.2'

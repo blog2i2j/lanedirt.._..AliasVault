@@ -1,6 +1,7 @@
 package net.aliasvault.app.autofill.utils
 
 import android.util.Log
+import net.aliasvault.app.rustcore.JnaInitializer
 import net.aliasvault.app.vaultstore.models.Credential
 import org.json.JSONArray
 import org.json.JSONObject
@@ -10,6 +11,11 @@ import org.json.JSONObject
  */
 object RustCredentialMatcher {
     private const val TAG = "RustCredentialMatcher"
+
+    init {
+        // Ensure JNA is initialized before any UniFFI calls
+        JnaInitializer.ensureInitialized()
+    }
 
     /**
      * Filter credentials based on app/website info using the Rust core credential matcher.
