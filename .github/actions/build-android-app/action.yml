@@ -34,6 +34,7 @@ runs:
     - name: Verify core library distribution
       shell: bash
       run: |
+        # Verify TypeScript core libraries
         TARGET_DIRS=(
           "apps/mobile-app/utils/dist/core/identity-generator"
           "apps/mobile-app/utils/dist/core/password-generator"
@@ -42,11 +43,29 @@ runs:
         )
         for dir in "${TARGET_DIRS[@]}"; do
           if [ ! -d "$dir" ]; then
-            echo "Error: Directory $dir does not exist"
+            echo "❌ Error: Directory $dir does not exist"
             exit 1
           fi
         done
-        echo "Core library distribution verified"
+        echo "✅ TypeScript core libraries verified"
+
+        # Verify Android native libraries (Rust core)
+        JNILIBS_DIR="apps/mobile-app/android/app/src/main/jniLibs"
+        REQUIRED_ABIS=("arm64-v8a" "armeabi-v7a" "x86_64")
+
+        for abi in "${REQUIRED_ABIS[@]}"; do
+          lib_path="$JNILIBS_DIR/$abi/libaliasvault_core.so"
+          if [ ! -f "$lib_path" ]; then
+            echo "❌ Missing required native library: $lib_path"
+            echo "Run: cd core/rust && ./build.sh --android"
+            exit 1
+          fi
+        done
+
+        echo "✅ Android native libraries verified:"
+        for abi in "${REQUIRED_ABIS[@]}"; do
+          ls -lh "$JNILIBS_DIR/$abi/libaliasvault_core.so" | awk '{print "  " $NF ": " $5}'
+        done
 
     - name: Install dependencies
       run: npm ci

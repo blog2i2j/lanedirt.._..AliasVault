@@ -32,7 +32,7 @@ cd ../vault
 cd ../rust
 if command -v rustc &> /dev/null; then
     echo "📦 Building rust core (Rust toolchain detected)..."
-    ./build.sh --browser
+    ./build.sh --all
 else
     echo "⚠️  Skipping rust core build (Rust not installed)"
     echo "   Install Rust from https://rustup.rs to enable Rust core builds"
