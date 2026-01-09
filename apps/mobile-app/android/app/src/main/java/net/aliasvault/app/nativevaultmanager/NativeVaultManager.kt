@@ -26,7 +26,6 @@ import net.aliasvault.app.vaultstore.VaultStore
 import net.aliasvault.app.vaultstore.keystoreprovider.AndroidKeystoreProvider
 import net.aliasvault.app.vaultstore.storageprovider.AndroidStorageProvider
 import net.aliasvault.app.webapi.WebApiService
-import net.aliasvault.nativevaultmanager.NativeVaultManagerSpec
 import org.json.JSONArray
 import org.json.JSONObject
 
