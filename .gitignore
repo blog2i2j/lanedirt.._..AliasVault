@@ -445,3 +445,4 @@ apps/browser-extension/src/utils/dist/core/rust
 
 # Server .NET bindings (built by: cd core/rust && ./build.sh --server)
 apps/server/Utilities/AliasVault.RustCore/
+apps/server/AliasVault.Client/wwwroot/wasm
