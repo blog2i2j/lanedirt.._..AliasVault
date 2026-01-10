@@ -146,6 +146,33 @@ public class ClientPlaywrightTest : PlaywrightTest
         Page = await Context.NewPageAsync();
         InputHelper = new(Page);
 
+        // Set up page-level console logging (in addition to context-level)
+        Page.Console += (_, msg) =>
+        {
+            var type = msg.Type;
+            var text = msg.Text;
+
+            // Log all console messages to both Console and TestContext
+            var logMessage = $"[PAGE CONSOLE {type.ToUpper()}] {text}";
+            Console.WriteLine(logMessage);
+            TestContext.Progress.WriteLine(logMessage);
+
+            // Also write to stderr for errors to ensure visibility
+            if (type == "error")
+            {
+                Console.Error.WriteLine(logMessage);
+            }
+        };
+
+        // Log page errors
+        Page.PageError += (_, error) =>
+        {
+            var errorMessage = $"[PAGE EXCEPTION] {error}";
+            Console.WriteLine(errorMessage);
+            Console.Error.WriteLine(errorMessage);
+            TestContext.Progress.WriteLine(errorMessage);
+        };
+
         // Check that we get redirected to /user/start when accessing the root URL and not authenticated.
         await Page.GotoAsync(AppBaseUrl);
         await WaitForUrlAsync("user/start");
