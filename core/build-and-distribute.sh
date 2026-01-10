@@ -32,7 +32,11 @@ cd ../vault
 cd ../rust
 if command -v rustc &> /dev/null; then
     echo "📦 Building rust core (Rust toolchain detected)..."
-    ./build.sh --all
+    ./build.sh --android
+    ./build.sh --browser
+    ./build.sh --mobile
+    # Do not build for iOS here as it will be built via Xcode build phases instead
+    # Adding it here would make the GitHub Actions fail because of Linux runners
 else
     echo "⚠️  Skipping rust core build (Rust not installed)"
     echo "   Install Rust from https://rustup.rs to enable Rust core builds"
