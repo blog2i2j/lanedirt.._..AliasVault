@@ -3,7 +3,9 @@ package net.aliasvault.app.vaultstore
 import android.util.Log
 import net.aliasvault.app.exceptions.SerializationException
 import net.aliasvault.app.exceptions.VaultOperationException
+import net.aliasvault.app.rustcore.VaultMergeService
 import net.aliasvault.app.utils.AppInfo
+import net.aliasvault.app.vaultstore.storageprovider.StorageProvider
 import net.aliasvault.app.vaultstore.utils.VersionComparison
 import org.json.JSONObject
 
@@ -14,6 +16,7 @@ class VaultSync(
     private val database: VaultDatabase,
     private val metadata: VaultMetadataManager,
     private val crypto: VaultCrypto,
+    private val storageProvider: StorageProvider,
 ) {
     companion object {
         private const val TAG = "VaultSync"
@@ -261,7 +264,7 @@ class VaultSync(
     /**
      * Perform merge sync (both local and server have changes).
      */
-    @Suppress("UnusedParameter") // serverRevision will be used when Rust merge is implemented
+    @Suppress("UnusedParameter") // serverRevision will be used for conflict resolution metadata in the future
     private suspend fun performMergeSync(
         webApiService: net.aliasvault.app.webapi.WebApiService,
         mutate: VaultMutate,
@@ -285,8 +288,6 @@ class VaultSync(
             }
 
             // Perform LWW merge using Rust core library
-            // TODO: Call actual Rust merge function via Kotlin bindings
-            // For now, we preserve local changes (same as before)
             val mergedVault = performLWWMerge(localVault, serverVault.vault.blob)
 
             // Store merged vault with race detection
@@ -352,15 +353,27 @@ class VaultSync(
     }
 
     /**
-     * Perform Last-Write-Wins merge between local and server vaults.
-     * TODO: Integrate with Rust core library for actual merge logic.
+     * Perform Last-Write-Wins merge between local and server vaults using Rust core library.
+     *
+     * @param localVault Base64-encoded encrypted local vault
+     * @param serverVault Base64-encoded encrypted server vault
+     * @return Base64-encoded encrypted merged vault
      */
-    @Suppress("UnusedParameter") // serverVault will be used when Rust merge is implemented
     private fun performLWWMerge(localVault: String, serverVault: String): String {
-        // TODO: Call Rust core's merge function via Kotlin bindings
-        // For now, preserve local changes (temporary behavior)
-        Log.w(TAG, "LWW merge not yet implemented - preserving local changes")
-        return localVault
+        val encryptionKey = crypto.encryptionKey
+            ?: throw VaultOperationException("Encryption key not available for merge")
+
+        return try {
+            VaultMergeService.mergeVaults(
+                localVaultBase64 = localVault,
+                serverVaultBase64 = serverVault,
+                encryptionKey = encryptionKey,
+                tempDir = storageProvider.getCacheDir(),
+            )
+        } catch (e: VaultMergeService.VaultMergeException) {
+            Log.e(TAG, "Rust merge failed: ${e.message}", e)
+            throw VaultOperationException("Vault merge failed: ${e.message}", e)
+        }
     }
 
     /**

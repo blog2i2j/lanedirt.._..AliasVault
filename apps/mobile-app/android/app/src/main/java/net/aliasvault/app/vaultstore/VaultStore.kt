@@ -73,7 +73,7 @@ class VaultStore(
     private val query = VaultQuery(databaseComponent)
     internal val metadata = VaultMetadataManager(storageProvider)
     private val auth = VaultAuth(storageProvider) { cache.clearCache() }
-    private val sync = VaultSync(databaseComponent, metadata, crypto)
+    private val sync = VaultSync(databaseComponent, metadata, crypto, storageProvider)
     private val mutate = VaultMutate(databaseComponent, query, metadata)
     private val cache = VaultCache(crypto, databaseComponent, keystoreProvider, storageProvider)
     private val passkey = VaultPasskey(databaseComponent, query)

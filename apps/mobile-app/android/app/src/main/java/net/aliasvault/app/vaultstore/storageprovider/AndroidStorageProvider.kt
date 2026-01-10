@@ -199,4 +199,8 @@ class AndroidStorageProvider(private val context: Context) : StorageProvider {
     }
 
     // endregion
+
+    override fun getCacheDir(): File {
+        return context.cacheDir
+    }
 }

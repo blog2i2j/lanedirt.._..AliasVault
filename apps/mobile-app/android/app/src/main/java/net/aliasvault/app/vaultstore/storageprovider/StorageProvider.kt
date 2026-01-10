@@ -168,4 +168,10 @@ interface StorageProvider {
     fun clearSyncState()
 
     // endregion
+
+    /**
+     * Get the cache directory for temporary files.
+     * @return The cache directory
+     */
+    fun getCacheDir(): File
 }

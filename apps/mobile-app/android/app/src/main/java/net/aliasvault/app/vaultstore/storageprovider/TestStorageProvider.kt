@@ -137,4 +137,8 @@ class TestStorageProvider : StorageProvider {
     }
 
     // endregion
+
+    override fun getCacheDir(): File {
+        return File(System.getProperty("java.io.tmpdir") ?: "/tmp")
+    }
 }
