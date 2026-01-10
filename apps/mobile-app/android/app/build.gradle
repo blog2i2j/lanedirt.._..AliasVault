@@ -260,9 +260,13 @@ ktlint {
     ignoreFailures = false
     enableExperimentalRules = true
     filter {
-        exclude("**/generated/**")
+        // Include all Kotlin and Java files first
         include("**/kotlin/**")
         include("**/java/**")
+        // Then exclude generated files
+        exclude("**/generated/**")
+        exclude("**/rustcore/uniffi/**")  // Exclude UniFFI-generated Rust bindings
+        exclude("**/uniffi/**")  // Exclude any uniffi directory
     }
 
     // Configure max line length
@@ -298,9 +302,15 @@ tasks.named("preBuild") {
 afterEvaluate {
     tasks.withType(org.jlleitschuh.gradle.ktlint.tasks.KtLintCheckTask).configureEach {
         dependsOn("generateCodegenArtifactsFromSchema")
+        // Exclude UniFFI-generated Rust bindings
+        exclude("**/rustcore/uniffi/**/*.kt")
+        exclude("**/uniffi/**/*.kt")
     }
     tasks.withType(org.jlleitschuh.gradle.ktlint.tasks.KtLintFormatTask).configureEach {
         dependsOn("generateCodegenArtifactsFromSchema")
+        // Exclude UniFFI-generated Rust bindings
+        exclude("**/rustcore/uniffi/**/*.kt")
+        exclude("**/uniffi/**/*.kt")
     }
 }
 

@@ -18,9 +18,8 @@ ktlint_standard_annotation = true
 ktlint_standard_public-method-documentation = true
 
 [**/uniffi/**/*.kt]
-ktlint_standard_filename = disabled
-ktlint_standard_package-name = disabled
-ktlint_standard_no-wildcard-imports = disabled
+# Disable all ktlint rules for UniFFI-generated Rust bindings
+ktlint_disabled_rules = standard
 
 # Detekt rules
 detekt.style.PublicFunctionDocumentation = enabled
