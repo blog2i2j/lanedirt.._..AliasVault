@@ -192,25 +192,25 @@ var PasswordGenerator = class {
     if (this.useLowercase && !/[a-z]/.exec(password)) {
       password = this.addCharacterFromSet(
         password,
-        this.getSafeCharacterSet(this.lowercaseChars, true)
+        this.getSafeCharacterSet(this.lowercaseChars)
       );
     }
     if (this.useUppercase && !/[A-Z]/.exec(password)) {
       password = this.addCharacterFromSet(
         password,
-        this.getSafeCharacterSet(this.uppercaseChars, true)
+        this.getSafeCharacterSet(this.uppercaseChars)
       );
     }
     if (this.useNumbers && !/\d/.exec(password)) {
       password = this.addCharacterFromSet(
         password,
-        this.getSafeCharacterSet(this.numberChars, false)
+        this.getSafeCharacterSet(this.numberChars)
       );
     }
     if (this.useSpecial && !/[!@#$%^&*()_+\-=[\]{}|;:,.<>?]/.exec(password)) {
       password = this.addCharacterFromSet(
         password,
-        this.specialChars
+        this.getSafeCharacterSet(this.specialChars)
       );
     }
     return password;
@@ -218,26 +218,11 @@ var PasswordGenerator = class {
   /**
    * Get a character set with ambiguous characters removed if needed.
    */
-  getSafeCharacterSet(charSet, isAlpha) {
+  getSafeCharacterSet(charSet) {
     if (!this.useNonAmbiguous) {
       return charSet;
     }
-    let safeSet = charSet;
-    for (const ambChar of this.ambiguousChars) {
-      if (!isAlpha && !/\d/.test(ambChar)) {
-        continue;
-      }
-      let charToRemove = ambChar;
-      if (isAlpha) {
-        if (charSet === this.lowercaseChars) {
-          charToRemove = ambChar.toLowerCase();
-        } else {
-          charToRemove = ambChar.toUpperCase();
-        }
-      }
-      safeSet = safeSet.replace(charToRemove, "");
-    }
-    return safeSet;
+    return this.removeAmbiguousCharacters(charSet);
   }
   /**
    * Add a character from the given set at a random position in the password.
