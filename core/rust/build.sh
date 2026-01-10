@@ -599,19 +599,37 @@ build_android() {
     fi
 
     # Generate Kotlin bindings using UniFFI
-    # Note: We need to build a native macOS library first because UniFFI bindgen
+    # Note: We need to build a native library first because UniFFI bindgen
     # cannot extract metadata from cross-compiled libraries
     echo -e "  Generating Kotlin bindings..."
 
+    # Detect platform-specific library extension
+    local native_lib_name
+    case "$(uname -s)" in
+        Darwin)
+            native_lib_name="libaliasvault_core.dylib"
+            ;;
+        Linux)
+            native_lib_name="libaliasvault_core.so"
+            ;;
+        MINGW*|MSYS*|CYGWIN*)
+            native_lib_name="aliasvault_core.dll"
+            ;;
+        *)
+            echo -e "${RED}Unsupported OS for Kotlin bindgen: $(uname -s)${NC}"
+            exit 1
+            ;;
+    esac
+
     # Build native library for bindgen (if not already built)
-    if [ ! -f "target/debug/libaliasvault_core.dylib" ]; then
+    if [ ! -f "target/debug/$native_lib_name" ]; then
         echo -e "    Building native library for bindgen..."
         cargo build --features uniffi --lib
     fi
 
     # Generate bindings from native library
     cargo run --features uniffi-cli --bin uniffi-bindgen -- generate \
-        --library "target/debug/libaliasvault_core.dylib" \
+        --library "target/debug/$native_lib_name" \
         --language kotlin \
         --out-dir "$ANDROID_DIR/kotlin"
 
