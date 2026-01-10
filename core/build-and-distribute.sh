@@ -34,7 +34,6 @@ if command -v rustc &> /dev/null; then
     echo "📦 Building rust core (Rust toolchain detected)..."
     ./build.sh --android
     ./build.sh --browser
-    ./build.sh --mobile
     # Do not build for iOS here as it will be built via Xcode build phases instead
     # Adding it here would make the GitHub Actions fail because of Linux runners
 else

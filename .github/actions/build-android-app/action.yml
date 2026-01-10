@@ -67,6 +67,23 @@ runs:
           ls -lh "$JNILIBS_DIR/$abi/libaliasvault_core.so" | awk '{print "  " $NF ": " $5}'
         done
 
+        # Verify Kotlin bindings (UniFFI-generated)
+        KOTLIN_BINDINGS_DIR="apps/mobile-app/android/app/src/main/java/net/aliasvault/app/rustcore/uniffi/aliasvault_core"
+        if [ ! -d "$KOTLIN_BINDINGS_DIR" ]; then
+          echo "❌ Missing Kotlin bindings directory: $KOTLIN_BINDINGS_DIR"
+          echo "Run: cd core/rust && ./build.sh --android"
+          exit 1
+        fi
+
+        if [ ! -f "$KOTLIN_BINDINGS_DIR/aliasvault_core.kt" ]; then
+          echo "❌ Missing Kotlin bindings file: $KOTLIN_BINDINGS_DIR/aliasvault_core.kt"
+          echo "Run: cd core/rust && ./build.sh --android"
+          exit 1
+        fi
+
+        echo "✅ Kotlin bindings verified:"
+        ls -lh "$KOTLIN_BINDINGS_DIR"/*.kt | awk '{print "  " $NF ": " $5}'
+
     - name: Install dependencies
       run: npm ci
       shell: bash

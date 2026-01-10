@@ -79,11 +79,6 @@ while [[ $# -gt 0 ]]; do
             BUILD_ANDROID=true
             shift
             ;;
-        --mobile)
-            BUILD_IOS=true
-            BUILD_ANDROID=true
-            shift
-            ;;
         --all)
             BUILD_BROWSER=true
             BUILD_DOTNET=true
@@ -112,8 +107,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --dotnet      Build native library for .NET server-side use (macOS/Linux/Windows)"
             echo "  --ios         Build for iOS (device + simulator arm64) with Swift bindings"
             echo "  --android     Build for Android (arm64-v8a, armeabi-v7a, x86_64) with Kotlin bindings"
-            echo "  --mobile      Build for both iOS and Android"
-            echo "  --all         Build all targets"
+=            echo "  --all         Build all targets"
             echo ""
             echo "Speed options:"
             echo "  --fast, --dev Faster builds (for development)"
@@ -141,7 +135,6 @@ if ! $BUILD_BROWSER && ! $BUILD_DOTNET && ! $BUILD_IOS && ! $BUILD_ANDROID; then
     echo "  ./build.sh --dotnet     # Build for .NET"
     echo "  ./build.sh --ios        # Build for iOS"
     echo "  ./build.sh --android    # Build for Android"
-    echo "  ./build.sh --mobile     # Build for iOS and Android"
     exit 0
 fi
 
@@ -667,11 +660,20 @@ distribute_android() {
     done
 
     # Copy Kotlin bindings to app source
+    # UniFFI generates bindings in uniffi/aliasvault_core/ directory structure
     local kotlin_dist="$SCRIPT_DIR/../../apps/mobile-app/android/app/src/main/java/net/aliasvault/app/rustcore"
-    if [ -d "$ANDROID_DIR/kotlin" ] && [ -n "$(ls -A "$ANDROID_DIR/kotlin" 2>/dev/null)" ]; then
+    if [ -d "$ANDROID_DIR/kotlin/uniffi" ]; then
         mkdir -p "$kotlin_dist"
-        cp "$ANDROID_DIR/kotlin"/*.kt "$kotlin_dist/" 2>/dev/null || true
-        echo -e "  Copied Kotlin bindings to $kotlin_dist"
+        # Copy the entire uniffi directory to preserve package structure
+        cp -r "$ANDROID_DIR/kotlin/uniffi" "$kotlin_dist/"
+        echo -e "  Copied Kotlin bindings to $kotlin_dist/uniffi/"
+
+        # List what was copied
+        if [ -d "$kotlin_dist/uniffi/aliasvault_core" ]; then
+            ls -lh "$kotlin_dist/uniffi/aliasvault_core"/*.kt 2>/dev/null || true
+        fi
+    else
+        echo -e "${RED}Warning: Kotlin bindings not found at $ANDROID_DIR/kotlin/uniffi${NC}"
     fi
 
     echo -e "${GREEN}Distributed to: $ANDROID_APP_DIST${NC}"
