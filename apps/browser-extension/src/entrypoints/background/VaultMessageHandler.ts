@@ -253,12 +253,36 @@ export function handleLockVault(): messageBoolResponse {
 }
 
 /**
- * Clear the vault completely from browser storage (both local: and session:).
- * This is used for full logout - removes all vault data.
+ * Clear session data (tokens and ephemeral data).
+ * This is safe to call during forced logout as it preserves vault data.
  */
-export function handleClearVault(): messageBoolResponse {
-  // Clear persistent vault data from local: storage
-  storage.removeItems([
+export async function handleClearSession(): Promise<messageBoolResponse> {
+  // Clear auth tokens
+  await storage.removeItems([
+    'local:accessToken',
+    'local:refreshToken',
+  ]);
+
+  // Clear session-only data (security: encryption key must not persist)
+  await storage.removeItems([
+    'session:encryptionKey',
+    'session:persistedFormValues',
+  ]);
+
+  // Clear cached client since session ended
+  cachedSqliteClient = null;
+  cachedVaultBlob = null;
+
+  return { success: true };
+}
+
+/**
+ * Clear vault data and username.
+ * This removes all persistent vault storage.
+ */
+export async function handleClearVaultData(): Promise<messageBoolResponse> {
+  // Clear vault data
+  await storage.removeItems([
     'local:encryptedVault',
     'local:publicEmailDomains',
     'local:privateEmailDomains',
@@ -268,17 +292,8 @@ export function handleClearVault(): messageBoolResponse {
     'local:mutationSequence',
     'local:isOfflineMode',
     'local:encryptionKeyDerivationParams',
+    'local:username',
   ]);
-
-  // Clear session-only data
-  storage.removeItems([
-    'session:encryptionKey',
-    'session:persistedFormValues',
-  ]);
-
-  // Clear cached client since vault was cleared
-  cachedSqliteClient = null;
-  cachedVaultBlob = null;
 
   return { success: true };
 }

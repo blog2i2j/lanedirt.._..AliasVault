@@ -55,10 +55,56 @@ const Login: React.FC = () => {
 
   /**
    * Helper to persist and load vault after successful authentication.
+   * Checks if local vault exists from forced logout and preserves it if more advanced.
    * @returns The initialized SqliteClient
    */
   const persistAndLoadVault = async (vaultResponse: VaultResponse, encryptionKey: string): Promise<SqliteClient> => {
-    // Persist vault to local storage (fresh from server, not dirty)
+    // Check if there's existing vault data (from forced logout)
+    const existingVault = await storage.getItem('local:encryptedVault') as string | null;
+    const existingRevision = await storage.getItem('local:serverRevision') as number | null;
+
+    let vaultToLoad = vaultResponse.vault.blob;
+
+    if (existingVault && existingRevision !== null) {
+      // Try to decrypt existing vault to verify it's valid
+      try {
+        const decryptedExisting = await EncryptionUtility.symmetricDecrypt(existingVault, encryptionKey);
+
+        // Check if existing vault is more advanced than server
+        if (existingRevision >= vaultResponse.vault.currentRevisionNumber) {
+          console.info(
+            `Existing vault is more advanced (rev ${existingRevision} >= ${vaultResponse.vault.currentRevisionNumber}), ` +
+            `preserving local vault and will upload to server`
+          );
+
+          // Keep the existing vault - it will be uploaded via sync flow
+          vaultToLoad = existingVault;
+
+          /*
+           * Don't overwrite the vault - it will be uploaded via sync flow
+           * Just update metadata and load existing vault
+           */
+          await sendMessage('STORE_VAULT_METADATA', {
+            publicEmailDomainList: vaultResponse.vault.publicEmailDomainList,
+            privateEmailDomainList: vaultResponse.vault.privateEmailDomainList,
+            hiddenPrivateEmailDomainList: vaultResponse.vault.hiddenPrivateEmailDomainList,
+          }, 'background');
+
+          return dbContext.loadDatabase(decryptedExisting);
+        }
+
+        // Server is more advanced - will overwrite local
+        console.info(
+          `Server vault is more advanced (rev ${vaultResponse.vault.currentRevisionNumber} > ${existingRevision}), ` +
+          `using server vault`
+        );
+      } catch {
+        // Decryption failed - password changed or corrupt vault
+        console.info('Existing vault could not be decrypted (password changed), using server vault');
+      }
+    }
+
+    // Normal flow: persist server vault to local storage
     await sendMessage('STORE_ENCRYPTED_VAULT', {
       vaultBlob: vaultResponse.vault.blob,
       serverRevision: vaultResponse.vault.currentRevisionNumber,
@@ -71,7 +117,7 @@ const Login: React.FC = () => {
     }, 'background');
 
     // Decrypt and load the vault into memory
-    const decryptedVault = await EncryptionUtility.symmetricDecrypt(vaultResponse.vault.blob, encryptionKey);
+    const decryptedVault = await EncryptionUtility.symmetricDecrypt(vaultToLoad, encryptionKey);
     return dbContext.loadDatabase(decryptedVault);
   };
 
@@ -101,7 +147,13 @@ const Login: React.FC = () => {
       encryptionSettings: loginResponse.encryptionSettings
     });
 
-    // Persist and load the vault
+    /*
+     * Persist and load the vault
+     * If there was a forced logout, persistAndLoadVault checks existing vault data:
+     * - If local vault is more advanced → preserves it (will upload via sync in /reinitialize)
+     * - If server is more advanced → uses server vault
+     * - If password changed (can't decrypt) → uses server vault
+     */
     const sqliteClient = await persistAndLoadVault(vaultResponseJson, passwordHashBase64);
 
     // If there are pending migrations, redirect to the upgrade page.
@@ -127,19 +179,26 @@ const Login: React.FC = () => {
 
   useEffect(() => {
     /**
-     * Load the client URL from the storage.
+     * Load the client URL and check for saved username (from forced logout).
      */
-    const loadClientUrl = async () : Promise<void> => {
+    const loadInitialData = async () : Promise<void> => {
+      // Load client URL
       const settingClientUrl = await storage.getItem('local:clientUrl') as string;
       let clientUrl = AppInfo.DEFAULT_CLIENT_URL;
       if (settingClientUrl && settingClientUrl.length > 0) {
         clientUrl = settingClientUrl;
       }
-
       setClientUrl(clientUrl);
+
+      // Check for saved username (from forced logout) and prefill
+      const savedUsername = await storage.getItem('local:username') as string | null;
+      if (savedUsername) {
+        setCredentials(prev => ({ ...prev, username: savedUsername }));
+      }
+
       setIsInitialLoading(false);
     };
-    loadClientUrl();
+    loadInitialData();
   }, [setIsInitialLoading]);
 
   // Set header buttons on mount and clear on unmount

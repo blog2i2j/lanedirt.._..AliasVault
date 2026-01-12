@@ -250,7 +250,6 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     setSqliteClient(null);
     setDbInitialized(false);
     setDbAvailable(false);
-    sendMessage('CLEAR_VAULT', {}, 'background');
   }, []);
 
   const contextValue = useMemo(() => ({

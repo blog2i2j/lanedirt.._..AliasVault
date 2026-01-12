@@ -32,6 +32,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   /**
    * Logout the user by revoking tokens and clearing the auth tokens from storage.
    * Prevents recursive logout calls by tracking logout state.
+   *
+   * NOTE: This is used for FORCED logout (from logoutEventEmitter). For user-initiated logout,
+   * use the Settings page which checks isDirty and shows warning dialog.
    */
   const logout = useCallback(async (errorMessage?: string): Promise<void> => {
     if (isLoggingOutRef.current) {
@@ -41,7 +44,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       isLoggingOutRef.current = true;
       await webApi.revokeTokens();
-      await auth.clearAuth(errorMessage);
+      // Use forced logout to preserve orphaned vault
+      await auth.clearAuthForced(errorMessage);
     } catch (error) {
       console.error('Error during logout:', error);
     } finally {

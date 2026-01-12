@@ -285,6 +285,47 @@ export const useVaultSync = (): { syncVault: (options?: VaultSyncOptions) => Pro
           onSuccess?.(false);
           return true;
         }
+      } else if (statusResponse.vaultRevision < syncState.serverRevision) {
+        /**
+         * Server revision DECREASED - server data loss/rollback detected.
+         * Client has more advanced revision - upload to recover server state.
+         *
+         * This will create a revision gap in server history (e.g., 95 → 101),
+         * which serves as an audit trail of the recovery event.
+         */
+
+        console.warn(
+          `Server data loss detected! Server at rev ${statusResponse.vaultRevision}, ` +
+          `client at rev ${syncState.serverRevision}. Uploading to recover server state.`
+        );
+
+        onStatus?.(t('common.uploadingVault'));
+
+        const uploadResponse = await sendMessage('UPLOAD_VAULT', {}, 'background') as VaultUploadResponse;
+
+        if (uploadResponse.success && uploadResponse.status === 0) {
+          // Upload succeeded
+          await sendMessage('MARK_VAULT_CLEAN', {
+            mutationSeqAtStart: uploadResponse.mutationSeqAtStart,
+            newServerRevision: uploadResponse.newRevisionNumber
+          }, 'background');
+          await dbContext.refreshSyncState();
+
+          console.info(
+            `Server recovery complete: rev ${statusResponse.vaultRevision} → ${uploadResponse.newRevisionNumber}`
+          );
+
+          onSuccess?.(false);
+          return true;
+        } else if (uploadResponse.status === 2) {
+          // Another client recovered first
+          console.info('Another client recovered server first, re-syncing...');
+          return syncVault(options);
+        } else {
+          console.error('Server recovery failed:', uploadResponse.error);
+          onError?.(t('common.errors.unknownError'));
+          return false;
+        }
       }
 
       // Check if upgrade is required (for paths that didn't initialize a new database)
