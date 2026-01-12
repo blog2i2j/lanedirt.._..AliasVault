@@ -73,23 +73,21 @@ export function useVaultMutate(): {
          * Handle successful sync completion.
          */
         onSuccess: async () => {
-          // Refresh state from storage
           await dbContext.refreshSyncState();
 
-          // Check if still dirty (more mutations during sync)
-          const isDirty = await sendMessage('GET_SYNC_STATE', {}, 'background') as { isDirty: boolean };
-          if (isDirty.isDirty) {
-            isSyncingRef.current = false;
-            // Re-sync to pick up new changes
-            await triggerSync();
+          // Skip re-sync if offline - vault stays dirty until server is reachable
+          if (!dbContext.getIsOffline()) {
+            const syncState = await sendMessage('GET_SYNC_STATE', {}, 'background') as { isDirty: boolean };
+            if (syncState.isDirty) {
+              isSyncingRef.current = false;
+              await triggerSync();
+            }
           }
         },
         /**
-         * Handle offline mode - local save succeeded.
+         * Offline mode - no re-sync needed, vault stays dirty until online.
          */
-        onOffline: () => {
-          // Offline mode - local save succeeded, will sync when back online
-        },
+        onOffline: () => {},
         /**
          * Handle sync errors.
          * @param error - Error message from sync

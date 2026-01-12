@@ -66,6 +66,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [auth]);
 
   /**
+   * Set auth tokens and update logged in state.
+   */
+  const setAuthTokens = useCallback(async (username: string, accessToken: string, refreshToken: string): Promise<void> => {
+    await auth.setAuthTokens(username, accessToken, refreshToken);
+    setIsLoggedIn(true);
+  }, [auth]);
+
+  /**
    * Subscribe to logout events from WebApiService.
    */
   useEffect(() => {
@@ -91,17 +99,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Wrap auth methods
     logout,
     initializeAuth,
-    setAuthTokens: auth.setAuthTokens,
+    setAuthTokens,
     clearGlobalMessage: auth.clearGlobalMessage,
     isLoggedIn: isLoggedIn,
   }), [
     auth.isInitialized,
     auth.username,
     auth.globalMessage,
-    auth.setAuthTokens,
     auth.clearGlobalMessage,
     logout,
     initializeAuth,
+    setAuthTokens,
     isLoggedIn,
   ]);
 

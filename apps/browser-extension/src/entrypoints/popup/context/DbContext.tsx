@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { sendMessage } from 'webext-bridge/popup';
 
 import type { EncryptionKeyDerivationParams } from '@/utils/dist/core/models/metadata';
@@ -23,6 +23,10 @@ type DbContextType = {
   dbInitialized: boolean;
   dbAvailable: boolean;
   isOffline: boolean;
+  /**
+   * Get offline state synchronously (avoids React state timing issues).
+   */
+  getIsOffline: () => boolean;
   /**
    * True if local vault has changes not yet synced to server.
    */
@@ -83,8 +87,10 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
   /**
    * Offline mode state. If true, the extension is operating offline.
+   * Uses both ref (for sync reads) and state (for re-renders).
    */
   const [isOffline, setIsOfflineState] = useState(false);
+  const isOfflineRef = useRef(false);
 
   /**
    * Dirty state - true if local vault has unsynced changes.
@@ -103,8 +109,10 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
   /**
    * Set the offline mode state and persist it to local storage.
+   * Updates both ref (sync) and state (triggers re-render).
    */
   const setIsOffline = useCallback(async (offline: boolean) => {
+    isOfflineRef.current = offline;
     setIsOfflineState(offline);
     await storage.setItem('local:isOfflineMode', offline);
   }, []);
@@ -122,6 +130,7 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         storage.getItem('local:isDirty') as Promise<boolean | null>,
         storage.getItem('local:serverRevision') as Promise<number | null>
       ]);
+      isOfflineRef.current = offlineMode ?? false;
       setIsOfflineState(offlineMode ?? false);
       setIsDirty(dirty ?? false);
       setServerRevision(revision ?? 0);
@@ -252,11 +261,17 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     setDbAvailable(false);
   }, []);
 
+  /**
+   * Get offline state synchronously from ref.
+   */
+  const getIsOffline = useCallback(() => isOfflineRef.current, []);
+
   const contextValue = useMemo(() => ({
     sqliteClient,
     dbInitialized,
     dbAvailable,
     isOffline,
+    getIsOffline,
     isDirty,
     isSyncing,
     serverRevision,
@@ -270,7 +285,7 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     getVaultMetadata,
     refreshSyncState,
     hasPendingMigrations,
-  }), [sqliteClient, dbInitialized, dbAvailable, isOffline, isDirty, isSyncing, serverRevision, setIsOffline, loadDatabase, loadStoredDatabase, storeEncryptionKey, storeEncryptionKeyDerivationParams, clearDatabase, getVaultMetadata, refreshSyncState, hasPendingMigrations]);
+  }), [sqliteClient, dbInitialized, dbAvailable, isOffline, getIsOffline, isDirty, isSyncing, serverRevision, setIsOffline, loadDatabase, loadStoredDatabase, storeEncryptionKey, storeEncryptionKeyDerivationParams, clearDatabase, getVaultMetadata, refreshSyncState, hasPendingMigrations]);
 
   return (
     <DbContext.Provider value={contextValue}>
