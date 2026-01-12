@@ -7,6 +7,8 @@
 
 namespace AliasVault.E2ETests.Tests.Extensions;
 
+using Microsoft.EntityFrameworkCore;
+
 /// <summary>
 /// End-to-end tests for the Chrome extension.
 /// </summary>
@@ -36,6 +38,115 @@ public class ChromeExtensionTests : BrowserExtensionPlaywrightTest
         await extensionPopup.WaitForSelectorAsync("text=" + serviceName, new() { Timeout = 15000 });
         var pageContent = await extensionPopup.TextContentAsync("body");
         Assert.That(pageContent, Does.Contain(serviceName));
+    }
+
+    /// <summary>
+    /// Tests server RPO (Recovery Point Objective) recovery scenario.
+    /// This test verifies that when server data loss occurs (server rolls back to an earlier revision),
+    /// the browser extension client can recover by uploading its more advanced vault to the server.
+    /// </summary>
+    /// <returns>Async task.</returns>
+    [Order(2)]
+    [Test]
+    public async Task ExtensionHandlesServerRpoRollbackScenario()
+    {
+        // Login to the browser extension
+        var extensionPopup = await LoginToExtension();
+
+        // Create 3 credentials, each creating a new vault revision on the server
+        var serviceName1 = "Test Service RPO 1";
+        var serviceName2 = "Test Service RPO 2";
+        var serviceName3 = "Test Service RPO 3";
+
+        // Create credentials using helper method
+        await CreateCredentialInExtension(extensionPopup, serviceName1);
+        await CreateCredentialInExtension(extensionPopup, serviceName2);
+        await CreateCredentialInExtension(extensionPopup, serviceName3);
+
+        // Verify all three services appear in the extension
+        var extensionContent = await extensionPopup.TextContentAsync("body");
+        Assert.Multiple(() =>
+        {
+            Assert.That(extensionContent, Does.Contain(serviceName1), "First credential should appear");
+            Assert.That(extensionContent, Does.Contain(serviceName2), "Second credential should appear");
+            Assert.That(extensionContent, Does.Contain(serviceName3), "Third credential should appear");
+        });
+
+        // Get the current vault revision from the database (should be 3)
+        var vaultBeforeRollback = await ApiDbContext.Vaults
+            .OrderByDescending(v => v.RevisionNumber)
+            .FirstOrDefaultAsync();
+
+        Assert.That(vaultBeforeRollback, Is.Not.Null, "Vault should exist in database");
+        var revisionBeforeRollback = vaultBeforeRollback!.RevisionNumber;
+
+        Console.WriteLine($"Vault revision before rollback: {revisionBeforeRollback}");
+        Assert.That(revisionBeforeRollback, Is.GreaterThanOrEqualTo(3), "Should have at least 3 revisions");
+
+        // SIMULATE SERVER DATA LOSS: Delete the last 2 vault revisions from the server database
+        var revisionsToDelete = await ApiDbContext.Vaults
+            .Where(v => v.RevisionNumber > revisionBeforeRollback - 2)
+            .OrderByDescending(v => v.RevisionNumber)
+            .Take(2)
+            .ToListAsync();
+
+        foreach (var revision in revisionsToDelete)
+        {
+            Console.WriteLine($"Deleting vault revision: {revision.RevisionNumber}");
+            ApiDbContext.Vaults.Remove(revision);
+        }
+
+        await ApiDbContext.SaveChangesAsync();
+
+        // Verify the server now has a lower revision
+        var vaultAfterRollback = await ApiDbContext.Vaults
+            .OrderByDescending(v => v.RevisionNumber)
+            .FirstOrDefaultAsync();
+
+        Assert.That(vaultAfterRollback, Is.Not.Null, "Vault should still exist after rollback");
+        var revisionAfterRollback = vaultAfterRollback!.RevisionNumber;
+
+        Console.WriteLine($"Vault revision after rollback: {revisionAfterRollback}");
+        Assert.That(revisionAfterRollback, Is.LessThan(revisionBeforeRollback), "Server revision should be lower after rollback");
+
+        // Now trigger a sync in the browser extension by clicking the reload button
+        // This should trigger the sync logic that detects server rollback
+        await extensionPopup.ClickAsync("button#reload-vault");
+
+        // Wait for sync to complete
+        await Task.Delay(2000);
+
+        // Verify the server now has the recovered vault with a new revision number
+        var vaultAfterRecovery = await ApiDbContext.Vaults
+            .OrderByDescending(v => v.RevisionNumber)
+            .FirstOrDefaultAsync();
+
+        Assert.That(vaultAfterRecovery, Is.Not.Null, "Vault should exist after recovery");
+        var revisionAfterRecovery = vaultAfterRecovery!.RevisionNumber;
+
+        Console.WriteLine($"Vault revision after recovery: {revisionAfterRecovery}");
+
+        // The revision number should have jumped (creating a gap) because client uploaded with its old revision number
+        // Server assigns newRevision = clientRevision + 1, so if client had rev 100 and server had 95,
+        // server will create rev 101 (gap: 96-100)
+        Assert.That(revisionAfterRecovery, Is.GreaterThan(revisionAfterRollback), "Server should have higher revision after recovery");
+
+        // Verify the gap exists (revision after recovery should equal or exceed the original revision before rollback)
+        Assert.That(revisionAfterRecovery, Is.GreaterThanOrEqualTo(revisionBeforeRollback), "Server should have recovered to at least the pre-rollback revision (gap indicates RPO recovery)");
+
+        // Verify all three credentials are still present in the extension after recovery
+        await extensionPopup.ClickAsync("#nav-vault");
+        await Task.Delay(500);
+
+        var contentAfterRecovery = await extensionPopup.TextContentAsync("body");
+        Assert.Multiple(() =>
+        {
+            Assert.That(contentAfterRecovery, Does.Contain(serviceName1), "First credential should still appear after recovery");
+            Assert.That(contentAfterRecovery, Does.Contain(serviceName2), "Second credential should still appear after recovery");
+            Assert.That(contentAfterRecovery, Does.Contain(serviceName3), "Third credential should still appear after recovery");
+        });
+
+        Console.WriteLine($"✅ RPO recovery test passed! Server recovered from revision {revisionAfterRollback} to {revisionAfterRecovery} (gap indicates disaster recovery)");
     }
 
     /// <summary>

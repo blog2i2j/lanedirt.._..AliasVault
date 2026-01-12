@@ -108,15 +108,48 @@ public class BrowserExtensionPlaywrightTest : ClientPlaywrightTest
         // Wait for login to complete by waiting for expected text.
         if (waitForLogin)
         {
-            // Wait for bottom navigation to appear (indicates login completed)
-            await extensionPopup.WaitForSelectorAsync("text=Vault");
+            // Wait for "Items" heading to appear (indicates vault loaded)
+            // This appears for both empty and non-empty vaults
+            await extensionPopup.WaitForSelectorAsync("text=Items", new() { Timeout = 15000 });
 
-            // Also wait for the items list container to be visible,
-            // indicating the vault has loaded and rendered
-            await extensionPopup.WaitForSelectorAsync("#items-list", new() { Timeout = 15000 });
+            // Wait a bit for vault to fully initialize
+            await Task.Delay(500);
         }
 
         return extensionPopup;
+    }
+
+    /// <summary>
+    /// Create a new credential in the browser extension.
+    /// </summary>
+    /// <param name="extensionPopup">The extension popup page.</param>
+    /// <param name="serviceName">The name of the credential to create.</param>
+    /// <returns>Async task.</returns>
+    protected async Task CreateCredentialInExtension(IPage extensionPopup, string serviceName)
+    {
+        // Click add new item button
+        await extensionPopup.ClickAsync("button[title='Add new item']");
+
+        // Wait for the item name field to be visible
+        await extensionPopup.WaitForSelectorAsync("input#itemName");
+
+        // Fill in the credential name
+        await extensionPopup.FillAsync("input#itemName", serviceName);
+
+        // Save the credential
+        await extensionPopup.ClickAsync("button#save-credential");
+
+        // After save, we're on the item detail page - wait for it to load
+        await extensionPopup.WaitForSelectorAsync("button[title='Edit Item']", new() { Timeout = 5000 });
+
+        // Navigate back to the vault list
+        await extensionPopup.ClickAsync("#nav-vault");
+
+        // Wait for the credential to appear in the list
+        await extensionPopup.WaitForSelectorAsync($"text={serviceName}", new() { Timeout = 10000 });
+
+        // Wait a bit for sync to complete
+        await Task.Delay(500);
     }
 
     /// <summary>
