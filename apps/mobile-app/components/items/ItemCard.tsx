@@ -288,6 +288,7 @@ export function ItemCard({ item, onItemDelete }: ItemCardProps): React.ReactNode
           // Ignore long press to prevent context menu long press from triggering the item card press.
         }}
         activeOpacity={0.7}
+        testID="item-card"
       >
         <View style={styles.itemContent}>
           <ItemIcon item={item} style={styles.logo} />

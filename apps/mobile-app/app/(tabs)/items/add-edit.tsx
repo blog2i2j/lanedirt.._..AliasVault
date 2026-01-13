@@ -1188,6 +1188,7 @@ export default function AddEditItemScreen(): React.ReactNode {
           onPress={onSubmit}
           style={[styles.headerRightButton, isSaveDisabled && styles.headerRightButtonDisabled]}
           disabled={isSaveDisabled}
+          testID="save-button"
         >
           <MaterialIcons
             name="save"
@@ -1215,7 +1216,7 @@ export default function AddEditItemScreen(): React.ReactNode {
         <LoadingOverlay status={saveStatus} />
       )}
 
-      <ThemedContainer style={styles.container}>
+      <ThemedContainer style={styles.container} testID="add-edit-screen">
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -1499,6 +1500,7 @@ export default function AddEditItemScreen(): React.ReactNode {
                 <RobustPressable
                   style={styles.deleteButton}
                   onPress={handleDelete}
+                  testID="delete-item-button"
                 >
                   <ThemedText style={styles.deleteButtonText}>{t('items.deleteItem')}</ThemedText>
                 </RobustPressable>

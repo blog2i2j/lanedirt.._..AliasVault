@@ -9,6 +9,9 @@
     "web": "expo start --web",
     "test": "jest --passWithNoTests",
     "test:watch": "jest --passWithNoTests --watchAll",
+    "test:e2e": "maestro test .maestro/flows/",
+    "test:e2e:android": "maestro test .maestro/flows/ --platform android",
+    "test:e2e:ios": "maestro test .maestro/flows/ --platform ios",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },

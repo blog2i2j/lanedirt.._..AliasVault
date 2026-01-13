@@ -446,6 +446,10 @@ export default function LoginScreen() : React.ReactNode {
       color: colors.textMuted,
       fontSize: 14,
     },
+    headerSubtitleContainer: {
+      alignItems: 'center',
+      flexDirection: 'row',
+    },
     headerTitle: {
       color: colors.text,
       fontSize: 24,
@@ -500,6 +504,7 @@ export default function LoginScreen() : React.ReactNode {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
+      testID="login-screen"
     >
       <ScrollView
         style={styles.container}
@@ -525,19 +530,23 @@ export default function LoginScreen() : React.ReactNode {
             <>
               <View style={styles.headerContainer}>
                 <Text style={styles.headerTitle}>{t('auth.login')}</Text>
-                <Text style={styles.headerSubtitle}>
-                  {t('auth.connectingTo')} {' '}
-                  <Text
-                    style={styles.clickableLink}
-                    onPress={() => router.push('/login-settings')}
-                  >
-                    {getDisplayUrl()}
+                <View style={styles.headerSubtitleContainer}>
+                  <Text style={styles.headerSubtitle}>
+                    {t('auth.connectingTo')}{' '}
                   </Text>
-                </Text>
+                  <RobustPressable
+                    onPress={() => router.push('/login-settings')}
+                    testID="server-url-link"
+                  >
+                    <Text style={styles.clickableLink}>
+                      {getDisplayUrl()}
+                    </Text>
+                  </RobustPressable>
+                </View>
               </View>
 
               {error && (
-                <View style={styles.errorContainer}>
+                <View style={styles.errorContainer} testID="error-message">
                   <Text style={styles.errorText}>{error}</Text>
                 </View>
               )}
@@ -617,6 +626,7 @@ export default function LoginScreen() : React.ReactNode {
                       placeholderTextColor={colors.textMuted}
                       multiline={false}
                       numberOfLines={1}
+                      testID="username-input"
                     />
                   </View>
                   <Text style={styles.label}>{t('auth.password')}</Text>
@@ -638,6 +648,7 @@ export default function LoginScreen() : React.ReactNode {
                       autoCapitalize="none"
                       multiline={false}
                       numberOfLines={1}
+                      testID="password-input"
                     />
                     <RobustPressable
                       onPress={() => setShowPassword(!showPassword)}
@@ -654,6 +665,7 @@ export default function LoginScreen() : React.ReactNode {
                     style={[styles.button, styles.primaryButton]}
                     onPress={handleSubmit}
                     disabled={isLoading}
+                    testID="login-button"
                   >
                     {isLoading ? (
                       <ActivityIndicator color={colors.text} />

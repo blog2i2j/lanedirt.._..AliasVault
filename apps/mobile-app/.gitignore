@@ -47,3 +47,8 @@ app-example
 # Test output files
 coverage
 build
+
+# Maestro E2E test outputs
+.maestro/tests/
+maestro-report.xml
+*.png

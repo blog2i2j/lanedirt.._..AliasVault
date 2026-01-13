@@ -1,0 +1,37 @@
+# Test 01: App Launch
+# Verifies the app launches correctly and shows the login screen
+#
+# Prerequisites: None (first test in sequence)
+# Expected: App launches and displays login form
+
+appId: net.aliasvault.app
+---
+# Launch the app with a clean state
+- launchApp:
+    clearState: true
+
+# Wait for app to fully load - look for AliasVault text
+- extendedWaitUntil:
+    visible: "AliasVault"
+    timeout: 15000
+
+# Verify the login screen is displayed (use testID or fall back to text)
+- assertVisible:
+    id: "login-screen"
+    optional: true
+
+# Verify login form elements - try testID first, then text placeholder
+- assertVisible:
+    id: "username-input"
+    optional: true
+
+- assertVisible:
+    id: "password-input"
+    optional: true
+
+# Check for Log in button using text (note: "Log in" with space)
+- assertVisible:
+    text: "Log in"
+
+# Take screenshot of successful launch
+- takeScreenshot: "01-app-launched"

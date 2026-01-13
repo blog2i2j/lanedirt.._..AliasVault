@@ -205,6 +205,7 @@ export default function SettingsScreen() : React.ReactNode {
                     autoCorrect={false}
                     multiline={false}
                     numberOfLines={1}
+                    testID="custom-api-url-input"
                   />
                 </View>
               )}

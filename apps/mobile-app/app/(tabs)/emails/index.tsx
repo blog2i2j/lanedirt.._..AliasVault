@@ -221,7 +221,7 @@ export default function EmailsScreen() : React.ReactNode {
   };
 
   return (
-    <ThemedContainer>
+    <ThemedContainer testID="emails-screen">
       <CollapsibleHeader
         title={t('emails.title')}
         scrollY={scrollY}

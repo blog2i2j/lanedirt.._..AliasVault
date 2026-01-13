@@ -177,6 +177,7 @@ export const ItemNameField = forwardRef<ItemNameFieldRef, IItemNameFieldProps>((
           onChangeText={onChangeText}
           placeholder={t('items.serviceName')}
           placeholderTextColor={colors.textMuted}
+          testID="item-name-input"
         />
         {hasFolders && (
           <RobustPressable

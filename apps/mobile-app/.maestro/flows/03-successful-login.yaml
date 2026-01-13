@@ -1,0 +1,87 @@
+# Test 03: Successful Login
+# Verifies login flow with valid credentials against local API
+#
+# Prerequisites: Valid test user exists on local API server (http://localhost:5092)
+# Environment: TEST_USERNAME, TEST_PASSWORD must be set
+# Expected: User logs in and sees vault items screen
+
+appId: net.aliasvault.app
+---
+# Launch the app fresh
+- launchApp:
+    clearState: true
+
+# Wait for login screen
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 15000
+
+# ===== Configure API URL to use local server =====
+
+# Tap on the server URL link to go to settings
+- tapOn:
+    id: "server-url-link"
+
+# Wait for settings screen to load
+- extendedWaitUntil:
+    visible: "Self-hosted"
+    timeout: 10000
+
+# Select "Self-hosted" option
+- tapOn:
+    text: "Self-hosted"
+
+# Wait for custom URL input to appear
+- extendedWaitUntil:
+    visible:
+      id: "custom-api-url-input"
+    timeout: 5000
+
+# Enter the local API URL
+- tapOn:
+    id: "custom-api-url-input"
+- inputText: "http://localhost:5092"
+
+- hideKeyboard
+
+# Go back to login screen (cross-platform)
+- runFlow: ../utils/go-back.yaml
+
+# Wait for login screen to be visible again
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 10000
+
+# ===== Now perform login =====
+
+# Enter username
+- tapOn:
+    id: "username-input"
+- inputText: ${TEST_USERNAME}
+
+# Enter password
+- tapOn:
+    id: "password-input"
+- inputText: ${TEST_PASSWORD}
+
+- hideKeyboard
+
+- takeScreenshot: "03-1-credentials-entered"
+
+# Submit login
+- tapOn:
+    id: "login-button"
+
+# Wait for login to complete (may include vault sync)
+- extendedWaitUntil:
+    visible:
+      id: "items-screen"
+    timeout: 30000
+
+# Verify we're on the items/vault screen
+- assertVisible:
+    id: "items-list"
+
+- takeScreenshot: "03-2-login-successful"

@@ -808,11 +808,13 @@ export default function ItemsScreen(): React.ReactNode {
             numberOfLines={1}
             onChangeText={setSearchQuery}
             clearButtonMode={Platform.OS === 'ios' ? 'while-editing' : 'never'}
+            testID="search-input"
           />
           {Platform.OS === 'android' && searchQuery.length > 0 && (
             <TouchableOpacity
               style={styles.clearButton}
               onPress={() => setSearchQuery('')}
+              testID="clear-search-button"
             >
               <ThemedText style={styles.clearButtonText}>×</ThemedText>
             </TouchableOpacity>
@@ -849,7 +851,7 @@ export default function ItemsScreen(): React.ReactNode {
   };
 
   return (
-    <ThemedContainer style={styles.container}>
+    <ThemedContainer style={styles.container} testID="items-screen">
       <CollapsibleHeader
         title={t('items.title')}
         scrollY={scrollY}
@@ -858,13 +860,14 @@ export default function ItemsScreen(): React.ReactNode {
       />
       <ThemedView style={styles.stepContainer}>
         {/* FAB */}
-        <RobustPressable style={styles.fab} onPress={handleAddItem}>
+        <RobustPressable style={styles.fab} onPress={handleAddItem} testID="add-item-button">
           <MaterialIcons name="add" style={styles.fabIcon} />
         </RobustPressable>
 
         {/* Item list */}
         <Animated.FlatList
           ref={flatListRef}
+          testID="items-list"
           data={isLoadingItems ? Array(4).fill(null) : filteredItems}
           keyExtractor={(itm, index) => itm?.Id ?? `skeleton-${index}`}
           keyboardShouldPersistTaps='handled'

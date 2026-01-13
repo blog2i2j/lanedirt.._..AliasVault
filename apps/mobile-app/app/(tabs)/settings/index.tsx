@@ -325,7 +325,7 @@ export default function SettingsScreen() : React.ReactNode {
   });
 
   return (
-    <ThemedContainer>
+    <ThemedContainer testID="settings-screen">
       <CollapsibleHeader
         title={t('settings.title')}
         scrollY={scrollY}

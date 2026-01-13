@@ -104,6 +104,7 @@ export default function TabLayout() : React.ReactNode {
           name="items"
           options={{
             title: t('navigation.vault'),
+            tabBarTestID: 'tab-items',
             /**
              * Icon for the vault tab.
              */
@@ -114,6 +115,7 @@ export default function TabLayout() : React.ReactNode {
           name="emails"
           options={{
             title: t('navigation.emails'),
+            tabBarTestID: 'tab-emails',
             /**
              * Icon for the emails tab.
              */
@@ -124,6 +126,7 @@ export default function TabLayout() : React.ReactNode {
           name="settings"
           options={{
             title: t('navigation.settings'),
+            tabBarTestID: 'tab-settings',
             /**
              * Icon for the settings tab.
              */
