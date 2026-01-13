@@ -4,7 +4,6 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import srp from 'secure-remote-password/client';
 
 import type { DeleteAccountInitiateRequest, DeleteAccountInitiateResponse, DeleteAccountRequest } from '@/utils/dist/core/models/webapi';
 
@@ -19,6 +18,7 @@ import { ThemedTextInput } from '@/components/themed/ThemedTextInput';
 import { UsernameDisplay } from '@/components/ui/UsernameDisplay';
 import { useApp } from '@/context/AppContext';
 import { useWebApi } from '@/context/WebApiContext';
+import NativeVaultManager from '@/specs/NativeVaultManager';
 
 /**
  * Delete account screen.
@@ -165,8 +165,8 @@ export default function DeleteAccountScreen(): React.ReactNode {
       // Convert base64 string to hex string
       const currentPasswordHashString = Buffer.from(currentPasswordHashBase64, 'base64').toString('hex').toUpperCase();
 
-      // Generate client ephemeral and session
-      const newClientEphemeral = srp.generateEphemeral();
+      // Generate client ephemeral and session using native SRP
+      const newClientEphemeral = await NativeVaultManager.srpGenerateEphemeral();
 
       // Get username from the auth context, always lowercase and trimmed which is required for the argon2id key derivation
       const sanitizedUsername = username?.toLowerCase().trim();
@@ -174,8 +174,8 @@ export default function DeleteAccountScreen(): React.ReactNode {
         throw new Error(t('settings.securitySettings.deleteAccount.usernameNotFound'));
       }
 
-      const privateKey = srp.derivePrivateKey(currentSalt, sanitizedUsername, currentPasswordHashString);
-      const newClientSession = srp.deriveSession(
+      const privateKey = await NativeVaultManager.srpDerivePrivateKey(currentSalt, sanitizedUsername, currentPasswordHashString);
+      const newClientSession = await NativeVaultManager.srpDeriveSession(
         newClientEphemeral.secret,
         currentServerEphemeral,
         currentSalt,

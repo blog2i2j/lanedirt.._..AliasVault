@@ -900,6 +900,88 @@ public class VaultManager: NSObject {
         resolve(cleared)
     }
 
+    // MARK: - SRP (Secure Remote Password) Operations
+
+    /// Generate a cryptographic salt for SRP.
+    /// Returns a 32-byte random salt as an uppercase hex string.
+    @objc
+    func srpGenerateSalt(_ resolve: @escaping RCTPromiseResolveBlock,
+                         rejecter reject: @escaping RCTPromiseRejectBlock) {
+        let salt = RustCoreFramework.srpGenerateSalt()
+        resolve(salt)
+    }
+
+    /// Derive the SRP private key (x) from credentials.
+    /// Formula: x = H(salt | H(identity | ":" | password_hash))
+    @objc
+    func srpDerivePrivateKey(_ salt: String,
+                             identity: String,
+                             passwordHash: String,
+                             resolver resolve: @escaping RCTPromiseResolveBlock,
+                             rejecter reject: @escaping RCTPromiseRejectBlock) {
+        do {
+            let privateKey = try RustCoreFramework.srpDerivePrivateKey(salt: salt, identity: identity, passwordHash: passwordHash)
+            resolve(privateKey)
+        } catch {
+            reject("SRP_ERROR", "Failed to derive SRP private key: \(error.localizedDescription)", error)
+        }
+    }
+
+    /// Derive the SRP verifier (v) from a private key.
+    /// Formula: v = g^x mod N
+    @objc
+    func srpDeriveVerifier(_ privateKey: String,
+                           resolver resolve: @escaping RCTPromiseResolveBlock,
+                           rejecter reject: @escaping RCTPromiseRejectBlock) {
+        do {
+            let verifier = try RustCoreFramework.srpDeriveVerifier(privateKey: privateKey)
+            resolve(verifier)
+        } catch {
+            reject("SRP_ERROR", "Failed to derive SRP verifier: \(error.localizedDescription)", error)
+        }
+    }
+
+    /// Generate a client ephemeral key pair.
+    /// Returns a JSON object with public (A) and secret (a) values as uppercase hex strings.
+    @objc
+    func srpGenerateEphemeral(_ resolve: @escaping RCTPromiseResolveBlock,
+                              rejecter reject: @escaping RCTPromiseRejectBlock) {
+        let ephemeral = RustCoreFramework.srpGenerateEphemeral()
+        let result: [String: String] = [
+            "public": ephemeral.public,
+            "secret": ephemeral.secret
+        ]
+        resolve(result)
+    }
+
+    /// Derive the client session from server response.
+    /// Returns a JSON object with proof (M1) and key (K) as uppercase hex strings.
+    @objc
+    func srpDeriveSession(_ clientSecret: String,
+                          serverPublic: String,
+                          salt: String,
+                          identity: String,
+                          privateKey: String,
+                          resolver resolve: @escaping RCTPromiseResolveBlock,
+                          rejecter reject: @escaping RCTPromiseRejectBlock) {
+        do {
+            let session = try RustCoreFramework.srpDeriveSession(
+                clientSecret: clientSecret,
+                serverPublic: serverPublic,
+                salt: salt,
+                identity: identity,
+                privateKey: privateKey
+            )
+            let result: [String: String] = [
+                "proof": session.proof,
+                "key": session.key
+            ]
+            resolve(result)
+        } catch {
+            reject("SRP_ERROR", "Failed to derive SRP session: \(error.localizedDescription)", error)
+        }
+    }
+
     @objc
     func requiresMainQueueSetup() -> Bool {
         return false

@@ -273,4 +273,26 @@
     [vaultManager scanQRCode:prefixes statusText:statusText resolver:resolve rejecter:reject];
 }
 
+// MARK: - SRP (Secure Remote Password) Operations
+
+- (void)srpGenerateSalt:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager srpGenerateSalt:resolve rejecter:reject];
+}
+
+- (void)srpDerivePrivateKey:(NSString *)salt identity:(NSString *)identity passwordHash:(NSString *)passwordHash resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager srpDerivePrivateKey:salt identity:identity passwordHash:passwordHash resolver:resolve rejecter:reject];
+}
+
+- (void)srpDeriveVerifier:(NSString *)privateKey resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager srpDeriveVerifier:privateKey resolver:resolve rejecter:reject];
+}
+
+- (void)srpGenerateEphemeral:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager srpGenerateEphemeral:resolve rejecter:reject];
+}
+
+- (void)srpDeriveSession:(NSString *)clientSecret serverPublic:(NSString *)serverPublic salt:(NSString *)salt identity:(NSString *)identity privateKey:(NSString *)privateKey resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager srpDeriveSession:clientSecret serverPublic:serverPublic salt:salt identity:identity privateKey:privateKey resolver:resolve rejecter:reject];
+}
+
 @end

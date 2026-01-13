@@ -99,6 +99,27 @@ export interface Spec extends TurboModule {
   // Scanner will keep scanning until a matching code is found or user cancels.
   // statusText is the message to display on the scanner screen (defaults to "Scan QR code" if null/empty).
   scanQRCode(prefixes: string[] | null, statusText: string | null): Promise<string | null>;
+
+  // SRP (Secure Remote Password) operations
+  // These methods use the native Rust SRP implementation for secure authentication.
+  // All hex values are uppercase strings.
+
+  // Generate a 32-byte random salt as uppercase hex string
+  srpGenerateSalt(): Promise<string>;
+
+  // Derive SRP private key: x = H(salt | H(identity | ":" | passwordHash))
+  // passwordHash should be uppercase hex string (from Argon2id derivation)
+  srpDerivePrivateKey(salt: string, identity: string, passwordHash: string): Promise<string>;
+
+  // Derive SRP verifier: v = g^x mod N (for registration)
+  srpDeriveVerifier(privateKey: string): Promise<string>;
+
+  // Generate client ephemeral key pair (public A and secret a)
+  srpGenerateEphemeral(): Promise<{public: string; secret: string}>;
+
+  // Derive client session from server response
+  // Returns proof (M1) and shared key (K) as uppercase hex strings
+  srpDeriveSession(clientSecret: string, serverPublic: string, salt: string, identity: string, privateKey: string): Promise<{proof: string; key: string}>;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>('NativeVaultManager');

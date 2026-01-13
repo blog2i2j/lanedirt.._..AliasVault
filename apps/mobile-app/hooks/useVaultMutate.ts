@@ -3,7 +3,6 @@ import { Buffer } from 'buffer';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Toast from 'react-native-toast-message';
-import srp from 'secure-remote-password/client';
 
 import type { EncryptionKeyDerivationParams } from '@/utils/dist/core/models/metadata';
 import type { PasswordChangeInitiateResponse, Vault, VaultPasswordChangeRequest } from '@/utils/dist/core/models/webapi';
@@ -158,16 +157,16 @@ export function useVaultMutate() : {
     // Convert base64 string to hex string
     const currentPasswordHashString = Buffer.from(currentPasswordHashBase64, 'base64').toString('hex').toUpperCase();
 
-    // Generate client ephemeral and session
-    const newClientEphemeral = srp.generateEphemeral();
+    // Generate client ephemeral and session using native SRP
+    const newClientEphemeral = await NativeVaultManager.srpGenerateEphemeral();
     // Get username from the auth context, always lowercase and trimmed which is required for the argon2id key derivation
     const username = authContext.username?.toLowerCase().trim();
     if (!username) {
       throw new Error(t('common.errors.unknownError'));
     }
 
-    const privateKey = srp.derivePrivateKey(currentSalt, username, currentPasswordHashString);
-    const newClientSession = srp.deriveSession(
+    const privateKey = await NativeVaultManager.srpDerivePrivateKey(currentSalt, username, currentPasswordHashString);
+    const newClientSession = await NativeVaultManager.srpDeriveSession(
       newClientEphemeral.secret,
       currentServerEphemeral,
       currentSalt,
@@ -175,8 +174,8 @@ export function useVaultMutate() : {
       privateKey
     );
 
-    // Generate salt and verifier for new password
-    const newSalt = srp.generateSalt();
+    // Generate salt and verifier for new password using native SRP
+    const newSalt = await NativeVaultManager.srpGenerateSalt();
     const newPasswordHash = await EncryptionUtility.deriveKeyFromPassword(newPasswordPlainText, newSalt, data.encryptionType, data.encryptionSettings);
     const newPasswordHashString = Buffer.from(newPasswordHash).toString('hex').toUpperCase();
 
@@ -206,9 +205,9 @@ export function useVaultMutate() : {
       await authContext.logout(t('common.errors.unknownErrorTryAgain'));
     }
 
-    // Generate SRP password change data
-    const newPrivateKey = srp.derivePrivateKey(newSalt, username, newPasswordHashString);
-    const newVerifier = srp.deriveVerifier(newPrivateKey);
+    // Generate SRP password change data using native SRP
+    const newPrivateKey = await NativeVaultManager.srpDerivePrivateKey(newSalt, username, newPasswordHashString);
+    const newVerifier = await NativeVaultManager.srpDeriveVerifier(newPrivateKey);
 
     // Prepare vault for password change
     const vault = await prepareVaultForPasswordChange();

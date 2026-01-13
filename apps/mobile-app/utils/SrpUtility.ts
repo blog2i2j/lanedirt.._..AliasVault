@@ -1,11 +1,11 @@
-import srp from 'secure-remote-password/client';
-
 import type { LoginResponse, ValidateLoginRequest2Fa, ValidateLoginResponse, BadRequestResponse } from '@/utils/dist/core/models/webapi';
 import { ApiAuthError } from '@/utils/types/errors/ApiAuthError';
 import { WebApiService } from '@/utils/WebApiService';
+import NativeVaultManager from '@/specs/NativeVaultManager';
 
 /**
  * Utility class for SRP login and validation operations.
+ * Uses native Rust SRP implementation via NativeVaultManager.
  */
 export class SrpUtility {
   private webApiService: WebApiService;
@@ -55,9 +55,9 @@ export class SrpUtility {
      */
     const srpIdentity = loginResponse.srpIdentity ?? username;
 
-    const clientEphemeral = srp.generateEphemeral();
-    const privateKey = srp.derivePrivateKey(loginResponse.salt, srpIdentity, passwordHash);
-    const sessionProof = srp.deriveSession(
+    const clientEphemeral = await NativeVaultManager.srpGenerateEphemeral();
+    const privateKey = await NativeVaultManager.srpDerivePrivateKey(loginResponse.salt, srpIdentity, passwordHash);
+    const sessionProof = await NativeVaultManager.srpDeriveSession(
       clientEphemeral.secret,
       loginResponse.serverEphemeral,
       loginResponse.salt,
@@ -105,9 +105,9 @@ export class SrpUtility {
      */
     const srpIdentity = loginResponse.srpIdentity ?? username;
 
-    const clientEphemeral = srp.generateEphemeral();
-    const privateKey = srp.derivePrivateKey(loginResponse.salt, srpIdentity, passwordHash);
-    const sessionProof = srp.deriveSession(
+    const clientEphemeral = await NativeVaultManager.srpGenerateEphemeral();
+    const privateKey = await NativeVaultManager.srpDerivePrivateKey(loginResponse.salt, srpIdentity, passwordHash);
+    const sessionProof = await NativeVaultManager.srpDeriveSession(
       clientEphemeral.secret,
       loginResponse.serverEphemeral,
       loginResponse.salt,
