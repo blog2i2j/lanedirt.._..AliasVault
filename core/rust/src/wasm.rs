@@ -132,3 +132,156 @@ pub fn extract_domain_js(url: &str) -> String {
 pub fn extract_root_domain_js(domain: &str) -> String {
     crate::credential_matcher::extract_root_domain(domain)
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SRP (Secure Remote Password) WASM Bindings
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Generate a cryptographic salt for SRP.
+/// Returns a 32-byte random salt as an uppercase hex string.
+#[wasm_bindgen(js_name = srpGenerateSalt)]
+pub fn srp_generate_salt_js() -> String {
+    crate::srp::srp_generate_salt()
+}
+
+/// Derive the SRP private key (x) from credentials.
+///
+/// # Arguments
+/// * `salt` - Salt as uppercase hex string
+/// * `identity` - User identity (username or SRP identity GUID)
+/// * `password_hash` - Pre-hashed password as uppercase hex string (from Argon2id)
+///
+/// # Returns
+/// Private key as uppercase hex string
+#[wasm_bindgen(js_name = srpDerivePrivateKey)]
+pub fn srp_derive_private_key_js(
+    salt: &str,
+    identity: &str,
+    password_hash: &str,
+) -> Result<String, JsValue> {
+    crate::srp::srp_derive_private_key(salt, identity, password_hash)
+        .map_err(|e| JsValue::from_str(&format!("SRP error: {}", e)))
+}
+
+/// Derive the SRP verifier (v) from a private key.
+///
+/// # Arguments
+/// * `private_key` - Private key as uppercase hex string
+///
+/// # Returns
+/// Verifier as uppercase hex string (for registration)
+#[wasm_bindgen(js_name = srpDeriveVerifier)]
+pub fn srp_derive_verifier_js(private_key: &str) -> Result<String, JsValue> {
+    crate::srp::srp_derive_verifier(private_key)
+        .map_err(|e| JsValue::from_str(&format!("SRP error: {}", e)))
+}
+
+/// Generate a client ephemeral key pair.
+/// Returns a JsValue object with `public` and `secret` properties (uppercase hex strings).
+#[wasm_bindgen(js_name = srpGenerateEphemeral)]
+pub fn srp_generate_ephemeral_js() -> Result<JsValue, JsValue> {
+    let ephemeral = crate::srp::srp_generate_ephemeral();
+    serde_wasm_bindgen::to_value(&ephemeral)
+        .map_err(|e| JsValue::from_str(&format!("Failed to serialize ephemeral: {}", e)))
+}
+
+/// Derive the client session from server response.
+///
+/// # Arguments
+/// * `client_secret` - Client secret ephemeral (a) as hex string
+/// * `server_public` - Server public ephemeral (B) as hex string
+/// * `salt` - Salt as hex string
+/// * `identity` - User identity (username or SRP identity GUID)
+/// * `private_key` - Private key (x) as hex string
+///
+/// # Returns
+/// JsValue object with `proof` and `key` properties (uppercase hex strings)
+#[wasm_bindgen(js_name = srpDeriveSession)]
+pub fn srp_derive_session_js(
+    client_secret: &str,
+    server_public: &str,
+    salt: &str,
+    identity: &str,
+    private_key: &str,
+) -> Result<JsValue, JsValue> {
+    let session = crate::srp::srp_derive_session(client_secret, server_public, salt, identity, private_key)
+        .map_err(|e| JsValue::from_str(&format!("SRP error: {}", e)))?;
+    serde_wasm_bindgen::to_value(&session)
+        .map_err(|e| JsValue::from_str(&format!("Failed to serialize session: {}", e)))
+}
+
+/// Generate a server ephemeral key pair.
+///
+/// # Arguments
+/// * `verifier` - Password verifier (v) as hex string
+///
+/// # Returns
+/// JsValue object with `public` and `secret` properties (uppercase hex strings)
+#[wasm_bindgen(js_name = srpGenerateEphemeralServer)]
+pub fn srp_generate_ephemeral_server_js(verifier: &str) -> Result<JsValue, JsValue> {
+    let ephemeral = crate::srp::srp_generate_ephemeral_server(verifier)
+        .map_err(|e| JsValue::from_str(&format!("SRP error: {}", e)))?;
+    serde_wasm_bindgen::to_value(&ephemeral)
+        .map_err(|e| JsValue::from_str(&format!("Failed to serialize ephemeral: {}", e)))
+}
+
+/// Derive and verify the server session from client response.
+///
+/// # Arguments
+/// * `server_secret` - Server secret ephemeral (b) as hex string
+/// * `client_public` - Client public ephemeral (A) as hex string
+/// * `salt` - Salt as hex string
+/// * `identity` - User identity (username or SRP identity GUID)
+/// * `verifier` - Password verifier (v) as hex string
+/// * `client_proof` - Client proof (M1) as hex string
+///
+/// # Returns
+/// JsValue: object with `proof` and `key` if valid, null if client proof is invalid
+#[wasm_bindgen(js_name = srpDeriveSessionServer)]
+pub fn srp_derive_session_server_js(
+    server_secret: &str,
+    client_public: &str,
+    salt: &str,
+    identity: &str,
+    verifier: &str,
+    client_proof: &str,
+) -> Result<JsValue, JsValue> {
+    let session = crate::srp::srp_derive_session_server(
+        server_secret,
+        client_public,
+        salt,
+        identity,
+        verifier,
+        client_proof,
+    )
+    .map_err(|e| JsValue::from_str(&format!("SRP error: {}", e)))?;
+
+    match session {
+        Some(s) => serde_wasm_bindgen::to_value(&s)
+            .map_err(|e| JsValue::from_str(&format!("Failed to serialize session: {}", e))),
+        None => Ok(JsValue::NULL),
+    }
+}
+
+/// Verify the server's session proof (M2) on the client side.
+///
+/// This confirms that the server successfully derived the same session key.
+///
+/// # Arguments
+/// * `client_public` - Client public ephemeral (A) as hex string
+/// * `client_proof` - Client proof (M1) as hex string
+/// * `session_key` - Session key (K) as hex string
+/// * `server_proof` - Server proof (M2) as hex string to verify
+///
+/// # Returns
+/// True if verification succeeds, false otherwise
+#[wasm_bindgen(js_name = srpVerifySession)]
+pub fn srp_verify_session_wasm(
+    client_public: &str,
+    client_proof: &str,
+    session_key: &str,
+    server_proof: &str,
+) -> Result<bool, JsValue> {
+    crate::srp::srp_verify_session(client_public, client_proof, session_key, server_proof)
+        .map_err(|e| JsValue::from_str(&format!("SRP error: {}", e)))
+}

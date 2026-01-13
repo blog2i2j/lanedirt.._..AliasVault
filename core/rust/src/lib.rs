@@ -4,6 +4,7 @@
 //! - **vault_merge**: Vault merge using Last-Write-Wins (LWW) strategy
 //! - **vault_pruner**: Prunes expired items from trash (30-day retention)
 //! - **credential_matcher**: Cross-platform credential filtering for autofill
+//! - **srp**: Secure Remote Password (SRP-6a) protocol for authentication
 //!
 //! This library accepts data as JSON and returns results as JSON.
 //! Each platform (browser, iOS, Android, .NET) handles its own I/O
@@ -23,12 +24,18 @@
 //! // Credential matching example
 //! let credentials = get_credentials_json();
 //! let matches = filter_credentials(credentials, "https://github.com", "GitHub");
+//!
+//! // SRP authentication example
+//! let salt = srp::srp_generate_salt();
+//! let private_key = srp::srp_derive_private_key(&salt, "user", &password_hash);
+//! let verifier = srp::srp_derive_verifier(&private_key);
 //! ```
 
 pub mod error;
 pub mod vault_merge;
 pub mod vault_pruner;
 pub mod credential_matcher;
+pub mod srp;
 
 pub use error::VaultError;
 pub use vault_merge::{
@@ -41,6 +48,12 @@ pub use vault_pruner::{
 pub use credential_matcher::{
     filter_credentials, extract_domain, extract_root_domain,
     AutofillMatchingMode, CredentialMatcherInput, CredentialMatcherOutput,
+};
+pub use srp::{
+    srp_generate_salt, srp_derive_private_key, srp_derive_verifier,
+    srp_generate_ephemeral, srp_derive_session,
+    srp_generate_ephemeral_server, srp_derive_session_server,
+    SrpEphemeral, SrpSession, SrpError,
 };
 
 // WASM bindings

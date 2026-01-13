@@ -108,6 +108,121 @@ pub fn extract_root_domain(domain: String) -> String {
     crate::credential_matcher::extract_root_domain(&domain)
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// SRP (Secure Remote Password) Functions
+// ═══════════════════════════════════════════════════════════════════════════════
+
+pub use crate::srp::{SrpEphemeral, SrpSession, SrpError};
+
+/// Generate a cryptographic salt for SRP.
+/// Returns a 32-byte random salt as an uppercase hex string.
+#[uniffi::export]
+pub fn srp_generate_salt() -> String {
+    crate::srp::srp_generate_salt()
+}
+
+/// Derive the SRP private key (x) from credentials.
+///
+/// # Arguments
+/// * `salt` - Salt as uppercase hex string
+/// * `identity` - User identity (username or SRP identity GUID)
+/// * `password_hash` - Pre-hashed password as uppercase hex string (from Argon2id)
+///
+/// # Returns
+/// Private key as uppercase hex string
+#[uniffi::export]
+pub fn srp_derive_private_key(
+    salt: String,
+    identity: String,
+    password_hash: String,
+) -> Result<String, SrpError> {
+    crate::srp::srp_derive_private_key(&salt, &identity, &password_hash)
+}
+
+/// Derive the SRP verifier (v) from a private key.
+///
+/// # Arguments
+/// * `private_key` - Private key as uppercase hex string
+///
+/// # Returns
+/// Verifier as uppercase hex string (for registration)
+#[uniffi::export]
+pub fn srp_derive_verifier(private_key: String) -> Result<String, SrpError> {
+    crate::srp::srp_derive_verifier(&private_key)
+}
+
+/// Generate a client ephemeral key pair.
+/// Returns a pair of public (A) and secret (a) values as uppercase hex strings.
+#[uniffi::export]
+pub fn srp_generate_ephemeral() -> SrpEphemeral {
+    crate::srp::srp_generate_ephemeral()
+}
+
+/// Derive the client session from server response.
+///
+/// # Arguments
+/// * `client_secret` - Client secret ephemeral (a) as hex string
+/// * `server_public` - Server public ephemeral (B) as hex string
+/// * `salt` - Salt as hex string
+/// * `identity` - User identity (username or SRP identity GUID)
+/// * `private_key` - Private key (x) as hex string
+///
+/// # Returns
+/// Session containing proof and key as uppercase hex strings
+#[uniffi::export]
+pub fn srp_derive_session(
+    client_secret: String,
+    server_public: String,
+    salt: String,
+    identity: String,
+    private_key: String,
+) -> Result<SrpSession, SrpError> {
+    crate::srp::srp_derive_session(&client_secret, &server_public, &salt, &identity, &private_key)
+}
+
+/// Generate a server ephemeral key pair.
+///
+/// # Arguments
+/// * `verifier` - Password verifier (v) as hex string
+///
+/// # Returns
+/// Ephemeral containing public (B) and secret (b) as uppercase hex strings
+#[uniffi::export]
+pub fn srp_generate_ephemeral_server(verifier: String) -> Result<SrpEphemeral, SrpError> {
+    crate::srp::srp_generate_ephemeral_server(&verifier)
+}
+
+/// Derive and verify the server session from client response.
+///
+/// # Arguments
+/// * `server_secret` - Server secret ephemeral (b) as hex string
+/// * `client_public` - Client public ephemeral (A) as hex string
+/// * `salt` - Salt as hex string (not used in calculation, for API compatibility)
+/// * `identity` - User identity (not used in calculation, for API compatibility)
+/// * `verifier` - Password verifier (v) as hex string
+/// * `client_proof` - Client proof (M1) as hex string
+///
+/// # Returns
+/// Session with server proof and key if client proof is valid, None otherwise
+#[uniffi::export]
+pub fn srp_derive_session_server(
+    server_secret: String,
+    client_public: String,
+    salt: String,
+    identity: String,
+    verifier: String,
+    client_proof: String,
+) -> Result<Option<SrpSession>, SrpError> {
+    crate::srp::srp_derive_session_server(
+        &server_secret,
+        &client_public,
+        &salt,
+        &identity,
+        &verifier,
+        &client_proof,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -9,8 +9,9 @@
 @using AliasVault.Client.Auth.Models
 @using AliasVault.Client.Utilities
 @using AliasVault.Cryptography.Client
-@using SecureRemotePassword
+@using AliasVault.Client.Services.JsInterop.RustCore
 @using Microsoft.Extensions.Localization
+@inject SrpService SrpService
 
 @if (_showTwoFactorAuthStep)
 {
@@ -271,9 +272,9 @@ else
         _passwordHash = await Encryption.DeriveKeyFromPasswordAsync(_loginModel.Password, loginResponse.Salt, loginResponse.EncryptionType, loginResponse.EncryptionSettings);
         var passwordHashString = BitConverter.ToString(_passwordHash).Replace("-", string.Empty);
 
-        _clientEphemeral = Srp.GenerateEphemeralClient();
-        var privateKey = Srp.DerivePrivateKey(loginResponse.Salt, srpIdentity, passwordHashString);
-        _clientSession = Srp.DeriveSessionClient(
+        _clientEphemeral = await SrpService.GenerateEphemeralAsync();
+        var privateKey = await SrpService.DerivePrivateKeyAsync(loginResponse.Salt, srpIdentity, passwordHashString);
+        _clientSession = await SrpService.DeriveSessionClientAsync(
             privateKey,
             _clientEphemeral.Secret,
             loginResponse.ServerEphemeral,
@@ -431,7 +432,7 @@ else
     private async Task<List<string>> ProcessLoginVerify(ValidateLoginResponse validateLoginResponse)
     {
         // 5. Client verifies proof.
-        Srp.VerifySession(_clientEphemeral.Public, _clientSession, validateLoginResponse.ServerSessionProof);
+        await SrpService.VerifySessionAsync(_clientEphemeral.Public, _clientSession, validateLoginResponse.ServerSessionProof);
 
         // Store the tokens in local storage.
         await AuthService.StoreAccessTokenAsync(validateLoginResponse.Token!.Token);

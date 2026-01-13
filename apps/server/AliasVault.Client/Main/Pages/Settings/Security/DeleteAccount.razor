@@ -4,11 +4,12 @@
 @using AliasVault.Client.Utilities
 @using AliasVault.Shared.Models.WebApi.Auth
 @using AliasVault.Cryptography.Client
-@using SecureRemotePassword
+@using AliasVault.Client.Services.JsInterop.RustCore
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.Extensions.Localization
 @using AliasVault.Client.Resources
 @inject HttpClient Http
+@inject SrpService SrpService
 
 <LayoutPageTitle>@Localizer["PageTitle"]</LayoutPageTitle>
 
@@ -99,12 +100,17 @@
     /// <summary>
     /// The ephemeral client for SRP.
     /// </summary>
-    private SrpEphemeral ClientEphemeral { get; set; } = null!;
+    private SrpEphemeral ClientEphemeral { get; set; } = new();
 
     /// <summary>
     /// The session client for SRP.
     /// </summary>
-    private SrpSession ClientSession { get; set; } = null!;
+    private SrpSession ClientSession { get; set; } = new();
+
+    /// <summary>
+    /// The SRP private key.
+    /// </summary>
+    private string PrivateKey { get; set; } = string.Empty;
 
     /// <inheritdoc />
     protected override async Task OnInitializedAsync()
@@ -179,10 +185,10 @@
             var passwordHash = await Encryption.DeriveKeyFromPasswordAsync(_passwordModel.Password, loginResponse.Salt, loginResponse.EncryptionType, loginResponse.EncryptionSettings);
             var passwordHashString = BitConverter.ToString(passwordHash).Replace("-", string.Empty);
 
-            ClientEphemeral = Srp.GenerateEphemeralClient();
-            var privateKey = Srp.DerivePrivateKey(loginResponse.Salt, srpIdentity, passwordHashString);
-            ClientSession = Srp.DeriveSessionClient(
-                privateKey,
+            ClientEphemeral = await SrpService.GenerateEphemeralAsync();
+            PrivateKey = await SrpService.DerivePrivateKeyAsync(loginResponse.Salt, srpIdentity, passwordHashString);
+            ClientSession = await SrpService.DeriveSessionClientAsync(
+                PrivateKey,
                 ClientEphemeral.Secret,
                 loginResponse.ServerEphemeral,
                 loginResponse.Salt,

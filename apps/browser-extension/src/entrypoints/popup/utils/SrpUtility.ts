@@ -64,17 +64,17 @@ class SrpUtility {
     const srpIdentity = loginResponse.srpIdentity ?? normalizedUsername;
 
     // Generate client ephemeral
-    const clientEphemeral = SrpAuthService.generateEphemeral();
+    const clientEphemeral = await SrpAuthService.generateEphemeral();
 
     // Derive private key using srpIdentity (not the typed username)
-    const privateKey = SrpAuthService.derivePrivateKey(
+    const privateKey = await SrpAuthService.derivePrivateKey(
       loginResponse.salt,
       srpIdentity,
       passwordHashString
     );
 
     // Derive session using srpIdentity (not the typed username)
-    const session = SrpAuthService.deriveSession(
+    const session = await SrpAuthService.deriveSession(
       clientEphemeral.secret,
       loginResponse.serverEphemeral,
       loginResponse.salt,
@@ -127,17 +127,17 @@ class SrpUtility {
     const srpIdentity = loginResponse.srpIdentity ?? normalizedUsername;
 
     // Generate client ephemeral
-    const clientEphemeral = SrpAuthService.generateEphemeral();
+    const clientEphemeral = await SrpAuthService.generateEphemeral();
 
     // Derive private key using srpIdentity (not the typed username)
-    const privateKey = SrpAuthService.derivePrivateKey(
+    const privateKey = await SrpAuthService.derivePrivateKey(
       loginResponse.salt,
       srpIdentity,
       passwordHashString
     );
 
     // Derive session using srpIdentity (not the typed username)
-    const session = SrpAuthService.deriveSession(
+    const session = await SrpAuthService.deriveSession(
       clientEphemeral.secret,
       loginResponse.serverEphemeral,
       loginResponse.salt,

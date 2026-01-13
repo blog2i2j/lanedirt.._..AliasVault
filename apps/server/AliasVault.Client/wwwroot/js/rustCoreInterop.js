@@ -230,3 +230,130 @@ window.rustCorePruneVault = async function(inputJson) {
         });
     }
 };
+
+// ============================================================================
+// SRP (Secure Remote Password) Functions
+// ============================================================================
+
+/**
+ * Generate a random salt for SRP registration.
+ * @returns {Promise<string>} 64-character uppercase hex string (32 bytes).
+ */
+window.rustCoreSrpGenerateSalt = async function() {
+    if (!await initRustCore()) {
+        throw new Error('Rust WASM module not available');
+    }
+
+    try {
+        return wasmModule.srpGenerateSalt();
+    } catch (error) {
+        console.error('[RustCore] SRP generate salt failed:', error);
+        throw error;
+    }
+};
+
+/**
+ * Derive a private key from salt, identity, and password hash.
+ * @param {string} salt - The salt (hex string).
+ * @param {string} identity - The SRP identity (username or GUID).
+ * @param {string} passwordHash - The password hash (hex string).
+ * @returns {Promise<string>} 64-character uppercase hex string (32 bytes).
+ */
+window.rustCoreSrpDerivePrivateKey = async function(salt, identity, passwordHash) {
+    if (!await initRustCore()) {
+        throw new Error('Rust WASM module not available');
+    }
+
+    try {
+        return wasmModule.srpDerivePrivateKey(salt, identity, passwordHash);
+    } catch (error) {
+        console.error('[RustCore] SRP derive private key failed:', error);
+        throw error;
+    }
+};
+
+/**
+ * Derive a verifier from a private key.
+ * @param {string} privateKey - The private key (hex string).
+ * @returns {Promise<string>} 512-character uppercase hex string (256 bytes).
+ */
+window.rustCoreSrpDeriveVerifier = async function(privateKey) {
+    if (!await initRustCore()) {
+        throw new Error('Rust WASM module not available');
+    }
+
+    try {
+        return wasmModule.srpDeriveVerifier(privateKey);
+    } catch (error) {
+        console.error('[RustCore] SRP derive verifier failed:', error);
+        throw error;
+    }
+};
+
+/**
+ * Generate client ephemeral keypair.
+ * @returns {Promise<{public: string, secret: string}>} Object with public and secret hex strings.
+ */
+window.rustCoreSrpGenerateEphemeral = async function() {
+    if (!await initRustCore()) {
+        throw new Error('Rust WASM module not available');
+    }
+
+    try {
+        const result = wasmModule.srpGenerateEphemeral();
+        return {
+            public: result.public,
+            secret: result.secret
+        };
+    } catch (error) {
+        console.error('[RustCore] SRP generate ephemeral failed:', error);
+        throw error;
+    }
+};
+
+/**
+ * Derive client session from ephemeral values.
+ * @param {string} clientSecret - Client ephemeral secret (hex string).
+ * @param {string} serverPublic - Server ephemeral public (hex string).
+ * @param {string} salt - The salt (hex string).
+ * @param {string} identity - The SRP identity.
+ * @param {string} privateKey - The private key (hex string).
+ * @returns {Promise<{key: string, proof: string}>} Object with session key and proof hex strings.
+ */
+window.rustCoreSrpDeriveSession = async function(clientSecret, serverPublic, salt, identity, privateKey) {
+    if (!await initRustCore()) {
+        throw new Error('Rust WASM module not available');
+    }
+
+    try {
+        const result = wasmModule.srpDeriveSession(clientSecret, serverPublic, salt, identity, privateKey);
+        return {
+            key: result.key,
+            proof: result.proof
+        };
+    } catch (error) {
+        console.error('[RustCore] SRP derive session failed:', error);
+        throw error;
+    }
+};
+
+/**
+ * Verify the server's session proof (M2) on the client side.
+ * @param {string} clientPublic - Client public ephemeral (A) as hex string.
+ * @param {string} clientProof - Client proof (M1) as hex string.
+ * @param {string} sessionKey - Session key (K) as hex string.
+ * @param {string} serverProof - Server proof (M2) to verify as hex string.
+ * @returns {Promise<boolean>} True if verification succeeds.
+ */
+window.rustCoreSrpVerifySession = async function(clientPublic, clientProof, sessionKey, serverProof) {
+    if (!await initRustCore()) {
+        throw new Error('Rust WASM module not available');
+    }
+
+    try {
+        return wasmModule.srpVerifySession(clientPublic, clientProof, sessionKey, serverProof);
+    } catch (error) {
+        console.error('[RustCore] SRP verify session failed:', error);
+        throw error;
+    }
+};

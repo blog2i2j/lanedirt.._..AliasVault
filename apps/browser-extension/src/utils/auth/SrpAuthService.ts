@@ -1,4 +1,12 @@
-import srp from 'secure-remote-password/client';
+import { browser } from 'wxt/browser';
+
+import initWasm, {
+  srpGenerateSalt,
+  srpDerivePrivateKey,
+  srpDeriveVerifier,
+  srpGenerateEphemeral,
+  srpDeriveSession,
+} from '../dist/core/rust/aliasvault_core.js';
 
 import type { TokenModel, LoginResponse, BadRequestResponse } from '@/utils/dist/core/models/webapi';
 
@@ -50,16 +58,72 @@ export const DEFAULT_ENCRYPTION = {
 } as const;
 
 /**
- * SrpAuthService provides SRP-based authentication utilities.
+ * SRP ephemeral key pair type.
+ */
+type SrpEphemeral = {
+  public: string;
+  secret: string;
+};
+
+/**
+ * SRP session type.
+ */
+type SrpSession = {
+  proof: string;
+  key: string;
+};
+
+/**
+ * SrpAuthService provides SRP-based authentication utilities using Rust WASM.
  *
  * This service handles:
  * - User registration with SRP protocol
  * - Password hashing and key derivation
  * - SRP verifier generation
  *
- * It is designed to be used by both the browser extension UI and E2E tests.
+ * It uses the Rust core library compiled to WASM for cross-platform consistency.
+ * The WASM module must be initialized before use (handled automatically).
  */
 export class SrpAuthService {
+  private static wasmInitialized = false;
+  private static wasmInitPromise: Promise<void> | null = null;
+
+  /**
+   * Initialize the Rust WASM module.
+   * Called automatically by methods that require WASM.
+   * Safe to call multiple times - only initializes once.
+   */
+  private static async initWasm(): Promise<void> {
+    if (this.wasmInitialized) {
+      return;
+    }
+
+    // Ensure we only initialize once even with concurrent calls
+    if (this.wasmInitPromise) {
+      return this.wasmInitPromise;
+    }
+
+    this.wasmInitPromise = (async (): Promise<void> => {
+      try {
+        /*
+         * Fetch WASM bytes using browser.runtime.getURL for correct extension path.
+         * Cast to string to bypass WXT's strict PublicPath typing.
+         */
+        const wasmUrl = (browser.runtime.getURL as (path: string) => string)('src/aliasvault_core_bg.wasm');
+        const wasmResponse = await fetch(wasmUrl);
+        const wasmBytes = await wasmResponse.arrayBuffer();
+        // Pass as object to avoid deprecation warning from wasm-bindgen
+        await initWasm({ module_or_path: wasmBytes });
+        this.wasmInitialized = true;
+      } catch (error) {
+        this.wasmInitPromise = null;
+        throw error;
+      }
+    })();
+
+    return this.wasmInitPromise;
+  }
+
   /**
    * Normalizes a username by converting to lowercase and trimming whitespace.
    *
@@ -71,12 +135,13 @@ export class SrpAuthService {
   }
 
   /**
-   * Generates a cryptographically secure SRP salt.
+   * Generates a cryptographically secure SRP salt using Rust WASM.
    *
-   * @returns A random salt string
+   * @returns A random salt string (uppercase hex)
    */
-  public static generateSalt(): string {
-    return srp.generateSalt();
+  public static async generateSalt(): Promise<string> {
+    await this.initWasm();
+    return srpGenerateSalt();
   }
 
   /**
@@ -103,64 +168,68 @@ export class SrpAuthService {
   }
 
   /**
-   * Derives an SRP private key from credentials.
+   * Derives an SRP private key from credentials using Rust WASM.
    *
    * @param salt - The SRP salt
-   * @param username - The normalized username
+   * @param username - The normalized username or SRP identity
    * @param passwordHashString - The password hash as uppercase hex string
-   * @returns The SRP private key
+   * @returns The SRP private key (uppercase hex)
    */
-  public static derivePrivateKey(
+  public static async derivePrivateKey(
     salt: string,
     username: string,
     passwordHashString: string
-  ): string {
-    return srp.derivePrivateKey(salt, SrpAuthService.normalizeUsername(username), passwordHashString);
+  ): Promise<string> {
+    await this.initWasm();
+    return srpDerivePrivateKey(salt, SrpAuthService.normalizeUsername(username), passwordHashString);
   }
 
   /**
-   * Derives an SRP verifier from a private key.
+   * Derives an SRP verifier from a private key using Rust WASM.
    *
    * @param privateKey - The SRP private key
-   * @returns The SRP verifier
+   * @returns The SRP verifier (uppercase hex)
    */
-  public static deriveVerifier(privateKey: string): string {
-    return srp.deriveVerifier(privateKey);
+  public static async deriveVerifier(privateKey: string): Promise<string> {
+    await this.initWasm();
+    return srpDeriveVerifier(privateKey);
   }
 
   /**
-   * Generates an SRP ephemeral key pair for client-side authentication.
+   * Generates an SRP ephemeral key pair for client-side authentication using Rust WASM.
    *
-   * @returns Object containing public and secret ephemeral values
+   * @returns Object containing public and secret ephemeral values (uppercase hex)
    */
-  public static generateEphemeral(): { public: string; secret: string } {
-    return srp.generateEphemeral();
+  public static async generateEphemeral(): Promise<SrpEphemeral> {
+    await this.initWasm();
+    return srpGenerateEphemeral() as SrpEphemeral;
   }
 
   /**
-   * Derives an SRP session from the authentication exchange.
+   * Derives an SRP session from the authentication exchange using Rust WASM.
    *
    * @param clientSecretEphemeral - Client's secret ephemeral value
    * @param serverPublicEphemeral - Server's public ephemeral value
    * @param salt - The SRP salt
-   * @param username - The normalized username
+   * @param username - The normalized username or SRP identity
    * @param privateKey - The SRP private key
-   * @returns The SRP session containing proof and key
+   * @returns The SRP session containing proof and key (uppercase hex)
    */
-  public static deriveSession(
+  public static async deriveSession(
     clientSecretEphemeral: string,
     serverPublicEphemeral: string,
     salt: string,
     username: string,
     privateKey: string
-  ): { proof: string; key: string } {
-    return srp.deriveSession(
+  ): Promise<SrpSession> {
+    await this.initWasm();
+    return srpDeriveSession(
       clientSecretEphemeral,
       serverPublicEphemeral,
       salt,
       SrpAuthService.normalizeUsername(username),
       privateKey
-    );
+    ) as SrpSession;
   }
 
   /**
@@ -221,7 +290,7 @@ export class SrpAuthService {
     password: string
   ): Promise<RegisterRequest> {
     const normalizedUsername = SrpAuthService.normalizeUsername(username);
-    const salt = SrpAuthService.generateSalt();
+    const salt = await SrpAuthService.generateSalt();
 
     /**
      * Generate a random GUID for SRP identity. This is used for all SRP operations,
@@ -238,8 +307,8 @@ export class SrpAuthService {
     );
 
     // Generate SRP private key and verifier using srpIdentity (not username)
-    const privateKey = SrpAuthService.derivePrivateKey(salt, srpIdentity, credentials.passwordHashString);
-    const verifier = SrpAuthService.deriveVerifier(privateKey);
+    const privateKey = await SrpAuthService.derivePrivateKey(salt, srpIdentity, credentials.passwordHashString);
+    const verifier = await SrpAuthService.deriveVerifier(privateKey);
 
     return {
       username: normalizedUsername,
@@ -362,13 +431,13 @@ export class SrpAuthService {
       );
 
       // Step 3: Generate SRP session using srpIdentity (not the typed username)
-      const clientEphemeral = SrpAuthService.generateEphemeral();
-      const privateKey = SrpAuthService.derivePrivateKey(
+      const clientEphemeral = await SrpAuthService.generateEphemeral();
+      const privateKey = await SrpAuthService.derivePrivateKey(
         loginResponse.salt,
         srpIdentity,
         credentials.passwordHashString
       );
-      const session = SrpAuthService.deriveSession(
+      const session = await SrpAuthService.deriveSession(
         clientEphemeral.secret,
         loginResponse.serverEphemeral,
         loginResponse.salt,
