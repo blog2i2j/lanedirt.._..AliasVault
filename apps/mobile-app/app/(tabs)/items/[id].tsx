@@ -1,7 +1,8 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, View, Text, StyleSheet, Linking, Platform } from 'react-native'
+import { useTranslation } from 'react-i18next';
+import { ActivityIndicator, View, Text, StyleSheet, Linking, Platform } from 'react-native';
 import Toast from 'react-native-toast-message';
 
 import type { Item } from '@/utils/dist/core/models/vault';
@@ -21,6 +22,7 @@ import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedScrollView } from '@/components/themed/ThemedScrollView';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedView } from '@/components/themed/ThemedView';
+import { HeaderBackButton } from '@/components/ui/HeaderBackButton';
 import { RobustPressable } from '@/components/ui/RobustPressable';
 import { useDb } from '@/context/DbContext';
 
@@ -35,6 +37,7 @@ export default function ItemDetailsScreen() : React.ReactNode {
   const navigation = useNavigation();
   const colors = useColors();
   const router = useRouter();
+  const { t } = useTranslation();
 
   /**
    * Handle the edit button press.
@@ -45,11 +48,20 @@ export default function ItemDetailsScreen() : React.ReactNode {
 
   // Set header buttons
   useEffect(() => {
-    navigation.setOptions({
+    const headerOptions: Record<string, unknown> = {
+      /**
+       * Header back button.
+       */
+      headerLeft: (): React.ReactNode => (
+        <HeaderBackButton
+          label={t('items.title')}
+          onPress={() => router.back()}
+        />
+      ),
       /**
        * Header right button.
        */
-      headerRight: () => (
+      headerRight: (): React.ReactNode => (
         <View style={styles.headerRightContainer}>
           <RobustPressable
             onPress={handleEdit}
@@ -63,8 +75,10 @@ export default function ItemDetailsScreen() : React.ReactNode {
           </RobustPressable>
         </View>
       ),
-    });
-  }, [navigation, item, handleEdit, colors.primary]);
+    };
+
+    navigation.setOptions(headerOptions);
+  }, [navigation, item, handleEdit, colors.primary, router, t]);
 
   useEffect(() => {
     /**

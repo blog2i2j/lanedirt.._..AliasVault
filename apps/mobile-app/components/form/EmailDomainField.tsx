@@ -16,6 +16,8 @@ type EmailDomainFieldProps = {
   label: string;
   /** Optional callback for remove button - when provided, shows X button in label row */
   onRemove?: () => void;
+  /** Optional testID for the text input */
+  testID?: string;
 }
 
 // Hardcoded public email domains (same as in browser extension)
@@ -42,7 +44,8 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
   error,
   required = false,
   label,
-  onRemove
+  onRemove,
+  testID
 }) => {
   const { t } = useTranslation();
   const colors = useColors();
@@ -371,6 +374,8 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
           keyboardType="email-address"
           multiline={false}
           numberOfLines={1}
+          testID={testID}
+          accessibilityLabel={testID}
         />
 
         {!isCustomDomain && (

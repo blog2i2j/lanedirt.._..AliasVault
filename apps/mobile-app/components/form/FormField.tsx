@@ -25,6 +25,8 @@ type FormFieldProps = Omit<TextInputProps, 'onChangeText'> & {
   error?: string;
   /** Optional callback for remove button - when provided, shows X button in label row */
   onRemove?: () => void;
+  /** Optional testID for the text input */
+  testID?: string;
 }
 
 /**
@@ -38,6 +40,7 @@ const FormFieldComponent = forwardRef<FormFieldRef, FormFieldProps>(({
   buttons,
   error,
   onRemove,
+  testID,
   ...props
 }, ref) => {
   const colors = useColors();
@@ -143,6 +146,8 @@ const FormFieldComponent = forwardRef<FormFieldRef, FormFieldProps>(({
           clearButtonMode={Platform.OS === 'ios' ? "while-editing" : "never"}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
+          testID={testID}
+          accessibilityLabel={testID}
           {...props}
         />
         {showClearButton && (

@@ -27,6 +27,8 @@ type AdvancedPasswordFieldProps = Omit<TextInputProps, 'value' | 'onChangeText'>
   isNewCredential?: boolean;
   /** Optional callback for remove button - when provided, shows X button in label row */
   onRemove?: () => void;
+  /** Optional testID for the text input */
+  testID?: string;
 }
 
 const AdvancedPasswordFieldComponent = forwardRef<AdvancedPasswordFieldRef, AdvancedPasswordFieldProps>(({
@@ -38,6 +40,7 @@ const AdvancedPasswordFieldComponent = forwardRef<AdvancedPasswordFieldRef, Adva
   onShowPasswordChange,
   isNewCredential = false,
   onRemove,
+  testID,
   ...props
 }, ref) => {
   const colors = useColors();
@@ -386,6 +389,8 @@ const AdvancedPasswordFieldComponent = forwardRef<AdvancedPasswordFieldRef, Adva
           autoCorrect={false}
           clearButtonMode={Platform.OS === 'ios' ? "while-editing" : "never"}
           secureTextEntry={!showPassword}
+          testID={testID}
+          accessibilityLabel={testID}
           {...props}
         />
 

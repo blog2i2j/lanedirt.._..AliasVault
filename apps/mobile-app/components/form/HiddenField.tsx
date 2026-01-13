@@ -20,6 +20,8 @@ type HiddenFieldProps = {
   keyboardType?: 'default' | 'numeric';
   /** Optional callback for remove button */
   onRemove?: () => void;
+  /** Optional testID for the text input */
+  testID?: string;
 };
 
 /**
@@ -33,6 +35,7 @@ export const HiddenField: React.FC<HiddenFieldProps> = ({
   placeholder,
   keyboardType = 'default',
   onRemove,
+  testID,
 }) => {
   const colors = useColors();
   const [isVisible, setIsVisible] = useState(false);
@@ -97,6 +100,8 @@ export const HiddenField: React.FC<HiddenFieldProps> = ({
           keyboardType={keyboardType}
           autoCapitalize="none"
           autoCorrect={false}
+          testID={testID}
+          accessibilityLabel={testID}
         />
         <RobustPressable
           onPress={() => setIsVisible(!isVisible)}

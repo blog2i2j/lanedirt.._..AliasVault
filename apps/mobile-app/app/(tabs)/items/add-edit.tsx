@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View, Alert, Keyboard, Platform, ScrollView, KeyboardAvoidingView } from 'react-native';
+import { StyleSheet, View, Alert, Keyboard, Platform, ScrollView, KeyboardAvoidingView, TouchableOpacity } from 'react-native';
 import Toast from 'react-native-toast-message';
 
 import type { Folder } from '@/utils/db/repositories/FolderRepository';
@@ -960,6 +960,19 @@ export default function AddEditItemScreen(): React.ReactNode {
   }, [t]);
 
   /**
+   * Get testID for a field based on its field key.
+   */
+  const getFieldTestId = useCallback((fieldKey: string): string | undefined => {
+    const testIdMap: Record<string, string> = {
+      'login.url': 'service-url-input',
+      'login.email': 'login-email-input',
+      'login.username': 'login-username-input',
+      'login.password': 'login-password-input',
+    };
+    return testIdMap[fieldKey];
+  }, []);
+
+  /**
    * Render a field input based on field type.
    */
   const renderFieldInput = useCallback((
@@ -972,6 +985,7 @@ export default function AddEditItemScreen(): React.ReactNode {
   ): React.ReactNode => {
     const value = fieldValues[fieldKey] || '';
     const stringValue = Array.isArray(value) ? value[0] || '' : value;
+    const testID = getFieldTestId(fieldKey);
 
     switch (fieldType) {
       case FieldTypes.Password:
@@ -984,6 +998,7 @@ export default function AddEditItemScreen(): React.ReactNode {
             onShowPasswordChange={setIsPasswordVisible}
             isNewCredential={!isEditMode}
             onRemove={onRemove}
+            testID={testID}
           />
         );
 
@@ -995,6 +1010,7 @@ export default function AddEditItemScreen(): React.ReactNode {
             label={label}
             keyboardType={fieldKey === 'card.pin' || fieldKey === 'card.cvv' ? 'numeric' : 'default'}
             onRemove={onRemove}
+            testID={testID}
           />
         );
 
@@ -1005,6 +1021,7 @@ export default function AddEditItemScreen(): React.ReactNode {
             onChange={(val) => handleFieldChange(fieldKey, val)}
             label={label}
             onRemove={onRemove}
+            testID={testID}
           />
         );
 
@@ -1018,6 +1035,7 @@ export default function AddEditItemScreen(): React.ReactNode {
             numberOfLines={4}
             textAlignVertical="top"
             onRemove={onRemove}
+            testID={testID}
           />
         );
 
@@ -1039,6 +1057,7 @@ export default function AddEditItemScreen(): React.ReactNode {
                 onPress: generateRandomUsername
               }]}
               onRemove={onRemove}
+              testID={testID}
             />
           );
         }
@@ -1050,10 +1069,11 @@ export default function AddEditItemScreen(): React.ReactNode {
             placeholder={fieldKey === 'alias.birthdate' ? t('items.birthDatePlaceholder') : undefined}
             keyboardType={fieldType === FieldTypes.Phone || fieldType === FieldTypes.Number ? 'numeric' : 'default'}
             onRemove={onRemove}
+            testID={testID}
           />
         );
     }
-  }, [fieldValues, handleFieldChange, isPasswordVisible, isEditMode, aliasFieldsShownByDefault, generateRandomUsername, t]);
+  }, [fieldValues, handleFieldChange, isPasswordVisible, isEditMode, aliasFieldsShownByDefault, generateRandomUsername, t, getFieldTestId]);
 
   const styles = StyleSheet.create({
     container: {
@@ -1184,18 +1204,19 @@ export default function AddEditItemScreen(): React.ReactNode {
        * Show the save button
        */
       headerRight: () => (
-        <RobustPressable
+        <TouchableOpacity
           onPress={onSubmit}
           style={[styles.headerRightButton, isSaveDisabled && styles.headerRightButtonDisabled]}
           disabled={isSaveDisabled}
           testID="save-button"
+          accessibilityLabel="save-button"
         >
           <MaterialIcons
             name="save"
             size={Platform.OS === 'android' ? 24 : 22}
             color={colors.primary}
           />
-        </RobustPressable>
+        </TouchableOpacity>
       ),
     });
   }, [navigation, onSubmit, colors.primary, isEditMode, router, styles.headerLeftButton, styles.headerLeftButtonText, styles.headerRightButton, styles.headerRightButtonDisabled, isSaveDisabled, t, handleCancel]);
@@ -1381,6 +1402,7 @@ export default function AddEditItemScreen(): React.ReactNode {
                           <RobustPressable
                             onPress={() => handleAddOptionalField('login.email')}
                             style={styles.addEmailBadge}
+                            testID="add-email-button"
                           >
                             <MaterialIcons name="add" size={14} color={colors.textMuted} />
                             <ThemedText style={styles.addEmailBadgeText}>

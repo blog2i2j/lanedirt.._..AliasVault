@@ -289,6 +289,7 @@ export function ItemCard({ item, onItemDelete }: ItemCardProps): React.ReactNode
         }}
         activeOpacity={0.7}
         testID="item-card"
+        accessibilityLabel={item.Name}
       >
         <View style={styles.itemContent}>
           <ItemIcon item={item} style={styles.logo} />

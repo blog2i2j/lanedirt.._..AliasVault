@@ -45,8 +45,9 @@ appId: net.aliasvault.app
 
 - hideKeyboard
 
-# Go back to login screen (cross-platform)
-- runFlow: ../utils/go-back.yaml
+# Go back to login screen
+- tapOn:
+    id: "back-button"
 
 # Wait for login screen to be visible again
 - extendedWaitUntil:

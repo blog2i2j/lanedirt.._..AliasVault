@@ -185,6 +185,7 @@ export function ServerSyncIndicator(): React.ReactNode {
         style={[styles.container, styles.offline]}
         onPress={handleRetry}
         disabled={isRetrying}
+        testID="sync-indicator-offline"
       >
         <View>
           {isRetrying ? (
@@ -209,7 +210,7 @@ export function ServerSyncIndicator(): React.ReactNode {
   // Uses showSyncing which has minimum display time to prevent flickering
   if (showSyncing) {
     return (
-      <View style={[styles.container, styles.syncing]}>
+      <View style={[styles.container, styles.syncing]} testID="sync-indicator-syncing">
         <ActivityIndicator size="small" color={colors.success ?? '#16a34a'} />
         <ThemedText style={[styles.text, styles.syncingText]}>
           {t('sync.syncing')}
