@@ -59,10 +59,10 @@ enum TestUserRegistration {
         return "test_\(randomPart)@example.tld"
     }
 
-    /// Generate a random test password.
+    /// Generate a test password.
+    /// Uses a static password for easier debugging and test reproducibility.
     static func generateTestPassword() -> String {
-        let randomPart = String((0..<15).map { _ in "abcdefghijklmnopqrstuvwxyz0123456789".randomElement()! })
-        return "TestPass_\(randomPart)!"
+        return "password"
     }
 
     /// Normalize username by converting to lowercase and trimming whitespace.

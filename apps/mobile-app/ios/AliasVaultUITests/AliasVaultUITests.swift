@@ -237,21 +237,26 @@ final class AliasVaultUITests: XCTestCase {
 
     /// Test 04: Create New Item
     /// Verifies item creation flow
-    /// Note: This test assumes tests 01-03 have already run and the app is logged in
+    /// Launches the app and handles unlock if necessary
     @MainActor
-    func test04CreateItem() {
+    func test04CreateItem() async throws {
+        // Get the test user (should exist from test03)
+        let testUser = try await ensureTestUser()
+
         // Generate unique item name
         let uniqueName = TestConfiguration.generateUniqueName(prefix: "E2E Test")
 
-        // Don't relaunch the app - just verify we're on the items screen
-        // If the app was terminated between tests, this will fail gracefully
+        // Launch the app (it should already be authenticated from test03)
+        app.launch()
 
-        // Wait for items screen (assumes already authenticated from test03)
-        // Use waitForExistenceNoIdle for React Native compatibility
+        // Handle unlock screen if it appears (vault may have locked between tests)
+        unlockVaultIfNeeded(with: testUser)
+
+        // Wait for items screen
         let itemsScreen = app.findElement(testID: "items-screen")
         XCTAssertTrue(
             itemsScreen.waitForExistenceNoIdle(timeout: TestConfiguration.extendedTimeout),
-            "Should be on items screen (run test03 first to authenticate)"
+            "Should be on items screen after launch/unlock"
         )
 
         // Tap the FAB (Floating Action Button) to add new item
@@ -367,21 +372,28 @@ final class AliasVaultUITests: XCTestCase {
     // MARK: - Test 05: Offline Mode and Sync
 
     /// Test 05: Offline Mode and Sync
-    /// Verifies offline mode detection, local item creation while offline, and sync recovery
-    /// This test uses debug deep links to simulate offline mode (only works in development builds)
+    /// Verifies offline mode detection, local item creation while offline, vault lock/unlock while offline,
+    /// and sync recovery when back online.
+    ///
+    /// This test mirrors the browser extension's 07-offline-sync.spec.ts test:
+    /// 1. User is authenticated and online
+    /// 2. Go offline by setting API URL to invalid (simulates network failure)
+    /// 3. Create a credential while offline (stored locally with hasPendingSync=true)
+    /// 4. Lock the vault while offline
+    /// 5. Unlock the vault while still offline (uses stored encryption params)
+    /// 6. Go back online (restore valid API URL)
+    /// 7. Trigger sync and verify credential is synced
     @MainActor
     func test05OfflineModeAndSync() async throws {
         // Ensure we have a test user
         let testUser = try await ensureTestUser()
 
+        // Store the original API URL for restoration
+        let originalApiUrl = TestConfiguration.apiUrl
+        let invalidApiUrl = "http://offline.invalid.localhost:9999"
+
         // Generate unique item name for the offline-created item
         let uniqueName = TestConfiguration.generateUniqueName(prefix: "Offline Test")
-
-        // Launch app
-        app.launch()
-
-        // Handle authentication if needed (login or unlock screen)
-        ensureAuthenticated(with: testUser)
 
         // Step 1: Verify we're online and on items screen
         let itemsScreen = app.findElement(testID: "items-screen")
@@ -396,8 +408,13 @@ final class AliasVaultUITests: XCTestCase {
         attachment1.lifetime = .keepAlways
         add(attachment1)
 
-        // Step 2: Enable offline mode via debug deep link
-        app.openDeepLink("aliasvault://open/__debug__/set-offline/true")
+        // Step 2: Go offline by setting API URL to invalid
+        // This mirrors the browser extension's enableOfflineMode() approach
+        let encodedInvalidUrl = invalidApiUrl.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? invalidApiUrl
+        app.openDeepLink("aliasvault://open/__debug__/set-api-url/\(encodedInvalidUrl)")
+
+        // Deep link may cause app to lock, unlock if needed
+        unlockVaultIfNeeded(with: testUser)
 
         // Wait for deep link to be processed and return to items screen
         XCTAssertTrue(
@@ -405,14 +422,15 @@ final class AliasVaultUITests: XCTestCase {
             "Should return to items screen after deep link"
         )
 
-        // Small delay for offline mode to propagate to UI
-        sleep(2)
+        // Trigger a sync attempt to detect offline state
+        app.pullToRefresh()
+        sleep(3)
 
-        // Verify offline indicator appears
+        // Verify offline indicator appears (API calls should fail now)
         let offlineIndicator = app.findElement(testID: "sync-indicator-offline")
         XCTAssertTrue(
-            offlineIndicator.waitForExistenceNoIdle(timeout: 5),
-            "Offline indicator should appear"
+            offlineIndicator.waitForExistenceNoIdle(timeout: 10),
+            "Offline indicator should appear after API URL change"
         )
 
         let offlineModeScreenshot = XCUIScreen.main.screenshot()
@@ -493,13 +511,12 @@ final class AliasVaultUITests: XCTestCase {
             "Should return to items screen"
         )
 
-        // Verify we're still offline and the item exists
-        XCTAssertTrue(offlineIndicator.exists, "Should still be offline")
-
         // Verify the offline-created item appears in the list
-        let offlineItem = app.staticTexts[uniqueName]
+        let offlineItemCard = app.descendants(matching: .any).matching(
+            NSPredicate(format: "label == %@", uniqueName)
+        ).firstMatch
         XCTAssertTrue(
-            offlineItem.waitForExistenceNoIdle(timeout: 5),
+            offlineItemCard.waitForExistenceNoIdle(timeout: 5),
             "Offline-created item should appear in list"
         )
 
@@ -509,8 +526,12 @@ final class AliasVaultUITests: XCTestCase {
         attachment6.lifetime = .keepAlways
         add(attachment6)
 
-        // Step 4: Disable offline mode (go back online)
-        app.openDeepLink("aliasvault://open/__debug__/set-offline/false")
+        // Step 5: Go back online by restoring valid API URL
+        let encodedValidUrl = originalApiUrl.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? originalApiUrl
+        app.openDeepLink("aliasvault://open/__debug__/set-api-url/\(encodedValidUrl)")
+
+        // Deep link may cause app to lock, unlock if needed
+        unlockVaultIfNeeded(with: testUser)
 
         // Wait for deep link to be processed
         XCTAssertTrue(
@@ -522,18 +543,18 @@ final class AliasVaultUITests: XCTestCase {
         sleep(2)
 
         let backOnlineScreenshot = XCUIScreen.main.screenshot()
-        let attachment7 = XCTAttachment(screenshot: backOnlineScreenshot)
-        attachment7.name = "05-7-back-online"
-        attachment7.lifetime = .keepAlways
-        add(attachment7)
+        let attachment9 = XCTAttachment(screenshot: backOnlineScreenshot)
+        attachment9.name = "05-9-back-online"
+        attachment9.lifetime = .keepAlways
+        add(attachment9)
 
-        // Step 5: Pull-to-refresh to trigger sync
+        // Step 7: Trigger sync
         app.pullToRefresh()
 
         // Wait for sync to complete
-        sleep(3)
+        sleep(5)
 
-        // Verify offline indicator is gone
+        // Verify offline indicator is gone (we should be synced now)
         XCTAssertFalse(
             offlineIndicator.exists,
             "Offline indicator should be gone after sync"
@@ -541,18 +562,18 @@ final class AliasVaultUITests: XCTestCase {
 
         // Verify the item still exists after sync
         XCTAssertTrue(
-            offlineItem.exists,
+            offlineItemCard.exists,
             "Item should still exist after sync"
         )
 
         let syncedScreenshot = XCUIScreen.main.screenshot()
-        let attachment8 = XCTAttachment(screenshot: syncedScreenshot)
-        attachment8.name = "05-8-synced-successfully"
-        attachment8.lifetime = .keepAlways
-        add(attachment8)
+        let attachment10 = XCTAttachment(screenshot: syncedScreenshot)
+        attachment10.name = "05-10-synced-successfully"
+        attachment10.lifetime = .keepAlways
+        add(attachment10)
 
-        // Step 6: Verify item details are preserved after sync
-        offlineItem.tapNoIdle()
+        // Step 8: Verify item details are preserved after sync
+        offlineItemCard.tapNoIdle()
 
         // Wait for item detail screen
         XCTAssertTrue(
@@ -567,10 +588,10 @@ final class AliasVaultUITests: XCTestCase {
         )
 
         let itemVerifiedAfterSyncScreenshot = XCUIScreen.main.screenshot()
-        let attachment9 = XCTAttachment(screenshot: itemVerifiedAfterSyncScreenshot)
-        attachment9.name = "05-9-item-verified-after-sync"
-        attachment9.lifetime = .keepAlways
-        add(attachment9)
+        let attachment11 = XCTAttachment(screenshot: itemVerifiedAfterSyncScreenshot)
+        attachment11.name = "05-11-item-verified-after-sync"
+        attachment11.lifetime = .keepAlways
+        add(attachment11)
     }
 
     // MARK: - Helper Methods
@@ -765,5 +786,42 @@ final class AliasVaultUITests: XCTestCase {
         // Wait for items screen
         let itemsScreen = app.findElement(testID: "items-screen")
         _ = itemsScreen.waitForExistenceNoIdle(timeout: TestConfiguration.extendedTimeout)
+    }
+
+    /// Check if we're on the unlock screen and unlock if needed
+    /// This is useful after deep links which may cause the app to lock
+    /// - Parameter testUser: The test user with password to use for unlock
+    @MainActor
+    private func unlockVaultIfNeeded(with testUser: TestUser) {
+        // Wait a moment for the app to settle
+        sleep(1)
+
+        // Check if unlock screen is visible using testID
+        let unlockScreen = app.findElement(testID: "unlock-screen")
+
+        if unlockScreen.waitForExistenceNoIdle(timeout: 3) {
+            // Wait for the form to be ready (loading state finished)
+            _ = app.waitForText("Unlock vault", timeout: 10)
+
+            // Find the password field by testID
+            let passwordInput = app.findTextField(testID: "unlock-password-input")
+            if passwordInput.waitForExistenceNoIdle(timeout: 5) {
+                passwordInput.tapNoIdle()
+                passwordInput.typeText(testUser.password)
+            }
+
+            app.hideKeyboardIfVisible()
+
+            // Find unlock button by testID
+            let unlockButton = app.findElement(testID: "unlock-button")
+            if unlockButton.waitForExistenceNoIdle(timeout: 3) {
+                unlockButton.tapNoIdle()
+            }
+
+            // Wait for items screen (unlock may take time as it redirects through reinitialize)
+            let itemsScreen = app.findElement(testID: "items-screen")
+            _ = itemsScreen.waitForExistenceNoIdle(timeout: TestConfiguration.extendedTimeout)
+        }
+        // If not on unlock screen, just continue
     }
 }

@@ -217,30 +217,20 @@ extension XCUIApplication {
         return element
     }
 
-    /// Open a deep link URL
+    /// Open a deep link URL using XCUIApplication.open()
+    /// This is more reliable than using Safari as an intermediary
     @MainActor
     func openDeepLink(_ urlString: String) {
-        // Use Safari to trigger deep link
-        let safari = XCUIApplication(bundleIdentifier: "com.apple.mobilesafari")
-        safari.launch()
-
-        // Wait for Safari to load
-        sleep(1)
-
-        // Tap address bar and enter URL
-        let urlBar = safari.textFields["Address"]
-        if urlBar.waitForExistence(timeout: 5) {
-            urlBar.tap()
-            urlBar.typeText(urlString + "\n")
+        guard let url = URL(string: urlString) else {
+            print("[openDeepLink] Invalid URL: \(urlString)")
+            return
         }
 
-        // Handle potential "Open" dialog
-        let openButton = safari.buttons["Open"]
-        if openButton.waitForExistence(timeout: 3) {
-            openButton.tap()
-        }
+        // Use XCUIApplication.open() which directly opens the URL
+        // This triggers the system URL handler without needing Safari
+        self.open(url)
 
-        // Small delay for the deep link to process
+        // Wait for the deep link to be processed and app to return to foreground
         sleep(2)
     }
 }

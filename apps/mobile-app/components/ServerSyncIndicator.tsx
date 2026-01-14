@@ -226,6 +226,7 @@ export function ServerSyncIndicator(): React.ReactNode {
         style={[styles.container, styles.pending]}
         onPress={handleRetry}
         disabled={isRetrying}
+        testID="sync-indicator-pending"
       >
         {isRetrying ? (
           <ActivityIndicator size="small" color={colors.info} />
