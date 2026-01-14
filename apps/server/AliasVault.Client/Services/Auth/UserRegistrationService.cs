@@ -57,10 +57,11 @@ public class UserRegistrationService(HttpClient httpClient, AuthenticationStateP
             var passwordHash = await Encryption.DeriveKeyFromPasswordAsync(password, salt, encryptionType, encryptionSettings);
             var passwordHashString = BitConverter.ToString(passwordHash).Replace("-", string.Empty);
 
-            // Generate verifier using Rust WASM
-            var (srpSalt, srpVerifier) = await srpService.PreparePasswordChangeAsync(srpIdentity, passwordHashString);
+            // Derive SRP private key and verifier using the same salt
+            var privateKey = await srpService.DerivePrivateKeyAsync(salt, srpIdentity, passwordHashString);
+            var srpVerifier = await srpService.DeriveVerifierAsync(privateKey);
 
-            var registerRequest = new RegisterRequest(username, srpSalt, srpVerifier, encryptionType, encryptionSettings, srpIdentity);
+            var registerRequest = new RegisterRequest(username, salt, srpVerifier, encryptionType, encryptionSettings, srpIdentity);
             var result = await httpClient.PostAsJsonAsync("v1/Auth/register", registerRequest);
             var responseContent = await result.Content.ReadAsStringAsync();
 
