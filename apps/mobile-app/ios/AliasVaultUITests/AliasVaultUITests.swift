@@ -14,12 +14,9 @@ final class AliasVaultUITests: XCTestCase {
         continueAfterFailure = false
         app = XCUIApplication()
 
-        // Enable verbose synchronization debugging to identify what's blocking idle
-        // This helps diagnose what resources are keeping the app busy
-        app.launchArguments.append("-DTXEnableVerboseSyncSystem")
-        app.launchArguments.append("YES")
-        app.launchArguments.append("-DTXEnableVerboseSyncResources")
-        app.launchArguments.append("YES")
+        // Disable UIView animations to prevent "wait for app to idle" issues
+        // React Native apps have continuous activity that blocks XCTest idle detection
+        app.launchArguments.append("--uitest")
     }
 
     override func tearDown() {
@@ -275,27 +272,30 @@ final class AliasVaultUITests: XCTestCase {
         add(attachment1)
 
         // Enter item name
-        let itemNameInput = app.findTextField(testID: "item-name-input")
+        let itemNameInput = app.findAndScrollToTextField(testID: "item-name-input")
         itemNameInput.tapNoIdle()
         itemNameInput.typeText(uniqueName)
 
-        // Enter service URL
-        let serviceUrlInput = app.findTextField(testID: "service-url-input")
+        // Enter service URL - scroll to ensure visibility
+        let serviceUrlInput = app.findAndScrollToTextField(testID: "service-url-input")
         serviceUrlInput.tapNoIdle()
         serviceUrlInput.typeText("https://example.com")
 
-        // Add email field
+        // Add email field - scroll to button first
         let addEmailButton = app.findElement(testID: "add-email-button")
+        app.scrollToElement(addEmailButton)
         addEmailButton.tapNoIdle()
 
-        // Enter email
-        let loginEmailInput = app.findTextField(testID: "login-email-input")
+        // Enter email - scroll to ensure visibility
+        let loginEmailInput = app.findAndScrollToTextField(testID: "login-email-input")
         loginEmailInput.tapNoIdle()
         loginEmailInput.typeText("e2e-test@example.com")
 
-        // Enter username (optional)
-        let loginUsernameInput = app.findTextField(testID: "login-username-input")
+        // Enter username (optional) - scroll to ensure visibility since keyboard may occlude it
+        let loginUsernameInput = app.findAndScrollToTextField(testID: "login-username-input")
         if loginUsernameInput.exists {
+            // Ensure the field is visible by scrolling
+            app.scrollToElement(loginUsernameInput)
             loginUsernameInput.tapNoIdle()
             loginUsernameInput.typeText("e2euser")
         }
@@ -337,14 +337,228 @@ final class AliasVaultUITests: XCTestCase {
             "Should return to items screen"
         )
 
-        // Verify the newly created item appears in the list by tapping on it
-        let newItem = app.staticTexts[uniqueName]
-        XCTAssertTrue(
-            newItem.waitForExistenceNoIdle(timeout: 5),
-            "Newly created item should appear in list"
-        )
-        newItem.tapNoIdle()
+        // Find the newly created item by its accessibilityLabel (set on ItemCard)
+        // React Native sets accessibilityLabel on the TouchableOpacity, not as staticText
+        let newItemCard = app.descendants(matching: .any).matching(
+            NSPredicate(format: "label == %@", uniqueName)
+        ).firstMatch
 
+        XCTAssertTrue(
+            newItemCard.waitForExistenceNoIdle(timeout: 10),
+            "Newly created item '\(uniqueName)' should appear in list"
+        )
+
+        // Tap on the item to verify it
+        newItemCard.tapNoIdle()
+
+        // Wait for item detail screen to confirm we tapped the right item
+        XCTAssertTrue(
+            app.waitForText("Login credentials", timeout: 10),
+            "Should show item detail screen"
+        )
+
+        let itemVerifiedScreenshot = XCUIScreen.main.screenshot()
+        let attachment4 = XCTAttachment(screenshot: itemVerifiedScreenshot)
+        attachment4.name = "04-4-item-verified"
+        attachment4.lifetime = .keepAlways
+        add(attachment4)
+    }
+
+    // MARK: - Test 05: Offline Mode and Sync
+
+    /// Test 05: Offline Mode and Sync
+    /// Verifies offline mode detection, local item creation while offline, and sync recovery
+    /// This test uses debug deep links to simulate offline mode (only works in development builds)
+    @MainActor
+    func test05OfflineModeAndSync() async throws {
+        // Ensure we have a test user
+        let testUser = try await ensureTestUser()
+
+        // Generate unique item name for the offline-created item
+        let uniqueName = TestConfiguration.generateUniqueName(prefix: "Offline Test")
+
+        // Launch app
+        app.launch()
+
+        // Handle authentication if needed (login or unlock screen)
+        ensureAuthenticated(with: testUser)
+
+        // Step 1: Verify we're online and on items screen
+        let itemsScreen = app.findElement(testID: "items-screen")
+        XCTAssertTrue(
+            itemsScreen.waitForExistenceNoIdle(timeout: TestConfiguration.extendedTimeout),
+            "Should be on items screen"
+        )
+
+        let initialStateScreenshot = XCUIScreen.main.screenshot()
+        let attachment1 = XCTAttachment(screenshot: initialStateScreenshot)
+        attachment1.name = "05-1-initial-state-online"
+        attachment1.lifetime = .keepAlways
+        add(attachment1)
+
+        // Step 2: Enable offline mode via debug deep link
+        app.openDeepLink("aliasvault://open/__debug__/set-offline/true")
+
+        // Wait for deep link to be processed and return to items screen
+        XCTAssertTrue(
+            itemsScreen.waitForExistenceNoIdle(timeout: 10),
+            "Should return to items screen after deep link"
+        )
+
+        // Small delay for offline mode to propagate to UI
+        sleep(2)
+
+        // Verify offline indicator appears
+        let offlineIndicator = app.findElement(testID: "sync-indicator-offline")
+        XCTAssertTrue(
+            offlineIndicator.waitForExistenceNoIdle(timeout: 5),
+            "Offline indicator should appear"
+        )
+
+        let offlineModeScreenshot = XCUIScreen.main.screenshot()
+        let attachment2 = XCTAttachment(screenshot: offlineModeScreenshot)
+        attachment2.name = "05-2-offline-mode-enabled"
+        attachment2.lifetime = .keepAlways
+        add(attachment2)
+
+        // Step 3: Create an item while offline
+        let addItemButton = app.findElement(testID: "add-item-button")
+        addItemButton.tapNoIdle()
+
+        // Wait for add/edit screen to load
+        let addEditScreen = app.findElement(testID: "add-edit-screen")
+        XCTAssertTrue(
+            addEditScreen.waitForExistenceNoIdle(timeout: 10),
+            "Add/edit screen should appear"
+        )
+
+        let addItemOfflineScreenshot = XCUIScreen.main.screenshot()
+        let attachment3 = XCTAttachment(screenshot: addItemOfflineScreenshot)
+        attachment3.name = "05-3-add-item-screen-offline"
+        attachment3.lifetime = .keepAlways
+        add(attachment3)
+
+        // Enter item name
+        let itemNameInput = app.findAndScrollToTextField(testID: "item-name-input")
+        itemNameInput.tapNoIdle()
+        itemNameInput.typeText(uniqueName)
+
+        // Enter service URL - scroll to ensure visibility
+        let serviceUrlInput = app.findAndScrollToTextField(testID: "service-url-input")
+        serviceUrlInput.tapNoIdle()
+        serviceUrlInput.typeText("https://offline-test.example.com")
+
+        // Add email field - scroll to button first
+        let addEmailButton = app.findElement(testID: "add-email-button")
+        app.scrollToElement(addEmailButton)
+        addEmailButton.tapNoIdle()
+
+        // Enter email - scroll to ensure visibility
+        let loginEmailInput = app.findAndScrollToTextField(testID: "login-email-input")
+        loginEmailInput.tapNoIdle()
+        loginEmailInput.typeText("offline-test@example.com")
+
+        app.hideKeyboardIfVisible()
+
+        let itemFilledOfflineScreenshot = XCUIScreen.main.screenshot()
+        let attachment4 = XCTAttachment(screenshot: itemFilledOfflineScreenshot)
+        attachment4.name = "05-4-item-filled-offline"
+        attachment4.lifetime = .keepAlways
+        add(attachment4)
+
+        // Save the item
+        let saveButton = app.findElement(testID: "save-button")
+        saveButton.tapNoIdle()
+
+        // Wait for item to be saved and show detail screen
+        XCTAssertTrue(
+            app.waitForText("Login credentials", timeout: 10),
+            "Should show item detail screen after save"
+        )
+
+        let itemSavedOfflineScreenshot = XCUIScreen.main.screenshot()
+        let attachment5 = XCTAttachment(screenshot: itemSavedOfflineScreenshot)
+        attachment5.name = "05-5-item-saved-offline"
+        attachment5.lifetime = .keepAlways
+        add(attachment5)
+
+        // Go back to items list
+        sleep(1)
+        let backButton = app.findElement(testID: "back-button")
+        backButton.tapNoIdle()
+
+        // Wait for items screen
+        XCTAssertTrue(
+            itemsScreen.waitForExistenceNoIdle(timeout: 10),
+            "Should return to items screen"
+        )
+
+        // Verify we're still offline and the item exists
+        XCTAssertTrue(offlineIndicator.exists, "Should still be offline")
+
+        // Verify the offline-created item appears in the list
+        let offlineItem = app.staticTexts[uniqueName]
+        XCTAssertTrue(
+            offlineItem.waitForExistenceNoIdle(timeout: 5),
+            "Offline-created item should appear in list"
+        )
+
+        let itemInListOfflineScreenshot = XCUIScreen.main.screenshot()
+        let attachment6 = XCTAttachment(screenshot: itemInListOfflineScreenshot)
+        attachment6.name = "05-6-item-in-list-offline"
+        attachment6.lifetime = .keepAlways
+        add(attachment6)
+
+        // Step 4: Disable offline mode (go back online)
+        app.openDeepLink("aliasvault://open/__debug__/set-offline/false")
+
+        // Wait for deep link to be processed
+        XCTAssertTrue(
+            itemsScreen.waitForExistenceNoIdle(timeout: 10),
+            "Should return to items screen"
+        )
+
+        // Small delay for state to update
+        sleep(2)
+
+        let backOnlineScreenshot = XCUIScreen.main.screenshot()
+        let attachment7 = XCTAttachment(screenshot: backOnlineScreenshot)
+        attachment7.name = "05-7-back-online"
+        attachment7.lifetime = .keepAlways
+        add(attachment7)
+
+        // Step 5: Pull-to-refresh to trigger sync
+        app.pullToRefresh()
+
+        // Wait for sync to complete
+        sleep(3)
+
+        // Verify offline indicator is gone
+        XCTAssertFalse(
+            offlineIndicator.exists,
+            "Offline indicator should be gone after sync"
+        )
+
+        // Verify the item still exists after sync
+        XCTAssertTrue(
+            offlineItem.exists,
+            "Item should still exist after sync"
+        )
+
+        let syncedScreenshot = XCUIScreen.main.screenshot()
+        let attachment8 = XCTAttachment(screenshot: syncedScreenshot)
+        attachment8.name = "05-8-synced-successfully"
+        attachment8.lifetime = .keepAlways
+        add(attachment8)
+
+        // Step 6: Verify item details are preserved after sync
+        offlineItem.tapNoIdle()
+
+        // Wait for item detail screen
+        XCTAssertTrue(
+            app.waitForText("Login credentials", timeout: 10),
+            "Should show item detail screen"
+        )
 
         // Verify email is preserved
         XCTAssertTrue(

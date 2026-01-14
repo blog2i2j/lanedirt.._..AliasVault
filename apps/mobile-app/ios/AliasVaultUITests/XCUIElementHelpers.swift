@@ -177,6 +177,46 @@ extension XCUIApplication {
         startPoint.press(forDuration: 0.1, thenDragTo: endPoint)
     }
 
+    /// Scroll to make an element visible within a scroll view
+    /// This is useful when the keyboard occludes form fields
+    @MainActor
+    func scrollToElement(_ element: XCUIElement, in scrollView: XCUIElement? = nil) {
+        let targetScrollView = scrollView ?? self.scrollViews.firstMatch
+
+        // If element is already hittable, no need to scroll
+        if element.isHittable {
+            return
+        }
+
+        // Try scrolling down to find the element
+        var attempts = 0
+        let maxAttempts = 5
+
+        while !element.isHittable && attempts < maxAttempts {
+            // Swipe up to scroll down (reveal lower content)
+            let startPoint = targetScrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+            let endPoint = targetScrollView.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
+            startPoint.press(forDuration: 0.1, thenDragTo: endPoint)
+
+            // Small delay for scroll to settle
+            Thread.sleep(forTimeInterval: 0.3)
+            attempts += 1
+        }
+    }
+
+    /// Find a text field by testID and ensure it's visible by scrolling if needed
+    @MainActor
+    func findAndScrollToTextField(testID: String) -> XCUIElement {
+        let element = findTextField(testID: testID)
+
+        // If the element exists but isn't hittable, try to scroll to it
+        if element.exists && !element.isHittable {
+            scrollToElement(element)
+        }
+
+        return element
+    }
+
     /// Open a deep link URL
     @MainActor
     func openDeepLink(_ urlString: String) {
