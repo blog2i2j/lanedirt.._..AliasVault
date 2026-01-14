@@ -119,6 +119,47 @@ fn pad_to_length(bytes: Vec<u8>, target_len: usize) -> Vec<u8> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Argon2 Password Hashing
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Derive a key from a password using Argon2Id.
+///
+/// Uses the AliasVault default parameters:
+/// - Iterations: 2
+/// - Memory: 19456 KiB
+/// - Parallelism: 1
+/// - Output length: 32 bytes
+///
+/// # Arguments
+/// * `password` - The password to hash
+/// * `salt` - Salt as a string (will be UTF-8 encoded)
+///
+/// # Returns
+/// Derived key as uppercase hex string (64 characters = 32 bytes)
+pub fn argon2_hash_password(password: &str, salt: &str) -> Result<String, SrpError> {
+    use argon2::{Argon2, Algorithm, Version, Params};
+
+    // AliasVault default parameters
+    let params = Params::new(
+        19456,  // m_cost (memory in KiB)
+        2,      // t_cost (iterations)
+        1,      // p_cost (parallelism)
+        Some(32) // output length
+    ).map_err(|e| SrpError::InvalidParameter(format!("Invalid Argon2 params: {}", e)))?;
+
+    let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+
+    let mut output = [0u8; 32];
+    argon2.hash_password_into(
+        password.as_bytes(),
+        salt.as_bytes(),
+        &mut output
+    ).map_err(|e| SrpError::InvalidParameter(format!("Argon2 hash failed: {}", e)))?;
+
+    Ok(bytes_to_hex(&output))
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Client Operations
 // ═══════════════════════════════════════════════════════════════════════════════
 

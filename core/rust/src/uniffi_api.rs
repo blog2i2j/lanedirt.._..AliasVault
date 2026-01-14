@@ -114,6 +114,25 @@ pub fn extract_root_domain(domain: String) -> String {
 
 pub use crate::srp::{SrpEphemeral, SrpSession, SrpError};
 
+/// Derive a key from a password using Argon2Id.
+///
+/// Uses the AliasVault default parameters:
+/// - Iterations: 2
+/// - Memory: 19456 KiB
+/// - Parallelism: 1
+/// - Output length: 32 bytes
+///
+/// # Arguments
+/// * `password` - The password to hash
+/// * `salt` - Salt as a string (will be UTF-8 encoded)
+///
+/// # Returns
+/// Derived key as uppercase hex string (64 characters = 32 bytes)
+#[uniffi::export]
+pub fn argon2_hash_password(password: String, salt: String) -> Result<String, SrpError> {
+    crate::srp::argon2_hash_password(&password, &salt)
+}
+
 /// Generate a cryptographic salt for SRP.
 /// Returns a 32-byte random salt as an uppercase hex string.
 #[uniffi::export]

@@ -45,6 +45,9 @@ digest = "0.10"
 subtle = "2.5"
 getrandom = { version = "0.2", features = ["js"] }
 
+# Argon2 password hashing
+argon2 = "0.5"
+
 # UniFFI for Swift/Kotlin bindings (optional)
 # Note: Don't add "cli" feature here - it pulls in heavy bindgen dependencies
 # The uniffi-cli feature enables CLI separately for the uniffi-bindgen binary only
