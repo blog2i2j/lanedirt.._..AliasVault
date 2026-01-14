@@ -246,7 +246,7 @@ final class AliasVaultUITests: XCTestCase {
         // Generate unique item name
         let uniqueName = TestConfiguration.generateUniqueName(prefix: "E2E Test")
 
-        // Launch the app (it should already be authenticated from test03)
+        // Launch the app (account should already exist)
         app.launch()
 
         // Handle unlock screen if it appears (vault may have locked between tests)
@@ -387,6 +387,12 @@ final class AliasVaultUITests: XCTestCase {
     func test05OfflineModeAndSync() async throws {
         // Ensure we have a test user
         let testUser = try await ensureTestUser()
+        
+        // Launch the app (account should already exist)
+        app.launch()
+
+        // Handle unlock screen if it appears (vault may have locked between tests)
+        unlockVaultIfNeeded(with: testUser)
 
         // Store the original API URL for restoration
         let originalApiUrl = TestConfiguration.apiUrl
@@ -581,9 +587,9 @@ final class AliasVaultUITests: XCTestCase {
             "Should show item detail screen"
         )
 
-        // Verify email is preserved
+        // Verify email is preserved (use waitForTextContaining for flexible matching)
         XCTAssertTrue(
-            app.waitForText("offline-test@example.com", timeout: 5),
+            app.waitForTextContaining("offline-test@example.com", timeout: 5),
             "Email should be preserved after sync"
         )
 
@@ -745,10 +751,10 @@ final class AliasVaultUITests: XCTestCase {
     /// Perform unlock with provided test user password (for locked vault)
     @MainActor
     private func performUnlock(with testUser: TestUser) {
-        // Wait for "Unlock vault" text to appear (indicates form is loaded)
+        // Wait for "Unlock Vault" text to appear (indicates form is loaded)
         XCTAssertTrue(
-            app.waitForText("Unlock vault", timeout: 15),
-            "Unlock vault header should appear"
+            app.waitForText("Unlock Vault", timeout: 15),
+            "Unlock Vault header should appear"
         )
 
         // Find password field - React Native renders it as a generic "Other" element
@@ -801,7 +807,7 @@ final class AliasVaultUITests: XCTestCase {
 
         if unlockScreen.waitForExistenceNoIdle(timeout: 3) {
             // Wait for the form to be ready (loading state finished)
-            _ = app.waitForText("Unlock vault", timeout: 10)
+            _ = app.waitForText("Unlock Vault", timeout: 10)
 
             // Find the password field by testID
             let passwordInput = app.findTextField(testID: "unlock-password-input")

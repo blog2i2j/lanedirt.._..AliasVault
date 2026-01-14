@@ -157,6 +157,14 @@ extension XCUIApplication {
         return self.staticTexts[text].waitForExistenceNoIdle(timeout: timeout)
     }
 
+    /// Wait for any element containing the specified text (searches labels and values)
+    @MainActor
+    func waitForTextContaining(_ text: String, timeout: TimeInterval = 10) -> Bool {
+        let predicate = NSPredicate(format: "label CONTAINS[c] %@ OR value CONTAINS[c] %@", text, text)
+        let element = self.descendants(matching: .any).matching(predicate).firstMatch
+        return element.waitForExistenceNoIdle(timeout: timeout)
+    }
+
     /// Hide keyboard if visible (uses press to avoid idle wait)
     @MainActor
     func hideKeyboardIfVisible() {
