@@ -192,6 +192,7 @@ export default function SettingsScreen() : React.ReactNode {
                     selectedOption === option.value && styles.optionButtonSelected
                   ]}
                   onPress={() => handleOptionChange(option.value)}
+                  testID={`api-option-${option.value === 'custom' ? 'custom' : 'default'}`}
                 >
                   <Text style={[
                     styles.optionButtonText,

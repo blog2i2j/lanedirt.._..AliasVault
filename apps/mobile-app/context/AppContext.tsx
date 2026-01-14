@@ -49,7 +49,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const isLoggingOutRef = useRef(false);
 
   /**
-   * Logout the user by revoking tokens and clearing the auth tokens from storage.
+   * Logout the user (forced logout path - e.g., 401, token revocation).
+   * Uses clearAuthForced to preserve vault data for potential RPO recovery.
    * Prevents recursive logout calls by tracking logout state.
    */
   const logout = useCallback(async (errorMessage?: string): Promise<void> => {
@@ -61,7 +62,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       isLoggingOutRef.current = true;
       await webApi.revokeTokens();
-      await auth.clearAuth(errorMessage);
+      // Use forced logout to preserve vault data for recovery
+      await auth.clearAuthForced(errorMessage);
     } catch (error) {
       console.error('Error during logout:', error);
     } finally {

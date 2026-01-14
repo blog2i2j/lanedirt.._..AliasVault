@@ -6,6 +6,7 @@ import VaultModels
 import SwiftUI
 import VaultUI
 import AVFoundation
+import RustCoreFramework
 
 /**
  * This class is used as a bridge to allow React Native to interact with the VaultStoreKit class.
@@ -168,6 +169,15 @@ public class VaultManager: NSObject {
         }
     }
 
+    /// Clear session data only (for forced logout).
+    /// Preserves vault data on disk for recovery on next login.
+    @objc
+    func clearSession() {
+        vaultStore.clearSession()
+    }
+
+    /// Clear all vault data including from persisted storage.
+    /// This is used for user-initiated logout.
     @objc
     func clearVault() {
         do {

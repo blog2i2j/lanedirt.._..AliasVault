@@ -15,10 +15,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
-    // Handle --reset-state launch argument for UI tests
+    // Handle UI test launch arguments
     #if DEBUG
     if ProcessInfo.processInfo.arguments.contains("--reset-state") {
       resetAppState()
+    }
+    // Disable UIView animations for UI tests to prevent "wait for app to idle" issues
+    // React Native apps have continuous JS bridge activity that prevents XCTest idle detection
+    if ProcessInfo.processInfo.arguments.contains("--uitest") {
+      UIView.setAnimationsEnabled(false)
     }
     #endif
 

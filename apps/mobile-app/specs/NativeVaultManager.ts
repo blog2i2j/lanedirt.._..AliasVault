@@ -19,7 +19,8 @@ export interface Spec extends TurboModule {
   isVaultUnlocked(): Promise<boolean>;
   getVaultMetadata(): Promise<string>;
   unlockVault(): Promise<boolean>;
-  clearVault(): Promise<void>;
+  clearSession(): Promise<void>;  // Clears session only, preserves vault for potential RPO recovery
+  clearVault(): Promise<void>;    // Clears everything including vault data
 
   // Vault sync - single method handles all sync logic including merge
   // Returns detailed result about what action was taken

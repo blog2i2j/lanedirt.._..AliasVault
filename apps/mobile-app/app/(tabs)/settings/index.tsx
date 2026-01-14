@@ -18,6 +18,9 @@ import { InlineSkeletonLoader } from '@/components/ui/InlineSkeletonLoader';
 import { TitleContainer } from '@/components/ui/TitleContainer';
 import { UsernameDisplay } from '@/components/ui/UsernameDisplay';
 import { useApp } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
+import { useDb } from '@/context/DbContext';
+import { useWebApi } from '@/context/WebApiContext';
 
 /**
  * Settings screen.
@@ -26,8 +29,11 @@ export default function SettingsScreen() : React.ReactNode {
   const colors = useColors();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { getAuthMethodDisplayKey, shouldShowAutofillReminder, logout } = useApp();
+  const { getAuthMethodDisplayKey, shouldShowAutofillReminder } = useApp();
   const { getAutoLockTimeout, getClipboardClearTimeout } = useApp();
+  const { clearAuthUserInitiated } = useAuth();
+  const { isDirty } = useDb();
+  const webApi = useWebApi();
   const { loadApiUrl, getDisplayUrl } = useApiUrl();
   const scrollY = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
@@ -107,26 +113,53 @@ export default function SettingsScreen() : React.ReactNode {
   );
 
   /**
-   * Handle the logout.
+   * Perform the actual logout - revokes tokens and clears auth.
+   */
+  const performLogout = async () : Promise<void> => {
+    try {
+      await webApi.revokeTokens();
+    } catch (error) {
+      console.error('Error revoking tokens:', error);
+      // Continue with logout even if revoke fails
+    }
+    await clearAuthUserInitiated();
+    router.replace('/login');
+  };
+
+  /**
+   * Handle the logout button press.
+   * Shows warning if there are unsynced changes, otherwise shows normal confirmation.
    */
   const handleLogout = async () : Promise<void> => {
-    // Show native confirmation dialog
-    Alert.alert(
-      t('auth.logout'),
-      t('auth.confirmLogout'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('auth.logout'), style: 'destructive',
-          /**
-           * Handle the logout.
-           */
-          onPress: async () : Promise<void> => {
-            await logout();
-            router.replace('/login');
-          }
-        },
-      ]
-    );
+    if (isDirty) {
+      // Show warning about unsynced changes
+      Alert.alert(
+        t('logout.unsyncedChangesTitle'),
+        t('logout.unsyncedChangesWarning'),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('logout.logoutAnyway'),
+            style: 'destructive',
+            onPress: performLogout,
+          },
+        ]
+      );
+    } else {
+      // Show normal confirmation dialog
+      Alert.alert(
+        t('auth.logout'),
+        t('auth.confirmLogout'),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('auth.logout'),
+            style: 'destructive',
+            onPress: performLogout,
+          },
+        ]
+      );
+    }
   };
 
   /**
