@@ -11,7 +11,8 @@
       "test:coverage": "vitest run --coverage",
       "lint": "eslint src",
       "lint:custom": "eslint",
-      "lint:fix": "eslint src --fix"
+      "lint:fix": "eslint src --fix",
+      "generate": "node scripts/generate-vault-sql.cjs"
   },
     "files": [
         "dist"

@@ -17,6 +17,10 @@ package_path="."
 echo "📦 Building $package_name..."
 npm install && npm run lint && npm run test && npm run build
 
+echo ""
+echo "🔄 Generating platform-specific vault SQL (Swift, Kotlin)..."
+node scripts/generate-vault-sql.cjs
+
 dist_path="dist"
 
 for target in "${TARGETS[@]}"; do
