@@ -1,135 +1,104 @@
-# iOS E2E Testing with Maestro
+# iOS Testing Guide
 
-This guide explains how to set up and run end-to-end tests for the AliasVault iOS mobile app using [Maestro](https://maestro.mobile.dev/).
+This guide explains how to run the iOS test suites for the AliasVault mobile app.
+
+## Overview
+
+The iOS app has two test targets:
+
+1. **AliasVaultUITests** - End-to-end UI tests that test full user flows
+2. **VaultStoreKitTests** - Unit tests for the native VaultStoreKit framework
 
 ## Prerequisites
 
-- macOS (required for iOS simulator)
-- Xcode installed with iOS Simulator
+- macOS with Xcode installed (15.0+)
+- iOS Simulator configured
 - Node.js 20+
-- The AliasVault mobile app built and ready to run
+- CocoaPods dependencies installed (`cd apps/mobile-app && npx pod-install`)
+- For UI tests: Local API server running at `http://localhost:5092`
 
-## Installing Maestro
+## Running Tests
 
-Install Maestro CLI:
+### Via Xcode
 
-```bash
-curl -Ls "https://get.maestro.mobile.dev" | bash
-```
+1. Open the project in Xcode:
+   ```bash
+   cd apps/mobile-app/ios
+   open AliasVault.xcworkspace
+   ```
 
-After installation, restart your terminal or run:
+2. Select a simulator (e.g., iPhone 16 Pro)
 
-```bash
-export PATH="$PATH":"$HOME/.maestro/bin"
-```
+3. Run tests:
+   - **All tests**: `Cmd + U` or Product > Test
+   - **Specific test class**: Click the diamond icon next to the test class in the Test Navigator
+   - **Single test**: Click the diamond icon next to a specific test method
 
-Verify the installation:
+### Via Command Line (xcodebuild)
 
-```bash
-maestro --version
-```
-
-## Building the App for Testing
-
-Before running E2E tests, you need to build the app:
+#### Run All Tests
 
 ```bash
-cd apps/mobile-app
+cd apps/mobile-app/ios
 
-# Install dependencies
-npm install
-
-# Build and run on iOS simulator
-npm run ios
+# Run all tests on iPhone 17 Pro simulator
+xcodebuild test \
+  -workspace AliasVault.xcworkspace \
+  -scheme AliasVault \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -resultBundlePath ./test-results
 ```
 
-Wait for the app to fully launch in the simulator before running tests.
-
-## Running E2E Tests
-
-### Run All Tests
+#### Run UI Tests Only
 
 ```bash
-cd apps/mobile-app
-
-# Run all E2E tests on iOS
-npm run test:e2e:ios
+xcodebuild test \
+  -workspace AliasVault.xcworkspace \
+  -scheme AliasVault \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -only-testing:AliasVaultUITests
 ```
 
-### Run a Specific Test
+#### Run VaultStoreKit Unit Tests Only
 
 ```bash
-# Run a single test file
-$HOME/.maestro/bin/maestro test .maestro/flows/01-app-launch.yaml --platform ios
+xcodebuild test \
+  -workspace AliasVault.xcworkspace \
+  -scheme AliasVault \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -only-testing:VaultStoreKitTests
 ```
 
-### Run Tests with Environment Variables
-
-Some tests require credentials to log in:
+#### Run a Specific Test
 
 ```bash
-TEST_USERNAME="your-test-user" TEST_PASSWORD="your-test-password" npm run test:e2e:ios
+# Run a specific test class
+xcodebuild test \
+  -workspace AliasVault.xcworkspace \
+  -scheme AliasVault \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -only-testing:AliasVaultUITests/AliasVaultUITests
+
+# Run a specific test method
+xcodebuild test \
+  -workspace AliasVault.xcworkspace \
+  -scheme AliasVault \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -only-testing:AliasVaultUITests/AliasVaultUITests/test01AppLaunch
 ```
 
-Or pass them directly to Maestro:
+#### With Custom API URL (for UI tests)
 
 ```bash
-$HOME/.maestro/bin/maestro test .maestro/flows/03-successful-login.yaml \
-  --platform ios \
-  --env TEST_USERNAME="your-test-user" \
-  --env TEST_PASSWORD="your-test-password"
+API_URL="http://your-server:5092" xcodebuild test \
+  -workspace AliasVault.xcworkspace \
+  -scheme AliasVault \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -only-testing:AliasVaultUITests
 ```
 
-## Test Structure
-
-Tests are located in `apps/mobile-app/.maestro/`:
-
-```
-.maestro/
-├── config.yaml           # Maestro configuration
-├── flows/                # Test flows (run in order)
-│   ├── 01-app-launch.yaml
-│   ├── 02-login-validation.yaml
-│   ├── 03-successful-login.yaml
-│   ├── 04-create-item.yaml
-│   └── ...
-└── utils/                # Reusable flows
-    └── go-back.yaml
-```
-
-## Debugging Failed Tests
-
-### View Screenshots
-
-Maestro saves screenshots and debug output to `~/.maestro/tests/`. After a test run, check this directory for:
-- Screenshots at failure points
-- JSON files with element hierarchy
-- HTML reports
-
-### Run in Debug Mode
+### List Available Simulators
 
 ```bash
-maestro test .maestro/flows/01-app-launch.yaml --debug-output ./debug
+xcrun simctl list devices available
 ```
-
-### Interactive Studio
-
-Launch Maestro Studio to interactively build and debug tests:
-
-```bash
-maestro studio
-```
-
-This opens a web UI where you can:
-- See the current screen elements
-- Record actions
-- Test selectors
-
-## CI/CD Integration
-
-E2E tests are configured to run in GitHub Actions:
-
-- **Android tests**: Run on every PR (Linux runner)
-- **iOS tests**: Run on schedule/manual dispatch (macOS runner - higher cost)
-
-See `.github/workflows/mobile-e2e-tests.yml` for the CI configuration.
