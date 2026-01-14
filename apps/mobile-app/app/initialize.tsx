@@ -172,7 +172,7 @@ export default function Initialize() : React.ReactNode {
   });
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={styles.container} testID="initialize-screen">
       <View>
         <LoadingIndicator status={status || ''} />
       </View>

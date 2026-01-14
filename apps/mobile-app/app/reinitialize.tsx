@@ -191,7 +191,7 @@ export default function ReinitializeScreen() : React.ReactNode {
   });
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={styles.container} testID="reinitialize-screen">
       <View style={styles.contentWrapper}>
         <View style={styles.messageContainer}>
           {status ? <LoadingIndicator status={status} /> : null}
