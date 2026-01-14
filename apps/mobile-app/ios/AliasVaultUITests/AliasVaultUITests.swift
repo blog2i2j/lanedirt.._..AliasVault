@@ -1,21 +1,27 @@
 import XCTest
 
-/// E2E UI Tests for AliasVault iOS app
-/// Migrated from Maestro tests to native XCTest
-/// Uses dynamically created test users (no pre-configured credentials needed)
+/// E2E UI Tests for AliasVault iOS app.
+///
+/// These tests use dynamically created test users via the API, so no pre-configured
+/// credentials are needed. Tests run sequentially and share state (e.g., the test user
+/// created in test03 is reused in subsequent tests).
+///
+/// Prerequisites:
+/// - Local API server running at the URL specified in TestConfiguration.apiUrl
+/// - iOS Simulator with the app installed
+///
+/// Note: All UI interactions use `NoIdle` variants (e.g., `waitForExistenceNoIdle`,
+/// `tapNoIdle`) to avoid XCTest hanging on React Native's continuous timers/animations.
 final class AliasVaultUITests: XCTestCase {
     var app: XCUIApplication!
 
-    /// Shared test user created for the test run
+    /// Shared test user created for the test run (persists across tests)
     static var testUser: TestUser?
 
     override func setUp() {
         super.setUp()
         continueAfterFailure = false
         app = XCUIApplication()
-
-        // Disable UIView animations to prevent "wait for app to idle" issues
-        // React Native apps have continuous activity that blocks XCTest idle detection
         app.launchArguments.append("--uitest")
     }
 
@@ -46,16 +52,13 @@ final class AliasVaultUITests: XCTestCase {
 
     // MARK: - Test 01: App Launch
 
-    /// Test 01: App Launch
-    /// Verifies the app launches correctly and shows the login screen
+    /// Verifies the app launches correctly and shows the login screen with all expected elements.
     @MainActor
     func test01AppLaunch() {
-        // Launch the app with a clean state
         app.launchArguments.append("--reset-state")
         app.launch()
 
-        // Wait for app to fully load - look for AliasVault text
-        // Use waitForExistenceNoIdle to avoid hanging on React Native timers/animations
+        // Wait for app to fully load
         let aliasVaultText = app.staticTexts["AliasVault"]
         XCTAssertTrue(
             aliasVaultText.waitForExistenceNoIdle(timeout: 15),
@@ -90,15 +93,12 @@ final class AliasVaultUITests: XCTestCase {
 
     // MARK: - Test 02: Login Validation
 
-    /// Test 02: Login Validation
-    /// Verifies login form validation and error handling
+    /// Verifies login form validation and error handling for empty and invalid credentials.
     @MainActor
     func test02LoginValidation() {
-        // Launch the app fresh
         app.launchArguments.append("--reset-state")
         app.launch()
 
-        // Wait for login screen (use waitForExistenceNoIdle for React Native compatibility)
         let loginScreen = app.findElement(testID: "login-screen")
         XCTAssertTrue(
             loginScreen.waitForExistenceNoIdle(timeout: 15),
@@ -142,18 +142,16 @@ final class AliasVaultUITests: XCTestCase {
 
     // MARK: - Test 03: Successful Login
 
-    /// Test 03: Successful Login
-    /// Verifies login flow with dynamically created test user
+    /// Verifies successful login flow with a dynamically created test user.
+    /// Creates a test user via the API, configures the app to use the local server,
+    /// and logs in. The test user is stored for reuse in subsequent tests.
     @MainActor
     func test03SuccessfulLogin() async throws {
-        // Create test user dynamically
         let testUser = try await ensureTestUser()
 
-        // Launch the app fresh
         app.launchArguments.append("--reset-state")
         app.launch()
 
-        // Wait for login screen (use waitForExistenceNoIdle for React Native compatibility)
         let loginScreen = app.findElement(testID: "login-screen")
         XCTAssertTrue(
             loginScreen.waitForExistenceNoIdle(timeout: 15),
@@ -235,24 +233,16 @@ final class AliasVaultUITests: XCTestCase {
 
     // MARK: - Test 04: Create New Item
 
-    /// Test 04: Create New Item
-    /// Verifies item creation flow
-    /// Launches the app and handles unlock if necessary
+    /// Verifies item creation flow: opens add form, fills in details, saves, and verifies
+    /// the item appears in the list. Handles vault unlock if needed between tests.
     @MainActor
     func test04CreateItem() async throws {
-        // Get the test user (should exist from test03)
         let testUser = try await ensureTestUser()
-
-        // Generate unique item name
         let uniqueName = TestConfiguration.generateUniqueName(prefix: "E2E Test")
 
-        // Launch the app (account should already exist)
         app.launch()
-
-        // Handle unlock screen if it appears (vault may have locked between tests)
         unlockVaultIfNeeded(with: testUser)
 
-        // Wait for items screen
         let itemsScreen = app.findElement(testID: "items-screen")
         XCTAssertTrue(
             itemsScreen.waitForExistenceNoIdle(timeout: TestConfiguration.extendedTimeout),
@@ -342,8 +332,7 @@ final class AliasVaultUITests: XCTestCase {
             "Should return to items screen"
         )
 
-        // Find the newly created item by its accessibilityLabel (set on ItemCard)
-        // React Native sets accessibilityLabel on the TouchableOpacity, not as staticText
+        // Find the newly created item by its accessibilityLabel
         let newItemCard = app.descendants(matching: .any).matching(
             NSPredicate(format: "label == %@", uniqueName)
         ).firstMatch
@@ -371,34 +360,23 @@ final class AliasVaultUITests: XCTestCase {
 
     // MARK: - Test 05: Offline Mode and Sync
 
-    /// Test 05: Offline Mode and Sync
-    /// Verifies offline mode detection, local item creation while offline, vault lock/unlock while offline,
-    /// and sync recovery when back online.
+    /// Verifies offline mode and sync recovery:
+    /// 1. Goes offline by setting API URL to invalid (simulates network failure)
+    /// 2. Creates a credential while offline (stored locally)
+    /// 3. Goes back online and triggers sync
+    /// 4. Verifies the credential persists after sync
     ///
-    /// This test mirrors the browser extension's 07-offline-sync.spec.ts test:
-    /// 1. User is authenticated and online
-    /// 2. Go offline by setting API URL to invalid (simulates network failure)
-    /// 3. Create a credential while offline (stored locally with hasPendingSync=true)
-    /// 4. Lock the vault while offline
-    /// 5. Unlock the vault while still offline (uses stored encryption params)
-    /// 6. Go back online (restore valid API URL)
-    /// 7. Trigger sync and verify credential is synced
+    /// Uses debug deep links (`__debug__/set-api-url`) to toggle offline mode.
+    /// These only work in development builds.
     @MainActor
     func test05OfflineModeAndSync() async throws {
-        // Ensure we have a test user
         let testUser = try await ensureTestUser()
-        
-        // Launch the app (account should already exist)
-        app.launch()
 
-        // Handle unlock screen if it appears (vault may have locked between tests)
+        app.launch()
         unlockVaultIfNeeded(with: testUser)
 
-        // Store the original API URL for restoration
         let originalApiUrl = TestConfiguration.apiUrl
         let invalidApiUrl = "http://offline.invalid.localhost:9999"
-
-        // Generate unique item name for the offline-created item
         let uniqueName = TestConfiguration.generateUniqueName(prefix: "Offline Test")
 
         // Step 1: Verify we're online and on items screen
@@ -602,232 +580,38 @@ final class AliasVaultUITests: XCTestCase {
 
     // MARK: - Helper Methods
 
-    /// Ensure user is authenticated - handles login, unlock, initialize, and reinitialize screens
-    @MainActor
-    private func ensureAuthenticated(with testUser: TestUser) {
-        // Wait a moment for initial app loading
-        sleep(3)
-
-        // Take a debug screenshot to see what's on screen
-        let debugScreenshot = XCUIScreen.main.screenshot()
-        let debugAttachment = XCTAttachment(screenshot: debugScreenshot)
-        debugAttachment.name = "debug-ensureAuthenticated-initial"
-        debugAttachment.lifetime = .keepAlways
-        add(debugAttachment)
-
-        // Check for various screens - the app might be on any of these
-        // Use waitForExistenceNoIdle throughout to avoid hanging on React Native timers
-        let maxAttempts = 20
-        for attempt in 1...maxAttempts {
-            // Check if already on items screen - we're done
-            let itemsScreen = app.findElement(testID: "items-screen")
-            if itemsScreen.waitForExistenceNoIdle(timeout: 1) {
-                print("[ensureAuthenticated] Found items-screen on attempt \(attempt)")
-                return
-            }
-
-            // Check if we're on login screen
-            let loginScreen = app.findElement(testID: "login-screen")
-            if loginScreen.waitForExistenceNoIdle(timeout: 1) {
-                print("[ensureAuthenticated] Found login-screen on attempt \(attempt)")
-                performLogin(with: testUser)
-                return
-            }
-
-            // Check if we're on unlock screen (vault is locked but user is logged in)
-            let unlockScreen = app.findElement(testID: "unlock-screen")
-            if unlockScreen.waitForExistenceNoIdle(timeout: 1) {
-                print("[ensureAuthenticated] Found unlock-screen on attempt \(attempt)")
-                performUnlock(with: testUser)
-                return
-            }
-
-            // Check if we're on initialize screen (waiting for biometric - might have a system prompt)
-            // If so, we need to handle the biometric prompt or wait for it to navigate
-            let initializeScreen = app.findElement(testID: "initialize-screen")
-            if initializeScreen.waitForExistenceNoIdle(timeout: 1) {
-                print("[ensureAuthenticated] Found initialize-screen on attempt \(attempt) - waiting for navigation")
-                // The initialize screen will eventually navigate to login, unlock, or items
-                // Handle possible biometric alert by tapping cancel if it exists
-                let springboardApp = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-                let cancelButton = springboardApp.buttons["Cancel"]
-                if cancelButton.waitForExistence(timeout: 2) {
-                    cancelButton.tap()
-                    print("[ensureAuthenticated] Dismissed biometric prompt")
-                }
-                sleep(2)
-                continue
-            }
-
-            // Check if we're on reinitialize screen
-            let reinitializeScreen = app.findElement(testID: "reinitialize-screen")
-            if reinitializeScreen.waitForExistenceNoIdle(timeout: 1) {
-                print("[ensureAuthenticated] Found reinitialize-screen on attempt \(attempt) - waiting for navigation")
-                // Similar to initialize - handle biometric prompt
-                let springboardApp = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-                let cancelButton = springboardApp.buttons["Cancel"]
-                if cancelButton.waitForExistence(timeout: 2) {
-                    cancelButton.tap()
-                    print("[ensureAuthenticated] Dismissed biometric prompt")
-                }
-                sleep(2)
-                continue
-            }
-
-            // If nothing found, take a screenshot and wait
-            if attempt == 5 || attempt == 10 || attempt == 15 {
-                let midScreenshot = XCUIScreen.main.screenshot()
-                let midAttachment = XCTAttachment(screenshot: midScreenshot)
-                midAttachment.name = "debug-ensureAuthenticated-attempt-\(attempt)"
-                midAttachment.lifetime = .keepAlways
-                add(midAttachment)
-            }
-
-            // If nothing found, wait a bit and try again (app might still be loading)
-            if attempt < maxAttempts {
-                sleep(1)
-            }
-        }
-
-        // Take final screenshot before failing
-        let finalScreenshot = XCUIScreen.main.screenshot()
-        let finalAttachment = XCTAttachment(screenshot: finalScreenshot)
-        finalAttachment.name = "debug-ensureAuthenticated-failed"
-        finalAttachment.lifetime = .keepAlways
-        add(finalAttachment)
-
-        // If we get here, we couldn't find any expected screen
-        XCTFail("Could not find login screen, unlock screen, or items screen after \(maxAttempts) attempts")
-    }
-
-    /// Perform login with provided test user credentials
-    @MainActor
-    private func performLogin(with testUser: TestUser) {
-        // Configure API URL
-        let serverUrlLink = app.findElement(testID: "server-url-link")
-        if serverUrlLink.waitForExistenceNoIdle(timeout: 5) {
-            serverUrlLink.tapNoIdle()
-
-            let selfHostedOption = app.findElement(testID: "api-option-custom")
-            if selfHostedOption.waitForExistenceNoIdle(timeout: 5) {
-                selfHostedOption.tapNoIdle()
-
-                let customApiUrlInput = app.findTextField(testID: "custom-api-url-input")
-                if customApiUrlInput.waitForExistenceNoIdle(timeout: 5) {
-                    customApiUrlInput.tapNoIdle()
-                    customApiUrlInput.clearAndTypeTextNoIdle(TestConfiguration.apiUrl)
-                    app.hideKeyboardIfVisible()
-                }
-
-                let backButton = app.findElement(testID: "back-button")
-                backButton.tapNoIdle()
-            }
-        }
-
-        // Wait for login screen
-        let loginScreen = app.findElement(testID: "login-screen")
-        _ = loginScreen.waitForExistenceNoIdle(timeout: 5)
-
-        // Enter credentials
-        let usernameInput = app.findTextField(testID: "username-input")
-        usernameInput.tapNoIdle()
-        usernameInput.typeText(testUser.username)
-
-        let passwordInput = app.findTextField(testID: "password-input")
-        passwordInput.tapNoIdle()
-        passwordInput.typeText(testUser.password)
-
-        app.hideKeyboardIfVisible()
-
-        // Submit login
-        let loginButton = app.findElement(testID: "login-button")
-        loginButton.tapNoIdle()
-
-        // Wait for items screen
-        let itemsScreen = app.findElement(testID: "items-screen")
-        _ = itemsScreen.waitForExistenceNoIdle(timeout: TestConfiguration.extendedTimeout)
-    }
-
-    /// Perform unlock with provided test user password (for locked vault)
-    @MainActor
-    private func performUnlock(with testUser: TestUser) {
-        // Wait for "Unlock Vault" text to appear (indicates form is loaded)
-        XCTAssertTrue(
-            app.waitForText("Unlock Vault", timeout: 15),
-            "Unlock Vault header should appear"
-        )
-
-        // Find password field - React Native renders it as a generic "Other" element
-        // but we can still interact with it by finding the text input
-        let passwordInput = app.findTextField(testID: "unlock-password-input")
-        if passwordInput.waitForExistenceNoIdle(timeout: 3) {
-            passwordInput.tapNoIdle()
-            passwordInput.typeText(testUser.password)
-        } else {
-            // Fallback: tap on the password field area and type
-            // The field is typically below "Enter your password" text
-            let enterPasswordText = app.staticTexts["Enter your password"]
-            if enterPasswordText.exists {
-                // Tap below this text where the input field should be
-                let coordinate = enterPasswordText.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 3.0))
-                coordinate.tap()
-                sleep(1)
-                app.typeText(testUser.password)
-            } else {
-                XCTFail("Could not find password input area")
-                return
-            }
-        }
-
-        app.hideKeyboardIfVisible()
-
-        // Find and tap unlock button by its text
-        let unlockButton = app.staticTexts["Unlock"]
-        XCTAssertTrue(
-            unlockButton.waitForExistenceNoIdle(timeout: 5),
-            "Unlock button text should exist"
-        )
-        unlockButton.tapNoIdle()
-
-        // Wait for items screen
-        let itemsScreen = app.findElement(testID: "items-screen")
-        _ = itemsScreen.waitForExistenceNoIdle(timeout: TestConfiguration.extendedTimeout)
-    }
-
-    /// Check if we're on the unlock screen and unlock if needed
-    /// This is useful after deep links which may cause the app to lock
-    /// - Parameter testUser: The test user with password to use for unlock
+    /// Checks if the unlock screen is displayed and unlocks the vault if needed.
+    /// Called after app launch or deep links, which may trigger the vault to lock.
+    /// - Parameter testUser: The test user whose password will be used for unlock
     @MainActor
     private func unlockVaultIfNeeded(with testUser: TestUser) {
-        // Wait a moment for the app to settle
-        sleep(1)
+        sleep(1) // Allow app to settle
 
-        // Check if unlock screen is visible using testID
         let unlockScreen = app.findElement(testID: "unlock-screen")
-
-        if unlockScreen.waitForExistenceNoIdle(timeout: 3) {
-            // Wait for the form to be ready (loading state finished)
-            _ = app.waitForText("Unlock Vault", timeout: 10)
-
-            // Find the password field by testID
-            let passwordInput = app.findTextField(testID: "unlock-password-input")
-            if passwordInput.waitForExistenceNoIdle(timeout: 5) {
-                passwordInput.tapNoIdle()
-                passwordInput.typeText(testUser.password)
-            }
-
-            app.hideKeyboardIfVisible()
-
-            // Find unlock button by testID
-            let unlockButton = app.findElement(testID: "unlock-button")
-            if unlockButton.waitForExistenceNoIdle(timeout: 3) {
-                unlockButton.tapNoIdle()
-            }
-
-            // Wait for items screen (unlock may take time as it redirects through reinitialize)
-            let itemsScreen = app.findElement(testID: "items-screen")
-            _ = itemsScreen.waitForExistenceNoIdle(timeout: TestConfiguration.extendedTimeout)
+        guard unlockScreen.waitForExistenceNoIdle(timeout: 3) else {
+            return // Not on unlock screen, nothing to do
         }
-        // If not on unlock screen, just continue
+
+        // Wait for form to be ready (loading state finished)
+        _ = app.waitForText("Unlock Vault", timeout: 5)
+
+        // Enter password
+        let passwordInput = app.findTextField(testID: "unlock-password-input")
+        if passwordInput.waitForExistenceNoIdle(timeout: 5) {
+            passwordInput.tapNoIdle()
+            passwordInput.typeText(testUser.password)
+        }
+
+        app.hideKeyboardIfVisible()
+
+        // Tap unlock button
+        let unlockButton = app.findElement(testID: "unlock-button")
+        if unlockButton.waitForExistenceNoIdle(timeout: 3) {
+            unlockButton.tapNoIdle()
+        }
+
+        // Wait for items screen (unlock redirects through reinitialize)
+        let itemsScreen = app.findElement(testID: "items-screen")
+        _ = itemsScreen.waitForExistenceNoIdle(timeout: TestConfiguration.extendedTimeout)
     }
 }
