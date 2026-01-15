@@ -87,6 +87,12 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
             return Unauthorized();
         }
 
+        // Check if the user account is blocked
+        if (user.Blocked)
+        {
+            return Unauthorized(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.ACCOUNT_BLOCKED, 401));
+        }
+
         // Get latest vault revision number
         var latestVault = user.Vaults.OrderByDescending(x => x.RevisionNumber).FirstOrDefault();
         var latestRevision = latestVault?.RevisionNumber ?? 0;
