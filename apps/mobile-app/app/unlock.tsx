@@ -416,6 +416,7 @@ export default function UnlockScreen() : React.ReactNode {
             <RobustPressable
               style={styles.logoutButton}
               onPress={handleLogout}
+              testID="logout-button"
             >
               <ThemedText style={styles.logoutButtonText}>{t('auth.logout')}</ThemedText>
             </RobustPressable>

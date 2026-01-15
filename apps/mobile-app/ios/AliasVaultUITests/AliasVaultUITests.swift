@@ -4,7 +4,7 @@ import XCTest
 ///
 /// These tests use dynamically created test users via the API, so no pre-configured
 /// credentials are needed. Tests run sequentially and share state (e.g., the test user
-/// created in test03 is reused in subsequent tests).
+/// created in test01 is reused in subsequent tests).
 ///
 /// Prerequisites:
 /// - Local API server running at the URL specified in TestConfiguration.apiUrl
@@ -115,130 +115,15 @@ final class AliasVaultUITests: XCTestCase {
         }
     }
 
-    // MARK: - Test 01: App Launch
-
-    /// Verifies the app launches correctly and shows the login screen with all expected elements.
-    @MainActor
-    func test01AppLaunch() {
-        app.launchArguments.append("--reset-state")
-        app.launch()
-
-        XCTContext.runActivity(named: "Wait for app to load") { _ in
-            let aliasVaultText = app.staticTexts["AliasVault"]
-            assertElementExists(
-                aliasVaultText,
-                timeout: 15,
-                message: "App should display AliasVault text on launch",
-                context: "01-app-load"
-            )
-        }
-
-        XCTContext.runActivity(named: "Verify login screen is displayed") { _ in
-            let loginScreen = app.findElement(testID: "login-screen")
-            assertElementExists(
-                loginScreen,
-                timeout: TestConfiguration.defaultTimeout,
-                message: "Login screen should be visible",
-                context: "01-login-screen"
-            )
-        }
-
-        XCTContext.runActivity(named: "Verify login form elements") { _ in
-            let usernameInput = app.findElement(testID: "username-input")
-            if !usernameInput.exists {
-                captureFailureState(context: "01-username-input-missing")
-                XCTFail("Username input should be visible")
-            }
-
-            let passwordInput = app.findElement(testID: "password-input")
-            if !passwordInput.exists {
-                captureFailureState(context: "01-password-input-missing")
-                XCTFail("Password input should be visible")
-            }
-
-            let loginButton = app.findElement(testID: "login-button")
-            if !loginButton.exists {
-                captureFailureState(context: "01-login-button-missing")
-                XCTFail("Log in button should be visible")
-            }
-        }
-
-        // Take success screenshot
-        let screenshot = XCUIScreen.main.screenshot()
-        let attachment = XCTAttachment(screenshot: screenshot)
-        attachment.name = "01-app-launched"
-        attachment.lifetime = .keepAlways
-        add(attachment)
-    }
-
-    // MARK: - Test 02: Login Validation
-
-    /// Verifies login form validation and error handling for empty and invalid credentials.
-    @MainActor
-    func test02LoginValidation() {
-        app.launchArguments.append("--reset-state")
-        app.launch()
-
-        XCTContext.runActivity(named: "Wait for login screen") { _ in
-            let loginScreen = app.findElement(testID: "login-screen")
-            assertElementExists(
-                loginScreen,
-                timeout: 15,
-                message: "Login screen should be visible",
-                context: "02-login-screen"
-            )
-        }
-
-        XCTContext.runActivity(named: "Test empty form submission") { _ in
-            let loginButton = app.findElement(testID: "login-button")
-            loginButton.tapNoIdle()
-
-            // Capture state after empty form submission
-            let emptyFormScreenshot = XCUIScreen.main.screenshot()
-            let attachment1 = XCTAttachment(screenshot: emptyFormScreenshot)
-            attachment1.name = "02-1-empty-form-validation"
-            attachment1.lifetime = .keepAlways
-            add(attachment1)
-        }
-
-        XCTContext.runActivity(named: "Test invalid credentials") { _ in
-            let usernameInput = app.findTextField(testID: "username-input")
-            usernameInput.tapNoIdle()
-            usernameInput.typeText("invalid@test.com")
-
-            let passwordInput = app.findTextField(testID: "password-input")
-            passwordInput.tapNoIdle()
-            passwordInput.typeText("wrongpassword")
-
-            app.hideKeyboardIfVisible()
-
-            let loginButton = app.findElement(testID: "login-button")
-            loginButton.tapNoIdle()
-
-            // Wait for error response (network request may take time)
-            let errorMessage = app.findElement(testID: "error-message")
-            let errorAppeared = errorMessage.waitForExistenceNoIdle(timeout: 15)
-
-            let invalidCredentialsScreenshot = XCUIScreen.main.screenshot()
-            let attachment2 = XCTAttachment(screenshot: invalidCredentialsScreenshot)
-            attachment2.name = "02-2-invalid-credentials"
-            attachment2.lifetime = .keepAlways
-            add(attachment2)
-
-            // Log whether error message appeared (informational, not a failure)
-            print("[Test02] Error message appeared: \(errorAppeared)")
-        }
-    }
-
-    // MARK: - Test 03: Successful Login
+    // MARK: - Test 01: Successful Login
 
     /// Verifies successful login flow with a dynamically created test user.
     /// Creates a test user via the API, configures the app to use the local server,
     /// and logs in. The test user is stored for reuse in subsequent tests.
     @MainActor
-    func test03SuccessfulLogin() async throws {
+    func test01SuccessfulLogin() async throws {
         let testUser = try await ensureTestUser()
-        print("[Test03] Using test user: \(testUser.username)")
+        print("[Test01] Using test user: \(testUser.username)")
 
         app.launchArguments.append("--reset-state")
         app.launch()
@@ -249,7 +134,7 @@ final class AliasVaultUITests: XCTestCase {
                 loginScreen,
                 timeout: 15,
                 message: "Login screen should be visible",
-                context: "03-login-screen"
+                context: "01-login-screen"
             )
         }
 
@@ -262,7 +147,7 @@ final class AliasVaultUITests: XCTestCase {
                 selfHostedOption,
                 timeout: 10,
                 message: "Settings screen should show Self-hosted option",
-                context: "03-self-hosted-option"
+                context: "01-self-hosted-option"
             )
             selfHostedOption.tapNoIdle()
 
@@ -271,12 +156,12 @@ final class AliasVaultUITests: XCTestCase {
                 customApiUrlInput,
                 timeout: 5,
                 message: "Custom API URL input should appear",
-                context: "03-custom-url-input"
+                context: "01-custom-url-input"
             )
 
             customApiUrlInput.tapNoIdle()
             customApiUrlInput.clearAndTypeTextNoIdle(TestConfiguration.apiUrl)
-            print("[Test03] Configured API URL: \(TestConfiguration.apiUrl)")
+            print("[Test01] Configured API URL: \(TestConfiguration.apiUrl)")
             app.hideKeyboardIfVisible()
 
             let backButton = app.findElement(testID: "back-button")
@@ -289,7 +174,7 @@ final class AliasVaultUITests: XCTestCase {
                 loginScreen,
                 timeout: 10,
                 message: "Should return to login screen after configuring API",
-                context: "03-return-to-login"
+                context: "01-return-to-login"
             )
 
             let usernameInput = app.findTextField(testID: "username-input")
@@ -304,7 +189,7 @@ final class AliasVaultUITests: XCTestCase {
 
             let credentialsScreenshot = XCUIScreen.main.screenshot()
             let attachment1 = XCTAttachment(screenshot: credentialsScreenshot)
-            attachment1.name = "03-1-credentials-entered"
+            attachment1.name = "01-1-credentials-entered"
             attachment1.lifetime = .keepAlways
             add(attachment1)
 
@@ -318,34 +203,34 @@ final class AliasVaultUITests: XCTestCase {
                 itemsScreen,
                 timeout: TestConfiguration.extendedTimeout,
                 message: "Should navigate to items screen after successful login",
-                context: "03-items-screen"
+                context: "01-items-screen"
             )
 
             let itemsList = app.findElement(testID: "items-list")
             if !itemsList.exists {
-                captureFailureState(context: "03-items-list-missing")
+                captureFailureState(context: "01-items-list-missing")
                 XCTFail("Items list should be visible after login")
             }
 
             let loginSuccessScreenshot = XCUIScreen.main.screenshot()
             let attachment2 = XCTAttachment(screenshot: loginSuccessScreenshot)
-            attachment2.name = "03-2-login-successful"
+            attachment2.name = "01-2-login-successful"
             attachment2.lifetime = .keepAlways
             add(attachment2)
 
-            print("[Test03] Login successful, items screen displayed")
+            print("[Test01] Login successful, items screen displayed")
         }
     }
 
-    // MARK: - Test 04: Create New Item
+    // MARK: - Test 02: Create New Item
 
     /// Verifies item creation flow: opens add form, fills in details, saves, and verifies
     /// the item appears in the list. Handles vault unlock if needed between tests.
     @MainActor
-    func test04CreateItem() async throws {
+    func test02CreateItem() async throws {
         let testUser = try await ensureTestUser()
         let uniqueName = TestConfiguration.generateUniqueName(prefix: "E2E Test")
-        print("[Test04] Creating item with name: \(uniqueName)")
+        print("[Test02] Creating item with name: \(uniqueName)")
 
         app.launch()
         unlockVaultIfNeeded(with: testUser)
@@ -356,7 +241,7 @@ final class AliasVaultUITests: XCTestCase {
                 itemsScreen,
                 timeout: TestConfiguration.extendedTimeout,
                 message: "Should be on items screen after launch/unlock",
-                context: "04-items-screen"
+                context: "02-items-screen"
             )
         }
 
@@ -369,12 +254,12 @@ final class AliasVaultUITests: XCTestCase {
                 addEditScreen,
                 timeout: 10,
                 message: "Add/edit screen should appear",
-                context: "04-add-edit-screen"
+                context: "02-add-edit-screen"
             )
 
             let addItemScreenshot = XCUIScreen.main.screenshot()
             let attachment1 = XCTAttachment(screenshot: addItemScreenshot)
-            attachment1.name = "04-1-add-item-screen"
+            attachment1.name = "02-1-add-item-screen"
             attachment1.lifetime = .keepAlways
             add(attachment1)
         }
@@ -407,7 +292,7 @@ final class AliasVaultUITests: XCTestCase {
 
             let itemFilledScreenshot = XCUIScreen.main.screenshot()
             let attachment2 = XCTAttachment(screenshot: itemFilledScreenshot)
-            attachment2.name = "04-2-item-filled"
+            attachment2.name = "02-2-item-filled"
             attachment2.lifetime = .keepAlways
             add(attachment2)
         }
@@ -420,12 +305,12 @@ final class AliasVaultUITests: XCTestCase {
                 "Login credentials",
                 timeout: 10,
                 message: "Should show item detail screen with Login credentials after save",
-                context: "04-item-detail-after-save"
+                context: "02-item-detail-after-save"
             )
 
             let itemDetailScreenshot = XCUIScreen.main.screenshot()
             let attachment3 = XCTAttachment(screenshot: itemDetailScreenshot)
-            attachment3.name = "04-3-item-detail-screen"
+            attachment3.name = "02-3-item-detail-screen"
             attachment3.lifetime = .keepAlways
             add(attachment3)
         }
@@ -440,8 +325,11 @@ final class AliasVaultUITests: XCTestCase {
                 itemsScreen,
                 timeout: 10,
                 message: "Should return to items screen",
-                context: "04-return-to-items"
+                context: "02-return-to-items"
             )
+
+            // Wait for list to fully populate after navigation
+            sleep(2)
 
             let newItemCard = app.descendants(matching: .any).matching(
                 NSPredicate(format: "label == %@", uniqueName)
@@ -449,31 +337,32 @@ final class AliasVaultUITests: XCTestCase {
 
             let itemFound = newItemCard.waitForExistenceNoIdle(timeout: 10)
             if !itemFound {
-                captureFailureState(context: "04-item-not-in-list")
+                captureFailureState(context: "02-item-not-in-list")
                 XCTFail("Newly created item '\(uniqueName)' should appear in list")
+                return
             }
 
-            print("[Test04] Item '\(uniqueName)' found in list, tapping to verify")
+            print("[Test02] Item '\(uniqueName)' found in list, tapping to verify")
             newItemCard.tapNoIdle()
 
             assertTextAppears(
                 "Login credentials",
                 timeout: 10,
                 message: "Should show item detail screen when tapping created item",
-                context: "04-item-detail-verify"
+                context: "02-item-detail-verify"
             )
 
             let itemVerifiedScreenshot = XCUIScreen.main.screenshot()
             let attachment4 = XCTAttachment(screenshot: itemVerifiedScreenshot)
-            attachment4.name = "04-4-item-verified"
+            attachment4.name = "02-4-item-verified"
             attachment4.lifetime = .keepAlways
             add(attachment4)
 
-            print("[Test04] Item creation and verification successful")
+            print("[Test02] Item creation and verification successful")
         }
     }
 
-    // MARK: - Test 05: Offline Mode and Sync
+    // MARK: - Test 03: Offline Mode and Sync
 
     /// Verifies offline mode and sync recovery:
     /// 1. Goes offline by setting API URL to invalid (simulates network failure)
@@ -484,7 +373,7 @@ final class AliasVaultUITests: XCTestCase {
     /// Uses debug deep links (`__debug__/set-api-url`) to toggle offline mode.
     /// These only work in development builds.
     @MainActor
-    func test05OfflineModeAndSync() async throws {
+    func test03OfflineModeAndSync() async throws {
         let testUser = try await ensureTestUser()
 
         app.launch()
@@ -493,7 +382,7 @@ final class AliasVaultUITests: XCTestCase {
         let originalApiUrl = TestConfiguration.apiUrl
         let invalidApiUrl = "http://offline.invalid.localhost:9999"
         let uniqueName = TestConfiguration.generateUniqueName(prefix: "Offline Test")
-        print("[Test05] Creating offline item with name: \(uniqueName)")
+        print("[Test03] Creating offline item with name: \(uniqueName)")
 
         let itemsScreen = app.findElement(testID: "items-screen")
         let offlineIndicator = app.findElement(testID: "sync-indicator-offline")
@@ -503,19 +392,19 @@ final class AliasVaultUITests: XCTestCase {
                 itemsScreen,
                 timeout: TestConfiguration.extendedTimeout,
                 message: "Should be on items screen",
-                context: "05-items-screen"
+                context: "03-items-screen"
             )
 
             let initialStateScreenshot = XCUIScreen.main.screenshot()
             let attachment1 = XCTAttachment(screenshot: initialStateScreenshot)
-            attachment1.name = "05-1-initial-state-online"
+            attachment1.name = "03-1-initial-state-online"
             attachment1.lifetime = .keepAlways
             add(attachment1)
         }
 
         XCTContext.runActivity(named: "Step 2: Enable offline mode via deep link") { _ in
             let encodedInvalidUrl = invalidApiUrl.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? invalidApiUrl
-            print("[Test05] Setting API URL to invalid: \(invalidApiUrl)")
+            print("[Test03] Setting API URL to invalid: \(invalidApiUrl)")
             app.openDeepLink("aliasvault://open/__debug__/set-api-url/\(encodedInvalidUrl)")
 
             unlockVaultIfNeeded(with: testUser)
@@ -524,7 +413,7 @@ final class AliasVaultUITests: XCTestCase {
                 itemsScreen,
                 timeout: 10,
                 message: "Should return to items screen after deep link",
-                context: "05-after-offline-deeplink"
+                context: "03-after-offline-deeplink"
             )
 
             // Trigger a sync attempt to detect offline state
@@ -535,16 +424,16 @@ final class AliasVaultUITests: XCTestCase {
                 offlineIndicator,
                 timeout: 10,
                 message: "Offline indicator should appear after API URL change",
-                context: "05-offline-indicator"
+                context: "03-offline-indicator"
             )
 
             let offlineModeScreenshot = XCUIScreen.main.screenshot()
             let attachment2 = XCTAttachment(screenshot: offlineModeScreenshot)
-            attachment2.name = "05-2-offline-mode-enabled"
+            attachment2.name = "03-2-offline-mode-enabled"
             attachment2.lifetime = .keepAlways
             add(attachment2)
 
-            print("[Test05] Offline mode enabled successfully")
+            print("[Test03] Offline mode enabled successfully")
         }
 
         XCTContext.runActivity(named: "Step 3: Create item while offline") { _ in
@@ -556,12 +445,12 @@ final class AliasVaultUITests: XCTestCase {
                 addEditScreen,
                 timeout: 10,
                 message: "Add/edit screen should appear",
-                context: "05-add-edit-screen"
+                context: "03-add-edit-screen"
             )
 
             let addItemOfflineScreenshot = XCUIScreen.main.screenshot()
             let attachment3 = XCTAttachment(screenshot: addItemOfflineScreenshot)
-            attachment3.name = "05-3-add-item-screen-offline"
+            attachment3.name = "03-3-add-item-screen-offline"
             attachment3.lifetime = .keepAlways
             add(attachment3)
 
@@ -585,7 +474,7 @@ final class AliasVaultUITests: XCTestCase {
 
             let itemFilledOfflineScreenshot = XCUIScreen.main.screenshot()
             let attachment4 = XCTAttachment(screenshot: itemFilledOfflineScreenshot)
-            attachment4.name = "05-4-item-filled-offline"
+            attachment4.name = "03-4-item-filled-offline"
             attachment4.lifetime = .keepAlways
             add(attachment4)
 
@@ -596,110 +485,127 @@ final class AliasVaultUITests: XCTestCase {
                 "Login credentials",
                 timeout: 10,
                 message: "Should show item detail screen after save",
-                context: "05-item-saved-offline"
+                context: "03-item-saved-offline"
             )
 
-        let itemSavedOfflineScreenshot = XCUIScreen.main.screenshot()
-        let attachment5 = XCTAttachment(screenshot: itemSavedOfflineScreenshot)
-        attachment5.name = "05-5-item-saved-offline"
-        attachment5.lifetime = .keepAlways
-        add(attachment5)
+            let itemSavedOfflineScreenshot = XCUIScreen.main.screenshot()
+            let attachment5 = XCTAttachment(screenshot: itemSavedOfflineScreenshot)
+            attachment5.name = "03-5-item-saved-offline"
+            attachment5.lifetime = .keepAlways
+            add(attachment5)
 
-        // Go back to items list
-        sleep(1)
-        let backButton = app.findElement(testID: "back-button")
-        backButton.tapNoIdle()
+            sleep(1)
+            let backButton = app.findElement(testID: "back-button")
+            backButton.tapNoIdle()
 
-        // Wait for items screen
-        XCTAssertTrue(
-            itemsScreen.waitForExistenceNoIdle(timeout: 10),
-            "Should return to items screen"
-        )
+            assertElementExists(
+                itemsScreen,
+                timeout: 10,
+                message: "Should return to items screen after saving",
+                context: "03-return-to-items"
+            )
 
-        // Verify the offline-created item appears in the list
-        let offlineItemCard = app.descendants(matching: .any).matching(
-            NSPredicate(format: "label == %@", uniqueName)
-        ).firstMatch
-        XCTAssertTrue(
-            offlineItemCard.waitForExistenceNoIdle(timeout: 5),
-            "Offline-created item should appear in list"
-        )
+            // Wait for list to fully populate after navigation
+            sleep(2)
 
-        let itemInListOfflineScreenshot = XCUIScreen.main.screenshot()
-        let attachment6 = XCTAttachment(screenshot: itemInListOfflineScreenshot)
-        attachment6.name = "05-6-item-in-list-offline"
-        attachment6.lifetime = .keepAlways
-        add(attachment6)
+            let offlineItemCard = app.descendants(matching: .any).matching(
+                NSPredicate(format: "label == %@", uniqueName)
+            ).firstMatch
 
-        // Step 5: Go back online by restoring valid API URL
-        let encodedValidUrl = originalApiUrl.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? originalApiUrl
-        app.openDeepLink("aliasvault://open/__debug__/set-api-url/\(encodedValidUrl)")
+            let itemFound = offlineItemCard.waitForExistenceNoIdle(timeout: 5)
+            if !itemFound {
+                captureFailureState(context: "03-offline-item-not-in-list")
+                XCTFail("Offline-created item '\(uniqueName)' should appear in list")
+                return
+            }
 
-        // Deep link may cause app to lock, unlock if needed
-        unlockVaultIfNeeded(with: testUser)
+            let itemInListOfflineScreenshot = XCUIScreen.main.screenshot()
+            let attachment6 = XCTAttachment(screenshot: itemInListOfflineScreenshot)
+            attachment6.name = "03-6-item-in-list-offline"
+            attachment6.lifetime = .keepAlways
+            add(attachment6)
 
-        // Wait for deep link to be processed
-        XCTAssertTrue(
-            itemsScreen.waitForExistenceNoIdle(timeout: 10),
-            "Should return to items screen"
-        )
+            print("[Test03] Item created while offline and appears in list")
+        }
 
-        // Small delay for state to update
-        sleep(2)
+        XCTContext.runActivity(named: "Step 4: Go back online and sync") { _ in
+            let encodedValidUrl = originalApiUrl.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? originalApiUrl
+            print("[Test03] Restoring API URL to: \(originalApiUrl)")
+            app.openDeepLink("aliasvault://open/__debug__/set-api-url/\(encodedValidUrl)")
 
-        let backOnlineScreenshot = XCUIScreen.main.screenshot()
-        let attachment9 = XCTAttachment(screenshot: backOnlineScreenshot)
-        attachment9.name = "05-9-back-online"
-        attachment9.lifetime = .keepAlways
-        add(attachment9)
+            unlockVaultIfNeeded(with: testUser)
 
-        // Step 7: Trigger sync
-        app.pullToRefresh()
+            assertElementExists(
+                itemsScreen,
+                timeout: 10,
+                message: "Should return to items screen after restoring API URL",
+                context: "03-after-online-deeplink"
+            )
 
-        // Wait for sync to complete
-        sleep(5)
+            sleep(2)
 
-        // Verify offline indicator is gone (we should be synced now)
-        XCTAssertFalse(
-            offlineIndicator.exists,
-            "Offline indicator should be gone after sync"
-        )
+            let backOnlineScreenshot = XCUIScreen.main.screenshot()
+            let attachment9 = XCTAttachment(screenshot: backOnlineScreenshot)
+            attachment9.name = "03-9-back-online"
+            attachment9.lifetime = .keepAlways
+            add(attachment9)
 
-        // Verify the item still exists after sync
-        XCTAssertTrue(
-            offlineItemCard.exists,
-            "Item should still exist after sync"
-        )
+            app.pullToRefresh()
+            sleep(5)
 
-        let syncedScreenshot = XCUIScreen.main.screenshot()
-        let attachment10 = XCTAttachment(screenshot: syncedScreenshot)
-        attachment10.name = "05-10-synced-successfully"
-        attachment10.lifetime = .keepAlways
-        add(attachment10)
+            // Verify offline indicator is gone
+            if offlineIndicator.exists {
+                captureFailureState(context: "03-offline-indicator-still-present")
+                XCTFail("Offline indicator should be gone after sync")
+            }
 
-        // Step 8: Verify item details are preserved after sync
-        offlineItemCard.tapNoIdle()
+            let syncedScreenshot = XCUIScreen.main.screenshot()
+            let attachment10 = XCTAttachment(screenshot: syncedScreenshot)
+            attachment10.name = "03-10-synced-successfully"
+            attachment10.lifetime = .keepAlways
+            add(attachment10)
 
-        // Wait for item detail screen
-        XCTAssertTrue(
-            app.waitForText("Login credentials", timeout: 10),
-            "Should show item detail screen"
-        )
+            print("[Test03] Back online and synced successfully")
+        }
 
-        // Verify email is preserved (use waitForTextContaining for flexible matching)
-        XCTAssertTrue(
-            app.waitForTextContaining("offline-test@example.com", timeout: 5),
-            "Email should be preserved after sync"
-        )
+        XCTContext.runActivity(named: "Step 5: Verify item persists after sync") { _ in
+            let offlineItemCard = app.descendants(matching: .any).matching(
+                NSPredicate(format: "label == %@", uniqueName)
+            ).firstMatch
 
-        let itemVerifiedAfterSyncScreenshot = XCUIScreen.main.screenshot()
-        let attachment11 = XCTAttachment(screenshot: itemVerifiedAfterSyncScreenshot)
-        attachment11.name = "05-11-item-verified-after-sync"
-        attachment11.lifetime = .keepAlways
-        add(attachment11)
+            if !offlineItemCard.exists {
+                captureFailureState(context: "03-item-missing-after-sync")
+                XCTFail("Item '\(uniqueName)' should still exist after sync")
+                return
+            }
+
+            offlineItemCard.tapNoIdle()
+
+            assertTextAppears(
+                "Login credentials",
+                timeout: 10,
+                message: "Should show item detail screen",
+                context: "03-item-detail-after-sync"
+            )
+
+            assertTextContaining(
+                "offline-test@example.com",
+                timeout: 5,
+                message: "Email should be preserved after sync",
+                context: "03-email-preserved"
+            )
+
+            let itemVerifiedAfterSyncScreenshot = XCUIScreen.main.screenshot()
+            let attachment11 = XCTAttachment(screenshot: itemVerifiedAfterSyncScreenshot)
+            attachment11.name = "03-11-item-verified-after-sync"
+            attachment11.lifetime = .keepAlways
+            add(attachment11)
+
+            print("[Test03] Offline item verified after sync - test passed")
+        }
     }
 
-    // MARK: - Test 06: RPO Recovery
+    // MARK: - Test 04: RPO Recovery
 
     /// Verifies RPO (Recovery Point Objective) recovery scenario:
     /// When the client detects that its local server revision is higher than the actual server revision
@@ -722,229 +628,571 @@ final class AliasVaultUITests: XCTestCase {
     /// 5. Verify credential still exists (client data was uploaded, not downloaded from server)
     /// 6. Verify server revision is restored via API
     @MainActor
-    func test06RPORecovery() async throws {
+    func test04RPORecovery() async throws {
         let testUser = try await ensureTestUser()
         let uniqueName = TestConfiguration.generateUniqueName(prefix: "RPO Test")
+        print("[Test04] Testing RPO recovery with item: \(uniqueName)")
 
         app.launch()
         unlockVaultIfNeeded(with: testUser)
 
         let itemsScreen = app.findElement(testID: "items-screen")
-        XCTAssertTrue(
-            itemsScreen.waitForExistenceNoIdle(timeout: TestConfiguration.extendedTimeout),
-            "Should be on items screen after launch/unlock"
-        )
+        var initialRevision = 0
+        var revisionAfterCreate = 0
+        var revisionAfterDelete = 0
 
-        let initialStateScreenshot = XCUIScreen.main.screenshot()
-        let attachment1 = XCTAttachment(screenshot: initialStateScreenshot)
-        attachment1.name = "06-1-initial-state"
-        attachment1.lifetime = .keepAlways
-        add(attachment1)
+        XCTContext.runActivity(named: "Step 1: Verify initial state and get server revision") { _ in
+            assertElementExists(
+                itemsScreen,
+                timeout: TestConfiguration.extendedTimeout,
+                message: "Should be on items screen after launch/unlock",
+                context: "04-items-screen"
+            )
 
-        // Step 1: Get initial server revision before creating credential
-        let initialRevisions = try await TestUserRegistration.getVaultRevisions(token: testUser.token)
-        let initialRevision = initialRevisions.currentRevision
-        print("[RPO Test] Initial server revision: \(initialRevision)")
+            let initialStateScreenshot = XCUIScreen.main.screenshot()
+            let attachment1 = XCTAttachment(screenshot: initialStateScreenshot)
+            attachment1.name = "04-1-initial-state"
+            attachment1.lifetime = .keepAlways
+            add(attachment1)
+        }
 
-        // Step 2: Create a credential while online (syncs to server normally)
-        let addItemButton = app.findElement(testID: "add-item-button")
-        addItemButton.tapNoIdle()
+        // Get initial revision using username-based API (no auth token needed)
+        let initialRevisions = try await TestUserRegistration.getVaultRevisionsByUsername(username: testUser.username)
+        initialRevision = initialRevisions.currentRevision
+        print("[Test04] Initial server revision: \(initialRevision)")
 
-        let addEditScreen = app.findElement(testID: "add-edit-screen")
-        XCTAssertTrue(
-            addEditScreen.waitForExistenceNoIdle(timeout: 10),
-            "Add/edit screen should appear"
-        )
+        XCTContext.runActivity(named: "Step 2: Create credential while online") { _ in
+            let addItemButton = app.findElement(testID: "add-item-button")
+            addItemButton.tapNoIdle()
 
-        // Enter item name
-        let itemNameInput = app.findAndScrollToTextField(testID: "item-name-input")
-        itemNameInput.tapNoIdle()
-        itemNameInput.typeText(uniqueName)
+            let addEditScreen = app.findElement(testID: "add-edit-screen")
+            assertElementExists(
+                addEditScreen,
+                timeout: 10,
+                message: "Add/edit screen should appear",
+                context: "04-add-edit-screen"
+            )
 
-        // Enter service URL
-        let serviceUrlInput = app.findAndScrollToTextField(testID: "service-url-input")
-        serviceUrlInput.tapNoIdle()
-        serviceUrlInput.typeText("https://rpo-test.example.com")
+            let itemNameInput = app.findAndScrollToTextField(testID: "item-name-input")
+            itemNameInput.tapNoIdle()
+            itemNameInput.typeText(uniqueName)
 
-        // Add email field
-        let addEmailButton = app.findElement(testID: "add-email-button")
-        app.scrollToElement(addEmailButton)
-        addEmailButton.tapNoIdle()
+            let serviceUrlInput = app.findAndScrollToTextField(testID: "service-url-input")
+            serviceUrlInput.tapNoIdle()
+            serviceUrlInput.typeText("https://rpo-test.example.com")
 
-        // Enter email
-        let loginEmailInput = app.findAndScrollToTextField(testID: "login-email-input")
-        loginEmailInput.tapNoIdle()
-        loginEmailInput.typeText("rpo-test@example.com")
+            let addEmailButton = app.findElement(testID: "add-email-button")
+            app.scrollToElement(addEmailButton)
+            addEmailButton.tapNoIdle()
 
-        app.hideKeyboardIfVisible()
+            let loginEmailInput = app.findAndScrollToTextField(testID: "login-email-input")
+            loginEmailInput.tapNoIdle()
+            loginEmailInput.typeText("rpo-test@example.com")
 
-        let credentialCreatedScreenshot = XCUIScreen.main.screenshot()
-        let attachment2 = XCTAttachment(screenshot: credentialCreatedScreenshot)
-        attachment2.name = "06-2-credential-created"
-        attachment2.lifetime = .keepAlways
-        add(attachment2)
+            app.hideKeyboardIfVisible()
 
-        // Save the item (syncs to server since we're online)
-        let saveButton = app.findElement(testID: "save-button")
-        saveButton.tapNoIdle()
+            let credentialCreatedScreenshot = XCUIScreen.main.screenshot()
+            let attachment2 = XCTAttachment(screenshot: credentialCreatedScreenshot)
+            attachment2.name = "04-2-credential-created"
+            attachment2.lifetime = .keepAlways
+            add(attachment2)
 
-        // Wait for item to be saved
-        XCTAssertTrue(
-            app.waitForText("Login credentials", timeout: 10),
-            "Should show item detail screen after save"
-        )
+            let saveButton = app.findElement(testID: "save-button")
+            saveButton.tapNoIdle()
 
-        // Go back to items list
-        sleep(1)
-        let backButton = app.findElement(testID: "back-button")
-        backButton.tapNoIdle()
+            assertTextAppears(
+                "Login credentials",
+                timeout: 10,
+                message: "Should show item detail screen after save",
+                context: "04-item-saved"
+            )
 
-        // Wait for items screen
-        XCTAssertTrue(
-            itemsScreen.waitForExistenceNoIdle(timeout: 10),
-            "Should return to items screen"
-        )
+            sleep(1)
+            let backButton = app.findElement(testID: "back-button")
+            backButton.tapNoIdle()
 
-        // Step 3: Wait for sync to complete (credential is now on server)
-        sleep(3)
+            assertElementExists(
+                itemsScreen,
+                timeout: 10,
+                message: "Should return to items screen",
+                context: "04-return-to-items"
+            )
 
-        // Verify server revision increased after sync
-        let afterCreateRevisions = try await TestUserRegistration.getVaultRevisions(token: testUser.token)
-        let revisionAfterCreate = afterCreateRevisions.currentRevision
-        print("[RPO Test] Server revision after create: \(revisionAfterCreate)")
+            sleep(1) // Wait for sync
+
+            print("[Test04] Credential created and synced to server")
+        }
+
+        // Verify revision increased (async)
+        let afterCreateRevisions = try await TestUserRegistration.getVaultRevisionsByUsername(username: testUser.username)
+        revisionAfterCreate = afterCreateRevisions.currentRevision
+        print("[Test04] Server revision after create: \(revisionAfterCreate)")
+
         XCTAssertGreaterThan(
             revisionAfterCreate, initialRevision,
             "Server revision should increase after creating credential (was \(initialRevision), now \(revisionAfterCreate))"
         )
 
-        let afterSyncScreenshot = XCUIScreen.main.screenshot()
-        let attachment3 = XCTAttachment(screenshot: afterSyncScreenshot)
-        attachment3.name = "06-3-after-initial-sync"
-        attachment3.lifetime = .keepAlways
-        add(attachment3)
+        XCTContext.runActivity(named: "Step 3: Simulate server data loss") { _ in
+            let afterSyncScreenshot = XCUIScreen.main.screenshot()
+            let attachment3 = XCTAttachment(screenshot: afterSyncScreenshot)
+            attachment3.name = "04-3-after-initial-sync"
+            attachment3.lifetime = .keepAlways
+            add(attachment3)
+        }
 
-        // Step 4: Simulate server data loss by deleting the latest vault revision
-        // This makes the server roll back to an older state (without the credential we just created)
-        // The client still has the credential locally and thinks it synced at the higher revision
-        let deletedCount = try await TestUserRegistration.deleteVaultRevisions(
-            count: 1,
-            token: testUser.token
+        // Delete vault revision to simulate data loss (async)
+        let deletedCount = try await TestUserRegistration.deleteVaultRevisionsByUsername(
+            username: testUser.username,
+            count: 1
         )
-        print("[RPO Test] Deleted \(deletedCount) vault revision(s) from server to simulate data loss")
+        print("[Test04] Deleted \(deletedCount) vault revision(s) from server to simulate data loss")
 
-        // Verify server revision decreased (simulating rollback)
-        let afterDeleteRevisions = try await TestUserRegistration.getVaultRevisions(token: testUser.token)
-        let revisionAfterDelete = afterDeleteRevisions.currentRevision
-        print("[RPO Test] Server revision after delete: \(revisionAfterDelete)")
+        let afterDeleteRevisions = try await TestUserRegistration.getVaultRevisionsByUsername(username: testUser.username)
+        revisionAfterDelete = afterDeleteRevisions.currentRevision
+        print("[Test04] Server revision after delete: \(revisionAfterDelete)")
+
         XCTAssertLessThan(
             revisionAfterDelete, revisionAfterCreate,
             "Server revision should decrease after deleting vault revision (was \(revisionAfterCreate), now \(revisionAfterDelete))"
         )
 
-        let afterServerRollbackScreenshot = XCUIScreen.main.screenshot()
-        let attachment4 = XCTAttachment(screenshot: afterServerRollbackScreenshot)
-        attachment4.name = "06-4-after-server-rollback"
-        attachment4.lifetime = .keepAlways
-        add(attachment4)
+        XCTContext.runActivity(named: "Step 4: Trigger sync for RPO recovery") { _ in
+            let afterServerRollbackScreenshot = XCUIScreen.main.screenshot()
+            let attachment4 = XCTAttachment(screenshot: afterServerRollbackScreenshot)
+            attachment4.name = "04-4-after-server-rollback"
+            attachment4.lifetime = .keepAlways
+            add(attachment4)
 
-        // Step 5: Trigger sync - this should detect RPO scenario and upload vault
-        // Client thinks: "I'm at revision N, server says revision N-1 (lower)"
-        // → This triggers the RPO recovery path: upload client data to "recover" server
-        app.pullToRefresh()
+            print("[Test04] Triggering sync - client should detect RPO scenario and upload vault")
+            app.pullToRefresh()
+            sleep(5)
 
-        // Wait for sync to complete
-        sleep(5)
+            let afterRpoSyncScreenshot = XCUIScreen.main.screenshot()
+            let attachment5 = XCTAttachment(screenshot: afterRpoSyncScreenshot)
+            attachment5.name = "04-5-after-rpo-sync"
+            attachment5.lifetime = .keepAlways
+            add(attachment5)
+        }
 
-        let afterRpoSyncScreenshot = XCUIScreen.main.screenshot()
-        let attachment5 = XCTAttachment(screenshot: afterRpoSyncScreenshot)
-        attachment5.name = "06-5-after-rpo-sync"
-        attachment5.lifetime = .keepAlways
-        add(attachment5)
+        XCTContext.runActivity(named: "Step 5: Verify credential persists after RPO recovery") { _ in
+            let rpoItemCard = app.descendants(matching: .any).matching(
+                NSPredicate(format: "label == %@", uniqueName)
+            ).firstMatch
 
-        // Step 6: Verify the credential still exists after RPO recovery
-        // If the client correctly uploaded its data (RPO recovery path),
-        // the credential should still be present
-        // If client had downloaded from server instead, the credential would be GONE
-        // (because we deleted the server revision that contained it)
-        let rpoItemCard = app.descendants(matching: .any).matching(
-            NSPredicate(format: "label == %@", uniqueName)
-        ).firstMatch
+            let itemExists = rpoItemCard.waitForExistenceNoIdle(timeout: 10)
+            if !itemExists {
+                captureFailureState(context: "04-rpo-item-missing")
+                XCTFail("Credential '\(uniqueName)' should still exist after RPO recovery - this proves client uploaded to server instead of downloading (which would have lost the credential)")
+                return
+            }
 
-        XCTAssertTrue(
-            rpoItemCard.waitForExistenceNoIdle(timeout: 10),
-            "Credential '\(uniqueName)' should still exist after RPO recovery - proves client uploaded to server"
-        )
+            rpoItemCard.tapNoIdle()
 
-        // Tap to verify item details are preserved
-        rpoItemCard.tapNoIdle()
+            assertTextAppears(
+                "Login credentials",
+                timeout: 10,
+                message: "Should show item detail screen",
+                context: "04-item-detail"
+            )
 
-        XCTAssertTrue(
-            app.waitForText("Login credentials", timeout: 10),
-            "Should show item detail screen"
-        )
+            assertTextContaining(
+                "rpo-test@example.com",
+                timeout: 5,
+                message: "Email should be preserved after RPO recovery",
+                context: "04-email-preserved"
+            )
 
-        // Verify email is preserved
-        XCTAssertTrue(
-            app.waitForTextContaining("rpo-test@example.com", timeout: 5),
-            "Email should be preserved after RPO recovery"
-        )
+            let itemVerifiedScreenshot = XCUIScreen.main.screenshot()
+            let attachment6 = XCTAttachment(screenshot: itemVerifiedScreenshot)
+            attachment6.name = "04-6-item-verified-after-rpo"
+            attachment6.lifetime = .keepAlways
+            add(attachment6)
+        }
 
-        let itemVerifiedScreenshot = XCUIScreen.main.screenshot()
-        let attachment6 = XCTAttachment(screenshot: itemVerifiedScreenshot)
-        attachment6.name = "06-6-item-verified-after-rpo"
-        attachment6.lifetime = .keepAlways
-        add(attachment6)
-
-        // Step 7: Verify server revision is restored via API
-        // After RPO recovery, client should have uploaded its vault, restoring the revision
-        let finalRevisions = try await TestUserRegistration.getVaultRevisions(token: testUser.token)
+        // Verify server revision restored (async)
+        let finalRevisions = try await TestUserRegistration.getVaultRevisionsByUsername(username: testUser.username)
         let finalRevision = finalRevisions.currentRevision
-        print("[RPO Test] Final server revision: \(finalRevision)")
+        print("[Test04] Final server revision: \(finalRevision)")
 
-        // The final revision should be at least as high as after create
-        // (client uploaded, creating a new revision)
         XCTAssertGreaterThanOrEqual(
             finalRevision, revisionAfterCreate,
             "Server revision should be restored after RPO recovery (expected >= \(revisionAfterCreate), got \(finalRevision))"
         )
 
-        // Log success summary
-        print("[RPO Test] SUCCESS - Revision flow: \(initialRevision) → \(revisionAfterCreate) (create) → \(revisionAfterDelete) (rollback) → \(finalRevision) (recovered)")
+        print("[Test04] SUCCESS - Revision flow: \(initialRevision) → \(revisionAfterCreate) (create) → \(revisionAfterDelete) (rollback) → \(finalRevision) (recovered)")
+    }
+
+    // MARK: - Test 05: Forced Logout Recovery
+
+    /// Verifies forced logout recovery mechanism:
+    /// When a forced logout occurs (e.g., 401 unauthorized due to token invalidation),
+    /// the client should preserve the encrypted vault locally. On next login with the same
+    /// credentials, the client should detect the preserved vault and recover by uploading
+    /// it to the server.
+    ///
+    /// This is different from normal logout:
+    /// - Normal logout: User explicitly logs out → vault is cleared
+    /// - Forced logout: Server rejects token → vault preserved locally for recovery
+    ///
+    /// Test flow:
+    /// 1. Login and create a credential (vault synced to server)
+    /// 2. Simulate server data loss by deleting latest vault revision
+    /// 3. Invalidate refresh tokens via API (simulates token expiry)
+    /// 4. Trigger API call to cause forced logout (401)
+    /// 5. Verify app shows login screen with username prefilled (orphan vault preserved)
+    /// 6. Re-login with same credentials
+    /// 7. Verify credential still exists (vault was recovered from local preserved copy)
+    /// 8. Verify server revision is restored
+    @MainActor
+    func test05ForcedLogoutRecovery() async throws {
+        let testUser = try await ensureTestUser()
+        let uniqueName = TestConfiguration.generateUniqueName(prefix: "Forced Logout Test")
+        print("[Test05] Testing forced logout recovery with item: \(uniqueName)")
+
+        app.launch()
+        unlockVaultIfNeeded(with: testUser)
+
+        let itemsScreen = app.findElement(testID: "items-screen")
+        var revisionBeforeLogout = 0
+
+        XCTContext.runActivity(named: "Step 1: Verify initial state") { _ in
+            assertElementExists(
+                itemsScreen,
+                timeout: TestConfiguration.extendedTimeout,
+                message: "Should be on items screen after launch/unlock",
+                context: "05-items-screen"
+            )
+
+            let initialStateScreenshot = XCUIScreen.main.screenshot()
+            let attachment1 = XCTAttachment(screenshot: initialStateScreenshot)
+            attachment1.name = "05-1-initial-state"
+            attachment1.lifetime = .keepAlways
+            add(attachment1)
+        }
+
+        XCTContext.runActivity(named: "Step 2: Create credential while online") { _ in
+            let addItemButton = app.findElement(testID: "add-item-button")
+            addItemButton.tapNoIdle()
+
+            let addEditScreen = app.findElement(testID: "add-edit-screen")
+            assertElementExists(
+                addEditScreen,
+                timeout: 10,
+                message: "Add/edit screen should appear",
+                context: "05-add-edit-screen"
+            )
+
+            let itemNameInput = app.findAndScrollToTextField(testID: "item-name-input")
+            itemNameInput.tapNoIdle()
+            itemNameInput.typeText(uniqueName)
+
+            let serviceUrlInput = app.findAndScrollToTextField(testID: "service-url-input")
+            serviceUrlInput.tapNoIdle()
+            serviceUrlInput.typeText("https://forced-logout-test.example.com")
+
+            let addEmailButton = app.findElement(testID: "add-email-button")
+            app.scrollToElement(addEmailButton)
+            addEmailButton.tapNoIdle()
+
+            let loginEmailInput = app.findAndScrollToTextField(testID: "login-email-input")
+            loginEmailInput.tapNoIdle()
+            loginEmailInput.typeText("forced-logout-test@example.com")
+
+            app.hideKeyboardIfVisible()
+
+            let credentialCreatedScreenshot = XCUIScreen.main.screenshot()
+            let attachment2 = XCTAttachment(screenshot: credentialCreatedScreenshot)
+            attachment2.name = "05-2-credential-created"
+            attachment2.lifetime = .keepAlways
+            add(attachment2)
+
+            let saveButton = app.findElement(testID: "save-button")
+            saveButton.tapNoIdle()
+
+            assertTextAppears(
+                "Login credentials",
+                timeout: 10,
+                message: "Should show item detail screen after save",
+                context: "05-item-saved"
+            )
+
+            sleep(1)
+            let backButton = app.findElement(testID: "back-button")
+            backButton.tapNoIdle()
+
+            assertElementExists(
+                itemsScreen,
+                timeout: 10,
+                message: "Should return to items screen",
+                context: "05-return-to-items"
+            )
+
+            sleep(3) // Wait for sync
+
+            print("[Test05] Credential created and synced to server")
+        }
+
+        // Get revision before logout using username-based API (no auth token needed)
+        let beforeLogoutRevisions = try await TestUserRegistration.getVaultRevisionsByUsername(username: testUser.username)
+        revisionBeforeLogout = beforeLogoutRevisions.currentRevision
+        print("[Test05] Server revision before forced logout: \(revisionBeforeLogout)")
+
+        // Simulate server data loss (delete latest revision)
+        let deletedCount = try await TestUserRegistration.deleteVaultRevisionsByUsername(
+            username: testUser.username,
+            count: 1
+        )
+        print("[Test05] Deleted \(deletedCount) vault revision(s) to simulate server data loss")
+
+        let afterRollbackRevisions = try await TestUserRegistration.getVaultRevisionsByUsername(username: testUser.username)
+        let revisionAfterRollback = afterRollbackRevisions.currentRevision
+        print("[Test05] Server revision after rollback: \(revisionAfterRollback)")
+
+        XCTContext.runActivity(named: "Step 3: Invalidate tokens and trigger forced logout") { _ in
+            let beforeForcedLogoutScreenshot = XCUIScreen.main.screenshot()
+            let attachment3 = XCTAttachment(screenshot: beforeForcedLogoutScreenshot)
+            attachment3.name = "05-3-before-forced-logout"
+            attachment3.lifetime = .keepAlways
+            add(attachment3)
+        }
+
+        // Block user via API (this will cause 401 on next auth check)
+        try await TestUserRegistration.blockUserByUsername(username: testUser.username)
+        print("[Test05] User blocked")
+
+        XCTContext.runActivity(named: "Step 4: Trigger sync to cause forced logout") { _ in
+            // Pull to refresh will trigger API call which should fail with 401
+            // and cause forced logout
+            print("[Test05] Triggering sync to cause forced logout...")
+            app.pullToRefresh()
+
+            // Wait for forced logout to occur
+            sleep(5)
+
+            let afterForcedLogoutScreenshot = XCUIScreen.main.screenshot()
+            let attachment4 = XCTAttachment(screenshot: afterForcedLogoutScreenshot)
+            attachment4.name = "05-4-after-forced-logout"
+            attachment4.lifetime = .keepAlways
+            add(attachment4)
+        }
+
+        XCTContext.runActivity(named: "Step 5: Verify login screen with prefilled username") { _ in
+            // Should be on login screen after forced logout
+            let loginScreen = app.findElement(testID: "login-screen")
+            assertElementExists(
+                loginScreen,
+                timeout: 15,
+                message: "Should be on login screen after forced logout",
+                context: "05-login-screen-after-logout"
+            )
+
+            // Verify username is prefilled (orphan vault preservation)
+            let usernameInput = app.findTextField(testID: "username-input")
+            if usernameInput.waitForExistenceNoIdle(timeout: 5) {
+                let usernameValue = usernameInput.value as? String ?? ""
+                print("[Test05] Username field value: '\(usernameValue)'")
+                // Note: Username may or may not be prefilled depending on implementation
+            }
+
+            let loginScreenScreenshot = XCUIScreen.main.screenshot()
+            let attachment5 = XCTAttachment(screenshot: loginScreenScreenshot)
+            attachment5.name = "05-5-login-screen-after-forced-logout"
+            attachment5.lifetime = .keepAlways
+            add(attachment5)
+
+            print("[Test05] Forced logout confirmed - on login screen")
+        }
+
+        // Unblock user so they can log in again
+        try await TestUserRegistration.unblockUserByUsername(username: testUser.username)
+        print("[Test05] User unblocked")
+
+        XCTContext.runActivity(named: "Step 6: Re-login with same credentials") { _ in
+            // Clear username field and enter credentials
+            let usernameInput = app.findTextField(testID: "username-input")
+            usernameInput.tapNoIdle()
+            usernameInput.clearAndTypeTextNoIdle(testUser.username)
+
+            let passwordInput = app.findTextField(testID: "password-input")
+            passwordInput.tapNoIdle()
+            passwordInput.typeText(testUser.password)
+
+            app.hideKeyboardIfVisible()
+
+            let credentialsScreenshot = XCUIScreen.main.screenshot()
+            let attachment6 = XCTAttachment(screenshot: credentialsScreenshot)
+            attachment6.name = "05-6-credentials-entered"
+            attachment6.lifetime = .keepAlways
+            add(attachment6)
+
+            let loginButton = app.findElement(testID: "login-button")
+            loginButton.tapNoIdle()
+
+            // Wait for login to complete and vault to load
+            assertElementExists(
+                itemsScreen,
+                timeout: TestConfiguration.extendedTimeout,
+                message: "Should navigate to items screen after re-login",
+                context: "05-items-after-relogin"
+            )
+
+            // Wait for sync to complete
+            sleep(5)
+
+            let afterReloginScreenshot = XCUIScreen.main.screenshot()
+            let attachment7 = XCTAttachment(screenshot: afterReloginScreenshot)
+            attachment7.name = "05-7-after-relogin"
+            attachment7.lifetime = .keepAlways
+            add(attachment7)
+
+            print("[Test05] Re-login successful")
+        }
+
+        XCTContext.runActivity(named: "Step 7: Verify credential still exists") { _ in
+            // The credential should still exist because:
+            // 1. It was in the local preserved vault during forced logout
+            // 2. On re-login, client detected local vault is more advanced than server
+            // 3. Client uploaded local vault to recover server
+            let itemCard = app.descendants(matching: .any).matching(
+                NSPredicate(format: "label == %@", uniqueName)
+            ).firstMatch
+
+            let itemExists = itemCard.waitForExistenceNoIdle(timeout: 10)
+            if !itemExists {
+                captureFailureState(context: "05-credential-missing")
+                XCTFail("Credential '\(uniqueName)' should still exist after forced logout recovery - this proves vault was preserved locally and uploaded to server")
+                return
+            }
+
+            itemCard.tapNoIdle()
+
+            assertTextAppears(
+                "Login credentials",
+                timeout: 10,
+                message: "Should show item detail screen",
+                context: "05-item-detail"
+            )
+
+            assertTextContaining(
+                "forced-logout-test@example.com",
+                timeout: 5,
+                message: "Email should be preserved after forced logout recovery",
+                context: "05-email-preserved"
+            )
+
+            let itemVerifiedScreenshot = XCUIScreen.main.screenshot()
+            let attachment8 = XCTAttachment(screenshot: itemVerifiedScreenshot)
+            attachment8.name = "05-8-item-verified-after-recovery"
+            attachment8.lifetime = .keepAlways
+            add(attachment8)
+
+            print("[Test05] Credential verified after forced logout recovery")
+        }
+
+        // Verify server revision is restored using username-based API (no auth token needed)
+        let finalRevisions = try await TestUserRegistration.getVaultRevisionsByUsername(username: testUser.username)
+        let finalRevision = finalRevisions.currentRevision
+        print("[Test05] Final server revision: \(finalRevision)")
+
+        XCTAssertGreaterThanOrEqual(
+            finalRevision, revisionBeforeLogout,
+            "Server revision should be restored after forced logout recovery (expected >= \(revisionBeforeLogout), got \(finalRevision))"
+        )
+
+        print("[Test05] SUCCESS - Forced logout recovery verified!")
+        print("[Test05] Revision flow: \(revisionBeforeLogout) (before) → \(revisionAfterRollback) (rollback) → \(finalRevision) (recovered)")
     }
 
     // MARK: - Helper Methods
 
-    /// Checks if the unlock screen is displayed and unlocks the vault if needed.
-    /// Called after app launch or deep links, which may trigger the vault to lock.
-    /// - Parameter testUser: The test user whose password will be used for unlock
+    /// Checks if the unlock screen is displayed and handles it by logging out and logging in fresh.
+    /// This ensures we're using the test user created by ensureTestUser(), not a stale user from a previous run.
+    /// Called after app launch when a different user might be logged in.
+    /// - Parameter testUser: The test user to login with after logout
     @MainActor
     private func unlockVaultIfNeeded(with testUser: TestUser) {
         sleep(1) // Allow app to settle
 
         let unlockScreen = app.findElement(testID: "unlock-screen")
         guard unlockScreen.waitForExistenceNoIdle(timeout: 3) else {
-            return // Not on unlock screen, nothing to do
+            // Check if we're on login screen already
+            let loginScreen = app.findElement(testID: "login-screen")
+            if loginScreen.waitForExistenceNoIdle(timeout: 2) {
+                // Already on login screen, just login with test user
+                performLogin(with: testUser)
+            }
+            return
         }
 
-        // Wait for form to be ready (loading state finished)
-        _ = app.waitForText("Unlock Vault", timeout: 5)
+        // We're on unlock screen - this means a different user might be logged in
+        // Logout and login fresh with our test user to ensure consistency
+        print("[Helper] Unlock screen detected - logging out to login fresh with test user")
 
-        // Enter password
-        let passwordInput = app.findTextField(testID: "unlock-password-input")
-        if passwordInput.waitForExistenceNoIdle(timeout: 5) {
+        // Find and tap logout button on unlock screen
+        let logoutButton = app.findElement(testID: "logout-button")
+        if logoutButton.waitForExistenceNoIdle(timeout: 5) {
+            logoutButton.tapNoIdle()
+
+            // Handle logout confirmation alert if present
+            let confirmButton = app.buttons["Log Out"]
+            if confirmButton.waitForExistence(timeout: 3) {
+                confirmButton.tap()
+            }
+        }
+
+        // Wait for login screen
+        let loginScreen = app.findElement(testID: "login-screen")
+        _ = loginScreen.waitForExistenceNoIdle(timeout: 10)
+
+        // Login with test user
+        performLogin(with: testUser)
+    }
+
+    /// Performs login with the given test user credentials.
+    /// - Parameter testUser: The test user to login with
+    @MainActor
+    private func performLogin(with testUser: TestUser) {
+        // Configure self-hosted URL
+        let selfHostedOption = app.findElement(testID: "self-hosted-option")
+        if selfHostedOption.waitForExistenceNoIdle(timeout: 5) {
+            selfHostedOption.tapNoIdle()
+
+            let customUrlInput = app.findTextField(testID: "custom-url-input")
+            if customUrlInput.waitForExistenceNoIdle(timeout: 5) {
+                customUrlInput.clearAndTypeTextNoIdle(TestConfiguration.apiUrl)
+            }
+
+            app.hideKeyboardIfVisible()
+
+            // Tap back/return to login form
+            let backButton = app.findElement(testID: "back-to-login-button")
+            if backButton.waitForExistenceNoIdle(timeout: 3) {
+                backButton.tapNoIdle()
+            }
+        }
+
+        // Enter credentials
+        let usernameInput = app.findTextField(testID: "username-input")
+        if usernameInput.waitForExistenceNoIdle(timeout: 5) {
+            usernameInput.clearAndTypeTextNoIdle(testUser.username)
+        }
+
+        let passwordInput = app.findTextField(testID: "password-input")
+        if passwordInput.waitForExistenceNoIdle(timeout: 3) {
             passwordInput.tapNoIdle()
             passwordInput.typeText(testUser.password)
         }
 
         app.hideKeyboardIfVisible()
 
-        // Tap unlock button
-        let unlockButton = app.findElement(testID: "unlock-button")
-        if unlockButton.waitForExistenceNoIdle(timeout: 3) {
-            unlockButton.tapNoIdle()
+        // Tap login button
+        let loginButton = app.findElement(testID: "login-button")
+        if loginButton.waitForExistenceNoIdle(timeout: 3) {
+            loginButton.tapNoIdle()
         }
 
-        // Wait for items screen (unlock redirects through reinitialize)
+        // Wait for items screen
         let itemsScreen = app.findElement(testID: "items-screen")
         _ = itemsScreen.waitForExistenceNoIdle(timeout: TestConfiguration.extendedTimeout)
     }

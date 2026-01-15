@@ -486,4 +486,239 @@ enum TestUserRegistration {
 
         return (0, 0)
     }
+
+    /// Block the authenticated user's account.
+    /// This endpoint only works in development mode.
+    /// Used for testing forced logout scenarios - blocked users get 401 from /status endpoint.
+    ///
+    /// - Parameters:
+    ///   - token: Authentication token
+    ///   - apiBaseUrl: Optional API base URL (defaults to apiUrl)
+    static func blockUser(
+        token: String,
+        apiBaseUrl: String? = nil
+    ) async throws {
+        let url = (apiBaseUrl ?? apiUrl).trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/v1/"
+
+        var request = URLRequest(url: URL(string: "\(url)Test/block-user")!)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NSError(domain: "TestUserRegistration", code: 11,
+                         userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            let errorText = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw NSError(domain: "TestUserRegistration", code: httpResponse.statusCode,
+                         userInfo: [NSLocalizedDescriptionKey: "Failed to block user: \(errorText)"])
+        }
+    }
+
+    /// Unblock the authenticated user's account.
+    /// This endpoint only works in development mode.
+    /// Used after forced logout tests to re-enable the account.
+    ///
+    /// - Parameters:
+    ///   - token: Authentication token
+    ///   - apiBaseUrl: Optional API base URL (defaults to apiUrl)
+    static func unblockUser(
+        token: String,
+        apiBaseUrl: String? = nil
+    ) async throws {
+        let url = (apiBaseUrl ?? apiUrl).trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/v1/"
+
+        var request = URLRequest(url: URL(string: "\(url)Test/unblock-user")!)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NSError(domain: "TestUserRegistration", code: 12,
+                         userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            let errorText = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw NSError(domain: "TestUserRegistration", code: httpResponse.statusCode,
+                         userInfo: [NSLocalizedDescriptionKey: "Failed to unblock user: \(errorText)"])
+        }
+    }
+
+    // MARK: - Username-based API calls (for UI tests that can't access app tokens)
+
+    /// Get vault revision information for a user by username.
+    /// This is an anonymous endpoint that doesn't require authentication.
+    /// Used by UI tests that cannot access the app's auth token.
+    ///
+    /// - Parameters:
+    ///   - username: The username to look up
+    ///   - apiBaseUrl: Optional API base URL (defaults to apiUrl)
+    /// - Returns: Tuple of (count, currentRevision)
+    static func getVaultRevisionsByUsername(
+        username: String,
+        apiBaseUrl: String? = nil
+    ) async throws -> (count: Int, currentRevision: Int) {
+        let url = (apiBaseUrl ?? apiUrl).trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/v1/"
+        // Use alphanumerics for safe URL path encoding (encodes @, ., etc.)
+        let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? username
+
+        guard let requestUrl = URL(string: "\(url)Test/vault-revisions/by-username/\(encodedUsername)") else {
+            throw NSError(domain: "TestUserRegistration", code: 13,
+                         userInfo: [NSLocalizedDescriptionKey: "Invalid URL for username: \(username)"])
+        }
+        var request = URLRequest(url: requestUrl)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NSError(domain: "TestUserRegistration", code: 13,
+                         userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            let errorText = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw NSError(domain: "TestUserRegistration", code: httpResponse.statusCode,
+                         userInfo: [NSLocalizedDescriptionKey: "Failed to get vault revisions: \(errorText)"])
+        }
+
+        // Parse response
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let count = json["count"] as? Int,
+           let currentRevision = json["currentRevision"] as? Int {
+            return (count, currentRevision)
+        }
+
+        return (0, 0)
+    }
+
+    /// Delete the newest vault revisions for a user by username.
+    /// This is an anonymous endpoint that doesn't require authentication.
+    /// Used by UI tests that cannot access the app's auth token.
+    ///
+    /// - Parameters:
+    ///   - username: The username to look up
+    ///   - count: Number of newest revisions to delete
+    ///   - apiBaseUrl: Optional API base URL (defaults to apiUrl)
+    /// - Returns: Number of deleted revisions
+    static func deleteVaultRevisionsByUsername(
+        username: String,
+        count: Int,
+        apiBaseUrl: String? = nil
+    ) async throws -> Int {
+        let url = (apiBaseUrl ?? apiUrl).trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/v1/"
+        // Use alphanumerics for safe URL path encoding (encodes @, ., etc.)
+        let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? username
+
+        guard let requestUrl = URL(string: "\(url)Test/vault-revisions/by-username/\(encodedUsername)/\(count)") else {
+            throw NSError(domain: "TestUserRegistration", code: 14,
+                         userInfo: [NSLocalizedDescriptionKey: "Invalid URL for username: \(username)"])
+        }
+        var request = URLRequest(url: requestUrl)
+        request.httpMethod = "DELETE"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NSError(domain: "TestUserRegistration", code: 14,
+                         userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            let errorText = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw NSError(domain: "TestUserRegistration", code: httpResponse.statusCode,
+                         userInfo: [NSLocalizedDescriptionKey: "Failed to delete vault revisions: \(errorText)"])
+        }
+
+        // Parse response
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let deleted = json["deleted"] as? Int {
+            return deleted
+        }
+
+        return 0
+    }
+
+    /// Block a user's account by username.
+    /// This is an anonymous endpoint that doesn't require authentication.
+    /// Used by UI tests that cannot access the app's auth token.
+    ///
+    /// - Parameters:
+    ///   - username: The username to block
+    ///   - apiBaseUrl: Optional API base URL (defaults to apiUrl)
+    static func blockUserByUsername(
+        username: String,
+        apiBaseUrl: String? = nil
+    ) async throws {
+        let url = (apiBaseUrl ?? apiUrl).trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/v1/"
+        // Use alphanumerics for safe URL path encoding (encodes @, ., etc.)
+        let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? username
+
+        guard let requestUrl = URL(string: "\(url)Test/block-user/by-username/\(encodedUsername)") else {
+            throw NSError(domain: "TestUserRegistration", code: 15,
+                         userInfo: [NSLocalizedDescriptionKey: "Invalid URL for username: \(username)"])
+        }
+        var request = URLRequest(url: requestUrl)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NSError(domain: "TestUserRegistration", code: 15,
+                         userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            let errorText = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw NSError(domain: "TestUserRegistration", code: httpResponse.statusCode,
+                         userInfo: [NSLocalizedDescriptionKey: "Failed to block user: \(errorText)"])
+        }
+    }
+
+    /// Unblock a user's account by username.
+    /// This is an anonymous endpoint that doesn't require authentication.
+    /// Used by UI tests that cannot access the app's auth token.
+    ///
+    /// - Parameters:
+    ///   - username: The username to unblock
+    ///   - apiBaseUrl: Optional API base URL (defaults to apiUrl)
+    static func unblockUserByUsername(
+        username: String,
+        apiBaseUrl: String? = nil
+    ) async throws {
+        let url = (apiBaseUrl ?? apiUrl).trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/v1/"
+        // Use alphanumerics for safe URL path encoding (encodes @, ., etc.)
+        let encodedUsername = username.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? username
+
+        guard let requestUrl = URL(string: "\(url)Test/unblock-user/by-username/\(encodedUsername)") else {
+            throw NSError(domain: "TestUserRegistration", code: 16,
+                         userInfo: [NSLocalizedDescriptionKey: "Invalid URL for username: \(username)"])
+        }
+        var request = URLRequest(url: requestUrl)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NSError(domain: "TestUserRegistration", code: 16,
+                         userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            let errorText = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw NSError(domain: "TestUserRegistration", code: httpResponse.statusCode,
+                         userInfo: [NSLocalizedDescriptionKey: "Failed to unblock user: \(errorText)"])
+        }
+    }
 }
