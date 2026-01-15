@@ -233,7 +233,7 @@ final class AliasVaultUITests: XCTestCase {
         print("[Test02] Creating item with name: \(uniqueName)")
 
         app.launch()
-        unlockVaultIfNeeded(with: testUser)
+        loginWithTestUser(testUser)
 
         XCTContext.runActivity(named: "Verify items screen is displayed") { _ in
             let itemsScreen = app.findElement(testID: "items-screen")
@@ -377,7 +377,7 @@ final class AliasVaultUITests: XCTestCase {
         let testUser = try await ensureTestUser()
 
         app.launch()
-        unlockVaultIfNeeded(with: testUser)
+        loginWithTestUser(testUser)
 
         let originalApiUrl = TestConfiguration.apiUrl
         let invalidApiUrl = "http://offline.invalid.localhost:9999"
@@ -634,7 +634,7 @@ final class AliasVaultUITests: XCTestCase {
         print("[Test04] Testing RPO recovery with item: \(uniqueName)")
 
         app.launch()
-        unlockVaultIfNeeded(with: testUser)
+        loginWithTestUser(testUser)
 
         let itemsScreen = app.findElement(testID: "items-screen")
         var initialRevision = 0
@@ -851,7 +851,7 @@ final class AliasVaultUITests: XCTestCase {
         print("[Test05] Testing forced logout recovery with item: \(uniqueName)")
 
         app.launch()
-        unlockVaultIfNeeded(with: testUser)
+        loginWithTestUser(testUser)
 
         let itemsScreen = app.findElement(testID: "items-screen")
         var revisionBeforeLogout = 0
@@ -967,8 +967,17 @@ final class AliasVaultUITests: XCTestCase {
             print("[Test05] Triggering sync to cause forced logout...")
             app.pullToRefresh()
 
-            // Wait for forced logout to occur
-            sleep(5)
+            // Wait for the session expired modal to appear and dismiss it
+            // The modal says "Your session has expired. Please login again." with an "OK" button
+            let okButton = app.alerts.buttons["OK"]
+            let alertAppeared = okButton.waitForExistenceNoIdle(timeout: 10)
+            if alertAppeared {
+                print("[Test05] Session expired modal detected, dismissing...")
+                okButton.tapNoIdle()
+                sleep(1) // Wait for alert dismissal and navigation
+            } else {
+                print("[Test05] No session expired modal detected, continuing...")
+            }
 
             let afterForcedLogoutScreenshot = XCUIScreen.main.screenshot()
             let attachment4 = XCTAttachment(screenshot: afterForcedLogoutScreenshot)
@@ -978,7 +987,7 @@ final class AliasVaultUITests: XCTestCase {
         }
 
         XCTContext.runActivity(named: "Step 5: Verify login screen with prefilled username") { _ in
-            // Should be on login screen after forced logout
+            // Should be on login screen after forced logout (modal was already dismissed in step 4)
             let loginScreen = app.findElement(testID: "login-screen")
             assertElementExists(
                 loginScreen,
@@ -1106,71 +1115,140 @@ final class AliasVaultUITests: XCTestCase {
 
     // MARK: - Helper Methods
 
-    /// Checks if the unlock screen is displayed and handles it by logging out and logging in fresh.
-    /// This ensures we're using the test user created by ensureTestUser(), not a stale user from a previous run.
-    /// Called after app launch when a different user might be logged in.
-    /// - Parameter testUser: The test user to login with after logout
+    /// Logs in with test user at the beginning of a test.
+    /// Always logs out first if already logged in to ensure we're using the correct test user.
+    /// Use this at the start of tests after app.launch().
+    /// - Parameter testUser: The test user to login with
     @MainActor
-    private func unlockVaultIfNeeded(with testUser: TestUser) {
+    private func loginWithTestUser(_ testUser: TestUser) {
         sleep(1) // Allow app to settle
 
         let unlockScreen = app.findElement(testID: "unlock-screen")
-        guard unlockScreen.waitForExistenceNoIdle(timeout: 3) else {
-            // Check if we're on login screen already
-            let loginScreen = app.findElement(testID: "login-screen")
-            if loginScreen.waitForExistenceNoIdle(timeout: 2) {
-                // Already on login screen, just login with test user
-                performLogin(with: testUser)
+        if unlockScreen.waitForExistenceNoIdle(timeout: 3) {
+            // We're on unlock screen - logout to start fresh with test user
+            print("[Helper] Unlock screen detected - logging out to login fresh with test user")
+
+            let logoutButton = app.findElement(testID: "logout-button")
+            if logoutButton.waitForExistenceNoIdle(timeout: 5) {
+                logoutButton.tapNoIdle()
+
+                // Handle logout confirmation alert if present
+                let confirmButton = app.buttons["Log Out"]
+                if confirmButton.waitForExistence(timeout: 3) {
+                    confirmButton.tap()
+                }
             }
+
+            // Wait for login screen
+            let loginScreen = app.findElement(testID: "login-screen")
+            _ = loginScreen.waitForExistenceNoIdle(timeout: 10)
+        }
+
+        // Check if we're on login screen
+        let loginScreen = app.findElement(testID: "login-screen")
+        if loginScreen.waitForExistenceNoIdle(timeout: 3) {
+            performLogin(with: testUser)
             return
         }
 
-        // We're on unlock screen - this means a different user might be logged in
-        // Logout and login fresh with our test user to ensure consistency
-        print("[Helper] Unlock screen detected - logging out to login fresh with test user")
-
-        // Find and tap logout button on unlock screen
-        let logoutButton = app.findElement(testID: "logout-button")
-        if logoutButton.waitForExistenceNoIdle(timeout: 5) {
-            logoutButton.tapNoIdle()
-
-            // Handle logout confirmation alert if present
-            let confirmButton = app.buttons["Log Out"]
-            if confirmButton.waitForExistence(timeout: 3) {
-                confirmButton.tap()
-            }
+        // Check if we're already on items screen (already logged in as correct user)
+        let itemsScreen = app.findElement(testID: "items-screen")
+        if itemsScreen.waitForExistenceNoIdle(timeout: 3) {
+            print("[Helper] Already on items screen, assuming correct user is logged in")
+            return
         }
 
-        // Wait for login screen
-        let loginScreen = app.findElement(testID: "login-screen")
-        _ = loginScreen.waitForExistenceNoIdle(timeout: 10)
+        // Unknown state - try to navigate to login
+        print("[Helper] Unknown app state, waiting for login or items screen")
+    }
 
-        // Login with test user
-        performLogin(with: testUser)
+    /// Unlocks the vault if the unlock screen is displayed.
+    /// Use this after deep links or other actions that may lock the vault.
+    /// Unlike loginWithTestUser, this does NOT logout - it just enters the password.
+    /// - Parameter testUser: The test user whose password to use for unlock
+    @MainActor
+    private func unlockVaultIfNeeded(with testUser: TestUser) {
+        let unlockScreen = app.findElement(testID: "unlock-screen")
+        guard unlockScreen.waitForExistenceNoIdle(timeout: 3) else {
+            // Not on unlock screen, nothing to do
+            return
+        }
+
+        print("[Helper] Unlock screen detected - entering password to unlock")
+
+        // Enter password in unlock screen
+        let passwordInput = app.findTextField(testID: "unlock-password-input")
+        if passwordInput.waitForExistenceNoIdle(timeout: 5) {
+            passwordInput.tapNoIdle()
+            passwordInput.typeText(testUser.password)
+        }
+
+        app.hideKeyboardIfVisible()
+
+        // Tap unlock button
+        let unlockButton = app.findElement(testID: "unlock-button")
+        if unlockButton.waitForExistenceNoIdle(timeout: 3) {
+            unlockButton.tapNoIdle()
+        }
+
+        // Wait for items screen
+        let itemsScreen = app.findElement(testID: "items-screen")
+        _ = itemsScreen.waitForExistenceNoIdle(timeout: TestConfiguration.extendedTimeout)
     }
 
     /// Performs login with the given test user credentials.
+    /// Assumes we're already on the login screen.
     /// - Parameter testUser: The test user to login with
     @MainActor
     private func performLogin(with testUser: TestUser) {
-        // Configure self-hosted URL
-        let selfHostedOption = app.findElement(testID: "self-hosted-option")
-        if selfHostedOption.waitForExistenceNoIdle(timeout: 5) {
-            selfHostedOption.tapNoIdle()
+        // Check if API URL is already configured to localhost by looking at the displayed URL
+        // The login screen shows the URL via server-url-link, containing text like "localhost:5092" or "aliasvault.net"
+        let serverUrlLink = app.findElement(testID: "server-url-link")
+        var needsApiConfig = true
 
-            let customUrlInput = app.findTextField(testID: "custom-url-input")
-            if customUrlInput.waitForExistenceNoIdle(timeout: 5) {
-                customUrlInput.clearAndTypeTextNoIdle(TestConfiguration.apiUrl)
-            }
-
-            app.hideKeyboardIfVisible()
-
-            // Tap back/return to login form
-            let backButton = app.findElement(testID: "back-to-login-button")
-            if backButton.waitForExistenceNoIdle(timeout: 3) {
-                backButton.tapNoIdle()
+        if serverUrlLink.waitForExistenceNoIdle(timeout: 5) {
+            // Check if URL already contains localhost (already configured for local testing)
+            let urlText = serverUrlLink.label
+            if urlText.contains("localhost") {
+                print("[Helper] API URL already configured to localhost, skipping API configuration")
+                needsApiConfig = false
+            } else {
+                print("[Helper] API URL shows '\(urlText)', need to configure to localhost")
             }
         }
+
+        if needsApiConfig {
+            // Configure self-hosted URL by tapping the server URL link button
+            let serverUrlLinkButton = app.findElement(testID: "server-url-link-button")
+
+            if serverUrlLinkButton.waitForExistenceNoIdle(timeout: 5) {
+                serverUrlLinkButton.tapNoIdle()
+
+                let selfHostedOption = app.findElement(testID: "api-option-custom")
+                if selfHostedOption.waitForExistenceNoIdle(timeout: 10) {
+                    selfHostedOption.tapNoIdle()
+
+                    let customUrlInput = app.findTextField(testID: "custom-api-url-input")
+                    if customUrlInput.waitForExistenceNoIdle(timeout: 5) {
+                        customUrlInput.tapNoIdle()
+                        customUrlInput.clearAndTypeTextNoIdle(TestConfiguration.apiUrl)
+                        print("[Helper] Configured API URL: \(TestConfiguration.apiUrl)")
+                    }
+
+                    app.hideKeyboardIfVisible()
+
+                    // Tap back to return to login form
+                    let backButton = app.findElement(testID: "back-button")
+                    if backButton.waitForExistenceNoIdle(timeout: 3) {
+                        backButton.tapNoIdle()
+                    }
+                }
+            }
+        }
+
+        // Wait for login screen to be ready
+        let loginScreen = app.findElement(testID: "login-screen")
+        _ = loginScreen.waitForExistenceNoIdle(timeout: 5)
 
         // Enter credentials
         let usernameInput = app.findTextField(testID: "username-input")

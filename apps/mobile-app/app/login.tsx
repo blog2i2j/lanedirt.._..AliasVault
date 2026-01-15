@@ -28,6 +28,7 @@ import { RobustPressable } from '@/components/ui/RobustPressable';
 import { useApp } from '@/context/AppContext';
 import { useDb } from '@/context/DbContext';
 import { useWebApi } from '@/context/WebApiContext';
+import NativeVaultManager from '@/specs/NativeVaultManager';
 
 /**
  * Login screen.
@@ -170,9 +171,35 @@ export default function LoginScreen() : React.ReactNode {
     await dbContext.storeEncryptionKey(passwordHashBase64);
     await dbContext.storeEncryptionKeyDerivationParams(encryptionKeyDerivationParams);
 
+    /*
+     * Forced logout recovery check:
+     * If there's an existing local vault (from forced logout), try to unlock it.
+     * If decryption fails (password changed or corrupted), clear the local vault
+     * so sync will download fresh from server.
+     */
+    const hasExistingVault = await NativeVaultManager.hasEncryptedDatabase();
+    if (hasExistingVault) {
+      try {
+        await NativeVaultManager.unlockVault();
+        /*
+         * Decryption succeeded - local vault is valid, close it for sync to handle.
+         * The sync will compare revisions and decide whether to keep local or download.
+         */
+        console.info('Existing local vault (after forced logout) decrypted successfully, syncing with server');
+      } catch {
+        // Decryption failed - clear local vault so sync downloads fresh from server
+        console.info('Existing vault could not be decrypted (password changed or corrupted), clearing for fresh download');
+        await NativeVaultManager.clearVault();
+      }
+    }
+
     let checkSuccess = true;
 
-    // Sync vault from server (downloads, stores, and validates compatibility)
+    /*
+     * Sync vault from server (downloads, stores, and validates compatibility)
+     * This will handle the forced logout recovery check in case our local vault is dirty
+     * or is ahead of server in case of RPO event.
+     */
     await syncVault({
       /**
        * Update login status during sync.
@@ -536,9 +563,9 @@ export default function LoginScreen() : React.ReactNode {
                   </Text>
                   <RobustPressable
                     onPress={() => router.push('/login-settings')}
-                    testID="server-url-link"
+                    testID="server-url-link-button"
                   >
-                    <Text style={styles.clickableLink}>
+                    <Text style={styles.clickableLink} testID="server-url-link"                    >
                       {getDisplayUrl()}
                     </Text>
                   </RobustPressable>
