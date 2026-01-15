@@ -400,4 +400,90 @@ enum TestUserRegistration {
             return false
         }
     }
+
+    // MARK: - Test Helpers (DEV API Endpoints)
+
+    /// Delete the newest vault revisions for the authenticated user.
+    /// This endpoint only works in development mode.
+    /// Used for testing RPO (Recovery Point Objective) recovery scenarios.
+    ///
+    /// - Parameters:
+    ///   - count: Number of newest revisions to delete
+    ///   - token: Authentication token
+    ///   - apiBaseUrl: Optional API base URL (defaults to apiUrl)
+    /// - Returns: Number of deleted revisions
+    static func deleteVaultRevisions(
+        count: Int,
+        token: String,
+        apiBaseUrl: String? = nil
+    ) async throws -> Int {
+        let url = (apiBaseUrl ?? apiUrl).trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/v1/"
+
+        var request = URLRequest(url: URL(string: "\(url)Test/vault-revisions/\(count)")!)
+        request.httpMethod = "DELETE"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NSError(domain: "TestUserRegistration", code: 10,
+                         userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            let errorText = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw NSError(domain: "TestUserRegistration", code: httpResponse.statusCode,
+                         userInfo: [NSLocalizedDescriptionKey: "Failed to delete vault revisions: \(errorText)"])
+        }
+
+        // Parse response to get deleted count
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let deleted = json["deleted"] as? Int {
+            return deleted
+        }
+
+        return 0
+    }
+
+    /// Get vault revision information for the authenticated user.
+    /// This endpoint only works in development mode.
+    ///
+    /// - Parameters:
+    ///   - token: Authentication token
+    ///   - apiBaseUrl: Optional API base URL (defaults to apiUrl)
+    /// - Returns: Tuple of (count, currentRevision)
+    static func getVaultRevisions(
+        token: String,
+        apiBaseUrl: String? = nil
+    ) async throws -> (count: Int, currentRevision: Int) {
+        let url = (apiBaseUrl ?? apiUrl).trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/v1/"
+
+        var request = URLRequest(url: URL(string: "\(url)Test/vault-revisions")!)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NSError(domain: "TestUserRegistration", code: 10,
+                         userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            let errorText = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw NSError(domain: "TestUserRegistration", code: httpResponse.statusCode,
+                         userInfo: [NSLocalizedDescriptionKey: "Failed to get vault revisions: \(errorText)"])
+        }
+
+        // Parse response
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let count = json["count"] as? Int,
+           let currentRevision = json["currentRevision"] as? Int {
+            return (count, currentRevision)
+        }
+
+        return (0, 0)
+    }
 }
