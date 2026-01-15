@@ -111,6 +111,12 @@
 
 - (void)clearVault:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     [vaultManager clearVault];
+    resolve(nil);
+}
+
+- (void)clearSession:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager clearSession];
+    resolve(nil);
 }
 
 - (void)getEncryptedDatabase:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
