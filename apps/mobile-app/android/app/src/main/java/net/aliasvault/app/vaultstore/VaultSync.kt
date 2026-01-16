@@ -114,6 +114,21 @@ class VaultSync(
                     // UPLOAD: Local changes at same revision
                     performUploadSync(webApiService, mutate, mutationSeqAtStart, retryCount)
                 }
+                serverRevision < syncState.serverRevision -> {
+                    /**
+                     * Server revision DECREASED - server data loss/rollback detected.
+                     * Client has more advanced revision - upload to recover server state.
+                     *
+                     * This will create a revision gap in server history (e.g., 95 → 101),
+                     * which serves as an audit trail of the recovery event.
+                     */
+                    Log.w(
+                        TAG,
+                        "Server data loss detected! Server at rev $serverRevision, " +
+                            "client at rev ${syncState.serverRevision}. Uploading to recover server state.",
+                    )
+                    performUploadSync(webApiService, mutate, mutationSeqAtStart, retryCount)
+                }
                 else -> {
                     // Already in sync
                     metadata.setIsSyncing(false)

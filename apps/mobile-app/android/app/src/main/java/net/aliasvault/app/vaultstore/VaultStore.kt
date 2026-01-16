@@ -684,7 +684,19 @@ class VaultStore(
     }
 
     /**
+     * Clear session data only (for forced logout).
+     * Preserves vault data on disk for recovery on next login.
+     * This is used when the user is forcibly logged out (e.g., 401, token revocation)
+     * to allow recovery of unsynced local changes.
+     */
+    fun clearSession() {
+        cache.clearSession()
+    }
+
+    /**
      * Clear all vault data including from persisted storage.
+     * This is used for user-initiated logout where they explicitly
+     * choose to clear all local data.
      */
     fun clearVault() {
         cache.clearVault()

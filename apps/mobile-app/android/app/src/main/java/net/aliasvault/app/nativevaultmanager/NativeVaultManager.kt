@@ -128,7 +128,24 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Clear the vault.
+     * Clear session data only (for forced logout).
+     * Preserves vault data on disk for recovery on next login.
+     * @param promise The promise to resolve
+     */
+    @ReactMethod
+    override fun clearSession(promise: Promise) {
+        try {
+            vaultStore.clearSession()
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error clearing session", e)
+            promise.reject("ERR_CLEAR_SESSION", "Failed to clear session: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Clear all vault data including from persisted storage.
+     * This is used for user-initiated logout.
      * @param promise The promise to resolve
      */
     @ReactMethod
@@ -1404,6 +1421,111 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
         } catch (e: Exception) {
             Log.e(TAG, "Error marking vault clean", e)
             promise.reject("ERR_MARK_VAULT_CLEAN", "Failed to mark vault clean: ${e.message}", e)
+        }
+    }
+
+    // MARK: - SRP Functions (via Rust Core UniFFI)
+
+    /**
+     * Generate a cryptographic salt for SRP.
+     * @param promise The promise to resolve with the generated salt (hex string).
+     */
+    @ReactMethod
+    override fun srpGenerateSalt(promise: Promise) {
+        try {
+            val salt = uniffi.aliasvault_core.srpGenerateSalt()
+            promise.resolve(salt)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error generating SRP salt", e)
+            promise.reject("ERR_SRP_GENERATE_SALT", "Failed to generate SRP salt: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Derive the SRP private key (x) from credentials.
+     * @param salt The salt (hex string).
+     * @param identity The identity (username).
+     * @param passwordHash The password hash (hex string).
+     * @param promise The promise to resolve with the private key (hex string).
+     */
+    @ReactMethod
+    override fun srpDerivePrivateKey(salt: String, identity: String, passwordHash: String, promise: Promise) {
+        try {
+            val privateKey = uniffi.aliasvault_core.srpDerivePrivateKey(salt, identity, passwordHash)
+            promise.resolve(privateKey)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deriving SRP private key", e)
+            promise.reject("ERR_SRP_DERIVE_PRIVATE_KEY", "Failed to derive SRP private key: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Derive the SRP verifier (v) from a private key.
+     * @param privateKey The private key (hex string).
+     * @param promise The promise to resolve with the verifier (hex string).
+     */
+    @ReactMethod
+    override fun srpDeriveVerifier(privateKey: String, promise: Promise) {
+        try {
+            val verifier = uniffi.aliasvault_core.srpDeriveVerifier(privateKey)
+            promise.resolve(verifier)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deriving SRP verifier", e)
+            promise.reject("ERR_SRP_DERIVE_VERIFIER", "Failed to derive SRP verifier: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Generate client ephemeral values (a, A) for SRP.
+     * @param promise The promise to resolve with JSON containing public and secret values.
+     */
+    @ReactMethod
+    override fun srpGenerateEphemeral(promise: Promise) {
+        try {
+            val ephemeral = uniffi.aliasvault_core.srpGenerateEphemeral()
+            val result = Arguments.createMap()
+            result.putString("public", ephemeral.public)
+            result.putString("secret", ephemeral.secret)
+            promise.resolve(result)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error generating SRP ephemeral", e)
+            promise.reject("ERR_SRP_GENERATE_EPHEMERAL", "Failed to generate SRP ephemeral: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Derive the SRP session key and proof.
+     * @param clientSecret The client secret (a, hex string).
+     * @param serverPublic The server public value (B, hex string).
+     * @param salt The salt (hex string).
+     * @param identity The identity (username).
+     * @param privateKey The private key (x, hex string).
+     * @param promise The promise to resolve with JSON containing key and proof.
+     */
+    @ReactMethod
+    override fun srpDeriveSession(
+        clientSecret: String,
+        serverPublic: String,
+        salt: String,
+        identity: String,
+        privateKey: String,
+        promise: Promise,
+    ) {
+        try {
+            val session = uniffi.aliasvault_core.srpDeriveSession(
+                clientSecret,
+                serverPublic,
+                salt,
+                identity,
+                privateKey,
+            )
+            val result = Arguments.createMap()
+            result.putString("key", session.key)
+            result.putString("proof", session.proof)
+            promise.resolve(result)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deriving SRP session", e)
+            promise.reject("ERR_SRP_DERIVE_SESSION", "Failed to derive SRP session: ${e.message}", e)
         }
     }
 }
