@@ -97,9 +97,21 @@ jobs:
         working-directory: apps/server
         run: dotnet build AliasVault.Api
 
-      - name: Start dev database
-        working-directory: ${{ github.workspace }}
-        run: ./install.sh configure-dev-db start
+      - name: Start PostgreSQL
+        run: |
+          brew services start postgresql@14
+          # Wait for PostgreSQL to be ready
+          for i in {1..10}; do
+            if pg_isready -h localhost; then
+              echo "PostgreSQL is ready!"
+              break
+            fi
+            sleep 1
+          done
+          # Create database and user
+          createuser -s aliasvault || true
+          psql postgres -c "ALTER USER aliasvault WITH PASSWORD 'password';" || true
+          createdb -O aliasvault aliasdb_e2e_ios || true
 
       - name: Start API server
         working-directory: apps/server/AliasVault.Api
@@ -116,7 +128,7 @@ jobs:
             sleep 2
           done
         env:
-          ConnectionStrings__AliasServerDbContext: "Host=localhost;Port=5433;Database=aliasdb_e2e_ios;Username=aliasvault;Password=password"
+          ConnectionStrings__AliasServerDbContext: "Host=localhost;Port=5432;Database=aliasdb_e2e_ios;Username=aliasvault;Password=password"
           JWT_KEY: "12345678901234567890123456789012"
           DATA_PROTECTION_CERT_PASS: "Development"
           PUBLIC_REGISTRATION_ENABLED: "true"
