@@ -139,11 +139,9 @@ object UITestHelpers {
     /**
      * Tap on an element with testID.
      */
-    fun UiDevice.tapTestId(
-        testId: String,
-        timeout: Long = TestConfiguration.SHORT_TIMEOUT_MS,
-    ): Boolean {
-        val element = waitForTestId(testId, timeout)
+    fun UiDevice.tapTestId(testId: String): Boolean {
+        // Try immediate find first (no waiting)
+        val element = findByTestId(testId)
         return if (element != null) {
             element.click()
             true
@@ -156,11 +154,9 @@ object UITestHelpers {
     /**
      * Tap on an element with text.
      */
-    fun UiDevice.tapText(
-        text: String,
-        timeout: Long = TestConfiguration.SHORT_TIMEOUT_MS,
-    ): Boolean {
-        val element = waitForText(text, timeout)
+    fun UiDevice.tapText(text: String): Boolean {
+        // Try immediate find first (no waiting)
+        val element = findByText(text)
         return if (element != null) {
             element.click()
             true
@@ -173,12 +169,9 @@ object UITestHelpers {
     /**
      * Type text into an element with testID.
      */
-    fun UiDevice.typeIntoTestId(
-        testId: String,
-        text: String,
-        timeout: Long = TestConfiguration.SHORT_TIMEOUT_MS,
-    ): Boolean {
-        val element = waitForTestId(testId, timeout)
+    fun UiDevice.typeIntoTestId(testId: String, text: String): Boolean {
+        // Try immediate find first (no waiting)
+        val element = findByTestId(testId)
         return if (element != null) {
             element.click()
             Thread.sleep(100) // Small delay for focus
@@ -193,11 +186,9 @@ object UITestHelpers {
     /**
      * Clear text in an element with testID.
      */
-    fun UiDevice.clearTestId(
-        testId: String,
-        timeout: Long = TestConfiguration.SHORT_TIMEOUT_MS,
-    ): Boolean {
-        val element = waitForTestId(testId, timeout)
+    fun UiDevice.clearTestId(testId: String): Boolean {
+        // Try immediate find first (no waiting)
+        val element = findByTestId(testId)
         return if (element != null) {
             element.click()
             Thread.sleep(100) // Small delay for focus

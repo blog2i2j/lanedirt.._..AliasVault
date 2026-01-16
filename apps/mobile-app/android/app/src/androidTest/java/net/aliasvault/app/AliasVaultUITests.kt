@@ -565,7 +565,7 @@ class AliasVaultUITests {
         }
 
         if (needsApiConfig) {
-            if (device.tapTestId("server-url-link-button") || device.tapTestId("server-url-link")) {
+            if (device.tapTestId("server-url-link-button")) {
                 if (device.waitForTestId("api-option-custom", TestConfiguration.DEFAULT_TIMEOUT_MS) != null) {
                     device.tapTestId("api-option-custom")
 
