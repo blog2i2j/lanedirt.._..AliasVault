@@ -143,12 +143,7 @@ export default function FolderViewScreen(): React.ReactNode {
     setRefreshing(true);
     setIsLoadingItems(true);
 
-    if (authContext.isOffline) {
-      setRefreshing(false);
-      setIsLoadingItems(false);
-      return;
-    }
-
+    // Always attempt sync, even when offline - this allows recovery when connection is restored
     try {
       await syncVault({
         /**
@@ -156,6 +151,7 @@ export default function FolderViewScreen(): React.ReactNode {
          */
         onSuccess: async (hasNewVault) => {
           await loadItems();
+          await dbContext.refreshSyncState(); // Clear offline state if we were offline
           setIsLoadingItems(false);
           setRefreshing(false);
           setTimeout(() => {
@@ -208,7 +204,7 @@ export default function FolderViewScreen(): React.ReactNode {
         });
       }
     }
-  }, [syncVault, loadItems, setIsLoadingItems, setRefreshing, authContext, router, t]);
+  }, [syncVault, loadItems, setIsLoadingItems, setRefreshing, authContext, dbContext, router, t]);
 
   useEffect(() => {
     if (!isAuthenticated || !isDatabaseAvailable) {
