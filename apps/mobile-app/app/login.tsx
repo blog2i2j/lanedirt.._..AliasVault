@@ -46,6 +46,22 @@ export default function LoginScreen() : React.ReactNode {
       useNativeDriver: true,
     }).start();
     loadApiUrl();
+
+    /**
+     * Check for saved username (from forced logout) and prefill the username field.
+     * This enables users to easily re-login after a forced logout.
+     */
+    const loadSavedUsername = async () : Promise<void> => {
+      try {
+        const savedUsername = await NativeVaultManager.getUsername();
+        if (savedUsername) {
+          setCredentials(prev => ({ ...prev, username: savedUsername }));
+        }
+      } catch {
+        // Ignore errors - username prefill is optional
+      }
+    };
+    loadSavedUsername();
   }, [fadeAnim, loadApiUrl]);
 
   // Update URL when returning from settings
