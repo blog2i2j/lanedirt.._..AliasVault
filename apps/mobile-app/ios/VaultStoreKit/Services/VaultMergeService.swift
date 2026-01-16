@@ -165,10 +165,15 @@ public class VaultMergeService {
             ])
         }
 
-        // Call Rust prune
+        // Call Rust prune - use ISO8601 format: YYYY-MM-DDTHH:MM:SS.sssZ
+        let dateFormatter = ISO8601DateFormatter()
+        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let currentTime = dateFormatter.string(from: Date())
+
         let pruneInput: [String: Any] = [
             "tables": tables,
-            "retention_days": retentionDays
+            "retention_days": retentionDays,
+            "current_time": currentTime
         ]
 
         let inputJson = try serializeToJson(pruneInput)

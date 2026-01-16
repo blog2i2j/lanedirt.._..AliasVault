@@ -59,6 +59,8 @@ type MergeOutput = {
 type PruneInput = {
   tables: TableData[];
   retention_days: number;
+  /** Current time in ISO 8601 format (YYYY-MM-DDTHH:MM:SS.sssZ). Use new Date().toISOString() */
+  current_time: string;
 }
 
 /**
@@ -277,6 +279,7 @@ export class VaultMergeService {
         const pruneInput: PruneInput = JSON.parse(JSON.stringify({
           tables,
           retention_days: retentionDays,
+          current_time: new Date().toISOString(),
         })) as PruneInput;
 
         const pruneOutput = pruneVault(pruneInput) as PruneOutput;

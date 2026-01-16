@@ -21,4 +21,11 @@ public class PruneInput
     /// Gets or sets the retention period in days (items older than this in trash will be pruned).
     /// </summary>
     public int RetentionDays { get; set; } = 30;
+
+    /// <summary>
+    /// Gets or sets the current time in ISO 8601 format (YYYY-MM-DDTHH:MM:SS.sssZ).
+    /// Required: caller must always provide the current UTC time.
+    /// Use DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ") to generate this value.
+    /// </summary>
+    public string CurrentTime { get; set; } = string.Empty;
 }

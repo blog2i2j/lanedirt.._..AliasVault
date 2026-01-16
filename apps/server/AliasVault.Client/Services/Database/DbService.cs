@@ -917,6 +917,7 @@ public sealed class DbService : IDisposable
             {
                 Tables = tables,
                 RetentionDays = 30,
+                CurrentTime = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
             };
 
             var pruneOutput = await _rustCore.PruneVaultAsync(pruneInput);

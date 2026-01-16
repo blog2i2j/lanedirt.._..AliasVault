@@ -29,6 +29,20 @@ pub struct TableData {
 pub struct PruneInput {
     /// Tables from the local database (at minimum, Items table is required)
     pub tables: Vec<TableData>,
+    /// Current time in ISO 8601 format with UTC timezone.
+    ///
+    /// **Required format**: `YYYY-MM-DDTHH:MM:SS.sssZ`
+    ///
+    /// Examples:
+    /// - `"2024-01-15T10:30:00.000Z"`
+    /// - `"2025-12-24T21:33:30.674Z"`
+    ///
+    /// Callers should use:
+    /// - JavaScript: `new Date().toISOString()`
+    /// - C#: `DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")`
+    /// - Swift: `ISO8601DateFormatter().string(from: Date())`
+    /// - Kotlin: `Instant.now().toString()` or `SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).format(Date())`
+    pub current_time: String,
     /// Retention period in days (default: 30)
     #[serde(default = "default_retention_days")]
     pub retention_days: u32,
@@ -72,7 +86,7 @@ pub struct PruneOutput {
 /// related entities as permanently deleted (IsDeleted = true).
 ///
 /// # Arguments
-/// * `input` - PruneInput containing table data and retention period
+/// * `input` - PruneInput containing table data, retention period, and current time
 ///
 /// # Returns
 /// PruneOutput with SQL statements to execute on local database
@@ -80,8 +94,14 @@ pub fn prune_vault(input: PruneInput) -> VaultResult<PruneOutput> {
     let mut stats = PruneStats::default();
     let mut statements: Vec<SqlStatement> = Vec::new();
 
+    // Parse current time from input (required from caller)
+    let now = parse_datetime(&input.current_time)
+        .ok_or_else(|| crate::error::VaultError::General(
+            format!("Invalid current_time format: {}", input.current_time)
+        ))?;
+
     // Calculate cutoff date
-    let cutoff_date = Utc::now() - Duration::days(input.retention_days as i64);
+    let cutoff_date = now - Duration::days(input.retention_days as i64);
 
     // Find Items table
     let items_table = input.tables.iter().find(|t| t.name == "Items");
@@ -97,7 +117,6 @@ pub fn prune_vault(input: PruneInput) -> VaultResult<PruneOutput> {
 
     // Find items that are in trash (DeletedAt set) and older than retention period
     let mut expired_item_ids: Vec<String> = Vec::new();
-    let now = Utc::now();
 
     for item in items {
         // Skip if already permanently deleted
@@ -288,8 +307,10 @@ mod tests {
 
     #[test]
     fn test_prune_expired_items() {
+        let now = Utc::now();
+        let now_str = now.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
         // Create an item deleted 60 days ago
-        let old_date = (Utc::now() - Duration::days(60)).format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
+        let old_date = (now - Duration::days(60)).format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
 
         let input = PruneInput {
             tables: vec![
@@ -303,6 +324,7 @@ mod tests {
                 },
             ],
             retention_days: 30,
+            current_time: now_str,
         };
 
         let output = prune_vault(input).unwrap();
@@ -315,8 +337,10 @@ mod tests {
 
     #[test]
     fn test_no_prune_recent_items() {
+        let now = Utc::now();
+        let now_str = now.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
         // Create an item deleted 10 days ago (within retention)
-        let recent_date = (Utc::now() - Duration::days(10)).format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
+        let recent_date = (now - Duration::days(10)).format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
 
         let input = PruneInput {
             tables: vec![
@@ -326,6 +350,7 @@ mod tests {
                 },
             ],
             retention_days: 30,
+            current_time: now_str,
         };
 
         let output = prune_vault(input).unwrap();
@@ -337,6 +362,7 @@ mod tests {
 
     #[test]
     fn test_no_prune_active_items() {
+        let now_str = Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
         // Create an item that's not in trash (DeletedAt is null)
         let input = PruneInput {
             tables: vec![
@@ -346,6 +372,7 @@ mod tests {
                 },
             ],
             retention_days: 30,
+            current_time: now_str,
         };
 
         let output = prune_vault(input).unwrap();
@@ -357,8 +384,10 @@ mod tests {
 
     #[test]
     fn test_no_prune_already_deleted() {
+        let now = Utc::now();
+        let now_str = now.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
         // Create an item that's already permanently deleted
-        let old_date = (Utc::now() - Duration::days(60)).format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
+        let old_date = (now - Duration::days(60)).format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
 
         let input = PruneInput {
             tables: vec![
@@ -368,6 +397,7 @@ mod tests {
                 },
             ],
             retention_days: 30,
+            current_time: now_str,
         };
 
         let output = prune_vault(input).unwrap();
@@ -379,7 +409,9 @@ mod tests {
 
     #[test]
     fn test_prune_json_api() {
-        let old_date = (Utc::now() - Duration::days(60)).format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
+        let now = Utc::now();
+        let now_str = now.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
+        let old_date = (now - Duration::days(60)).format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
 
         let input_json = format!(r#"{{
             "tables": [{{
@@ -391,8 +423,9 @@ mod tests {
                     "DeletedAt": "{}"
                 }}]
             }}],
-            "retention_days": 30
-        }}"#, old_date);
+            "retention_days": 30,
+            "current_time": "{}"
+        }}"#, old_date, now_str);
 
         let output_json = prune_vault_json(&input_json).unwrap();
         let output: PruneOutput = serde_json::from_str(&output_json).unwrap();

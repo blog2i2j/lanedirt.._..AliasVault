@@ -187,10 +187,15 @@ object VaultMergeService {
                     )
                 }
 
-                // Call Rust prune
+                // Call Rust prune - use ISO8601 format: YYYY-MM-DDTHH:MM:SS.sssZ
+                val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
+                dateFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
+                val currentTime = dateFormat.format(java.util.Date())
+
                 val pruneInput = JSONObject().apply {
                     put("tables", tables)
                     put("retention_days", retentionDays)
+                    put("current_time", currentTime)
                 }
 
                 val outputJson = uniffi.aliasvault_core.pruneVaultJson(pruneInput.toString())
