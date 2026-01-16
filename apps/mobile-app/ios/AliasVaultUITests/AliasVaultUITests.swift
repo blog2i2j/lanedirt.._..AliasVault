@@ -121,142 +121,27 @@ final class AliasVaultUITests: XCTestCase {
         return true
     }
 
-    // MARK: - Test 01: Successful Login
-
-    /// Verifies successful login flow with a dynamically created test user.
-    /// Creates a fresh test user via the API, configures the app to use the local server,
-    /// and logs in. This test uses --reset-state to ensure a clean app state.
-    @MainActor
-    func test01SuccessfulLogin() async throws {
-        let testUser = try await createTestUser()
-        print("[Test01] Using test user: \(testUser.username)")
-
-        app.launch()
-
-        // Wait for login screen
-        print("[Test01] Waiting for login screen")
-        let loginScreen = app.findElement(testID: "login-screen")
-        guard assertElementExists(
-            loginScreen,
-            timeout: 15,
-            message: "Login screen should be visible",
-            context: "01-login-screen"
-        ) else {
-            return
-        }
-
-        // Configure API URL to local server
-        print("[Test01] Configuring API URL to local server")
-        let serverUrlLink = app.findElement(testID: "server-url-link")
-        serverUrlLink.tapNoIdle()
-
-        let selfHostedOption = app.findElement(testID: "api-option-custom")
-        guard assertElementExists(
-            selfHostedOption,
-            timeout: 10,
-            message: "Settings screen should show Self-hosted option",
-            context: "01-self-hosted-option"
-        ) else {
-            return
-        }
-        selfHostedOption.tapNoIdle()
-
-        let customApiUrlInput = app.findTextField(testID: "custom-api-url-input")
-        guard assertElementExists(
-            customApiUrlInput,
-            timeout: 5,
-            message: "Custom API URL input should appear",
-            context: "01-custom-url-input"
-        ) else {
-            return
-        }
-
-        customApiUrlInput.tapNoIdle()
-        customApiUrlInput.clearAndTypeTextNoIdle(TestConfiguration.apiUrl)
-        print("[Test01] Configured API URL: \(TestConfiguration.apiUrl)")
-        app.hideKeyboardIfVisible()
-
-        let backButton = app.findElement(testID: "back-button")
-        backButton.tapNoIdle()
-
-        // Enter credentials and login
-        print("[Test01] Entering credentials and logging in")
-        guard assertElementExists(
-            loginScreen,
-            timeout: 10,
-            message: "Should return to login screen after configuring API",
-            context: "01-return-to-login"
-        ) else {
-            return
-        }
-
-        let usernameInput = app.findTextField(testID: "username-input")
-        usernameInput.clearAndTypeTextNoIdle(testUser.username)
-
-        let passwordInput = app.findTextField(testID: "password-input")
-        passwordInput.tapNoIdle()
-        passwordInput.typeTextNoIdle(testUser.password)
-
-        app.hideKeyboardIfVisible()
-
-        let credentialsScreenshot = XCUIScreen.main.screenshot()
-        let attachment1 = XCTAttachment(screenshot: credentialsScreenshot)
-        attachment1.name = "01-1-credentials-entered"
-        attachment1.lifetime = .keepAlways
-        add(attachment1)
-
-        let loginButton = app.findElement(testID: "login-button")
-        loginButton.tapNoIdle()
-
-        // Verify login success and items screen
-        print("[Test01] Verifying login success")
-        let itemsScreen = app.findElement(testID: "items-screen")
-        guard assertElementExists(
-            itemsScreen,
-            timeout: TestConfiguration.extendedTimeout,
-            message: "Should navigate to items screen after successful login",
-            context: "01-items-screen"
-        ) else {
-            return
-        }
-
-        let itemsList = app.findElement(testID: "items-list")
-        if !itemsList.exists {
-            captureFailureState(context: "01-items-list-missing")
-            XCTFail("Items list should be visible after login")
-            return
-        }
-
-        let loginSuccessScreenshot = XCUIScreen.main.screenshot()
-        let attachment2 = XCTAttachment(screenshot: loginSuccessScreenshot)
-        attachment2.name = "01-2-login-successful"
-        attachment2.lifetime = .keepAlways
-        add(attachment2)
-
-        print("[Test01] Login successful, items screen displayed")
-    }
-
-    // MARK: - Test 02: Create New Item
+    // MARK: - Test 01: Create New Item
 
     /// Verifies item creation flow: opens add form, fills in details, saves, and verifies
     /// the item appears in the list. Creates its own isolated test user.
     @MainActor
-    func test02CreateItem() async throws {
+    func test01CreateItem() async throws {
         let testUser = try await createTestUser()
         let uniqueName = TestConfiguration.generateUniqueName(prefix: "E2E Test")
-        print("[Test02] Creating item with name: \(uniqueName)")
+        print("[Test01] Creating item with name: \(uniqueName)")
 
         app.launch()
         loginWithTestUser(testUser)
 
         // Verify items screen is displayed
-        print("[Test02] Verifying items screen is displayed")
+        print("[Test01] Verifying items screen is displayed")
         let itemsScreen = app.findElement(testID: "items-screen")
         guard assertElementExists(
             itemsScreen,
             timeout: TestConfiguration.extendedTimeout,
             message: "Should be on items screen after launch/unlock",
-            context: "02-items-screen"
+            context: "01-items-screen"
         ) else {
             return
         }
@@ -269,30 +154,30 @@ final class AliasVaultUITests: XCTestCase {
             username: "e2euser"
         )
 
-        guard createItem(params: itemParams, contextPrefix: "02") else {
+        guard createItem(params: itemParams, contextPrefix: "01") else {
             return
         }
 
         // Verify item exists in list
-        guard verifyItemExistsInList(name: uniqueName, contextPrefix: "02") else {
+        guard verifyItemExistsInList(name: uniqueName, contextPrefix: "01") else {
             return
         }
 
         // Open and verify item details
-        guard openAndVerifyItem(name: uniqueName, expectedEmail: "e2e-test@example.com", contextPrefix: "02") else {
+        guard openAndVerifyItem(name: uniqueName, expectedEmail: "e2e-test@example.com", contextPrefix: "01") else {
             return
         }
 
         let itemVerifiedScreenshot = XCUIScreen.main.screenshot()
         let attachment = XCTAttachment(screenshot: itemVerifiedScreenshot)
-        attachment.name = "02-item-verified"
+        attachment.name = "01-item-verified"
         attachment.lifetime = .keepAlways
         add(attachment)
 
-        print("[Test02] Item creation and verification successful")
+        print("[Test01] Item creation and verification successful")
     }
 
-    // MARK: - Test 03: Offline Mode and Sync
+    // MARK: - Test 02: Offline Mode and Sync
 
     /// Verifies offline mode and sync recovery:
     /// 1. Goes offline by setting API URL to invalid (simulates network failure)
@@ -303,7 +188,7 @@ final class AliasVaultUITests: XCTestCase {
     /// Uses debug deep links (`__debug__/set-api-url`) to toggle offline mode.
     /// These only work in development builds.
     @MainActor
-    func test03OfflineModeAndSync() async throws {
+    func test02OfflineModeAndSync() async throws {
         let testUser = try await createTestUser()
 
         app.launch()
@@ -312,32 +197,32 @@ final class AliasVaultUITests: XCTestCase {
         let originalApiUrl = TestConfiguration.apiUrl
         let invalidApiUrl = "http://offline.invalid.localhost:9999"
         let uniqueName = TestConfiguration.generateUniqueName(prefix: "Offline Test")
-        print("[Test03] Creating offline item with name: \(uniqueName)")
+        print("[Test02] Creating offline item with name: \(uniqueName)")
 
         let itemsScreen = app.findElement(testID: "items-screen")
         let offlineIndicator = app.findElement(testID: "sync-indicator-offline")
 
         // Step 1: Verify online state
-        print("[Test03] Step 1: Verify online state")
+        print("[Test02] Step 1: Verify online state")
         guard assertElementExists(
             itemsScreen,
             timeout: TestConfiguration.extendedTimeout,
             message: "Should be on items screen",
-            context: "03-items-screen"
+            context: "02-items-screen"
         ) else {
             return
         }
 
         let initialStateScreenshot = XCUIScreen.main.screenshot()
         let attachment1 = XCTAttachment(screenshot: initialStateScreenshot)
-        attachment1.name = "03-1-initial-state-online"
+        attachment1.name = "02-1-initial-state-online"
         attachment1.lifetime = .keepAlways
         add(attachment1)
 
         // Step 2: Enable offline mode via deep link
-        print("[Test03] Step 2: Enable offline mode via deep link")
+        print("[Test02] Step 2: Enable offline mode via deep link")
         let encodedInvalidUrl = invalidApiUrl.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? invalidApiUrl
-        print("[Test03] Setting API URL to invalid: \(invalidApiUrl)")
+        print("[Test02] Setting API URL to invalid: \(invalidApiUrl)")
         app.openDeepLink("aliasvault://open/__debug__/set-api-url/\(encodedInvalidUrl)")
 
         unlockVaultIfNeeded(with: testUser)
@@ -346,7 +231,7 @@ final class AliasVaultUITests: XCTestCase {
             itemsScreen,
             timeout: 10,
             message: "Should return to items screen after deep link",
-            context: "03-after-offline-deeplink"
+            context: "02-after-offline-deeplink"
         ) else {
             return
         }
@@ -359,48 +244,48 @@ final class AliasVaultUITests: XCTestCase {
             offlineIndicator,
             timeout: 10,
             message: "Offline indicator should appear after API URL change",
-            context: "03-offline-indicator"
+            context: "02-offline-indicator"
         ) else {
             return
         }
 
         let offlineModeScreenshot = XCUIScreen.main.screenshot()
         let attachment2 = XCTAttachment(screenshot: offlineModeScreenshot)
-        attachment2.name = "03-2-offline-mode-enabled"
+        attachment2.name = "02-2-offline-mode-enabled"
         attachment2.lifetime = .keepAlways
         add(attachment2)
 
-        print("[Test03] Offline mode enabled successfully")
+        print("[Test02] Offline mode enabled successfully")
 
         // Step 3: Create item while offline using helper
-        print("[Test03] Step 3: Create item while offline")
+        print("[Test02] Step 3: Create item while offline")
         let offlineItemParams = CreateItemParams(
             name: uniqueName,
             serviceUrl: "https://offline-test.example.com",
             email: "offline-test@example.com"
         )
 
-        guard createItem(params: offlineItemParams, contextPrefix: "03") else {
+        guard createItem(params: offlineItemParams, contextPrefix: "02") else {
             return
         }
 
         // Verify item exists in list
-        guard verifyItemExistsInList(name: uniqueName, contextPrefix: "03") else {
+        guard verifyItemExistsInList(name: uniqueName, contextPrefix: "02") else {
             return
         }
 
         let itemInListOfflineScreenshot = XCUIScreen.main.screenshot()
         let attachment3 = XCTAttachment(screenshot: itemInListOfflineScreenshot)
-        attachment3.name = "03-3-item-in-list-offline"
+        attachment3.name = "02-3-item-in-list-offline"
         attachment3.lifetime = .keepAlways
         add(attachment3)
 
-        print("[Test03] Item created while offline and appears in list")
+        print("[Test02] Item created while offline and appears in list")
 
         // Step 4: Go back online and sync
-        print("[Test03] Step 4: Go back online and sync")
+        print("[Test02] Step 4: Go back online and sync")
         let encodedValidUrl = originalApiUrl.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? originalApiUrl
-        print("[Test03] Restoring API URL to: \(originalApiUrl)")
+        print("[Test02] Restoring API URL to: \(originalApiUrl)")
         app.openDeepLink("aliasvault://open/__debug__/set-api-url/\(encodedValidUrl)")
 
         unlockVaultIfNeeded(with: testUser)
@@ -409,7 +294,7 @@ final class AliasVaultUITests: XCTestCase {
             itemsScreen,
             timeout: 10,
             message: "Should return to items screen after restoring API URL",
-            context: "03-after-online-deeplink"
+            context: "02-after-online-deeplink"
         ) else {
             return
         }
@@ -418,7 +303,7 @@ final class AliasVaultUITests: XCTestCase {
 
         let backOnlineScreenshot = XCUIScreen.main.screenshot()
         let attachment9 = XCTAttachment(screenshot: backOnlineScreenshot)
-        attachment9.name = "03-9-back-online"
+        attachment9.name = "02-9-back-online"
         attachment9.lifetime = .keepAlways
         add(attachment9)
 
@@ -427,34 +312,34 @@ final class AliasVaultUITests: XCTestCase {
 
         // Verify offline indicator is gone
         if offlineIndicator.exists {
-            captureFailureState(context: "03-offline-indicator-still-present")
+            captureFailureState(context: "02-offline-indicator-still-present")
             XCTFail("Offline indicator should be gone after sync")
         }
 
         let syncedScreenshot = XCUIScreen.main.screenshot()
         let attachment10 = XCTAttachment(screenshot: syncedScreenshot)
-        attachment10.name = "03-10-synced-successfully"
+        attachment10.name = "02-10-synced-successfully"
         attachment10.lifetime = .keepAlways
         add(attachment10)
 
-        print("[Test03] Back online and synced successfully")
+        print("[Test02] Back online and synced successfully")
 
         // Step 5: Verify item persists after sync using helper
-        print("[Test03] Step 5: Verify item persists after sync")
-        guard openAndVerifyItem(name: uniqueName, expectedEmail: "offline-test@example.com", contextPrefix: "03-after-sync") else {
+        print("[Test02] Step 5: Verify item persists after sync")
+        guard openAndVerifyItem(name: uniqueName, expectedEmail: "offline-test@example.com", contextPrefix: "02-after-sync") else {
             return
         }
 
         let itemVerifiedAfterSyncScreenshot = XCUIScreen.main.screenshot()
         let attachment11 = XCTAttachment(screenshot: itemVerifiedAfterSyncScreenshot)
-        attachment11.name = "03-11-item-verified-after-sync"
+        attachment11.name = "02-11-item-verified-after-sync"
         attachment11.lifetime = .keepAlways
         add(attachment11)
 
-        print("[Test03] Offline item verified after sync - test passed")
+        print("[Test02] Offline item verified after sync - test passed")
     }
 
-    // MARK: - Test 04: RPO Recovery
+    // MARK: - Test 03: RPO Recovery
 
     /// Verifies RPO (Recovery Point Objective) recovery scenario:
     /// When the client detects that its local server revision is higher than the actual server revision
@@ -477,10 +362,10 @@ final class AliasVaultUITests: XCTestCase {
     /// 5. Verify credential still exists (client data was uploaded, not downloaded from server)
     /// 6. Verify server revision is restored via API
     @MainActor
-    func test04RPORecovery() async throws {
+    func test03RPORecovery() async throws {
         let testUser = try await createTestUser()
         let uniqueName = TestConfiguration.generateUniqueName(prefix: "RPO Test")
-        print("[Test04] Testing RPO recovery with item: \(uniqueName)")
+        print("[Test03] Testing RPO recovery with item: \(uniqueName)")
 
         app.launch()
         loginWithTestUser(testUser)
@@ -491,47 +376,47 @@ final class AliasVaultUITests: XCTestCase {
         var revisionAfterDelete = 0
 
         // Step 1: Verify initial state and get server revision
-        print("[Test04] Step 1: Verify initial state")
+        print("[Test03] Step 1: Verify initial state")
         guard assertElementExists(
             itemsScreen,
             timeout: TestConfiguration.extendedTimeout,
             message: "Should be on items screen after launch/unlock",
-            context: "04-items-screen"
+            context: "03-items-screen"
         ) else {
             return
         }
 
         let initialStateScreenshot = XCUIScreen.main.screenshot()
         let attachment1 = XCTAttachment(screenshot: initialStateScreenshot)
-        attachment1.name = "04-1-initial-state"
+        attachment1.name = "03-1-initial-state"
         attachment1.lifetime = .keepAlways
         add(attachment1)
 
         // Get initial revision using username-based API (no auth token needed)
         let initialRevisions = try await TestUserRegistration.getVaultRevisionsByUsername(username: testUser.username)
         initialRevision = initialRevisions.currentRevision
-        print("[Test04] Initial server revision: \(initialRevision)")
+        print("[Test03] Initial server revision: \(initialRevision)")
 
         // Step 2: Create credential while online using helper
-        print("[Test04] Step 2: Create credential while online")
+        print("[Test03] Step 2: Create credential while online")
         let rpoItemParams = CreateItemParams(
             name: uniqueName,
             serviceUrl: "https://rpo-test.example.com",
             email: "rpo-test@example.com"
         )
 
-        guard createItem(params: rpoItemParams, contextPrefix: "04") else {
+        guard createItem(params: rpoItemParams, contextPrefix: "03") else {
             return
         }
 
         sleep(1) // Wait for sync
 
-        print("[Test04] Credential created and synced to server")
+        print("[Test03] Credential created and synced to server")
 
         // Verify revision increased (async)
         let afterCreateRevisions = try await TestUserRegistration.getVaultRevisionsByUsername(username: testUser.username)
         revisionAfterCreate = afterCreateRevisions.currentRevision
-        print("[Test04] Server revision after create: \(revisionAfterCreate)")
+        print("[Test03] Server revision after create: \(revisionAfterCreate)")
 
         XCTAssertGreaterThan(
             revisionAfterCreate, initialRevision,
@@ -539,10 +424,10 @@ final class AliasVaultUITests: XCTestCase {
         )
 
         // Step 3: Simulate server data loss
-        print("[Test04] Step 3: Simulate server data loss")
+        print("[Test03] Step 3: Simulate server data loss")
         let afterSyncScreenshot = XCUIScreen.main.screenshot()
         let attachment3 = XCTAttachment(screenshot: afterSyncScreenshot)
-        attachment3.name = "04-3-after-initial-sync"
+        attachment3.name = "03-3-after-initial-sync"
         attachment3.lifetime = .keepAlways
         add(attachment3)
 
@@ -551,11 +436,11 @@ final class AliasVaultUITests: XCTestCase {
             username: testUser.username,
             count: 1
         )
-        print("[Test04] Deleted \(deletedCount) vault revision(s) from server to simulate data loss")
+        print("[Test03] Deleted \(deletedCount) vault revision(s) from server to simulate data loss")
 
         let afterDeleteRevisions = try await TestUserRegistration.getVaultRevisionsByUsername(username: testUser.username)
         revisionAfterDelete = afterDeleteRevisions.currentRevision
-        print("[Test04] Server revision after delete: \(revisionAfterDelete)")
+        print("[Test03] Server revision after delete: \(revisionAfterDelete)")
 
         XCTAssertLessThan(
             revisionAfterDelete, revisionAfterCreate,
@@ -563,50 +448,50 @@ final class AliasVaultUITests: XCTestCase {
         )
 
         // Step 4: Trigger sync for RPO recovery
-        print("[Test04] Step 4: Trigger sync for RPO recovery")
+        print("[Test03] Step 4: Trigger sync for RPO recovery")
         let afterServerRollbackScreenshot = XCUIScreen.main.screenshot()
         let attachment4 = XCTAttachment(screenshot: afterServerRollbackScreenshot)
-        attachment4.name = "04-4-after-server-rollback"
+        attachment4.name = "03-4-after-server-rollback"
         attachment4.lifetime = .keepAlways
         add(attachment4)
 
-        print("[Test04] Triggering sync - client should detect RPO scenario and upload vault")
+        print("[Test03] Triggering sync - client should detect RPO scenario and upload vault")
         app.pullToRefresh()
         sleep(5)
 
         let afterRpoSyncScreenshot = XCUIScreen.main.screenshot()
         let attachment5 = XCTAttachment(screenshot: afterRpoSyncScreenshot)
-        attachment5.name = "04-5-after-rpo-sync"
+        attachment5.name = "03-5-after-rpo-sync"
         attachment5.lifetime = .keepAlways
         add(attachment5)
 
         // Step 5: Verify credential persists after RPO recovery using helper
-        print("[Test04] Step 5: Verify credential persists after RPO recovery")
-        guard openAndVerifyItem(name: uniqueName, expectedEmail: "rpo-test@example.com", contextPrefix: "04-rpo") else {
+        print("[Test03] Step 5: Verify credential persists after RPO recovery")
+        guard openAndVerifyItem(name: uniqueName, expectedEmail: "rpo-test@example.com", contextPrefix: "03-rpo") else {
             XCTFail("Credential '\(uniqueName)' should still exist after RPO recovery - this proves client uploaded to server instead of downloading (which would have lost the credential)")
             return
         }
 
         let itemVerifiedScreenshot = XCUIScreen.main.screenshot()
         let attachment6 = XCTAttachment(screenshot: itemVerifiedScreenshot)
-        attachment6.name = "04-6-item-verified-after-rpo"
+        attachment6.name = "03-6-item-verified-after-rpo"
         attachment6.lifetime = .keepAlways
         add(attachment6)
 
         // Verify server revision restored (async)
         let finalRevisions = try await TestUserRegistration.getVaultRevisionsByUsername(username: testUser.username)
         let finalRevision = finalRevisions.currentRevision
-        print("[Test04] Final server revision: \(finalRevision)")
+        print("[Test03] Final server revision: \(finalRevision)")
 
         XCTAssertGreaterThanOrEqual(
             finalRevision, revisionAfterCreate,
             "Server revision should be restored after RPO recovery (expected >= \(revisionAfterCreate), got \(finalRevision))"
         )
 
-        print("[Test04] SUCCESS - Revision flow: \(initialRevision) → \(revisionAfterCreate) (create) → \(revisionAfterDelete) (rollback) → \(finalRevision) (recovered)")
+        print("[Test03] SUCCESS - Revision flow: \(initialRevision) → \(revisionAfterCreate) (create) → \(revisionAfterDelete) (rollback) → \(finalRevision) (recovered)")
     }
 
-    // MARK: - Test 05: Forced Logout Recovery
+    // MARK: - Test 04: Forced Logout Recovery
 
     /// Verifies forced logout recovery mechanism:
     /// When a forced logout occurs (e.g., 401 unauthorized due to token invalidation),
@@ -628,10 +513,10 @@ final class AliasVaultUITests: XCTestCase {
     /// 7. Verify credential still exists (vault was recovered from local preserved copy)
     /// 8. Verify server revision is restored
     @MainActor
-    func test05ForcedLogoutRecovery() async throws {
+    func test04ForcedLogoutRecovery() async throws {
         let testUser = try await createTestUser()
         let uniqueName = TestConfiguration.generateUniqueName(prefix: "Forced Logout Test")
-        print("[Test05] Testing forced logout recovery with item: \(uniqueName)")
+        print("[Test04] Testing forced logout recovery with item: \(uniqueName)")
 
         app.launch()
         loginWithTestUser(testUser)
@@ -640,71 +525,71 @@ final class AliasVaultUITests: XCTestCase {
         var revisionBeforeLogout = 0
 
         // Step 1: Verify initial state
-        print("[Test05] Step 1: Verify initial state")
+        print("[Test04] Step 1: Verify initial state")
         guard assertElementExists(
             itemsScreen,
             timeout: TestConfiguration.extendedTimeout,
             message: "Should be on items screen after launch/unlock",
-            context: "05-items-screen"
+            context: "04-items-screen"
         ) else {
             return
         }
 
         let initialStateScreenshot = XCUIScreen.main.screenshot()
         let attachment1 = XCTAttachment(screenshot: initialStateScreenshot)
-        attachment1.name = "05-1-initial-state"
+        attachment1.name = "04-1-initial-state"
         attachment1.lifetime = .keepAlways
         add(attachment1)
 
         // Step 2: Create credential while online using helper
-        print("[Test05] Step 2: Create credential while online")
+        print("[Test04] Step 2: Create credential while online")
         let forcedLogoutItemParams = CreateItemParams(
             name: uniqueName,
             serviceUrl: "https://forced-logout-test.example.com",
             email: "forced-logout-test@example.com"
         )
 
-        guard createItem(params: forcedLogoutItemParams, contextPrefix: "05") else {
+        guard createItem(params: forcedLogoutItemParams, contextPrefix: "04") else {
             return
         }
 
         sleep(1) // Wait for sync
 
-        print("[Test05] Credential created and synced to server")
+        print("[Test04] Credential created and synced to server")
 
         // Get revision before logout using username-based API (no auth token needed)
         let beforeLogoutRevisions = try await TestUserRegistration.getVaultRevisionsByUsername(username: testUser.username)
         revisionBeforeLogout = beforeLogoutRevisions.currentRevision
-        print("[Test05] Server revision before forced logout: \(revisionBeforeLogout)")
+        print("[Test04] Server revision before forced logout: \(revisionBeforeLogout)")
 
         // Simulate server data loss (delete latest revision)
         let deletedCount = try await TestUserRegistration.deleteVaultRevisionsByUsername(
             username: testUser.username,
             count: 1
         )
-        print("[Test05] Deleted \(deletedCount) vault revision(s) to simulate server data loss")
+        print("[Test04] Deleted \(deletedCount) vault revision(s) to simulate server data loss")
 
         let afterRollbackRevisions = try await TestUserRegistration.getVaultRevisionsByUsername(username: testUser.username)
         let revisionAfterRollback = afterRollbackRevisions.currentRevision
-        print("[Test05] Server revision after rollback: \(revisionAfterRollback)")
+        print("[Test04] Server revision after rollback: \(revisionAfterRollback)")
 
         // Step 3: Invalidate tokens and trigger forced logout
-        print("[Test05] Step 3: Invalidate tokens and trigger forced logout")
+        print("[Test04] Step 3: Invalidate tokens and trigger forced logout")
         let beforeForcedLogoutScreenshot = XCUIScreen.main.screenshot()
         let attachment3 = XCTAttachment(screenshot: beforeForcedLogoutScreenshot)
-        attachment3.name = "05-3-before-forced-logout"
+        attachment3.name = "04-3-before-forced-logout"
         attachment3.lifetime = .keepAlways
         add(attachment3)
 
         // Block user via API (this will cause 401 on next auth check)
         try await TestUserRegistration.blockUserByUsername(username: testUser.username)
-        print("[Test05] User blocked")
+        print("[Test04] User blocked")
 
         // Step 4: Trigger sync to cause forced logout
-        print("[Test05] Step 4: Trigger sync to cause forced logout")
+        print("[Test04] Step 4: Trigger sync to cause forced logout")
         // Pull to refresh will trigger API call which should fail with 401
         // and cause forced logout
-        print("[Test05] Triggering sync to cause forced logout...")
+        print("[Test04] Triggering sync to cause forced logout...")
         app.pullToRefresh()
 
         // Wait for the session expired modal to appear and dismiss it
@@ -712,28 +597,28 @@ final class AliasVaultUITests: XCTestCase {
         let okButton = app.alerts.buttons["OK"]
         let alertAppeared = okButton.waitForExistenceNoIdle(timeout: 10)
         if alertAppeared {
-            print("[Test05] Session expired modal detected, dismissing...")
+            print("[Test04] Session expired modal detected, dismissing...")
             okButton.tapNoIdle()
             sleep(1) // Wait for alert dismissal and navigation
         } else {
-            print("[Test05] No session expired modal detected, continuing...")
+            print("[Test04] No session expired modal detected, continuing...")
         }
 
         let afterForcedLogoutScreenshot = XCUIScreen.main.screenshot()
         let attachment4 = XCTAttachment(screenshot: afterForcedLogoutScreenshot)
-        attachment4.name = "05-4-after-forced-logout"
+        attachment4.name = "04-4-after-forced-logout"
         attachment4.lifetime = .keepAlways
         add(attachment4)
 
         // Step 5: Verify login screen with prefilled username
-        print("[Test05] Step 5: Verify login screen with prefilled username")
+        print("[Test04] Step 5: Verify login screen with prefilled username")
         // Should be on login screen after forced logout (modal was already dismissed in step 4)
         let loginScreen = app.findElement(testID: "login-screen")
         guard assertElementExists(
             loginScreen,
             timeout: 15,
             message: "Should be on login screen after forced logout",
-            context: "05-login-screen-after-logout"
+            context: "04-login-screen-after-logout"
         ) else {
             // Unblock user before returning to avoid leaving user in blocked state
             try? await TestUserRegistration.unblockUserByUsername(username: testUser.username)
@@ -745,39 +630,39 @@ final class AliasVaultUITests: XCTestCase {
         // to help users easily re-login with the same account
         let usernameInput = app.findTextField(testID: "username-input")
         guard usernameInput.waitForExistenceNoIdle(timeout: 5) else {
-            captureFailureState(context: "05-username-input-not-found")
+            captureFailureState(context: "04-username-input-not-found")
             XCTFail("Username input should be visible on login screen")
             try? await TestUserRegistration.unblockUserByUsername(username: testUser.username)
             return
         }
 
         let usernameValue = usernameInput.value as? String ?? ""
-        print("[Test05] Username field value: '\(usernameValue)'")
+        print("[Test04] Username field value: '\(usernameValue)'")
 
         // Verify username is prefilled with the test user's username (normalized)
         let normalizedExpectedUsername = testUser.username.lowercased()
         if !usernameValue.lowercased().contains(normalizedExpectedUsername.prefix(4)) {
             // Username should at least start with the same characters
             // (some implementations may normalize differently)
-            print("[Test05] Warning: Username field may not be prefilled. Expected to contain: '\(normalizedExpectedUsername)', got: '\(usernameValue)'")
+            print("[Test04] Warning: Username field may not be prefilled. Expected to contain: '\(normalizedExpectedUsername)', got: '\(usernameValue)'")
         } else {
-            print("[Test05] Username prefilled correctly: '\(usernameValue)'")
+            print("[Test04] Username prefilled correctly: '\(usernameValue)'")
         }
 
         let loginScreenScreenshot = XCUIScreen.main.screenshot()
         let attachment5 = XCTAttachment(screenshot: loginScreenScreenshot)
-        attachment5.name = "05-5-login-screen-after-forced-logout"
+        attachment5.name = "04-5-login-screen-after-forced-logout"
         attachment5.lifetime = .keepAlways
         add(attachment5)
 
-        print("[Test05] Forced logout confirmed - on login screen with username prefilled")
+        print("[Test04] Forced logout confirmed - on login screen with username prefilled")
 
         // Unblock user so they can log in again
         try await TestUserRegistration.unblockUserByUsername(username: testUser.username)
-        print("[Test05] User unblocked")
+        print("[Test04] User unblocked")
 
         // Step 6: Re-login with same credentials
-        print("[Test05] Step 6: Re-login with same credentials")
+        print("[Test04] Step 6: Re-login with same credentials")
         // Clear username field and enter credentials
         usernameInput.clearAndTypeTextNoIdle(testUser.username)
 
@@ -789,7 +674,7 @@ final class AliasVaultUITests: XCTestCase {
 
         let credentialsScreenshot = XCUIScreen.main.screenshot()
         let attachment6 = XCTAttachment(screenshot: credentialsScreenshot)
-        attachment6.name = "05-6-credentials-entered"
+        attachment6.name = "04-6-credentials-entered"
         attachment6.lifetime = .keepAlways
         add(attachment6)
 
@@ -801,7 +686,7 @@ final class AliasVaultUITests: XCTestCase {
             itemsScreen,
             timeout: TestConfiguration.extendedTimeout,
             message: "Should navigate to items screen after re-login",
-            context: "05-items-after-relogin"
+            context: "04-items-after-relogin"
         ) else {
             return
         }
@@ -811,43 +696,43 @@ final class AliasVaultUITests: XCTestCase {
 
         let afterReloginScreenshot = XCUIScreen.main.screenshot()
         let attachment7 = XCTAttachment(screenshot: afterReloginScreenshot)
-        attachment7.name = "05-7-after-relogin"
+        attachment7.name = "04-7-after-relogin"
         attachment7.lifetime = .keepAlways
         add(attachment7)
 
-        print("[Test05] Re-login successful")
+        print("[Test04] Re-login successful")
 
         // Step 7: Verify credential still exists using helper
         // The credential should still exist because:
         // 1. It was in the local preserved vault during forced logout
         // 2. On re-login, client detected local vault is more advanced than server
         // 3. Client uploaded local vault to recover server
-        print("[Test05] Step 7: Verify credential still exists")
-        guard openAndVerifyItem(name: uniqueName, expectedEmail: "forced-logout-test@example.com", contextPrefix: "05-recovery") else {
+        print("[Test04] Step 7: Verify credential still exists")
+        guard openAndVerifyItem(name: uniqueName, expectedEmail: "forced-logout-test@example.com", contextPrefix: "04-recovery") else {
             XCTFail("Credential '\(uniqueName)' should still exist after forced logout recovery - this proves vault was preserved locally and uploaded to server")
             return
         }
 
         let itemVerifiedScreenshot = XCUIScreen.main.screenshot()
         let attachment8 = XCTAttachment(screenshot: itemVerifiedScreenshot)
-        attachment8.name = "05-8-item-verified-after-recovery"
+        attachment8.name = "04-8-item-verified-after-recovery"
         attachment8.lifetime = .keepAlways
         add(attachment8)
 
-        print("[Test05] Credential verified after forced logout recovery")
+        print("[Test04] Credential verified after forced logout recovery")
 
         // Verify server revision is restored using username-based API (no auth token needed)
         let finalRevisions = try await TestUserRegistration.getVaultRevisionsByUsername(username: testUser.username)
         let finalRevision = finalRevisions.currentRevision
-        print("[Test05] Final server revision: \(finalRevision)")
+        print("[Test04] Final server revision: \(finalRevision)")
 
         XCTAssertGreaterThanOrEqual(
             finalRevision, revisionBeforeLogout,
             "Server revision should be restored after forced logout recovery (expected >= \(revisionBeforeLogout), got \(finalRevision))"
         )
 
-        print("[Test05] SUCCESS - Forced logout recovery verified!")
-        print("[Test05] Revision flow: \(revisionBeforeLogout) (before) → \(revisionAfterRollback) (rollback) → \(finalRevision) (recovered)")
+        print("[Test04] SUCCESS - Forced logout recovery verified!")
+        print("[Test04] Revision flow: \(revisionBeforeLogout) (before) → \(revisionAfterRollback) (rollback) → \(finalRevision) (recovered)")
     }
 
     // MARK: - Helper Methods

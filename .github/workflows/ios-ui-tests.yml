@@ -172,6 +172,11 @@ jobs:
           echo "Waiting for simulator to be ready..."
           xcrun simctl bootstatus "$SIMULATOR_ID" -b
 
+          # Disable AutoFill to prevent "Save Password" prompts during tests
+          echo "Disabling AutoFill in simulator..."
+          xcrun simctl spawn "$SIMULATOR_ID" defaults write com.apple.Preferences AutoFillPasswords -bool NO
+          xcrun simctl spawn "$SIMULATOR_ID" defaults write -g AutoFillPasswords -bool NO
+
           echo "SIMULATOR_ID=$SIMULATOR_ID" >> $GITHUB_ENV
 
       - name: Start Metro bundler
