@@ -10,6 +10,7 @@ import EncryptionUtility from '@/utils/EncryptionUtility';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
 
 import { useColors } from '@/hooks/useColorScheme';
+import { useLogout } from '@/hooks/useLogout';
 import { useTranslation } from '@/hooks/useTranslation';
 
 import Logo from '@/assets/images/logo.svg';
@@ -25,7 +26,8 @@ import NativeVaultManager from '@/specs/NativeVaultManager';
  * Unlock screen.
  */
 export default function UnlockScreen() : React.ReactNode {
-  const { isLoggedIn, username, isBiometricsEnabled, getBiometricDisplayName, getEncryptionKeyDerivationParams, logout } = useApp();
+  const { isLoggedIn, username, isBiometricsEnabled, getBiometricDisplayName, getEncryptionKeyDerivationParams } = useApp();
+  const { logoutUserInitiated, logoutForced } = useLogout();
   const dbContext = useDb();
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -48,12 +50,12 @@ export default function UnlockScreen() : React.ReactNode {
   const getKeyDerivationParams = useCallback(async () : Promise<{ salt: string; encryptionType: string; encryptionSettings: string } | null> => {
     const params = await getEncryptionKeyDerivationParams();
     if (!params) {
-      await logout();
-      router.replace('/login');
+      // No params means corrupted state - force logout without confirmation
+      await logoutForced();
       return null;
     }
     return params;
-  }, [logout, getEncryptionKeyDerivationParams]);
+  }, [logoutForced, getEncryptionKeyDerivationParams]);
 
   useEffect(() => {
     getKeyDerivationParams();
@@ -140,7 +142,8 @@ export default function UnlockScreen() : React.ReactNode {
       }
     } catch (error) {
       if (error instanceof VaultVersionIncompatibleError) {
-        await logout(t(error.message));
+        // Vault version incompatible - force logout without confirmation
+        await logoutForced();
         return;
       }
 
@@ -153,18 +156,6 @@ export default function UnlockScreen() : React.ReactNode {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  /**
-   * Handle the logout.
-   */
-  const handleLogout = async () : Promise<void> => {
-    /*
-     * Clear any stored tokens or session data
-     * This will be handled by the auth context
-     */
-    await logout();
-    router.replace('/login');
   };
 
   /**
@@ -415,7 +406,7 @@ export default function UnlockScreen() : React.ReactNode {
 
             <RobustPressable
               style={styles.logoutButton}
-              onPress={handleLogout}
+              onPress={logoutUserInitiated}
               testID="logout-button"
             >
               <ThemedText style={styles.logoutButtonText}>{t('auth.logout')}</ThemedText>

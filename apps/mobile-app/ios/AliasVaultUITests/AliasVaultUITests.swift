@@ -178,12 +178,11 @@ final class AliasVaultUITests: XCTestCase {
             )
 
             let usernameInput = app.findTextField(testID: "username-input")
-            usernameInput.tapNoIdle()
-            usernameInput.typeText(testUser.username)
+            usernameInput.clearAndTypeTextNoIdle(testUser.username)
 
             let passwordInput = app.findTextField(testID: "password-input")
             passwordInput.tapNoIdle()
-            passwordInput.typeText(testUser.password)
+            passwordInput.typeTextNoIdle(testUser.password)
 
             app.hideKeyboardIfVisible()
 
@@ -267,11 +266,11 @@ final class AliasVaultUITests: XCTestCase {
         XCTContext.runActivity(named: "Fill item details") { _ in
             let itemNameInput = app.findAndScrollToTextField(testID: "item-name-input")
             itemNameInput.tapNoIdle()
-            itemNameInput.typeText(uniqueName)
+            itemNameInput.typeTextNoIdle(uniqueName)
 
             let serviceUrlInput = app.findAndScrollToTextField(testID: "service-url-input")
             serviceUrlInput.tapNoIdle()
-            serviceUrlInput.typeText("https://example.com")
+            serviceUrlInput.typeTextNoIdle("https://example.com")
 
             let addEmailButton = app.findElement(testID: "add-email-button")
             app.scrollToElement(addEmailButton)
@@ -279,13 +278,13 @@ final class AliasVaultUITests: XCTestCase {
 
             let loginEmailInput = app.findAndScrollToTextField(testID: "login-email-input")
             loginEmailInput.tapNoIdle()
-            loginEmailInput.typeText("e2e-test@example.com")
+            loginEmailInput.typeTextNoIdle("e2e-test@example.com")
 
             let loginUsernameInput = app.findAndScrollToTextField(testID: "login-username-input")
             if loginUsernameInput.exists {
                 app.scrollToElement(loginUsernameInput)
                 loginUsernameInput.tapNoIdle()
-                loginUsernameInput.typeText("e2euser")
+                loginUsernameInput.typeTextNoIdle("e2euser")
             }
 
             app.hideKeyboardIfVisible()
@@ -456,11 +455,11 @@ final class AliasVaultUITests: XCTestCase {
 
             let itemNameInput = app.findAndScrollToTextField(testID: "item-name-input")
             itemNameInput.tapNoIdle()
-            itemNameInput.typeText(uniqueName)
+            itemNameInput.typeTextNoIdle(uniqueName)
 
             let serviceUrlInput = app.findAndScrollToTextField(testID: "service-url-input")
             serviceUrlInput.tapNoIdle()
-            serviceUrlInput.typeText("https://offline-test.example.com")
+            serviceUrlInput.typeTextNoIdle("https://offline-test.example.com")
 
             let addEmailButton = app.findElement(testID: "add-email-button")
             app.scrollToElement(addEmailButton)
@@ -468,7 +467,7 @@ final class AliasVaultUITests: XCTestCase {
 
             let loginEmailInput = app.findAndScrollToTextField(testID: "login-email-input")
             loginEmailInput.tapNoIdle()
-            loginEmailInput.typeText("offline-test@example.com")
+            loginEmailInput.typeTextNoIdle("offline-test@example.com")
 
             app.hideKeyboardIfVisible()
 
@@ -675,11 +674,11 @@ final class AliasVaultUITests: XCTestCase {
 
             let itemNameInput = app.findAndScrollToTextField(testID: "item-name-input")
             itemNameInput.tapNoIdle()
-            itemNameInput.typeText(uniqueName)
+            itemNameInput.typeTextNoIdle(uniqueName)
 
             let serviceUrlInput = app.findAndScrollToTextField(testID: "service-url-input")
             serviceUrlInput.tapNoIdle()
-            serviceUrlInput.typeText("https://rpo-test.example.com")
+            serviceUrlInput.typeTextNoIdle("https://rpo-test.example.com")
 
             let addEmailButton = app.findElement(testID: "add-email-button")
             app.scrollToElement(addEmailButton)
@@ -687,7 +686,7 @@ final class AliasVaultUITests: XCTestCase {
 
             let loginEmailInput = app.findAndScrollToTextField(testID: "login-email-input")
             loginEmailInput.tapNoIdle()
-            loginEmailInput.typeText("rpo-test@example.com")
+            loginEmailInput.typeTextNoIdle("rpo-test@example.com")
 
             app.hideKeyboardIfVisible()
 
@@ -885,11 +884,11 @@ final class AliasVaultUITests: XCTestCase {
 
             let itemNameInput = app.findAndScrollToTextField(testID: "item-name-input")
             itemNameInput.tapNoIdle()
-            itemNameInput.typeText(uniqueName)
+            itemNameInput.typeTextNoIdle(uniqueName)
 
             let serviceUrlInput = app.findAndScrollToTextField(testID: "service-url-input")
             serviceUrlInput.tapNoIdle()
-            serviceUrlInput.typeText("https://forced-logout-test.example.com")
+            serviceUrlInput.typeTextNoIdle("https://forced-logout-test.example.com")
 
             let addEmailButton = app.findElement(testID: "add-email-button")
             app.scrollToElement(addEmailButton)
@@ -897,7 +896,7 @@ final class AliasVaultUITests: XCTestCase {
 
             let loginEmailInput = app.findAndScrollToTextField(testID: "login-email-input")
             loginEmailInput.tapNoIdle()
-            loginEmailInput.typeText("forced-logout-test@example.com")
+            loginEmailInput.typeTextNoIdle("forced-logout-test@example.com")
 
             app.hideKeyboardIfVisible()
 
@@ -1020,12 +1019,11 @@ final class AliasVaultUITests: XCTestCase {
         XCTContext.runActivity(named: "Step 6: Re-login with same credentials") { _ in
             // Clear username field and enter credentials
             let usernameInput = app.findTextField(testID: "username-input")
-            usernameInput.tapNoIdle()
             usernameInput.clearAndTypeTextNoIdle(testUser.username)
 
             let passwordInput = app.findTextField(testID: "password-input")
             passwordInput.tapNoIdle()
-            passwordInput.typeText(testUser.password)
+            passwordInput.typeTextNoIdle(testUser.password)
 
             app.hideKeyboardIfVisible()
 
@@ -1121,11 +1119,31 @@ final class AliasVaultUITests: XCTestCase {
     /// - Parameter testUser: The test user to login with
     @MainActor
     private func loginWithTestUser(_ testUser: TestUser) {
-        sleep(1) // Allow app to settle
-
+        // Wait for app to settle and reach a known state (unlock, login, or items screen)
+        // Use longer initial timeout since app may still be loading after launch
         let unlockScreen = app.findElement(testID: "unlock-screen")
-        if unlockScreen.waitForExistenceNoIdle(timeout: 3) {
-            // We're on unlock screen - logout to start fresh with test user
+        let loginScreen = app.findElement(testID: "login-screen")
+        let itemsScreen = app.findElement(testID: "items-screen")
+
+        // Wait up to 15 seconds for any of the expected screens to appear
+        var screenFound = false
+        let startTime = Date()
+        let maxWaitTime: TimeInterval = 15
+
+        while !screenFound && Date().timeIntervalSince(startTime) < maxWaitTime {
+            if unlockScreen.exists || loginScreen.exists || itemsScreen.exists {
+                screenFound = true
+            } else {
+                Thread.sleep(forTimeInterval: 0.5)
+            }
+        }
+
+        if !screenFound {
+            print("[Helper] Warning: No expected screen found after \(maxWaitTime)s, proceeding anyway")
+        }
+
+        // Handle unlock screen - logout to start fresh with test user
+        if unlockScreen.exists {
             print("[Helper] Unlock screen detected - logging out to login fresh with test user")
 
             let logoutButton = app.findElement(testID: "logout-button")
@@ -1140,26 +1158,23 @@ final class AliasVaultUITests: XCTestCase {
             }
 
             // Wait for login screen
-            let loginScreen = app.findElement(testID: "login-screen")
             _ = loginScreen.waitForExistenceNoIdle(timeout: 10)
         }
 
         // Check if we're on login screen
-        let loginScreen = app.findElement(testID: "login-screen")
-        if loginScreen.waitForExistenceNoIdle(timeout: 3) {
+        if loginScreen.waitForExistenceNoIdle(timeout: 2) {
             performLogin(with: testUser)
             return
         }
 
         // Check if we're already on items screen (already logged in as correct user)
-        let itemsScreen = app.findElement(testID: "items-screen")
-        if itemsScreen.waitForExistenceNoIdle(timeout: 3) {
+        if itemsScreen.waitForExistenceNoIdle(timeout: 2) {
             print("[Helper] Already on items screen, assuming correct user is logged in")
             return
         }
 
-        // Unknown state - try to navigate to login
-        print("[Helper] Unknown app state, waiting for login or items screen")
+        // Unknown state - log warning but continue (test will fail with appropriate error if needed)
+        print("[Helper] Unknown app state after waiting, test may fail")
     }
 
     /// Unlocks the vault if the unlock screen is displayed.
@@ -1169,7 +1184,7 @@ final class AliasVaultUITests: XCTestCase {
     @MainActor
     private func unlockVaultIfNeeded(with testUser: TestUser) {
         let unlockScreen = app.findElement(testID: "unlock-screen")
-        guard unlockScreen.waitForExistenceNoIdle(timeout: 3) else {
+        guard unlockScreen.waitForExistenceNoIdle(timeout: 1) else {
             // Not on unlock screen, nothing to do
             return
         }
@@ -1178,16 +1193,16 @@ final class AliasVaultUITests: XCTestCase {
 
         // Enter password in unlock screen
         let passwordInput = app.findTextField(testID: "unlock-password-input")
-        if passwordInput.waitForExistenceNoIdle(timeout: 5) {
+        if passwordInput.waitForExistenceNoIdle(timeout: 1) {
             passwordInput.tapNoIdle()
-            passwordInput.typeText(testUser.password)
+            passwordInput.typeTextNoIdle(testUser.password)
         }
 
         app.hideKeyboardIfVisible()
 
         // Tap unlock button
         let unlockButton = app.findElement(testID: "unlock-button")
-        if unlockButton.waitForExistenceNoIdle(timeout: 3) {
+        if unlockButton.waitForExistenceNoIdle(timeout: 1) {
             unlockButton.tapNoIdle()
         }
 
@@ -1259,7 +1274,7 @@ final class AliasVaultUITests: XCTestCase {
         let passwordInput = app.findTextField(testID: "password-input")
         if passwordInput.waitForExistenceNoIdle(timeout: 3) {
             passwordInput.tapNoIdle()
-            passwordInput.typeText(testUser.password)
+            passwordInput.typeTextNoIdle(testUser.password)
         }
 
         app.hideKeyboardIfVisible()

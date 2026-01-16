@@ -8,6 +8,7 @@ import { useApiUrl } from '@/utils/ApiUrlUtility';
 import { AppInfo } from '@/utils/AppInfo';
 
 import { useColors } from '@/hooks/useColorScheme';
+import { useLogout } from '@/hooks/useLogout';
 import { useMinDurationLoading } from '@/hooks/useMinDurationLoading';
 import { useTranslation } from '@/hooks/useTranslation';
 
@@ -18,9 +19,6 @@ import { InlineSkeletonLoader } from '@/components/ui/InlineSkeletonLoader';
 import { TitleContainer } from '@/components/ui/TitleContainer';
 import { UsernameDisplay } from '@/components/ui/UsernameDisplay';
 import { useApp } from '@/context/AppContext';
-import { useAuth } from '@/context/AuthContext';
-import { useDb } from '@/context/DbContext';
-import { useWebApi } from '@/context/WebApiContext';
 
 /**
  * Settings screen.
@@ -31,9 +29,7 @@ export default function SettingsScreen() : React.ReactNode {
   const insets = useSafeAreaInsets();
   const { getAuthMethodDisplayKey, shouldShowAutofillReminder } = useApp();
   const { getAutoLockTimeout, getClipboardClearTimeout } = useApp();
-  const { clearAuthUserInitiated } = useAuth();
-  const { isDirty } = useDb();
-  const webApi = useWebApi();
+  const { logoutUserInitiated } = useLogout();
   const { loadApiUrl, getDisplayUrl } = useApiUrl();
   const scrollY = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
@@ -111,56 +107,6 @@ export default function SettingsScreen() : React.ReactNode {
       loadData();
     }, [getAutoLockTimeout, getAuthMethodDisplayKey, setIsFirstLoad, loadApiUrl, getClipboardClearTimeout, t])
   );
-
-  /**
-   * Perform the actual logout - revokes tokens and clears auth.
-   */
-  const performLogout = async () : Promise<void> => {
-    try {
-      await webApi.revokeTokens();
-    } catch (error) {
-      console.error('Error revoking tokens:', error);
-      // Continue with logout even if revoke fails
-    }
-    await clearAuthUserInitiated();
-    router.replace('/login');
-  };
-
-  /**
-   * Handle the logout button press.
-   * Shows warning if there are unsynced changes, otherwise shows normal confirmation.
-   */
-  const handleLogout = async () : Promise<void> => {
-    if (isDirty) {
-      // Show warning about unsynced changes
-      Alert.alert(
-        t('logout.unsyncedChangesTitle'),
-        t('logout.unsyncedChangesWarning'),
-        [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('logout.logoutAnyway'),
-            style: 'destructive',
-            onPress: performLogout,
-          },
-        ]
-      );
-    } else {
-      // Show normal confirmation dialog
-      Alert.alert(
-        t('auth.logout'),
-        t('auth.confirmLogout'),
-        [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('auth.logout'),
-            style: 'destructive',
-            onPress: performLogout,
-          },
-        ]
-      );
-    }
-  };
 
   /**
    * Handle the vault unlock press.
@@ -547,7 +493,7 @@ export default function SettingsScreen() : React.ReactNode {
         <View style={styles.section}>
           <TouchableOpacity
             style={styles.settingItem}
-            onPress={handleLogout}
+            onPress={logoutUserInitiated}
           >
             <View style={styles.settingItemIcon}>
               <Ionicons name="log-out" size={20} color={colors.primary} />

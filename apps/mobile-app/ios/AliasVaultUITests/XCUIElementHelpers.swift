@@ -22,17 +22,52 @@ extension XCUIElement {
     }
 
     /// Clear text field and enter new text without waiting for idle.
+    /// Waits for keyboard to be ready before typing to prevent missing characters.
     @MainActor
-    func clearAndTypeTextNoIdle(_ text: String) {
-        guard let currentValue = self.value as? String, !currentValue.isEmpty else {
+    func clearAndTypeTextNoIdle(_ text: String, app: XCUIApplication? = nil) {
+        // Tap to focus
+        self.tapNoIdle()
+
+        // Wait for keyboard to appear (critical for preventing missing characters)
+        let application = app ?? XCUIApplication()
+        let keyboardReady = application.keyboards.firstMatch.waitForExistenceNoIdle(timeout: 3)
+        if !keyboardReady {
+            // Retry tap if keyboard didn't appear
+            Thread.sleep(forTimeInterval: 0.2)
             self.tapNoIdle()
-            self.typeText(text)
-            return
+            _ = application.keyboards.firstMatch.waitForExistenceNoIdle(timeout: 2)
         }
 
-        self.tapNoIdle()
-        let deleteString = String(repeating: XCUIKeyboardKey.delete.rawValue, count: currentValue.count)
-        self.typeText(deleteString)
+        // Small delay to ensure keyboard is fully ready
+        Thread.sleep(forTimeInterval: 0.1)
+
+        // Clear existing text if any
+        if let currentValue = self.value as? String, !currentValue.isEmpty {
+            let deleteString = String(repeating: XCUIKeyboardKey.delete.rawValue, count: currentValue.count)
+            self.typeText(deleteString)
+        }
+
+        // Type the new text
+        self.typeText(text)
+    }
+
+    /// Type text with keyboard wait to prevent missing characters.
+    /// Use this instead of raw typeText() for more reliable input.
+    @MainActor
+    func typeTextNoIdle(_ text: String, app: XCUIApplication? = nil) {
+        // Wait for keyboard to appear
+        let application = app ?? XCUIApplication()
+        let keyboardReady = application.keyboards.firstMatch.waitForExistenceNoIdle(timeout: 3)
+        if !keyboardReady {
+            // Tap to focus if keyboard not visible
+            self.tapNoIdle()
+            _ = application.keyboards.firstMatch.waitForExistenceNoIdle(timeout: 2)
+        }
+
+        // Small delay to ensure keyboard is fully ready
+        Thread.sleep(forTimeInterval: 0.1)
+
+        // Type the text
         self.typeText(text)
     }
 }
