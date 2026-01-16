@@ -878,7 +878,20 @@ final class AliasVaultUITests: XCTestCase {
         }
 
         if !screenFound {
-            print("[Helper] Warning: No expected screen found after \(maxWaitTime)s, proceeding anyway")
+            // Capture screenshot and app hierarchy for debugging
+            let screenshot = XCUIScreen.main.screenshot()
+            let attachment = XCTAttachment(screenshot: screenshot)
+            attachment.name = "FAILURE-no-screen-found"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+
+            let hierarchyAttachment = XCTAttachment(string: app.debugDescription)
+            hierarchyAttachment.name = "FAILURE-hierarchy-no-screen-found"
+            hierarchyAttachment.lifetime = .keepAlways
+            add(hierarchyAttachment)
+
+            XCTFail("No expected screen (login, unlock, or items) found after \(maxWaitTime)s. App may have crashed or failed to load.")
+            return
         }
 
         // Handle unlock screen - logout to start fresh with test user

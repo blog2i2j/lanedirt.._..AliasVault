@@ -1,5 +1,7 @@
 import { browser } from 'wxt/browser';
 
+import type { TokenModel, LoginResponse, BadRequestResponse } from '@/utils/dist/core/models/webapi';
+
 import initWasm, {
   srpGenerateSalt,
   srpDerivePrivateKey,
@@ -7,9 +9,6 @@ import initWasm, {
   srpGenerateEphemeral,
   srpDeriveSession,
 } from '../dist/core/rust/aliasvault_core.js';
-
-import type { TokenModel, LoginResponse, BadRequestResponse } from '@/utils/dist/core/models/webapi';
-
 import { EncryptionUtility } from '../EncryptionUtility';
 
 /**

@@ -15,6 +15,7 @@ declare const __DEV__: boolean;
  * - mobile-unlock/[requestId] - Mobile device unlock via QR code
  * - __debug__/set-offline/[true|false] - (DEV only) Toggle offline mode for E2E testing
  * - __debug__/set-api-url/[encoded-url] - (DEV only) Set API URL for E2E testing
+ * - __debug__/set-server-revision/[number] - (DEV only) Set local server revision for RPO testing
  *
  * This route exists to handle deep links that Expo Router processes before our
  * Linking.addEventListener can intercept them. It provides proper navigation
@@ -62,7 +63,11 @@ export default function ActionHandler() : null {
         break;
       }
 
-      // Debug actions for E2E testing (only work in dev mode)
+      /**
+       * ----------------------------------------------------------------------------
+       * Debug actions for E2E testing (only works in dev mode)
+       * ----------------------------------------------------------------------------
+       */
       case '__debug__': {
         if (!__DEV__) {
           console.warn('[ActionHandler] Debug actions only available in development');
@@ -91,9 +96,11 @@ export default function ActionHandler() : null {
           }
 
           case 'set-api-url': {
-            // Set API URL: aliasvault://open/__debug__/set-api-url/http%3A%2F%2Flocalhost%3A5092
-            // Note: If slashes in URL aren't encoded, they become separate path segments
-            // So we join all remaining params with '/' to reconstruct the URL
+            /*
+             * Set API URL: aliasvault://open/__debug__/set-api-url/http%3A%2F%2Flocalhost%3A5092
+             * Note: If slashes in URL aren't encoded, they become separate path segments
+             * So we join all remaining params with '/' to reconstruct the URL
+             */
             if (debugParams.length === 0) {
               console.error('[ActionHandler] set-api-url requires URL parameter');
               router.replace('/(tabs)/items');

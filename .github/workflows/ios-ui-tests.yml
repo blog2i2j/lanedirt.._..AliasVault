@@ -59,11 +59,11 @@ jobs:
       - name: Install CocoaPods
         run: sudo gem install cocoapods
 
-      - name: Build core libraries (including iOS Rust)
+      - name: Build core libraries for iOS
         run: |
           cd ../../core
           chmod +x build-and-distribute.sh
-          ./build-and-distribute.sh
+          ./build-and-distribute.sh --ios
 
       - name: Verify core library distribution
         run: |
@@ -89,29 +89,34 @@ jobs:
           cd ios
           pod install
 
-      - name: Install .NET workloads
-        working-directory: apps/server
-        run: dotnet workload install wasm-tools
-
       - name: Build API server
         working-directory: apps/server
         run: dotnet build AliasVault.Api
 
       - name: Start PostgreSQL
         run: |
-          brew services start postgresql@14
+          # Install and start PostgreSQL
+          brew install postgresql@17
+          brew services start postgresql@17
+
+          # Add PostgreSQL to PATH
+          echo "/opt/homebrew/opt/postgresql@17/bin" >> $GITHUB_PATH
+          export PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH"
+
           # Wait for PostgreSQL to be ready
-          for i in {1..10}; do
-            if pg_isready -h localhost; then
+          for i in {1..15}; do
+            if /opt/homebrew/opt/postgresql@17/bin/pg_isready -h localhost; then
               echo "PostgreSQL is ready!"
               break
             fi
+            echo "Waiting for PostgreSQL... attempt $i"
             sleep 1
           done
+
           # Create database and user
-          createuser -s aliasvault || true
-          psql postgres -c "ALTER USER aliasvault WITH PASSWORD 'password';" || true
-          createdb -O aliasvault aliasdb_e2e_ios || true
+          /opt/homebrew/opt/postgresql@17/bin/createuser -s aliasvault || true
+          /opt/homebrew/opt/postgresql@17/bin/psql postgres -c "ALTER USER aliasvault WITH PASSWORD 'password';" || true
+          /opt/homebrew/opt/postgresql@17/bin/createdb -O aliasvault aliasdb_e2e_ios || true
 
       - name: Start API server
         working-directory: apps/server/AliasVault.Api
@@ -120,7 +125,7 @@ jobs:
           # Wait for API to be ready
           echo "Waiting for API to start..."
           for i in {1..30}; do
-            if curl -s http://localhost:5092/v1/Auth/status > /dev/null 2>&1; then
+            if curl -s http://localhost:5092/v1/ > /dev/null 2>&1; then
               echo "API is ready!"
               break
             fi
@@ -134,6 +139,8 @@ jobs:
           PUBLIC_REGISTRATION_ENABLED: "true"
           ADMIN_PASSWORD_HASH: "AQAAAAIAAYagAAAAEKWfKfa2gh9Z72vjAlnNP1xlME7FsunRznzyrfqFte40FToufRwa3kX8wwDwnEXZag=="
           ADMIN_PASSWORD_GENERATED: "2024-01-01T00:00:00Z"
+          # Bind to all interfaces (IPv4 and IPv6)
+          ASPNETCORE_URLS: "http://0.0.0.0:5092"
 
       - name: Boot iOS Simulator
         run: |
@@ -160,7 +167,32 @@ jobs:
 
           echo "Booting simulator: $SIMULATOR_ID"
           xcrun simctl boot "$SIMULATOR_ID" || true
+
+          # Wait for simulator to be fully booted
+          echo "Waiting for simulator to be ready..."
+          xcrun simctl bootstatus "$SIMULATOR_ID" -b
+
           echo "SIMULATOR_ID=$SIMULATOR_ID" >> $GITHUB_ENV
+
+      - name: Start Metro bundler
+        run: |
+          # Start Metro bundler in background (non-interactive mode for CI)
+          npx expo start --offline > /tmp/metro.log 2>&1 &
+          METRO_PID=$!
+          echo $METRO_PID > /tmp/metro.pid
+
+          # Wait for Metro to be ready
+          echo "Waiting for Metro bundler to start..."
+          for i in {1..30}; do
+            if curl -s http://localhost:8081/status 2>/dev/null | grep -q "packager-status:running"; then
+              echo "Metro bundler is ready!"
+              break
+            fi
+            echo "Attempt $i: Metro not ready yet..."
+            # Show recent log for debugging
+            tail -3 /tmp/metro.log 2>/dev/null || true
+            sleep 2
+          done
 
       - name: Build iOS app for testing
         run: |
@@ -187,11 +219,27 @@ jobs:
             -derivedDataPath build \
             -only-testing:AliasVaultUITests \
             -resultBundlePath TestResults.xcresult \
+            -parallel-testing-enabled NO \
+            -maximum-concurrent-test-simulator-destinations 1 \
             CODE_SIGNING_ALLOWED=NO \
             IDEFileSystemSynchronizedGroupsAreEnabled=NO
         env:
           API_URL: "http://localhost:5092"
           IDEFileSystemSynchronizedGroupsAreEnabled: NO
+
+      - name: Extract attachments from xcresult
+        if: always()
+        run: |
+          mkdir -p /tmp/test-attachments
+          # Extract all attachments from the xcresult bundle
+          if [ -d "ios/TestResults.xcresult" ]; then
+            xcrun xcresulttool get --path ios/TestResults.xcresult --format json > /tmp/test-attachments/results.json 2>/dev/null || true
+            # Export attachments
+            xcrun xcresulttool export --path ios/TestResults.xcresult --output-path /tmp/test-attachments --type file 2>/dev/null || true
+            # List what we found
+            echo "Attachments found:"
+            ls -la /tmp/test-attachments/ || true
+          fi
 
       - name: Upload test results
         if: always()
@@ -201,12 +249,22 @@ jobs:
           path: apps/mobile-app/ios/TestResults.xcresult
           retention-days: 14
 
-      - name: Upload screenshots on failure
+      - name: Upload extracted attachments
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ui-test-attachments
+          path: /tmp/test-attachments/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: ios-ui-test-screenshots
+          name: ios-ui-test-logs
           path: |
-            apps/mobile-app/ios/build/Logs/Test/**/*.png
-            apps/mobile-app/ios/build/Logs/Test/**/*.jpg
+            /tmp/api-server.log
+            /tmp/metro.log
           retention-days: 14
+          if-no-files-found: ignore

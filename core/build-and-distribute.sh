@@ -7,6 +7,7 @@ set -u  # Treat unset variables as errors
 BUILD_ALL=false
 BUILD_BROWSER=false
 BUILD_DOTNET=false
+BUILD_IOS=false
 BUILD_ANDROID=false
 BUILD_COMMON=true  # Always build TypeScript utils, models, and vault
 
@@ -21,6 +22,10 @@ while [[ $# -gt 0 ]]; do
             BUILD_DOTNET=true
             shift
             ;;
+        --ios)
+            BUILD_IOS=true
+            shift
+            ;;
         --android)
             BUILD_ANDROID=true
             shift
@@ -29,6 +34,7 @@ while [[ $# -gt 0 ]]; do
             BUILD_BROWSER=true
             BUILD_DOTNET=true
             BUILD_ANDROID=true
+            # Note: iOS excluded from --all as it requires macOS/Xcode (use --ios explicitly)
             shift
             ;;
         --help)
@@ -37,13 +43,14 @@ while [[ $# -gt 0 ]]; do
             echo "Target options:"
             echo "  --browser     Build WASM for browser extension and Blazor WASM client"
             echo "  --dotnet      Build native library for .NET server-side use"
+            echo "  --ios         Build for iOS with Swift bindings"
             echo "  --android     Build for Android with Kotlin bindings"
-            echo "  --all         Build all targets (browser, dotnet, android)"
+            echo "  --all         Build cross-platform targets (browser, dotnet, android)"
             echo ""
             echo "Notes:"
             echo "  - TypeScript utilities, models, and vault are always built"
-            echo "  - iOS builds are handled by Xcode build phases, not this script"
-            echo "  - If no target is specified, all targets are built"
+            echo "  - iOS requires macOS/Xcode, use --ios explicitly (not included in --all)"
+            echo "  - If no target is specified, cross-platform targets are built"
             echo ""
             exit 0
             ;;
@@ -55,9 +62,9 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# If no targets specified, build all
-if ! $BUILD_BROWSER && ! $BUILD_DOTNET && ! $BUILD_ANDROID; then
-    echo "No target specified, building all targets..."
+# If no targets specified, build cross-platform targets (iOS excluded - requires macOS)
+if ! $BUILD_BROWSER && ! $BUILD_DOTNET && ! $BUILD_IOS && ! $BUILD_ANDROID; then
+    echo "No target specified, building cross-platform targets..."
     BUILD_BROWSER=true
     BUILD_DOTNET=true
     BUILD_ANDROID=true
@@ -98,7 +105,7 @@ if $BUILD_COMMON; then
 fi
 
 # Rust core build (optional - requires Rust toolchain)
-if $BUILD_BROWSER || $BUILD_DOTNET || $BUILD_ANDROID; then
+if $BUILD_BROWSER || $BUILD_DOTNET || $BUILD_IOS || $BUILD_ANDROID; then
     cd ./rust
 
     if command -v rustc &> /dev/null; then
@@ -107,6 +114,11 @@ if $BUILD_BROWSER || $BUILD_DOTNET || $BUILD_ANDROID; then
         if $BUILD_ANDROID; then
             echo "  → Building for Android..."
             ./build.sh --android
+        fi
+
+        if $BUILD_IOS; then
+            echo "  → Building for iOS..."
+            ./build.sh --ios
         fi
 
         if $BUILD_BROWSER; then
