@@ -131,7 +131,6 @@ final class AliasVaultUITests: XCTestCase {
         let testUser = try await createTestUser()
         print("[Test01] Using test user: \(testUser.username)")
 
-        app.launchArguments.append("--reset-state")
         app.launch()
 
         // Wait for login screen
@@ -247,7 +246,6 @@ final class AliasVaultUITests: XCTestCase {
         let uniqueName = TestConfiguration.generateUniqueName(prefix: "E2E Test")
         print("[Test02] Creating item with name: \(uniqueName)")
 
-        app.launchArguments.append("--reset-state")
         app.launch()
         loginWithTestUser(testUser)
 
@@ -308,7 +306,6 @@ final class AliasVaultUITests: XCTestCase {
     func test03OfflineModeAndSync() async throws {
         let testUser = try await createTestUser()
 
-        app.launchArguments.append("--reset-state")
         app.launch()
         loginWithTestUser(testUser)
 
@@ -485,7 +482,6 @@ final class AliasVaultUITests: XCTestCase {
         let uniqueName = TestConfiguration.generateUniqueName(prefix: "RPO Test")
         print("[Test04] Testing RPO recovery with item: \(uniqueName)")
 
-        app.launchArguments.append("--reset-state")
         app.launch()
         loginWithTestUser(testUser)
 
@@ -637,7 +633,6 @@ final class AliasVaultUITests: XCTestCase {
         let uniqueName = TestConfiguration.generateUniqueName(prefix: "Forced Logout Test")
         print("[Test05] Testing forced logout recovery with item: \(uniqueName)")
 
-        app.launchArguments.append("--reset-state")
         app.launch()
         loginWithTestUser(testUser)
 
