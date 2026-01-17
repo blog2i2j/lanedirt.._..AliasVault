@@ -20,6 +20,17 @@ jobs:
         working-directory: apps/mobile-app
 
     steps:
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: false  # Keep Android SDK
+          dotnet: false   # Keep .NET (we need it)
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
