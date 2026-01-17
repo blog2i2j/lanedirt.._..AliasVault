@@ -477,6 +477,7 @@ export default function SettingsScreen() : React.ReactNode {
           </TouchableOpacity>
           <View style={styles.separator} />
           <TouchableOpacity
+            testID="security-settings-link"
             style={styles.settingItem}
             onPress={() => router.push('/(tabs)/settings/security')}
           >

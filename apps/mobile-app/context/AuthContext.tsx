@@ -270,11 +270,6 @@ export const AuthProvider: React.FC<{
     await AsyncStorage.removeItem('refreshToken');
     await AsyncStorage.removeItem('authMethods');
 
-    // Note: We do NOT clear:
-    // - Username (preserved for login form prefill)
-    // - Vault data (preserved for potential RPO recovery)
-    // - Encryption key derivation params (needed to decrypt on re-login)
-
     if (errorMessage) {
       // Show alert
       Alert.alert(
