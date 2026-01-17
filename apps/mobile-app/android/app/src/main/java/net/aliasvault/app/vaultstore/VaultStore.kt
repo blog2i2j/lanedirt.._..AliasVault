@@ -672,6 +672,28 @@ class VaultStore(
         passkey.replacePasskey(oldPasskeyId, newPasskey, displayName, logo)
     }
 
+    /**
+     * Get Items that match an rpId but don't have a passkey yet.
+     * Used for finding existing credentials that could have a passkey added to them.
+     */
+    fun getItemsWithoutPasskeyForRpId(
+        rpId: String,
+        userName: String? = null,
+    ): List<ItemWithCredentialInfo> {
+        return passkey.getItemsWithoutPasskeyForRpId(rpId, userName)
+    }
+
+    /**
+     * Add a passkey to an existing Item (merge passkey into existing credential).
+     */
+    fun addPasskeyToExistingItem(
+        itemId: java.util.UUID,
+        passkeyObj: net.aliasvault.app.vaultstore.models.Passkey,
+        logo: ByteArray? = null,
+    ) {
+        passkey.addPasskeyToExistingItem(itemId, passkeyObj, logo)
+    }
+
     // endregion
 
     // region Cache Methods

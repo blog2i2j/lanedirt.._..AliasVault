@@ -124,6 +124,106 @@ class VaultPasskey(
     }
 
     /**
+     * Get Items that match an rpId but don't have a passkey yet.
+     * Used for finding existing credentials that could have a passkey added to them.
+     *
+     * @param rpId The relying party identifier to match against the login URL.
+     * @param userName Optional username to filter by.
+     * @return List of ItemWithCredentialInfo objects representing Items without passkeys.
+     */
+    fun getItemsWithoutPasskeyForRpId(
+        rpId: String,
+        userName: String? = null,
+    ): List<ItemWithCredentialInfo> {
+        val db = database.dbConnection ?: return emptyList()
+
+        // Query Items that:
+        // 1. Have a URL containing the rpId
+        // 2. Don't have an associated passkey
+        // 3. Are not deleted
+        val query = """
+            SELECT i.Id, i.Name, i.CreatedAt, i.UpdatedAt,
+                   fv_url.Value as Url,
+                   fv_username.Value as Username,
+                   fv_password.Value as Password
+            FROM Items i
+            INNER JOIN FieldValues fv_url ON fv_url.ItemId = i.Id
+                AND fv_url.FieldKey = ?
+                AND fv_url.IsDeleted = 0
+            LEFT JOIN FieldValues fv_username ON fv_username.ItemId = i.Id
+                AND fv_username.FieldKey = ?
+                AND fv_username.IsDeleted = 0
+            LEFT JOIN FieldValues fv_password ON fv_password.ItemId = i.Id
+                AND fv_password.FieldKey = ?
+                AND fv_password.IsDeleted = 0
+            WHERE i.IsDeleted = 0
+                AND i.DeletedAt IS NULL
+                AND i.ItemType = 'Login'
+                AND (LOWER(fv_url.Value) LIKE ? OR LOWER(fv_url.Value) LIKE ?)
+                AND NOT EXISTS (
+                    SELECT 1 FROM Passkeys p
+                    WHERE p.ItemId = i.Id AND p.IsDeleted = 0
+                )
+            ORDER BY i.UpdatedAt DESC
+        """.trimIndent()
+
+        val rpIdLower = rpId.lowercase()
+        val urlPattern1 = "%$rpIdLower%"
+        val urlPattern2 = "%${rpIdLower.replace("www.", "")}%"
+
+        val results = mutableListOf<ItemWithCredentialInfo>()
+        val cursor = db.query(
+            query,
+            arrayOf(
+                FieldKey.LOGIN_URL,
+                FieldKey.LOGIN_USERNAME,
+                FieldKey.LOGIN_PASSWORD,
+                urlPattern1,
+                urlPattern2,
+            ),
+        )
+
+        cursor.use {
+            while (it.moveToNext()) {
+                val itemIdString = it.getString(0)
+                val itemName = if (!it.isNull(1)) it.getString(1) else null
+                val itemCreatedAt = if (!it.isNull(2)) it.getString(2) else null
+                val itemUpdatedAt = if (!it.isNull(3)) it.getString(3) else null
+                val url = if (!it.isNull(4)) it.getString(4) else null
+                val itemUsername = if (!it.isNull(5)) it.getString(5) else null
+                val hasPassword = !it.isNull(6) && it.getString(6).isNotEmpty()
+
+                // Filter by username if provided
+                if (userName != null && itemUsername != userName) {
+                    continue
+                }
+
+                try {
+                    val itemId = UUID.fromString(itemIdString)
+                    val createdAt = DateHelpers.parseDateString(itemCreatedAt ?: "") ?: MIN_DATE
+                    val updatedAt = DateHelpers.parseDateString(itemUpdatedAt ?: "") ?: MIN_DATE
+
+                    results.add(
+                        ItemWithCredentialInfo(
+                            itemId = itemId,
+                            serviceName = itemName,
+                            url = url,
+                            username = itemUsername,
+                            hasPassword = hasPassword,
+                            createdAt = createdAt,
+                            updatedAt = updatedAt,
+                        ),
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing item row", e)
+                }
+            }
+        }
+
+        return results
+    }
+
+    /**
      * Get all passkeys with their associated items in a single query.
      * This is much more efficient than calling getPasskeysForItem() for each item.
      * Uses a JOIN to get passkeys and their items in one database query.
@@ -239,6 +339,21 @@ class VaultPasskey(
         logo: ByteArray? = null,
     ) {
         passkeyRepository.replace(oldPasskeyId, newPasskey, displayName, logo)
+    }
+
+    /**
+     * Add a passkey to an existing Item (merge passkey into existing credential).
+     *
+     * @param itemId The UUID of the existing Item to add the passkey to.
+     * @param passkey The passkey to add.
+     * @param logo Optional logo to update/add.
+     */
+    fun addPasskeyToExistingItem(
+        itemId: UUID,
+        passkey: Passkey,
+        logo: ByteArray? = null,
+    ) {
+        passkeyRepository.addPasskeyToExistingItem(itemId, passkey, logo)
     }
 
     // endregion
@@ -362,6 +477,28 @@ data class PasskeyWithCredentialInfo(
 data class PasskeyWithItem(
     val passkey: Passkey,
     val item: Item,
+)
+
+/**
+ * Data class to hold Item info for Items without passkeys.
+ * Used for showing existing credentials that can have a passkey added.
+ *
+ * @property itemId The UUID of the item.
+ * @property serviceName The service name (Item.Name).
+ * @property url The login URL.
+ * @property username The username from field values.
+ * @property hasPassword Whether the item has a password.
+ * @property createdAt When the item was created.
+ * @property updatedAt When the item was last updated.
+ */
+data class ItemWithCredentialInfo(
+    val itemId: UUID,
+    val serviceName: String?,
+    val url: String?,
+    val username: String?,
+    val hasPassword: Boolean,
+    val createdAt: Date,
+    val updatedAt: Date,
 )
 
 /**

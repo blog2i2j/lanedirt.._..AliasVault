@@ -184,15 +184,33 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
             val now = Date()
             val timestamp = DateHelpers.toStandardFormat(now)
 
-            // Create the item
+            // Create logo if provided
             val logoId = if (logo != null) {
                 val logoIdGen = generateId()
-                // TODO: Insert logo into Logos table with deduplication
+                val source = rpId.lowercase().replace("www.", "")
+
+                executeUpdate(
+                    """
+                    INSERT INTO Logos (Id, Source, FileData, MimeType, FetchedAt, CreatedAt, UpdatedAt, IsDeleted)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """.trimIndent(),
+                    arrayOf(
+                        logoIdGen,
+                        source,
+                        logo, // ByteArray for FileData
+                        "image/png",
+                        null, // FetchedAt
+                        timestamp,
+                        timestamp,
+                        0,
+                    ),
+                )
                 logoIdGen
             } else {
                 null
             }
 
+            // Create the Item
             executeUpdate(
                 """
                 INSERT INTO Items (Id, Name, ItemType, LogoId, FolderId, CreatedAt, UpdatedAt, IsDeleted, DeletedAt)
@@ -321,6 +339,87 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
             )
 
             insert(updatedPasskey)
+        }
+    }
+
+    /**
+     * Add a passkey to an existing Item (merge passkey into existing credential).
+     *
+     * @param itemId The UUID of the existing Item to add the passkey to.
+     * @param passkey The passkey to add (will have its parentItemId updated).
+     * @param logo Optional logo to update/add to the item.
+     */
+    fun addPasskeyToExistingItem(
+        itemId: UUID,
+        passkey: Passkey,
+        logo: ByteArray? = null,
+    ) {
+        withTransaction {
+            val now = Date()
+            val timestamp = DateHelpers.toStandardFormat(now)
+
+            // Optionally update/add logo
+            if (logo != null) {
+                val rpId = passkey.rpId
+                val source = rpId.lowercase().replace("www.", "")
+
+                // Check if item already has a logo
+                val itemResults = executeQuery(
+                    "SELECT LogoId FROM Items WHERE Id = ?",
+                    arrayOf(itemId.toString().uppercase()),
+                )
+
+                val existingLogoId = itemResults.firstOrNull()?.get("LogoId") as? String
+
+                if (existingLogoId != null) {
+                    // Update existing logo
+                    executeUpdate(
+                        "UPDATE Logos SET FileData = ?, UpdatedAt = ? WHERE Id = ?",
+                        arrayOf(logo, timestamp, existingLogoId),
+                    )
+                } else {
+                    // Create new logo
+                    val newLogoId = generateId()
+                    executeUpdate(
+                        """
+                        INSERT INTO Logos (Id, Source, FileData, MimeType, FetchedAt, CreatedAt, UpdatedAt, IsDeleted)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """.trimIndent(),
+                        arrayOf(
+                            newLogoId,
+                            source,
+                            logo,
+                            "image/png",
+                            null,
+                            timestamp,
+                            timestamp,
+                            0,
+                        ),
+                    )
+
+                    // Link logo to item
+                    executeUpdate(
+                        "UPDATE Items SET LogoId = ?, UpdatedAt = ? WHERE Id = ?",
+                        arrayOf(newLogoId, timestamp, itemId.toString().uppercase()),
+                    )
+                }
+            }
+
+            // Update item's UpdatedAt timestamp
+            executeUpdate(
+                "UPDATE Items SET UpdatedAt = ? WHERE Id = ?",
+                arrayOf(timestamp, itemId.toString().uppercase()),
+            )
+
+            // Create the passkey with the existing item ID
+            val passkeyToInsert = passkey.copy(
+                parentItemId = itemId,
+                createdAt = now,
+                updatedAt = now,
+                isDeleted = false,
+            )
+
+            insert(passkeyToInsert)
         }
     }
 
