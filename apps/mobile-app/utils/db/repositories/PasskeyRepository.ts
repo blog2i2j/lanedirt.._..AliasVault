@@ -23,7 +23,7 @@ const PasskeyQueries = {
       p.Id,
       p.ItemId,
       p.RpId,
-      p.UserId,
+      p.UserHandle,
       p.PublicKey,
       p.PrivateKey,
       p.DisplayName,
@@ -49,7 +49,7 @@ const PasskeyQueries = {
       p.Id,
       p.ItemId,
       p.RpId,
-      p.UserId,
+      p.UserHandle,
       p.PublicKey,
       p.PrivateKey,
       p.DisplayName,
@@ -64,6 +64,32 @@ const PasskeyQueries = {
     LEFT JOIN Items i ON p.ItemId = i.Id
     LEFT JOIN FieldValues fv ON fv.ItemId = i.Id AND fv.FieldKey = 'login.username' AND fv.IsDeleted = 0
     WHERE p.Id = ? AND p.IsDeleted = 0`,
+
+  /**
+   * Get all passkeys for a specific item.
+   * Joins with Items and FieldValues to get item name and username.
+   */
+  GET_BY_ITEM_ID: `
+    SELECT
+      p.Id,
+      p.ItemId,
+      p.RpId,
+      p.UserHandle,
+      p.PublicKey,
+      p.PrivateKey,
+      p.DisplayName,
+      p.PrfKey,
+      p.AdditionalData,
+      p.CreatedAt,
+      p.UpdatedAt,
+      p.IsDeleted,
+      i.Name as ItemName,
+      fv.Value as Username
+    FROM Passkeys p
+    LEFT JOIN Items i ON p.ItemId = i.Id
+    LEFT JOIN FieldValues fv ON fv.ItemId = i.Id AND fv.FieldKey = 'login.username' AND fv.IsDeleted = 0
+    WHERE p.ItemId = ? AND p.IsDeleted = 0
+    ORDER BY p.CreatedAt DESC`,
 
   /**
    * Insert a new passkey.
@@ -124,6 +150,18 @@ export class PasskeyRepository extends BaseRepository {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return this.mapRow(results[0] as any);
+  }
+
+  /**
+   * Get all passkeys for a specific item.
+   * @param itemId - The item ID
+   * @returns Array of passkey objects with item info
+   */
+  public async getByItemId(itemId: string): Promise<PasskeyWithItemInfo[]> {
+    const results = await this.client.executeQuery(PasskeyQueries.GET_BY_ITEM_ID, [itemId]);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return results.map((row: any) => this.mapRow(row));
   }
 
   /**

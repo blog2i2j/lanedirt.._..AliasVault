@@ -82,6 +82,7 @@ export default function AddEditItemScreen(): React.ReactNode {
   const [originalAttachmentIds, setOriginalAttachmentIds] = useState<string[]>([]);
   const [totpCodes, setTotpCodes] = useState<TotpCode[]>([]);
   const [originalTotpCodeIds, setOriginalTotpCodeIds] = useState<string[]>([]);
+  const [passkeyIds, setPasskeyIds] = useState<string[]>([]);
   const [passkeyIdsMarkedForDeletion, setPasskeyIdsMarkedForDeletion] = useState<string[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
@@ -461,6 +462,10 @@ export default function AddEditItemScreen(): React.ReactNode {
         if (itemTotpCodes.length > 0) {
           setShow2FA(true);
         }
+
+        // Load passkeys for this item
+        const itemPasskeys = await dbContext.sqliteClient!.passkeys.getByItemId(id);
+        setPasskeyIds(itemPasskeys.map(pk => pk.Id));
       }
     } catch (err) {
       console.error('Error loading item:', err);
@@ -1304,7 +1309,7 @@ export default function AddEditItemScreen(): React.ReactNode {
                             {t('passkeys.passkey')}
                           </ThemedText>
                           <RobustPressable
-                            onPress={() => setPasskeyIdsMarkedForDeletion(['passkey'])}
+                            onPress={() => setPasskeyIdsMarkedForDeletion(passkeyIds)}
                             style={{
                               padding: 6,
                               borderRadius: 4,
