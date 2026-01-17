@@ -202,9 +202,7 @@ jobs:
             adb install -r app/build/outputs/apk/debug/app-debug.apk
 
             # Run the instrumented tests
-            ./gradlew :app:connectedDebugAndroidTest \
-              -Pandroid.testInstrumentationRunnerArguments.API_URL=http://10.0.2.2:5092 \
-              --stacktrace
+            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.API_URL=http://10.0.2.2:5092 --stacktrace
         env:
           API_URL: "http://10.0.2.2:5092"
           ANDROID_NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/26.1.10909125
