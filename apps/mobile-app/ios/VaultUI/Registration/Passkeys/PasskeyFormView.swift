@@ -154,9 +154,9 @@ struct PasskeyFormView: View {
 
     private var buttonText: String {
         if isReplaceMode {
-            return String(localized: "confirm_replace", bundle: locBundle)
+            return String(localized: "replace_passkey", bundle: locBundle)
         } else if isMergeMode {
-            return String(localized: "confirm_add_passkey", bundle: locBundle)
+            return String(localized: "add_passkey", bundle: locBundle)
         } else {
             return String(localized: "create_passkey_button_confirm", bundle: locBundle)
         }
@@ -164,9 +164,9 @@ struct PasskeyFormView: View {
 
     private var titleText: String {
         if isReplaceMode {
-            return String(localized: "replace_passkey_title", bundle: locBundle)
+            return String(localized: "replace_passkey", bundle: locBundle)
         } else if isMergeMode {
-            return String(localized: "add_passkey_title", bundle: locBundle)
+            return String(localized: "add_passkey", bundle: locBundle)
         } else {
             return String(localized: "create_passkey_title", bundle: locBundle)
         }
