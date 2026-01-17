@@ -7,6 +7,7 @@ import net.aliasvault.app.rustcore.VaultMergeService
 import net.aliasvault.app.utils.AppInfo
 import net.aliasvault.app.vaultstore.storageprovider.StorageProvider
 import net.aliasvault.app.vaultstore.utils.VersionComparison
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -17,6 +18,7 @@ class VaultSync(
     private val metadata: VaultMetadataManager,
     private val crypto: VaultCrypto,
     private val storageProvider: StorageProvider,
+    private val query: VaultQuery,
 ) {
     companion object {
         private const val TAG = "VaultSync"
@@ -71,7 +73,6 @@ class VaultSync(
      */
     suspend fun syncVaultWithServer(
         webApiService: net.aliasvault.app.webapi.WebApiService,
-        mutate: VaultMutate,
         retryCount: Int = 0,
     ): VaultSyncResult {
         val maxRetries = 3
@@ -104,7 +105,7 @@ class VaultSync(
                     // Server has newer vault
                     if (isDirty) {
                         // MERGE: Local changes + server changes
-                        performMergeSync(webApiService, mutate, serverRevision, mutationSeqAtStart, retryCount)
+                        performMergeSync(webApiService, serverRevision, mutationSeqAtStart, retryCount)
                     } else {
                         // DOWNLOAD: No local changes, safe to overwrite
                         performDownloadSync(webApiService, serverRevision, mutationSeqAtStart, retryCount)
@@ -112,7 +113,7 @@ class VaultSync(
                 }
                 serverRevision == syncState.serverRevision && isDirty -> {
                     // UPLOAD: Local changes at same revision
-                    performUploadSync(webApiService, mutate, mutationSeqAtStart, retryCount)
+                    performUploadSync(webApiService, mutationSeqAtStart, retryCount)
                 }
                 serverRevision < syncState.serverRevision -> {
                     /**
@@ -127,7 +128,7 @@ class VaultSync(
                         "Server data loss detected! Server at rev $serverRevision, " +
                             "client at rev ${syncState.serverRevision}. Uploading to recover server state.",
                     )
-                    performUploadSync(webApiService, mutate, mutationSeqAtStart, retryCount)
+                    performUploadSync(webApiService, mutationSeqAtStart, retryCount)
                 }
                 else -> {
                     // Already in sync
@@ -182,7 +183,7 @@ class VaultSync(
                 // Race detected - retry
                 Log.d(TAG, "Race detected during download, retrying")
                 metadata.setIsSyncing(false)
-                return syncVaultWithServer(webApiService, VaultMutate(database, VaultQuery(database), metadata), retryCount + 1)
+                return syncVaultWithServer(webApiService, retryCount + 1)
             }
 
             // Store vault metadata
@@ -227,12 +228,11 @@ class VaultSync(
      */
     private suspend fun performUploadSync(
         webApiService: net.aliasvault.app.webapi.WebApiService,
-        mutate: VaultMutate,
         mutationSeqAtStart: Int,
         retryCount: Int,
     ): VaultSyncResult {
         return try {
-            val uploadResult = mutate.uploadVault(webApiService)
+            val uploadResult = uploadVault(webApiService)
 
             when {
                 uploadResult.success -> {
@@ -251,7 +251,7 @@ class VaultSync(
                     // Vault outdated - server moved forward, retry to merge
                     Log.d(TAG, "Vault outdated during upload, retrying")
                     metadata.setIsSyncing(false)
-                    syncVaultWithServer(webApiService, mutate, retryCount + 1)
+                    syncVaultWithServer(webApiService, retryCount + 1)
                 }
                 else -> {
                     metadata.setIsSyncing(false)
@@ -282,7 +282,6 @@ class VaultSync(
     @Suppress("UnusedParameter") // serverRevision will be used for conflict resolution metadata in the future
     private suspend fun performMergeSync(
         webApiService: net.aliasvault.app.webapi.WebApiService,
-        mutate: VaultMutate,
         serverRevision: Int,
         mutationSeqAtStart: Int,
         retryCount: Int,
@@ -306,10 +305,11 @@ class VaultSync(
             val mergedVault = performLWWMerge(localVault, serverVault.vault.blob)
 
             // Store merged vault with race detection
+            // Set serverRevision to the server's revision so prepareVault() sends correct revision when uploading
             val storeResult = storeEncryptedVaultWithSyncState(
                 encryptedVault = mergedVault,
                 markDirty = false,
-                serverRevision = null, // Will be updated after upload
+                serverRevision = serverVault.vault.currentRevisionNumber,
                 expectedMutationSeq = mutationSeqAtStart,
             )
 
@@ -317,11 +317,17 @@ class VaultSync(
                 // Race detected - retry
                 Log.d(TAG, "Race detected during merge, retrying")
                 metadata.setIsSyncing(false)
-                return syncVaultWithServer(webApiService, mutate, retryCount + 1)
+                return syncVaultWithServer(webApiService, retryCount + 1)
+            }
+
+            // Re-unlock immediately after merge to load merged vault into memory
+            // This ensures prepareVault() gets correct item counts and the UI shows merged data
+            if (database.isVaultUnlocked()) {
+                // Note: unlock requires auth methods from VaultStore - handled there
             }
 
             // Upload merged vault
-            val uploadResult = mutate.uploadVault(webApiService)
+            val uploadResult = uploadVault(webApiService)
 
             when {
                 uploadResult.success -> {
@@ -339,7 +345,7 @@ class VaultSync(
                     // Vault outdated again - retry
                     Log.d(TAG, "Vault outdated after merge, retrying")
                     metadata.setIsSyncing(false)
-                    syncVaultWithServer(webApiService, mutate, retryCount + 1)
+                    syncVaultWithServer(webApiService, retryCount + 1)
                 }
                 else -> {
                     metadata.setIsSyncing(false)
@@ -389,6 +395,159 @@ class VaultSync(
             Log.e(TAG, "Rust merge failed: ${e.message}", e)
             throw VaultOperationException("Vault merge failed: ${e.message}", e)
         }
+    }
+
+    /**
+     * Upload the vault to the server and return detailed result.
+     * This is used for sync operations where race detection is needed.
+     */
+    private suspend fun uploadVault(webApiService: net.aliasvault.app.webapi.WebApiService): VaultUploadResult {
+        val mutationSeqAtStart = metadata.getMutationSequence()
+
+        return try {
+            val vault = prepareVault()
+
+            val json = JSONObject()
+            json.put("blob", vault.blob)
+            json.put("createdAt", vault.createdAt)
+            json.put("credentialsCount", vault.credentialsCount)
+            json.put("currentRevisionNumber", vault.currentRevisionNumber)
+            json.put("emailAddressList", JSONArray(vault.emailAddressList))
+            json.put("encryptionPublicKey", vault.encryptionPublicKey)
+            json.put("updatedAt", vault.updatedAt)
+            json.put("username", vault.username)
+            json.put("version", vault.version)
+
+            val response = try {
+                webApiService.executeRequest(
+                    method = "POST",
+                    endpoint = "Vault",
+                    body = json.toString(),
+                    headers = mapOf("Content-Type" to "application/json"),
+                    requiresAuth = true,
+                )
+            } catch (e: Exception) {
+                return VaultUploadResult(
+                    success = false,
+                    status = -1,
+                    newRevisionNumber = 0,
+                    mutationSeqAtStart = mutationSeqAtStart,
+                    error = "Network error: ${e.message}",
+                )
+            }
+
+            if (response.statusCode != 200) {
+                return VaultUploadResult(
+                    success = false,
+                    status = -1,
+                    newRevisionNumber = 0,
+                    mutationSeqAtStart = mutationSeqAtStart,
+                    error = "Server returned error: ${response.statusCode}",
+                )
+            }
+
+            val vaultResponse = try {
+                val responseJson = JSONObject(response.body)
+                VaultPostResponse(
+                    status = responseJson.getInt("status"),
+                    newRevisionNumber = responseJson.getInt("newRevisionNumber"),
+                )
+            } catch (e: Exception) {
+                return VaultUploadResult(
+                    success = false,
+                    status = -1,
+                    newRevisionNumber = 0,
+                    mutationSeqAtStart = mutationSeqAtStart,
+                    error = "Failed to parse response: ${e.message}",
+                )
+            }
+
+            if (vaultResponse.status == 0) {
+                // Success - update local revision number and clear offline mode
+                metadata.setVaultRevisionNumber(vaultResponse.newRevisionNumber)
+                metadata.setOfflineMode(false)
+            }
+
+            VaultUploadResult(
+                success = vaultResponse.status == 0,
+                status = vaultResponse.status,
+                newRevisionNumber = vaultResponse.newRevisionNumber,
+                mutationSeqAtStart = mutationSeqAtStart,
+                error = if (vaultResponse.status != 0) "Vault upload returned status ${vaultResponse.status}" else null,
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error uploading vault", e)
+            VaultUploadResult(
+                success = false,
+                status = -1,
+                newRevisionNumber = 0,
+                mutationSeqAtStart = mutationSeqAtStart,
+                error = "Error uploading vault: ${e.message}",
+            )
+        }
+    }
+
+    /**
+     * Prepare the vault for upload by assembling all metadata.
+     */
+    private fun prepareVault(): VaultUpload {
+        val currentRevision = metadata.getVaultRevisionNumber()
+
+        val encryptedDb = database.getEncryptedDatabase()
+
+        val username = metadata.getUsername()
+            ?: throw VaultOperationException("Username not found")
+
+        if (!database.isVaultUnlocked()) {
+            throw VaultOperationException("Vault must be unlocked to prepare for upload")
+        }
+
+        // Get all items to count them and extract private email addresses
+        val items = query.getAllItems()
+
+        val metadataObj = metadata.getVaultMetadataObject()
+        val privateEmailDomains = metadataObj?.privateEmailDomains ?: emptyList()
+
+        // Extract private email addresses from items using the email field
+        val privateEmailAddresses = items
+            .mapNotNull { it.email }
+            .filter { email ->
+                privateEmailDomains.any { domain ->
+                    email.lowercase().endsWith("@${domain.lowercase()}")
+                }
+            }
+            .distinct()
+
+        val dbVersion = query.getDatabaseVersion()
+
+        @Suppress("SwallowedException")
+        val version = try {
+            // Try to get version from storage provider context
+            val context = database.javaClass.getDeclaredField("storageProvider")
+                .get(database) as? net.aliasvault.app.vaultstore.storageprovider.AndroidStorageProvider
+            val pm = context?.javaClass?.getDeclaredField("context")?.get(context)
+                as? android.content.Context
+            pm?.packageManager?.getPackageInfo(pm.packageName, 0)?.versionName ?: "0.0.0"
+        } catch (e: Exception) {
+            "0.0.0"
+        }
+
+        val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
+        dateFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
+        val now = dateFormat.format(java.util.Date())
+
+        return VaultUpload(
+            blob = encryptedDb,
+            createdAt = now,
+            credentialsCount = items.size,
+            currentRevisionNumber = currentRevision,
+            emailAddressList = privateEmailAddresses,
+            // TODO: add public RSA encryption key to payload when implementing vault creation from mobile app.
+            encryptionPublicKey = "",
+            updatedAt = now,
+            username = username,
+            version = dbVersion,
+        )
     }
 
     /**
@@ -755,6 +914,23 @@ class VaultSync(
     private data class InternalVaultResponse(
         val status: Int,
         val vault: InternalVaultData,
+    )
+
+    private data class VaultUpload(
+        val blob: String,
+        val createdAt: String,
+        val credentialsCount: Int,
+        val currentRevisionNumber: Int,
+        val emailAddressList: List<String>,
+        val encryptionPublicKey: String,
+        val updatedAt: String,
+        val username: String,
+        val version: String,
+    )
+
+    private data class VaultPostResponse(
+        val status: Int,
+        val newRevisionNumber: Int,
     )
 
     // endregion

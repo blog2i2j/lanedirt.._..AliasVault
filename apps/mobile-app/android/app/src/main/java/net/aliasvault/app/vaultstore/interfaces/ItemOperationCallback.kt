@@ -1,16 +1,16 @@
 package net.aliasvault.app.vaultstore.interfaces
 
-import net.aliasvault.app.vaultstore.models.Credential
+import net.aliasvault.app.vaultstore.models.Item
 
 /**
- * Interface for operations that need callbacks for credentials.
+ * Interface for operations that need callbacks for items.
  */
-interface CredentialOperationCallback {
+interface ItemOperationCallback {
     /**
      * Called when the operation is successful.
      * @param result The result of the operation
      */
-    fun onSuccess(result: List<Credential>)
+    fun onSuccess(result: List<Item>)
 
     /**
      * Called when the operation fails.

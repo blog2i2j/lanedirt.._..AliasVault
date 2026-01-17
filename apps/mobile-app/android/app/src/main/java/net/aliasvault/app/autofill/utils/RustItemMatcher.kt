@@ -2,15 +2,15 @@ package net.aliasvault.app.autofill.utils
 
 import android.util.Log
 import net.aliasvault.app.rustcore.JnaInitializer
-import net.aliasvault.app.vaultstore.models.Credential
+import net.aliasvault.app.vaultstore.models.Item
 import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Wrapper for the Rust credential matcher using UniFFI bindings.
+ * Wrapper for the Rust item matcher using UniFFI bindings.
  */
-object RustCredentialMatcher {
-    private const val TAG = "RustCredentialMatcher"
+object RustItemMatcher {
+    private const val TAG = "RustItemMatcher"
 
     init {
         // Ensure JNA is initialized before any UniFFI calls
@@ -18,36 +18,36 @@ object RustCredentialMatcher {
     }
 
     /**
-     * Filter credentials based on app/website info using the Rust core credential matcher.
+     * Filter items based on app/website info using the Rust core credential matcher.
      *
-     * @param credentials List of credentials to filter
+     * @param items List of items to filter
      * @param searchText Search term (app package name, URL, or text)
-     * @return Filtered list of credentials
+     * @return Filtered list of items
      */
-    fun filterCredentialsByAppInfo(
-        credentials: List<Credential>,
+    fun filterItemsByAppInfo(
+        items: List<Item>,
         searchText: String,
-    ): List<Credential> {
+    ): List<Item> {
         // Early return for empty search
         if (searchText.isEmpty()) {
-            return credentials
+            return items
         }
 
         try {
-            // Convert credentials to JSON format expected by Rust
+            // Convert items to JSON format expected by Rust
             val rustCredentials = JSONArray()
-            val credentialMap = mutableMapOf<String, Credential>()
+            val itemMap = mutableMapOf<String, Item>()
 
-            for (credential in credentials) {
-                val idString = credential.id.toString()
+            for (item in items) {
+                val idString = item.id.toString()
                 val credJson = JSONObject().apply {
                     put("Id", idString)
-                    put("ServiceName", credential.service.name ?: JSONObject.NULL)
-                    put("ServiceUrl", credential.service.url ?: JSONObject.NULL)
-                    put("Username", credential.username ?: JSONObject.NULL)
+                    put("ServiceName", item.name ?: JSONObject.NULL)
+                    put("ServiceUrl", item.url ?: JSONObject.NULL)
+                    put("Username", item.username ?: JSONObject.NULL)
                 }
                 rustCredentials.put(credJson)
-                credentialMap[idString] = credential
+                itemMap[idString] = item
             }
 
             // Prepare input JSON for Rust
@@ -70,18 +70,18 @@ object RustCredentialMatcher {
                 return emptyList()
             }
 
-            // Convert matched IDs back to credentials, maintaining order
-            val filtered = mutableListOf<Credential>()
+            // Convert matched IDs back to items, maintaining order
+            val filtered = mutableListOf<Item>()
             for (i in 0 until matchedIds.length()) {
                 val id = matchedIds.getString(i)
-                credentialMap[id]?.let { filtered.add(it) }
+                itemMap[id]?.let { filtered.add(it) }
             }
 
             return filtered
         } catch (e: Exception) {
-            Log.e(TAG, "Error filtering credentials with Rust matcher: ${e.message}", e)
-            // Fallback to returning all credentials on error
-            return credentials
+            Log.e(TAG, "Error filtering items with Rust matcher: ${e.message}", e)
+            // Fallback to returning all items on error
+            return items
         }
     }
 }

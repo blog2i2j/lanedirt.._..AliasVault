@@ -5,11 +5,11 @@ import android.os.Looper
 import android.util.Log
 import io.requery.android.database.sqlite.SQLiteDatabase
 import kotlinx.coroutines.suspendCancellableCoroutine
-import net.aliasvault.app.vaultstore.interfaces.CredentialOperationCallback
 import net.aliasvault.app.vaultstore.interfaces.CryptoOperationCallback
+import net.aliasvault.app.vaultstore.interfaces.ItemOperationCallback
 import net.aliasvault.app.vaultstore.keystoreprovider.BiometricAuthCallback
 import net.aliasvault.app.vaultstore.keystoreprovider.KeystoreProvider
-import net.aliasvault.app.vaultstore.models.Credential
+import net.aliasvault.app.vaultstore.models.Item
 import net.aliasvault.app.vaultstore.models.StoreVaultResult
 import net.aliasvault.app.vaultstore.storageprovider.StorageProvider
 import kotlin.coroutines.resume
@@ -73,7 +73,7 @@ class VaultStore(
     private val query = VaultQuery(databaseComponent)
     internal val metadata = VaultMetadataManager(storageProvider)
     private val auth = VaultAuth(storageProvider) { cache.clearCache() }
-    private val sync = VaultSync(databaseComponent, metadata, crypto, storageProvider)
+    private val sync = VaultSync(databaseComponent, metadata, crypto, storageProvider, query)
     private val mutate = VaultMutate(databaseComponent, query, metadata)
     private val cache = VaultCache(crypto, databaseComponent, keystoreProvider, storageProvider)
     private val passkey = VaultPasskey(databaseComponent, query)
@@ -302,17 +302,17 @@ class VaultStore(
     }
 
     /**
-     * Get all credentials from the vault.
+     * Get all items from the vault.
      */
-    fun getAllCredentials(): List<Credential> {
-        return query.getAllCredentials()
+    fun getAllItems(): List<Item> {
+        return query.getAllItems()
     }
 
     /**
-     * Attempts to get all credentials using only the cached encryption key.
+     * Attempts to get all items using only the cached encryption key.
      */
-    fun tryGetAllCredentials(callback: CredentialOperationCallback): Boolean {
-        return query.tryGetAllCredentials(callback, crypto) { unlockVault() }
+    fun tryGetAllItems(callback: ItemOperationCallback): Boolean {
+        return query.tryGetAllItems(callback, crypto) { unlockVault() }
     }
 
     // endregion
@@ -560,7 +560,7 @@ class VaultStore(
      * Unified vault sync method that handles all sync scenarios.
      */
     suspend fun syncVaultWithServer(webApiService: net.aliasvault.app.webapi.WebApiService): VaultSyncResult {
-        val result = sync.syncVaultWithServer(webApiService, mutate)
+        val result = sync.syncVaultWithServer(webApiService)
         // Re-unlock vault if it was unlocked before sync and action was download/merge
         if (result.success && (result.action == SyncAction.DOWNLOADED || result.action == SyncAction.MERGED) && isVaultUnlocked()) {
             unlockVault()

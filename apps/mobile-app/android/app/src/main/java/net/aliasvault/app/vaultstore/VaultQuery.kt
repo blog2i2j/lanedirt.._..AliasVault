@@ -3,15 +3,11 @@ package net.aliasvault.app.vaultstore
 import android.util.Base64
 import android.util.Log
 import net.aliasvault.app.utils.DateHelpers
-import net.aliasvault.app.vaultstore.interfaces.CredentialOperationCallback
-import net.aliasvault.app.vaultstore.models.Alias
-import net.aliasvault.app.vaultstore.models.Credential
+import net.aliasvault.app.vaultstore.interfaces.ItemOperationCallback
 import net.aliasvault.app.vaultstore.models.FieldKey
 import net.aliasvault.app.vaultstore.models.FieldType
 import net.aliasvault.app.vaultstore.models.Item
 import net.aliasvault.app.vaultstore.models.ItemField
-import net.aliasvault.app.vaultstore.models.Password
-import net.aliasvault.app.vaultstore.models.Service
 import java.util.Calendar
 import java.util.Date
 import java.util.TimeZone
@@ -369,79 +365,12 @@ class VaultQuery(
 
     // endregion
 
-    // region Legacy Credential Operations (Compatibility Layer)
+    // region Item Operations
 
     /**
-     * Get all credentials from the vault.
-     * This method converts the new Items model back to the legacy Credential model for compatibility.
+     * Attempts to get all items using only the cached encryption key.
      */
-    fun getAllCredentials(): List<Credential> {
-        val items = getAllItems()
-        return items.mapNotNull { convertItemToCredential(it) }
-    }
-
-    /**
-     * Convert an Item to the legacy Credential format.
-     */
-    private fun convertItemToCredential(item: Item): Credential? {
-        // Create a Service from the item
-        val service = Service(
-            id = item.id,
-            name = item.name,
-            url = item.url,
-            logo = item.logo,
-            createdAt = item.createdAt,
-            updatedAt = item.updatedAt,
-            isDeleted = false,
-        )
-
-        // Create an Alias if the item has alias fields
-        var alias: Alias? = null
-        if (item.firstName != null || item.lastName != null || item.email != null) {
-            alias = Alias(
-                id = item.id,
-                gender = item.getFieldValue(FieldKey.ALIAS_GENDER),
-                firstName = item.firstName,
-                lastName = item.lastName,
-                nickName = null,
-                birthDate = MIN_DATE, // TODO: Parse birthdate from field value
-                email = item.email,
-                createdAt = item.createdAt,
-                updatedAt = item.updatedAt,
-                isDeleted = false,
-            )
-        }
-
-        // Create a Password if the item has a password field
-        var password: Password? = null
-        item.password?.let { passwordValue ->
-            password = Password(
-                id = UUID.randomUUID(),
-                credentialId = item.id,
-                value = passwordValue,
-                createdAt = item.createdAt,
-                updatedAt = item.updatedAt,
-                isDeleted = false,
-            )
-        }
-
-        return Credential(
-            id = item.id,
-            alias = alias,
-            service = service,
-            username = item.username,
-            notes = item.getFieldValue("login.notes"),
-            password = password,
-            createdAt = item.createdAt,
-            updatedAt = item.updatedAt,
-            isDeleted = false,
-        )
-    }
-
-    /**
-     * Attempts to get all credentials using only the cached encryption key.
-     */
-    fun tryGetAllCredentials(callback: CredentialOperationCallback, crypto: VaultCrypto, unlockVault: () -> Unit): Boolean {
+    fun tryGetAllItems(callback: ItemOperationCallback, crypto: VaultCrypto, unlockVault: () -> Unit): Boolean {
         if (crypto.encryptionKey == null) {
             Log.d(TAG, "Encryption key not in memory, authentication required")
             return false
@@ -452,10 +381,10 @@ class VaultQuery(
                 unlockVault()
             }
 
-            callback.onSuccess(getAllCredentials())
+            callback.onSuccess(getAllItems())
             return true
         } catch (e: Exception) {
-            Log.e(TAG, "Error retrieving credentials", e)
+            Log.e(TAG, "Error retrieving items", e)
             callback.onError(e)
             return false
         }
