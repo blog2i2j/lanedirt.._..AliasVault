@@ -209,6 +209,8 @@ jobs:
             -destination "id=${{ env.SIMULATOR_ID }}" \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="-" \
+            DEVELOPMENT_TEAM="" \
             IDEFileSystemSynchronizedGroupsAreEnabled=NO
         env:
           IDEFileSystemSynchronizedGroupsAreEnabled: NO
@@ -227,6 +229,8 @@ jobs:
             -parallel-testing-enabled NO \
             -maximum-concurrent-test-simulator-destinations 1 \
             CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="-" \
+            DEVELOPMENT_TEAM="" \
             IDEFileSystemSynchronizedGroupsAreEnabled=NO
         env:
           API_URL: "http://localhost:5092"
