@@ -15,17 +15,10 @@ struct ExistingPasskeyRow: View {
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(passkey.displayName)
+                Text(passkey.serviceName ?? passkey.displayName)
                     .font(.body)
                     .fontWeight(.medium)
                     .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.text : ColorConstants.Light.text)
-
-                if let serviceName = passkey.serviceName {
-                    Text(serviceName)
-                        .font(.caption)
-                        .foregroundColor(colorScheme == .dark ? ColorConstants.Dark.textMuted : ColorConstants.Light.textMuted)
-                }
-
                 if let username = passkey.username {
                     Text(username)
                         .font(.caption)
