@@ -36,7 +36,7 @@ public struct CredentialProviderView: View {
 
                     if viewModel.isLoading {
                         Spacer()
-                        ProgressView(String(localized: "loading_credentials", bundle: locBundle))
+                        ProgressView(String(localized: "loading_items", bundle: locBundle))
                             .progressViewStyle(.circular)
                             .scaleEffect(1.5)
                         Spacer()
@@ -48,11 +48,11 @@ public struct CredentialProviderView: View {
                                         .font(.system(size: 50))
                                         .foregroundColor(colors.text)
 
-                                    Text(String(localized: "no_credentials_found", bundle: locBundle))
+                                    Text(String(localized: "no_items_found", bundle: locBundle))
                                         .font(.headline)
                                         .foregroundColor(colors.text)
 
-                                    Text(String(localized: "no_credentials_match", bundle: locBundle))
+                                    Text(String(localized: "no_items_match", bundle: locBundle))
                                         .font(.subheadline)
                                         .foregroundColor(colors.text)
                                         .multilineTextAlignment(.center)
@@ -71,7 +71,7 @@ public struct CredentialProviderView: View {
                                             }, label: {
                                                 HStack {
                                                     Image(systemName: "plus.circle.fill")
-                                                    Text(String(localized: "create_new_credential", bundle: locBundle))
+                                                    Text(String(localized: "create_new_item", bundle: locBundle))
                                                 }
                                                 .padding()
                                                 .frame(maxWidth: .infinity)
@@ -109,7 +109,7 @@ public struct CredentialProviderView: View {
                     }
                 }
             }
-            .navigationTitle(viewModel.isChoosingTextToInsert ? String(localized: "select_text_to_insert", bundle: locBundle) : String(localized: "select_credential", bundle: locBundle))
+            .navigationTitle(viewModel.isChoosingTextToInsert ? String(localized: "select_text_to_insert", bundle: locBundle) : String(localized: "select_item", bundle: locBundle))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -251,7 +251,7 @@ public class CredentialProviderViewModel: ObservableObject {
             isLoading = false
         } catch {
             isLoading = false
-            errorMessage = String(localized: "credentials_load_error", bundle: locBundle)
+            errorMessage = String(localized: "items_load_error", bundle: locBundle)
             showError = true
         }
     }

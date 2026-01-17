@@ -19,7 +19,7 @@ public struct SearchBarView: View {
                     .foregroundColor(colors.text)
                     .padding(.leading, 8)
 
-                TextField(String(localized: "search_credentials", bundle: locBundle), text: $text)
+                TextField(String(localized: "search_items", bundle: locBundle), text: $text)
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
                     .foregroundColor(colors.text)
