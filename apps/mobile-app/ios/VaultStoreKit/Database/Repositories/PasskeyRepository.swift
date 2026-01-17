@@ -59,6 +59,55 @@ public class PasskeyRepository: BaseRepository {
         return mappedResults
     }
 
+    /// Get Items that match an rpId but don't have a passkey yet.
+    /// Used for finding existing credentials that could have a passkey added to them.
+    /// - Parameters:
+    ///   - rpId: The relying party identifier (domain)
+    ///   - userName: Optional username to filter by
+    /// - Returns: Array of ItemWithCredentialInfoData objects
+    public func getItemsWithoutPasskey(forRpId rpId: String, userName: String? = nil) throws -> [ItemWithCredentialInfoData] {
+        let rpIdLower = rpId.lowercased()
+        let urlPattern1 = "%\(rpIdLower)%"
+        let urlPattern2 = "%\(rpIdLower.replacingOccurrences(of: "www.", with: ""))%"
+
+        let results = try client.executeQuery(PasskeyQueries.getItemsWithoutPasskeyForRpId, params: [urlPattern1, urlPattern2])
+
+        var items: [ItemWithCredentialInfoData] = []
+
+        for row in results {
+            guard let idString = row["Id"] as? String,
+                  let itemId = UUID(uuidString: idString) else {
+                continue
+            }
+
+            let serviceName = row["Name"] as? String
+            let url = row["Url"] as? String
+            let itemUsername = row["Username"] as? String
+            let password = row["Password"] as? String
+            let hasPassword = password != nil && !password!.isEmpty
+
+            // Filter by username if provided
+            if let userName = userName, itemUsername != userName {
+                continue
+            }
+
+            let createdAt = DateHelpers.parseDateString(row["CreatedAt"] as? String ?? "") ?? Date.distantPast
+            let updatedAt = DateHelpers.parseDateString(row["UpdatedAt"] as? String ?? "") ?? Date.distantPast
+
+            items.append(ItemWithCredentialInfoData(
+                itemId: itemId,
+                serviceName: serviceName,
+                url: url,
+                username: itemUsername,
+                hasPassword: hasPassword,
+                createdAt: createdAt,
+                updatedAt: updatedAt
+            ))
+        }
+
+        return items
+    }
+
     // MARK: - Write Operations
 
     /// Create a new passkey.
@@ -348,6 +397,84 @@ public class PasskeyRepository: BaseRepository {
             "UPDATE Items SET Name = ?, UpdatedAt = ? WHERE Id = ?",
             params: [displayName, now, itemId]
         )
+    }
+
+    /// Add a passkey to an existing Item (merge passkey into existing credential).
+    /// - Parameters:
+    ///   - itemId: The UUID of the existing Item to add the passkey to
+    ///   - passkey: The passkey to add
+    ///   - logo: Optional logo data to update/add
+    /// - Returns: The ID of the created passkey
+    @discardableResult
+    public func addPasskeyToExistingItem(
+        itemId: UUID,
+        passkey: Passkey,
+        logo: Data? = nil
+    ) throws -> String {
+        return try withTransaction {
+            let itemIdString = itemId.uuidString.uppercased()
+            let now = self.now()
+
+            // Update logo if provided
+            if let logo = logo {
+                try updateItemLogoInternal(
+                    itemId: itemIdString,
+                    logo: logo,
+                    displayName: passkey.displayName,
+                    now: now
+                )
+            }
+
+            // Create the passkey linked to the existing item
+            let passkeyId = passkey.id.uuidString.uppercased()
+
+            guard let publicKeyString = String(data: passkey.publicKey, encoding: .utf8),
+                  let privateKeyString = String(data: passkey.privateKey, encoding: .utf8) else {
+                throw PasskeyRepositoryError.invalidKeyData
+            }
+
+            let userHandleParam: SqliteBindValue = passkey.userHandle.map { "av-base64-to-blob:\($0.base64EncodedString())" }
+            let prfKeyParam: SqliteBindValue = passkey.prfKey.map { "av-base64-to-blob:\($0.base64EncodedString())" }
+
+            try client.executeUpdate(PasskeyQueries.insert, params: [
+                passkeyId,
+                itemIdString,
+                passkey.rpId,
+                userHandleParam,
+                publicKeyString,
+                privateKeyString,
+                prfKeyParam,
+                passkey.displayName,
+                now,
+                now,
+                0
+            ])
+
+            return passkeyId
+        }
+    }
+}
+
+/// Data class to hold Item info for Items without passkeys (internal VaultStoreKit type).
+/// Used for showing existing credentials that can have a passkey added.
+/// Note: VaultUI has its own ItemWithCredentialInfo type for UI usage.
+public struct ItemWithCredentialInfoData {
+    public let itemId: UUID
+    public let serviceName: String?
+    public let url: String?
+    public let username: String?
+    public let hasPassword: Bool
+    public let createdAt: Date
+    public let updatedAt: Date
+
+    public init(itemId: UUID, serviceName: String?, url: String?, username: String?, hasPassword: Bool, createdAt: Date, updatedAt: Date) {
+        self.itemId = itemId
+        self.serviceName = serviceName
+        self.url = url
+        self.username = username
+        self.hasPassword = hasPassword
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
     }
 }
 

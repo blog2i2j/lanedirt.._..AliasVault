@@ -241,6 +241,26 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
             // Continue with empty list
         }
 
+        // Query for existing Items without passkeys that match this rpId
+        var existingItemsWithoutPasskey: [ItemWithCredentialInfo] = []
+        do {
+            let results = try vaultStore.getItemsWithoutPasskey(forRpId: rpId, userName: userName)
+            existingItemsWithoutPasskey = results.map { item in
+                ItemWithCredentialInfo(
+                    itemId: item.itemId,
+                    serviceName: item.serviceName,
+                    url: item.url,
+                    username: item.username,
+                    hasPassword: item.hasPassword,
+                    createdAt: item.createdAt,
+                    updatedAt: item.updatedAt
+                )
+            }
+        } catch {
+            print("PasskeyRegistration: Failed to query existing items: \(error)")
+            // Continue with empty list
+        }
+
         // Create view model with handlers
         // Use lazy initialization to avoid capturing viewModel before it's assigned
         var viewModel: PasskeyRegistrationViewModel!
@@ -251,6 +271,7 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
             userName: userName,
             userDisplayName: userDisplayName,
             existingPasskeys: existingPasskeys,
+            existingItemsWithoutPasskey: existingItemsWithoutPasskey,
             completionHandler: { [weak self] success in
                 guard let self = self else { return }
 
@@ -389,6 +410,13 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
                         oldPasskeyId: oldPasskeyId,
                         newPasskey: passkey,
                         displayName: viewModel.displayName,
+                        logo: logo
+                    )
+                } else if let existingItemId = viewModel.selectedItemToMerge {
+                    // Merge passkey into existing item without passkey
+                    try vaultStore.addPasskeyToExistingItem(
+                        itemId: existingItemId,
+                        passkey: passkey,
                         logo: logo
                     )
                 } else {

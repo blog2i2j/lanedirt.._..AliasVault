@@ -54,6 +54,14 @@ extension VaultStore {
         return results.map { (passkey: $0.passkey, serviceName: $0.serviceName, username: $0.username) }
     }
 
+    /**
+     * Get Items that match an rpId but don't have a passkey yet.
+     * Used for finding existing credentials that could have a passkey added to them.
+     */
+    public func getItemsWithoutPasskey(forRpId rpId: String, userName: String? = nil) throws -> [ItemWithCredentialInfoData] {
+        return try passkeyRepository.getItemsWithoutPasskey(forRpId: rpId, userName: userName)
+    }
+
     // MARK: - Passkey Storage (Public API)
 
     /**
@@ -124,6 +132,40 @@ extension VaultStore {
             oldPasskeyId: oldPasskeyId.uuidString.uppercased(),
             with: updatedPasskey,
             displayName: displayName,
+            logo: logo
+        )
+    }
+
+    /**
+     * Add a passkey to an existing Item (merge passkey into existing credential).
+     * @param itemId The UUID of the existing Item to add the passkey to.
+     * @param passkey The passkey to add.
+     * @param logo Optional logo to update/add.
+     */
+    public func addPasskeyToExistingItem(
+        itemId: UUID,
+        passkey: Passkey,
+        logo: Data? = nil
+    ) throws {
+        // Create the passkey with the existing item ID
+        let passkeyWithItemId = Passkey(
+            id: passkey.id,
+            parentItemId: itemId,  // Link to the existing item
+            rpId: passkey.rpId,
+            userHandle: passkey.userHandle,
+            userName: passkey.userName,
+            publicKey: passkey.publicKey,
+            privateKey: passkey.privateKey,
+            prfKey: passkey.prfKey,
+            displayName: passkey.displayName,
+            createdAt: Date(),
+            updatedAt: Date(),
+            isDeleted: false
+        )
+
+        try passkeyRepository.addPasskeyToExistingItem(
+            itemId: itemId,
+            passkey: passkeyWithItemId,
             logo: logo
         )
     }
