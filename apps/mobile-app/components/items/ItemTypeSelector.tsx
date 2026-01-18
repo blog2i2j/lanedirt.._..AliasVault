@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, StyleSheet, Modal } from 'react-native';
+import { View, StyleSheet, Modal, TouchableWithoutFeedback, TouchableOpacity } from 'react-native';
 
 import type { ItemType } from '@/utils/dist/core/models/vault';
 import { ItemTypes } from '@/utils/dist/core/models/vault';
@@ -191,49 +191,51 @@ export const ItemTypeSelector: React.FC<ItemTypeSelectorProps> = ({
         animationType="fade"
         onRequestClose={() => setShowDropdown(false)}
       >
-        <RobustPressable
-          style={styles.modalContainer}
-          onPress={() => setShowDropdown(false)}
-        >
-          <View style={styles.modalContent}>
-            {ITEM_TYPE_OPTIONS.map((option, index) => (
-              <RobustPressable
-                key={option.type}
-                style={[
-                  styles.optionButton,
-                  index === ITEM_TYPE_OPTIONS.length - 1 && { borderBottomWidth: 0 },
-                ]}
-                onPress={() => {
-                  onTypeChange(option.type);
-                  setShowDropdown(false);
-                }}
-              >
-                <MaterialIcons
-                  name={option.icon}
-                  size={24}
-                  color={selectedType === option.type ? colors.primary : colors.textMuted}
-                  style={styles.optionIcon}
-                />
-                <ThemedText
-                  style={[
-                    styles.optionText,
-                    selectedType === option.type && styles.optionTextSelected,
-                  ]}
-                >
-                  {t(option.titleKey)}
-                </ThemedText>
-                {selectedType === option.type && (
-                  <MaterialIcons
-                    name="check"
-                    size={24}
-                    color={colors.primary}
-                    style={styles.checkIcon}
-                  />
-                )}
-              </RobustPressable>
-            ))}
+        <TouchableWithoutFeedback onPress={() => setShowDropdown(false)}>
+          <View style={styles.modalContainer}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalContent}>
+                {ITEM_TYPE_OPTIONS.map((option, index) => (
+                  <TouchableOpacity
+                    key={option.type}
+                    style={[
+                      styles.optionButton,
+                      index === ITEM_TYPE_OPTIONS.length - 1 && { borderBottomWidth: 0 },
+                    ]}
+                    onPress={() => {
+                      onTypeChange(option.type);
+                      setShowDropdown(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialIcons
+                      name={option.icon}
+                      size={24}
+                      color={selectedType === option.type ? colors.primary : colors.textMuted}
+                      style={styles.optionIcon}
+                    />
+                    <ThemedText
+                      style={[
+                        styles.optionText,
+                        selectedType === option.type && styles.optionTextSelected,
+                      ]}
+                    >
+                      {t(option.titleKey)}
+                    </ThemedText>
+                    {selectedType === option.type && (
+                      <MaterialIcons
+                        name="check"
+                        size={24}
+                        color={colors.primary}
+                        style={styles.checkIcon}
+                      />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </TouchableWithoutFeedback>
           </View>
-        </RobustPressable>
+        </TouchableWithoutFeedback>
       </Modal>
     </View>
   );
