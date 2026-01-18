@@ -242,10 +242,4 @@ extension VaultStore {
         userDefaults.removeObject(forKey: VaultConstants.isSyncingKey)
         userDefaults.synchronize()
     }
-
-    /// Mark the vault as dirty.
-    /// This is used after local mutations to mark the vault as dirty.
-    public func markVaultDirty() throws {
-        setIsDirty(true)
-    }
 }
