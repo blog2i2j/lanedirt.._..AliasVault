@@ -513,22 +513,12 @@ class PasskeyFormFragment : Fragment() {
                 showLoading(getString(R.string.passkey_saving))
             }
 
-            val db = vaultStore.database ?: throw VaultOperationException("Vault not unlocked")
-            db.beginTransaction()
-            try {
-                vaultStore.replacePasskey(
-                    oldPasskeyId = passkeyToReplace.passkey.id,
-                    newPasskey = newPasskey,
-                    displayName = displayName,
-                    logo = logo,
-                )
-
-                // Commit transaction and persist to encrypted vault file
-                vaultStore.commitTransaction()
-            } catch (e: Exception) {
-                db.endTransaction()
-                throw e
-            }
+            vaultStore.replacePasskey(
+                oldPasskeyId = passkeyToReplace.passkey.id,
+                newPasskey = newPasskey,
+                displayName = displayName,
+                logo = logo,
+            )
 
             // Step 4: Upload vault changes to server
             withContext(Dispatchers.Main) {
