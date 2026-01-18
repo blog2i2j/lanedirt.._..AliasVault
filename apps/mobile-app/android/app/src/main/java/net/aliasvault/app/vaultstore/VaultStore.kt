@@ -21,7 +21,7 @@ import kotlin.coroutines.resume
  * This class uses composition to organize functionality into specialized components:
  * - VaultCrypto: Handles encryption, decryption, and key management
  * - VaultDatabase: Handles database storage and operations
- * - VaultQuery: Handles SQL query execution and credential retrieval
+ * - ItemRepository: Handles item queries through the repository pattern
  * - VaultMetadataManager: Handles metadata and settings storage
  * - VaultAuth: Handles authentication methods and auto-lock
  * - VaultSync: Handles vault synchronization with server
@@ -70,13 +70,13 @@ class VaultStore(
 
     private val crypto = VaultCrypto(keystoreProvider, storageProvider)
     private val databaseComponent = VaultDatabase(storageProvider, crypto)
-    private val query = VaultQuery(databaseComponent)
+    private val itemRepository = net.aliasvault.app.vaultstore.repositories.ItemRepository(databaseComponent)
     internal val metadata = VaultMetadataManager(storageProvider)
     private val auth = VaultAuth(storageProvider) { cache.clearCache() }
-    private val sync = VaultSync(databaseComponent, metadata, crypto, storageProvider, query)
-    private val mutate = VaultMutate(databaseComponent, query, metadata)
+    private val sync = VaultSync(databaseComponent, metadata, crypto, storageProvider, itemRepository)
+    private val mutate = VaultMutate(databaseComponent, itemRepository, metadata)
     private val cache = VaultCache(crypto, databaseComponent, keystoreProvider, storageProvider)
-    private val passkey = VaultPasskey(databaseComponent, query)
+    private val passkey = VaultPasskey(databaseComponent)
     private val pin by lazy {
         val androidProvider = storageProvider as net.aliasvault.app.vaultstore.storageprovider.AndroidStorageProvider
         // Use reflection to access private context field
@@ -256,21 +256,89 @@ class VaultStore(
      * Execute a read-only SQL query (SELECT) on the vault.
      */
     fun executeQuery(queryString: String, params: Array<Any?>): List<Map<String, Any?>> {
-        return query.executeQuery(queryString, params)
+        val db = databaseComponent.dbConnection ?: error("Database not initialized")
+
+        // Convert params to strings for SQLite
+        val convertedParams = params.map { param ->
+            when (param) {
+                null -> null
+                is ByteArray -> String(param, Charsets.UTF_8)
+                else -> param.toString()
+            }
+        }.toTypedArray()
+
+        val cursor = db.query(queryString, convertedParams)
+        val results = mutableListOf<Map<String, Any?>>()
+
+        cursor.use {
+            val columnNames = it.columnNames
+            while (it.moveToNext()) {
+                val row = mutableMapOf<String, Any?>()
+                for (columnName in columnNames) {
+                    when (it.getType(it.getColumnIndexOrThrow(columnName))) {
+                        android.database.Cursor.FIELD_TYPE_NULL -> row[columnName] = null
+                        android.database.Cursor.FIELD_TYPE_INTEGER -> row[columnName] = it.getLong(
+                            it.getColumnIndexOrThrow(columnName),
+                        )
+                        android.database.Cursor.FIELD_TYPE_FLOAT -> row[columnName] = it.getDouble(
+                            it.getColumnIndexOrThrow(columnName),
+                        )
+                        android.database.Cursor.FIELD_TYPE_STRING -> row[columnName] = it.getString(
+                            it.getColumnIndexOrThrow(columnName),
+                        )
+                        android.database.Cursor.FIELD_TYPE_BLOB -> row[columnName] = it.getBlob(
+                            it.getColumnIndexOrThrow(columnName),
+                        )
+                    }
+                }
+                results.add(row)
+            }
+        }
+
+        return results
     }
 
     /**
      * Execute an SQL update on the vault that mutates it.
      */
     fun executeUpdate(queryString: String, params: Array<Any?>): Int {
-        return query.executeUpdate(queryString, params)
+        val db = databaseComponent.dbConnection ?: error("Database not initialized")
+
+        val convertedParams = params.map { param ->
+            when (param) {
+                null -> null
+                is ByteArray -> String(param, Charsets.UTF_8)
+                else -> param.toString()
+            }
+        }.toTypedArray()
+
+        val stmt = db.compileStatement(queryString)
+        convertedParams.forEachIndexed { index, value ->
+            if (value == null) {
+                stmt.bindNull(index + 1)
+            } else {
+                stmt.bindString(index + 1, value)
+            }
+        }
+        stmt.execute()
+
+        // Get the number of affected rows
+        val affectedCursor = db.rawQuery("SELECT changes()", null)
+        affectedCursor.use {
+            if (it.moveToFirst()) {
+                return it.getInt(0)
+            }
+        }
+        return 0
     }
 
     /**
      * Execute a raw SQL command on the vault without parameters.
      */
     fun executeRaw(queryString: String) {
-        query.executeRaw(queryString)
+        val db = databaseComponent.dbConnection ?: error("Database not initialized")
+        val stmt = db.compileStatement(queryString)
+        stmt.execute()
     }
 
     /**
@@ -305,14 +373,30 @@ class VaultStore(
      * Get all items from the vault.
      */
     fun getAllItems(): List<Item> {
-        return query.getAllItems()
+        return itemRepository.getAll()
     }
 
     /**
      * Attempts to get all items using only the cached encryption key.
      */
     fun tryGetAllItems(callback: ItemOperationCallback): Boolean {
-        return query.tryGetAllItems(callback, crypto) { unlockVault() }
+        if (crypto.encryptionKey == null) {
+            android.util.Log.d("VaultStore", "Encryption key not in memory, authentication required")
+            return false
+        }
+
+        try {
+            if (!databaseComponent.isVaultUnlocked()) {
+                unlockVault()
+            }
+
+            callback.onSuccess(itemRepository.getAll())
+            return true
+        } catch (e: Exception) {
+            android.util.Log.e("VaultStore", "Error retrieving items", e)
+            callback.onError(e)
+            return false
+        }
     }
 
     // endregion
@@ -617,14 +701,14 @@ class VaultStore(
         rpId: String,
         userName: String? = null,
         userId: ByteArray? = null,
-    ): List<PasskeyWithCredentialInfo> {
+    ): List<net.aliasvault.app.vaultstore.repositories.PasskeyWithCredentialInfo> {
         return passkey.getPasskeysWithCredentialInfo(rpId, userName, userId)
     }
 
     /**
      * Get all passkeys with their associated items in a single query.
      */
-    fun getAllPasskeysWithItems(): List<PasskeyWithItem> {
+    fun getAllPasskeysWithItems(): List<net.aliasvault.app.vaultstore.repositories.PasskeyWithItem> {
         return passkey.getAllPasskeysWithItems()
     }
 
@@ -679,7 +763,7 @@ class VaultStore(
     fun getItemsWithoutPasskeyForRpId(
         rpId: String,
         userName: String? = null,
-    ): List<ItemWithCredentialInfo> {
+    ): List<net.aliasvault.app.vaultstore.repositories.ItemWithCredentialInfo> {
         return passkey.getItemsWithoutPasskeyForRpId(rpId, userName)
     }
 

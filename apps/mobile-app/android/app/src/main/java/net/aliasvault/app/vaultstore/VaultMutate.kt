@@ -3,6 +3,7 @@ package net.aliasvault.app.vaultstore
 import android.util.Log
 import net.aliasvault.app.exceptions.SerializationException
 import net.aliasvault.app.exceptions.VaultOperationException
+import net.aliasvault.app.vaultstore.repositories.ItemRepository
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -11,7 +12,7 @@ import org.json.JSONObject
  */
 class VaultMutate(
     private val database: VaultDatabase,
-    private val query: VaultQuery,
+    private val itemRepository: ItemRepository,
     private val metadata: VaultMetadataManager,
 ) {
     companion object {
@@ -190,7 +191,7 @@ class VaultMutate(
         }
 
         // Get all items to count them and extract private email addresses
-        val items = query.getAllItems()
+        val items = itemRepository.getAll()
 
         val metadataObj = metadata.getVaultMetadataObject()
         val privateEmailDomains = metadataObj?.privateEmailDomains ?: emptyList()
@@ -205,7 +206,7 @@ class VaultMutate(
             }
             .distinct()
 
-        val dbVersion = query.getDatabaseVersion()
+        val dbVersion = itemRepository.getDatabaseVersion()
 
         @Suppress("SwallowedException")
         val version = try {

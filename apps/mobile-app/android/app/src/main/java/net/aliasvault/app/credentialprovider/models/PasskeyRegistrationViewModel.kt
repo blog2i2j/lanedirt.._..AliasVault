@@ -1,8 +1,8 @@
 package net.aliasvault.app.credentialprovider.models
 
 import androidx.lifecycle.ViewModel
-import net.aliasvault.app.vaultstore.ItemWithCredentialInfo
-import net.aliasvault.app.vaultstore.PasskeyWithCredentialInfo
+import net.aliasvault.app.vaultstore.repositories.ItemWithCredentialInfo
+import net.aliasvault.app.vaultstore.repositories.PasskeyWithCredentialInfo
 import java.util.UUID
 
 /**

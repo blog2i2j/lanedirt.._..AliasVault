@@ -1,5 +1,6 @@
 package net.aliasvault.app.vaultstore.repositories
 
+import android.database.Cursor
 import android.util.Log
 import net.aliasvault.app.utils.DateHelpers
 import net.aliasvault.app.vaultstore.VaultDatabase
@@ -423,6 +424,242 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
         }
     }
 
+    // MARK: - Complex Query Operations
+
+    /**
+     * Get passkeys with item info for a specific rpId and optionally username.
+     * Used for finding existing passkeys that might be replaced during registration.
+     *
+     * @param rpId The relying party identifier.
+     * @param userName Optional username to filter by.
+     * @param userId Optional user ID bytes to filter by.
+     * @return List of PasskeyWithCredentialInfo objects.
+     */
+    fun getWithCredentialInfo(
+        rpId: String,
+        userName: String? = null,
+        userId: ByteArray? = null,
+    ): List<PasskeyWithCredentialInfo> {
+        val db = database.dbConnection ?: return emptyList()
+
+        val query = """
+            SELECT p.Id, p.ItemId, p.RpId, p.UserHandle, p.PublicKey, p.PrivateKey, p.PrfKey,
+                   p.DisplayName, p.CreatedAt, p.UpdatedAt, p.IsDeleted,
+                   i.Name,
+                   fv_username.Value as Username
+            FROM Passkeys p
+            INNER JOIN Items i ON p.ItemId = i.Id
+            LEFT JOIN FieldValues fv_username ON fv_username.ItemId = i.Id
+                AND fv_username.FieldKey = ?
+                AND fv_username.IsDeleted = 0
+            WHERE p.RpId = ? AND p.IsDeleted = 0 AND i.IsDeleted = 0 AND i.DeletedAt IS NULL
+            ORDER BY p.CreatedAt DESC
+        """.trimIndent()
+
+        val results = mutableListOf<PasskeyWithCredentialInfo>()
+        val cursor = db.query(query, arrayOf(FieldKey.LOGIN_USERNAME, rpId))
+
+        cursor.use {
+            while (it.moveToNext()) {
+                val passkey = parsePasskeyFromCursor(it) ?: continue
+                val itemName = if (!it.isNull(11)) it.getString(11) else null
+                val itemUsername = if (!it.isNull(12)) it.getString(12) else null
+
+                // Filter by username or userId if provided
+                var matches = true
+                if (userName != null && itemUsername != userName) {
+                    matches = false
+                }
+                if (userId != null && passkey.userHandle != null && !userId.contentEquals(passkey.userHandle)) {
+                    matches = false
+                }
+
+                if (matches) {
+                    results.add(
+                        PasskeyWithCredentialInfo(
+                            passkey = passkey,
+                            serviceName = itemName,
+                            username = itemUsername,
+                        ),
+                    )
+                }
+            }
+        }
+
+        return results
+    }
+
+    /**
+     * Get Items that match an rpId but don't have a passkey yet.
+     * Used for finding existing credentials that could have a passkey added to them.
+     *
+     * @param rpId The relying party identifier to match against the login URL.
+     * @param userName Optional username to filter by.
+     * @return List of ItemWithCredentialInfo objects representing Items without passkeys.
+     */
+    fun getItemsWithoutPasskeyForRpId(
+        rpId: String,
+        userName: String? = null,
+    ): List<ItemWithCredentialInfo> {
+        val db = database.dbConnection ?: return emptyList()
+
+        val query = """
+            SELECT i.Id, i.Name, i.CreatedAt, i.UpdatedAt,
+                   fv_url.Value as Url,
+                   fv_username.Value as Username,
+                   fv_password.Value as Password
+            FROM Items i
+            INNER JOIN FieldValues fv_url ON fv_url.ItemId = i.Id
+                AND fv_url.FieldKey = ?
+                AND fv_url.IsDeleted = 0
+            LEFT JOIN FieldValues fv_username ON fv_username.ItemId = i.Id
+                AND fv_username.FieldKey = ?
+                AND fv_username.IsDeleted = 0
+            LEFT JOIN FieldValues fv_password ON fv_password.ItemId = i.Id
+                AND fv_password.FieldKey = ?
+                AND fv_password.IsDeleted = 0
+            WHERE i.IsDeleted = 0
+                AND i.DeletedAt IS NULL
+                AND i.ItemType = 'Login'
+                AND (LOWER(fv_url.Value) LIKE ? OR LOWER(fv_url.Value) LIKE ?)
+                AND NOT EXISTS (
+                    SELECT 1 FROM Passkeys p
+                    WHERE p.ItemId = i.Id AND p.IsDeleted = 0
+                )
+            ORDER BY i.UpdatedAt DESC
+        """.trimIndent()
+
+        val rpIdLower = rpId.lowercase()
+        val urlPattern1 = "%$rpIdLower%"
+        val urlPattern2 = "%${rpIdLower.replace("www.", "")}%"
+
+        val results = mutableListOf<ItemWithCredentialInfo>()
+        val cursor = db.query(
+            query,
+            arrayOf(
+                FieldKey.LOGIN_URL,
+                FieldKey.LOGIN_USERNAME,
+                FieldKey.LOGIN_PASSWORD,
+                urlPattern1,
+                urlPattern2,
+            ),
+        )
+
+        cursor.use {
+            while (it.moveToNext()) {
+                val itemIdString = it.getString(0)
+                val itemName = if (!it.isNull(1)) it.getString(1) else null
+                val itemCreatedAt = if (!it.isNull(2)) it.getString(2) else null
+                val itemUpdatedAt = if (!it.isNull(3)) it.getString(3) else null
+                val url = if (!it.isNull(4)) it.getString(4) else null
+                val itemUsername = if (!it.isNull(5)) it.getString(5) else null
+                val hasPassword = !it.isNull(6) && it.getString(6).isNotEmpty()
+
+                // Filter by username if provided
+                if (userName != null && itemUsername != userName) {
+                    continue
+                }
+
+                try {
+                    val itemId = UUID.fromString(itemIdString)
+                    val createdAt = DateHelpers.parseDateString(itemCreatedAt ?: "") ?: MIN_DATE
+                    val updatedAt = DateHelpers.parseDateString(itemUpdatedAt ?: "") ?: MIN_DATE
+
+                    results.add(
+                        ItemWithCredentialInfo(
+                            itemId = itemId,
+                            serviceName = itemName,
+                            url = url,
+                            username = itemUsername,
+                            hasPassword = hasPassword,
+                            createdAt = createdAt,
+                            updatedAt = updatedAt,
+                        ),
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing item row", e)
+                }
+            }
+        }
+
+        return results
+    }
+
+    /**
+     * Get all passkeys with their associated items in a single query.
+     * This is much more efficient than calling getForItem() for each item.
+     *
+     * @return List of PasskeyWithItem objects.
+     */
+    fun getAllWithItems(): List<PasskeyWithItem> {
+        val db = database.dbConnection ?: return emptyList()
+
+        val query = """
+            SELECT
+                p.Id, p.ItemId, p.RpId, p.UserHandle, p.PublicKey, p.PrivateKey, p.PrfKey,
+                p.DisplayName, p.CreatedAt as PasskeyCreatedAt, p.UpdatedAt as PasskeyUpdatedAt, p.IsDeleted as PasskeyIsDeleted,
+                i.Id as ItemId, i.Name, i.CreatedAt as ItemCreatedAt, i.UpdatedAt as ItemUpdatedAt,
+                fv_username.Value as Username,
+                fv_email.Value as Email
+            FROM Passkeys p
+            INNER JOIN Items i ON p.ItemId = i.Id
+            LEFT JOIN FieldValues fv_username ON fv_username.ItemId = i.Id
+                AND fv_username.FieldKey = ?
+                AND fv_username.IsDeleted = 0
+            LEFT JOIN FieldValues fv_email ON fv_email.ItemId = i.Id
+                AND fv_email.FieldKey = ?
+                AND fv_email.IsDeleted = 0
+            WHERE p.IsDeleted = 0 AND i.IsDeleted = 0 AND i.DeletedAt IS NULL
+            ORDER BY p.CreatedAt DESC
+        """.trimIndent()
+
+        val results = mutableListOf<PasskeyWithItem>()
+        val cursor = db.query(query, arrayOf(FieldKey.LOGIN_USERNAME, FieldKey.LOGIN_EMAIL))
+
+        cursor.use {
+            while (it.moveToNext()) {
+                try {
+                    // Parse passkey (columns 0-10)
+                    val passkey = parsePasskeyFromJoinCursor(it) ?: continue
+
+                    // Parse item info (columns 11-14)
+                    val itemId = UUID.fromString(it.getString(11))
+                    val itemName = if (!it.isNull(12)) it.getString(12) else null
+                    val itemCreatedAt = DateHelpers.parseDateString(it.getString(13)) ?: MIN_DATE
+                    val itemUpdatedAt = DateHelpers.parseDateString(it.getString(14)) ?: MIN_DATE
+
+                    @Suppress("UNUSED_VARIABLE") // Username field loaded for potential future use
+                    val username = if (!it.isNull(15)) it.getString(15) else null
+
+                    @Suppress("UNUSED_VARIABLE") // Email field loaded for potential future use
+                    val email = if (!it.isNull(16)) it.getString(16) else null
+
+                    // Create a minimal Item object with the data we have
+                    val item = Item(
+                        id = itemId,
+                        name = itemName,
+                        itemType = "Login",
+                        logo = null,
+                        folderId = null,
+                        folderPath = null,
+                        fields = emptyList(), // Not loading all fields for performance
+                        hasPasskey = true,
+                        hasAttachment = false,
+                        hasTotp = false,
+                        createdAt = itemCreatedAt,
+                        updatedAt = itemUpdatedAt,
+                    )
+
+                    results.add(PasskeyWithItem(passkey, item))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing passkey with item row", e)
+                }
+            }
+        }
+
+        return results
+    }
+
     // MARK: - Helper Methods
 
     /**
@@ -470,4 +707,146 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
             null
         }
     }
+
+    /**
+     * Parse a passkey from a cursor (for direct database queries).
+     * Expects columns 0-10 to be passkey fields.
+     */
+    private fun parsePasskeyFromCursor(cursor: Cursor): Passkey? {
+        return try {
+            val idString = cursor.getString(0)
+            val itemIdString = cursor.getString(1)
+            val rpId = cursor.getString(2)
+            val userHandle = if (!cursor.isNull(3)) cursor.getBlob(3) else null
+            val publicKeyString = cursor.getString(4)
+            val privateKeyString = cursor.getString(5)
+            val prfKey = if (!cursor.isNull(6)) cursor.getBlob(6) else null
+            val displayName = cursor.getString(7)
+            val createdAtString = cursor.getString(8)
+            val updatedAtString = cursor.getString(9)
+            val isDeleted = cursor.getInt(10) == 1
+
+            val id = UUID.fromString(idString)
+            val itemId = UUID.fromString(itemIdString)
+
+            val createdAt = DateHelpers.parseDateString(createdAtString) ?: MIN_DATE
+            val updatedAt = DateHelpers.parseDateString(updatedAtString) ?: MIN_DATE
+
+            val publicKeyData = publicKeyString.toByteArray(Charsets.UTF_8)
+            val privateKeyData = privateKeyString.toByteArray(Charsets.UTF_8)
+
+            Passkey(
+                id = id,
+                parentItemId = itemId,
+                rpId = rpId,
+                userHandle = userHandle,
+                userName = null,
+                publicKey = publicKeyData,
+                privateKey = privateKeyData,
+                prfKey = prfKey,
+                displayName = displayName,
+                createdAt = createdAt,
+                updatedAt = updatedAt,
+                isDeleted = isDeleted,
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing passkey from cursor", e)
+            null
+        }
+    }
+
+    /**
+     * Parse a passkey from a JOIN query cursor.
+     * Expects columns 0-10 to be passkey fields.
+     */
+    private fun parsePasskeyFromJoinCursor(cursor: Cursor): Passkey? {
+        return try {
+            val idString = cursor.getString(0)
+            val itemIdString = cursor.getString(1)
+            val rpId = cursor.getString(2)
+            val userHandle = if (!cursor.isNull(3)) cursor.getBlob(3) else null
+            val publicKeyString = cursor.getString(4)
+            val privateKeyString = cursor.getString(5)
+            val prfKey = if (!cursor.isNull(6)) cursor.getBlob(6) else null
+            val displayName = cursor.getString(7)
+            val createdAtString = cursor.getString(8)
+            val updatedAtString = cursor.getString(9)
+            val isDeleted = cursor.getInt(10) == 1
+
+            val id = UUID.fromString(idString)
+            val itemId = UUID.fromString(itemIdString)
+
+            val createdAt = DateHelpers.parseDateString(createdAtString) ?: MIN_DATE
+            val updatedAt = DateHelpers.parseDateString(updatedAtString) ?: MIN_DATE
+
+            val publicKeyData = publicKeyString.toByteArray(Charsets.UTF_8)
+            val privateKeyData = privateKeyString.toByteArray(Charsets.UTF_8)
+
+            Passkey(
+                id = id,
+                parentItemId = itemId,
+                rpId = rpId,
+                userHandle = userHandle,
+                userName = null,
+                publicKey = publicKeyData,
+                privateKey = privateKeyData,
+                prfKey = prfKey,
+                displayName = displayName,
+                createdAt = createdAt,
+                updatedAt = updatedAt,
+                isDeleted = isDeleted,
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing passkey from JOIN cursor", e)
+            null
+        }
+    }
 }
+
+// MARK: - Data Classes
+
+/**
+ * Data class to hold passkey with item info.
+ *
+ * @property passkey The passkey.
+ * @property serviceName The service name from the item.
+ * @property username The username from the item.
+ */
+data class PasskeyWithCredentialInfo(
+    val passkey: Passkey,
+    val serviceName: String?,
+    val username: String?,
+)
+
+/**
+ * Data class to hold passkey with its associated item.
+ *
+ * @property passkey The passkey.
+ * @property item The item this passkey belongs to.
+ */
+data class PasskeyWithItem(
+    val passkey: Passkey,
+    val item: Item,
+)
+
+/**
+ * Data class to hold Item info for Items without passkeys.
+ * Used for showing existing credentials that can have a passkey added.
+ *
+ * @property itemId The UUID of the item.
+ * @property serviceName The service name (Item.Name).
+ * @property url The login URL.
+ * @property username The username from field values.
+ * @property hasPassword Whether the item has a password.
+ * @property createdAt When the item was created.
+ * @property updatedAt When the item was last updated.
+ */
+data class ItemWithCredentialInfo(
+    val itemId: UUID,
+    val serviceName: String?,
+    val url: String?,
+    val username: String?,
+    val hasPassword: Boolean,
+    val createdAt: Date,
+    val updatedAt: Date,
+)

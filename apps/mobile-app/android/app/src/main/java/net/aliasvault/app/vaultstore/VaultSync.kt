@@ -5,6 +5,7 @@ import net.aliasvault.app.exceptions.SerializationException
 import net.aliasvault.app.exceptions.VaultOperationException
 import net.aliasvault.app.rustcore.VaultMergeService
 import net.aliasvault.app.utils.AppInfo
+import net.aliasvault.app.vaultstore.repositories.ItemRepository
 import net.aliasvault.app.vaultstore.storageprovider.StorageProvider
 import net.aliasvault.app.vaultstore.utils.VersionComparison
 import org.json.JSONArray
@@ -18,7 +19,7 @@ class VaultSync(
     private val metadata: VaultMetadataManager,
     private val crypto: VaultCrypto,
     private val storageProvider: StorageProvider,
-    private val query: VaultQuery,
+    private val itemRepository: ItemRepository,
 ) {
     companion object {
         private const val TAG = "VaultSync"
@@ -503,7 +504,7 @@ class VaultSync(
         }
 
         // Get all items to count them and extract private email addresses
-        val items = query.getAllItems()
+        val items = itemRepository.getAll()
 
         val metadataObj = metadata.getVaultMetadataObject()
         val privateEmailDomains = metadataObj?.privateEmailDomains ?: emptyList()
@@ -518,7 +519,7 @@ class VaultSync(
             }
             .distinct()
 
-        val dbVersion = query.getDatabaseVersion()
+        val dbVersion = itemRepository.getDatabaseVersion()
 
         @Suppress("SwallowedException")
         val version = try {
