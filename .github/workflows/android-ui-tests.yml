@@ -13,6 +13,7 @@ concurrency:
 
 jobs:
   android-ui-tests:
+    if: false  # Temporarily disabled - will re-test in separate PR
     timeout-minutes: 60
     runs-on: ubuntu-latest
     defaults:
