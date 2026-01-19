@@ -189,57 +189,11 @@ export const AuthProvider: React.FC<{
   }, []);
 
   /**
-   * Clear authentication data for user-initiated logout (e.g., user clicks logout button).
-   * Clears ALL data including vault - user explicitly chose to logout.
-   */
-  const clearAuthUserInitiated = useCallback(async (errorMessage?: string): Promise<void> => {
-    // Clear credential identity store (password and passkey autofill metadata)
-    try {
-      await NativeVaultManager.removeCredentialIdentities();
-    } catch (error) {
-      console.error('Failed to remove credential identities:', error);
-      // Non-fatal error - continue with logout
-    }
-
-    // Clear PIN unlock data (if any)
-    try {
-      await NativeVaultManager.removeAndDisablePin();
-    } catch (error) {
-      console.error('Failed to remove PIN data:', error);
-      // Non-fatal error - continue with logout
-    }
-
-    // Clear from native layer
-    await NativeVaultManager.clearUsername();
-    await NativeVaultManager.clearAuthTokens();
-
-    // Clear from AsyncStorage (for backward compatibility)
-    // TODO: Remove AsyncStorage cleanup in future version 0.25.0+
-    await AsyncStorage.removeItem('username');
-    await AsyncStorage.removeItem('accessToken');
-    await AsyncStorage.removeItem('refreshToken');
-    await AsyncStorage.removeItem('authMethods');
-
-    // Clear ALL vault data - user explicitly chose to logout
-    dbContext?.clearDatabase();
-
-    if (errorMessage) {
-      // Show alert
-      Alert.alert(
-        i18n.t('common.error'),
-        errorMessage,
-        [{ text: i18n.t('common.ok'), style: 'default' }]
-      );
-    }
-
-    setUsername(null);
-    setIsLoggedIn(false);
-  }, [dbContext]);
-
-  /**
    * Clear authentication data for forced logout (e.g., 401 error, token revocation).
    * Preserves vault data for potential RPO recovery - user didn't choose to logout.
    * The vault will be recovered on next login if the password hasn't changed.
+   *
+   * This is the base logout function. clearAuthUserInitiated builds on top of this.
    */
   const clearAuthForced = useCallback(async (errorMessage?: string): Promise<void> => {
     // Clear credential identity store (password and passkey autofill metadata)
@@ -258,20 +212,15 @@ export const AuthProvider: React.FC<{
       // Non-fatal error - continue with logout
     }
 
-    // Clear auth tokens only - preserve vault data for recovery
+    // Clear auth tokens and session in native layer (preserves vault data)
     await NativeVaultManager.clearAuthTokens();
-
-    // Clear session in native layer (preserves vault data)
     await NativeVaultManager.clearSession();
 
     // Clear from AsyncStorage (for backward compatibility)
     // TODO: Remove AsyncStorage cleanup in future version 0.25.0+
-    await AsyncStorage.removeItem('accessToken');
-    await AsyncStorage.removeItem('refreshToken');
-    await AsyncStorage.removeItem('authMethods');
+    await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'authMethods']);
 
     if (errorMessage) {
-      // Show alert
       Alert.alert(
         i18n.t('common.error'),
         errorMessage,
@@ -281,6 +230,26 @@ export const AuthProvider: React.FC<{
 
     setIsLoggedIn(false);
   }, []);
+
+  /**
+   * Clear authentication data for user-initiated logout (e.g., user clicks logout button).
+   * Clears ALL data including vault - user explicitly chose to logout.
+   *
+   * Builds on clearAuthForced by also clearing vault data and username.
+   */
+  const clearAuthUserInitiated = useCallback(async (errorMessage?: string): Promise<void> => {
+    // First, perform the base forced logout (clears session, tokens, PIN, credentials)
+    await clearAuthForced(errorMessage);
+
+    // Additionally clear username (forced logout preserves it for login prefill)
+    await NativeVaultManager.clearUsername();
+    await AsyncStorage.removeItem('username'); // TODO: Remove in 0.25.0+
+
+    // Clear ALL vault data - user explicitly chose to logout
+    dbContext?.clearDatabase();
+
+    setUsername(null);
+  }, [dbContext, clearAuthForced]);
 
   /**
    * Set the authentication methods and save them to storage
