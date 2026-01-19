@@ -24,8 +24,8 @@ using Microsoft.Extensions.Localization;
 /// <param name="authService">The service handling authentication operations.</param>
 /// <param name="config">The application configuration.</param>
 /// <param name="localizerFactory">The string localizer factory for localization.</param>
-/// <param name="srpService">The SRP service for secure authentication.</param>
-public class UserRegistrationService(HttpClient httpClient, AuthenticationStateProvider authStateProvider, AuthService authService, Config config, IStringLocalizerFactory localizerFactory, SrpService srpService)
+/// <param name="rustCoreService">The Rust core service for secure authentication.</param>
+public class UserRegistrationService(HttpClient httpClient, AuthenticationStateProvider authStateProvider, AuthService authService, Config config, IStringLocalizerFactory localizerFactory, RustCoreService rustCoreService)
 {
     private readonly IStringLocalizer _apiErrorLocalizer = localizerFactory.Create("ApiErrors", "AliasVault.Client");
 
@@ -52,14 +52,14 @@ public class UserRegistrationService(HttpClient httpClient, AuthenticationStateP
             }
 
             // Generate salt using Rust WASM
-            var salt = await srpService.GenerateSaltAsync();
+            var salt = await rustCoreService.SrpGenerateSaltAsync();
 
             var passwordHash = await Encryption.DeriveKeyFromPasswordAsync(password, salt, encryptionType, encryptionSettings);
             var passwordHashString = BitConverter.ToString(passwordHash).Replace("-", string.Empty);
 
             // Derive SRP private key and verifier using the same salt
-            var privateKey = await srpService.DerivePrivateKeyAsync(salt, srpIdentity, passwordHashString);
-            var srpVerifier = await srpService.DeriveVerifierAsync(privateKey);
+            var privateKey = await rustCoreService.SrpDerivePrivateKeyAsync(salt, srpIdentity, passwordHashString);
+            var srpVerifier = await rustCoreService.SrpDeriveVerifierAsync(privateKey);
 
             var registerRequest = new RegisterRequest(username, salt, srpVerifier, encryptionType, encryptionSettings, srpIdentity);
             var result = await httpClient.PostAsJsonAsync("v1/Auth/register", registerRequest);

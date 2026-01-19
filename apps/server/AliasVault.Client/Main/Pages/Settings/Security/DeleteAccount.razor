@@ -9,7 +9,7 @@
 @using Microsoft.Extensions.Localization
 @using AliasVault.Client.Resources
 @inject HttpClient Http
-@inject SrpService SrpService
+@inject RustCoreService RustCoreService
 
 <LayoutPageTitle>@Localizer["PageTitle"]</LayoutPageTitle>
 
@@ -185,9 +185,9 @@
             var passwordHash = await Encryption.DeriveKeyFromPasswordAsync(_passwordModel.Password, loginResponse.Salt, loginResponse.EncryptionType, loginResponse.EncryptionSettings);
             var passwordHashString = BitConverter.ToString(passwordHash).Replace("-", string.Empty);
 
-            ClientEphemeral = await SrpService.GenerateEphemeralAsync();
-            PrivateKey = await SrpService.DerivePrivateKeyAsync(loginResponse.Salt, srpIdentity, passwordHashString);
-            ClientSession = await SrpService.DeriveSessionClientAsync(
+            ClientEphemeral = await RustCoreService.SrpGenerateEphemeralAsync();
+            PrivateKey = await RustCoreService.SrpDerivePrivateKeyAsync(loginResponse.Salt, srpIdentity, passwordHashString);
+            ClientSession = await RustCoreService.SrpDeriveSessionClientAsync(
                 PrivateKey,
                 ClientEphemeral.Secret,
                 loginResponse.ServerEphemeral,

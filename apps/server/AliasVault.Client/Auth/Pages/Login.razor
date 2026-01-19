@@ -11,7 +11,7 @@
 @using AliasVault.Cryptography.Client
 @using AliasVault.Client.Services.JsInterop.RustCore
 @using Microsoft.Extensions.Localization
-@inject SrpService SrpService
+@inject RustCoreService RustCoreService
 
 @if (_showTwoFactorAuthStep)
 {
@@ -272,9 +272,9 @@ else
         _passwordHash = await Encryption.DeriveKeyFromPasswordAsync(_loginModel.Password, loginResponse.Salt, loginResponse.EncryptionType, loginResponse.EncryptionSettings);
         var passwordHashString = BitConverter.ToString(_passwordHash).Replace("-", string.Empty);
 
-        _clientEphemeral = await SrpService.GenerateEphemeralAsync();
-        var privateKey = await SrpService.DerivePrivateKeyAsync(loginResponse.Salt, srpIdentity, passwordHashString);
-        _clientSession = await SrpService.DeriveSessionClientAsync(
+        _clientEphemeral = await RustCoreService.SrpGenerateEphemeralAsync();
+        var privateKey = await RustCoreService.SrpDerivePrivateKeyAsync(loginResponse.Salt, srpIdentity, passwordHashString);
+        _clientSession = await RustCoreService.SrpDeriveSessionClientAsync(
             privateKey,
             _clientEphemeral.Secret,
             loginResponse.ServerEphemeral,
@@ -432,7 +432,7 @@ else
     private async Task<List<string>> ProcessLoginVerify(ValidateLoginResponse validateLoginResponse)
     {
         // 5. Client verifies proof.
-        await SrpService.VerifySessionAsync(_clientEphemeral.Public, _clientSession, validateLoginResponse.ServerSessionProof);
+        await RustCoreService.SrpVerifySessionAsync(_clientEphemeral.Public, _clientSession, validateLoginResponse.ServerSessionProof);
 
         // Store the tokens in local storage.
         await AuthService.StoreAccessTokenAsync(validateLoginResponse.Token!.Token);

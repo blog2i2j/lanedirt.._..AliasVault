@@ -102,7 +102,6 @@ builder.Services.AddScoped<ConfirmModalService>();
 builder.Services.AddScoped<QuickCreateStateService>();
 builder.Services.AddScoped<LanguageService>();
 builder.Services.AddScoped<RustCoreService>();
-builder.Services.AddScoped<SrpService>();
 
 builder.Services.AddAuthorizationCore();
 builder.Services.AddBlazoredLocalStorage();
