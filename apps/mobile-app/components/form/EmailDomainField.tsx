@@ -14,6 +14,10 @@ type EmailDomainFieldProps = {
   error?: string;
   required?: boolean;
   label: string;
+  /** Optional callback for remove button - when provided, shows X button in label row */
+  onRemove?: () => void;
+  /** Optional testID for the text input */
+  testID?: string;
 }
 
 // Hardcoded public email domains (same as in browser extension)
@@ -39,7 +43,9 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
   onChange,
   error,
   required = false,
-  label
+  label,
+  onRemove,
+  testID
 }) => {
   const { t } = useTranslation();
   const colors = useColors();
@@ -269,7 +275,15 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
     label: {
       color: colors.textMuted,
       fontSize: 12,
+    },
+    labelContainer: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
       marginBottom: 4,
+    },
+    removeButton: {
+      padding: 4,
     },
     modalCloseButton: {
       padding: 8,
@@ -336,10 +350,17 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>
-        {label}
-        {required && <Text style={styles.requiredAsterisk}> *</Text>}
-      </Text>
+      <View style={styles.labelContainer}>
+        <Text style={styles.label}>
+          {label}
+          {required && <Text style={styles.requiredAsterisk}> *</Text>}
+        </Text>
+        {onRemove && (
+          <TouchableOpacity style={styles.removeButton} onPress={onRemove}>
+            <MaterialIcons name="close" size={18} color={colors.textMuted} />
+          </TouchableOpacity>
+        )}
+      </View>
 
       <View style={styles.inputContainer}>
         <TextInput
@@ -353,6 +374,8 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
           keyboardType="email-address"
           multiline={false}
           numberOfLines={1}
+          testID={testID}
+          accessibilityLabel={testID}
         />
 
         {!isCustomDomain && (

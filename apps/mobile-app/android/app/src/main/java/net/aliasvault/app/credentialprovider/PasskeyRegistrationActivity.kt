@@ -213,10 +213,17 @@ class PasskeyRegistrationActivity : FragmentActivity() {
             val db = vaultStore.database
 
             if (db != null) {
+                // Get existing passkeys for the rpId (can be replaced)
                 viewModel.existingPasskeys = vaultStore.getPasskeysWithCredentialInfo(
                     rpId = viewModel.rpId,
                     userName = viewModel.userName,
                     userId = viewModel.userId,
+                )
+
+                // Get existing Items without passkeys (can have passkey merged into them)
+                viewModel.existingItemsWithoutPasskey = vaultStore.getItemsWithoutPasskeyForRpId(
+                    rpId = viewModel.rpId,
+                    userName = viewModel.userName,
                 )
             }
 
@@ -226,11 +233,14 @@ class PasskeyRegistrationActivity : FragmentActivity() {
             // Only initialize fragments if this is a fresh onCreate (not a configuration change)
             if (savedInstanceState == null) {
                 // Decide which fragment to show
-                if (viewModel.existingPasskeys.isEmpty()) {
-                    // No existing passkeys - show form directly
-                    showFormFragment(isReplace = false, passkeyId = null)
+                val hasExistingPasskeys = viewModel.existingPasskeys.isNotEmpty()
+                val hasExistingItems = viewModel.existingItemsWithoutPasskey.isNotEmpty()
+
+                if (!hasExistingPasskeys && !hasExistingItems) {
+                    // No existing passkeys or items - show form directly
+                    showFormFragment(isReplace = false, passkeyId = null, itemId = null)
                 } else {
-                    // Existing passkeys found - show selection view
+                    // Existing passkeys or items found - show selection view
                     showSelectionFragment()
                 }
             }
@@ -251,10 +261,14 @@ class PasskeyRegistrationActivity : FragmentActivity() {
     }
 
     /**
-     * Show form fragment for creating or replacing a passkey.
+     * Show form fragment for creating, replacing, or merging a passkey.
+     *
+     * @param isReplace Whether this is a passkey replacement operation.
+     * @param passkeyId The ID of the passkey to replace (if isReplace is true).
+     * @param itemId The ID of the existing Item to merge passkey into (if merging).
      */
-    private fun showFormFragment(isReplace: Boolean, passkeyId: String?) {
-        val fragment = PasskeyFormFragment.newInstance(isReplace, passkeyId)
+    fun showFormFragment(isReplace: Boolean, passkeyId: String?, itemId: String? = null) {
+        val fragment = PasskeyFormFragment.newInstance(isReplace, passkeyId, itemId)
         supportFragmentManager.beginTransaction()
             .replace(R.id.fragmentContainer, fragment)
             .commit()

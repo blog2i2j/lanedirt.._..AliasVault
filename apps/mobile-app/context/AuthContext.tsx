@@ -26,7 +26,16 @@ type AuthContextType = {
   setAuthTokens: (username: string, accessToken: string, refreshToken: string) => Promise<void>;
   initializeAuth: () => Promise<{ isLoggedIn: boolean; enabledAuthMethods: AuthMethod[] }>;
   login: () => Promise<void>;
-  clearAuth: (errorMessage?: string) => Promise<void>;
+  /**
+   * Clear auth for user-initiated logout (e.g., user clicks logout button).
+   * Clears ALL data including vault - user explicitly chose to logout.
+   */
+  clearAuthUserInitiated: (errorMessage?: string) => Promise<void>;
+  /**
+   * Clear auth for forced logout (e.g., 401 error, token revocation).
+   * Preserves vault data for potential RPO recovery - user didn't choose to logout.
+   */
+  clearAuthForced: (errorMessage?: string) => Promise<void>;
   setAuthMethods: (methods: AuthMethod[]) => Promise<void>;
   getAuthMethodDisplayKey: () => Promise<string>;
   getAutoLockTimeout: () => Promise<number>;
@@ -180,10 +189,13 @@ export const AuthProvider: React.FC<{
   }, []);
 
   /**
-   * Clear authentication data and tokens from storage.
-   * This is called by AppContext after revoking tokens on the server.
+   * Clear authentication data for forced logout (e.g., 401 error, token revocation).
+   * Preserves vault data for potential RPO recovery - user didn't choose to logout.
+   * The vault will be recovered on next login if the password hasn't changed.
+   *
+   * This is the base logout function. clearAuthUserInitiated builds on top of this.
    */
-  const clearAuth = useCallback(async (errorMessage?: string): Promise<void> => {
+  const clearAuthForced = useCallback(async (errorMessage?: string): Promise<void> => {
     // Clear credential identity store (password and passkey autofill metadata)
     try {
       await NativeVaultManager.removeCredentialIdentities();
@@ -200,21 +212,15 @@ export const AuthProvider: React.FC<{
       // Non-fatal error - continue with logout
     }
 
-    // Clear from native layer
-    await NativeVaultManager.clearUsername();
+    // Clear auth tokens and session in native layer (preserves vault data)
     await NativeVaultManager.clearAuthTokens();
+    await NativeVaultManager.clearSession();
 
     // Clear from AsyncStorage (for backward compatibility)
     // TODO: Remove AsyncStorage cleanup in future version 0.25.0+
-    await AsyncStorage.removeItem('username');
-    await AsyncStorage.removeItem('accessToken');
-    await AsyncStorage.removeItem('refreshToken');
-    await AsyncStorage.removeItem('authMethods');
-
-    dbContext?.clearDatabase();
+    await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'authMethods']);
 
     if (errorMessage) {
-      // Show alert
       Alert.alert(
         i18n.t('common.error'),
         errorMessage,
@@ -222,9 +228,28 @@ export const AuthProvider: React.FC<{
       );
     }
 
-    setUsername(null);
     setIsLoggedIn(false);
-  }, [dbContext]);
+  }, []);
+
+  /**
+   * Clear authentication data for user-initiated logout (e.g., user clicks logout button).
+   * Clears ALL data including vault - user explicitly chose to logout.
+   *
+   * Builds on clearAuthForced by also clearing vault data and username.
+   */
+  const clearAuthUserInitiated = useCallback(async (errorMessage?: string): Promise<void> => {
+    // First, perform the base forced logout (clears session, tokens, PIN, credentials)
+    await clearAuthForced(errorMessage);
+
+    // Additionally clear username (forced logout preserves it for login prefill)
+    await NativeVaultManager.clearUsername();
+    await AsyncStorage.removeItem('username'); // TODO: Remove in 0.25.0+
+
+    // Clear ALL vault data - user explicitly chose to logout
+    dbContext?.clearDatabase();
+
+    setUsername(null);
+  }, [dbContext, clearAuthForced]);
 
   /**
    * Set the authentication methods and save them to storage
@@ -441,7 +466,8 @@ export const AuthProvider: React.FC<{
     setAuthTokens,
     initializeAuth,
     login,
-    clearAuth,
+    clearAuthUserInitiated,
+    clearAuthForced,
     setAuthMethods,
     getAuthMethodDisplayKey,
     isBiometricsEnabledOnDevice,
@@ -465,7 +491,8 @@ export const AuthProvider: React.FC<{
     setAuthTokens,
     initializeAuth,
     login,
-    clearAuth,
+    clearAuthUserInitiated,
+    clearAuthForced,
     setAuthMethods,
     getAuthMethodDisplayKey,
     isBiometricsEnabledOnDevice,

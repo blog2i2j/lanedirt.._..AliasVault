@@ -242,9 +242,14 @@ get_mobile_app_ts_version() {
     grep "public static readonly VERSION = " ../apps/mobile-app/utils/AppInfo.ts | tr -d "'" | tr -d ';' | tr -d ' ' | cut -d'=' -f2
 }
 
-# Function to extract version from iOS app
+# Function to extract version from iOS app (main target only, identified by net.aliasvault.app bundle ID)
 get_ios_version() {
-    grep "MARKETING_VERSION = " ../apps/mobile-app/ios/AliasVault.xcodeproj/project.pbxproj | head -n1 | tr -d '"' | tr -d ';' | tr -d ' ' | cut -d'=' -f2
+    local pbxproj="../apps/mobile-app/ios/AliasVault.xcodeproj/project.pbxproj"
+    # Find the line number of the main app's bundle identifier
+    local line_num=$(grep -n "PRODUCT_BUNDLE_IDENTIFIER = net.aliasvault.app;" "$pbxproj" | head -n1 | cut -d: -f1)
+    # Look back within the same build settings block (typically within 30 lines) for MARKETING_VERSION
+    local start_line=$((line_num - 30))
+    sed -n "${start_line},${line_num}p" "$pbxproj" | grep "MARKETING_VERSION" | head -n1 | sed 's/.*= //' | tr -d ';'
 }
 
 # Function to extract version from Android app
@@ -257,6 +262,11 @@ get_safari_version() {
     grep "MARKETING_VERSION = " ../apps/browser-extension/safari-xcode/AliasVault/AliasVault.xcodeproj/project.pbxproj | head -n1 | tr -d '"' | tr -d ';' | tr -d ' ' | cut -d'=' -f2
 }
 
+# Function to extract version from Rust core Cargo.toml
+get_rust_core_version() {
+    grep "^version = " ../core/rust/Cargo.toml | head -n1 | tr -d '"' | tr -d ' ' | cut -d'=' -f2
+}
+
 # Check current versions
 server_version=$(get_server_version)
 browser_wxt_version=$(get_browser_extension_version)
@@ -267,6 +277,7 @@ mobile_ts_version=$(get_mobile_app_ts_version)
 ios_version=$(get_ios_version)
 android_version=$(get_android_version)
 safari_version=$(get_safari_version)
+rust_core_version=$(get_rust_core_version)
 
 # Create associative array of versions
 declare -A versions
@@ -279,6 +290,7 @@ versions["mobile_ts"]="$mobile_ts_version"
 versions["ios"]="$ios_version"
 versions["android"]="$android_version"
 versions["safari"]="$safari_version"
+versions["rust_core"]="$rust_core_version"
 
 # Create display names for output
 declare -A display_names
@@ -291,6 +303,7 @@ display_names["mobile_ts"]="Mobile App (TS)"
 display_names["ios"]="iOS App"
 display_names["android"]="Android App"
 display_names["safari"]="Safari Extension"
+display_names["rust_core"]="Rust Core"
 
 # Function to normalize version by removing stage suffix
 normalize_version() {
@@ -299,14 +312,17 @@ normalize_version() {
 }
 
 # Check if all versions are equal (comparing base versions without stage suffixes)
+# Use .version/version.txt as the canonical reference if it exists, otherwise fall back to server version
 all_equal=true
-first_normalized_version=""
+if [ -f "../apps/.version/version.txt" ]; then
+    first_version=$(cat "../apps/.version/version.txt")
+else
+    first_version="$server_version"
+fi
+first_normalized_version=$(normalize_version "$first_version")
 for project in "${!versions[@]}"; do
     normalized_version=$(normalize_version "${versions[$project]}")
-    if [[ -z "$first_normalized_version" ]]; then
-        first_normalized_version="$normalized_version"
-        first_version="${versions[$project]}"
-    elif [[ "$normalized_version" != "$first_normalized_version" ]]; then
+    if [[ "$normalized_version" != "$first_normalized_version" ]]; then
         all_equal=false
         break
     fi
@@ -462,6 +478,12 @@ elif [[ "$MARKETING_UPDATE" == true ]]; then
     update_version "../apps/browser-extension/safari-xcode/AliasVault/AliasVault.xcodeproj/project.pbxproj" \
         "MARKETING_VERSION = [0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*[^;]*;" \
         "MARKETING_VERSION = $version;"
+
+    # Update Rust core version (Cargo.toml uses base version without suffix)
+    echo "Updating Rust core version..."
+    update_version "../core/rust/Cargo.toml" \
+        "^version = \"[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*[^\"]*\"" \
+        "version = \"$version\""
 fi
 
 # Handle build numbers with semantic versioning
@@ -487,7 +509,11 @@ echo " (leading zeros removed)"
 echo ""
 
 # Read current build numbers
-current_ios_build=$(grep -A1 "CURRENT_PROJECT_VERSION" ../apps/mobile-app/ios/AliasVault.xcodeproj/project.pbxproj | grep "CURRENT_PROJECT_VERSION = [0-9]\+;" | head -n1 | tr -d ';' | tr -d ' ' | cut -d'=' -f2 | grep -E '^[0-9]+$')
+# For iOS, read from main app target (identified by net.aliasvault.app bundle ID)
+ios_pbxproj="../apps/mobile-app/ios/AliasVault.xcodeproj/project.pbxproj"
+ios_main_line=$(grep -n "PRODUCT_BUNDLE_IDENTIFIER = net.aliasvault.app;" "$ios_pbxproj" | head -n1 | cut -d: -f1)
+ios_start_line=$((ios_main_line - 30))
+current_ios_build=$(sed -n "${ios_start_line},${ios_main_line}p" "$ios_pbxproj" | grep "CURRENT_PROJECT_VERSION" | head -n1 | sed 's/.*= //' | tr -d ';' | grep -E '^[0-9]+$')
 if [ -z "$current_ios_build" ]; then
     echo "Error: Could not read iOS build number or invalid format"
     exit 1

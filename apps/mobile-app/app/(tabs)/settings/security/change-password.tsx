@@ -122,7 +122,7 @@ export default function ChangePasswordScreen(): React.ReactNode {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoidingView}
       >
-        <ThemedContainer>
+        <ThemedContainer testID="change-password-screen">
           <ThemedScrollView>
             <ThemedText style={styles.headerText}>
               {t('settings.securitySettings.changePassword.headerText')}
@@ -132,6 +132,7 @@ export default function ChangePasswordScreen(): React.ReactNode {
               <View style={styles.inputContainer}>
                 <ThemedText style={styles.label}>{t('settings.securitySettings.changePassword.currentPassword')}</ThemedText>
                 <ThemedTextInput
+                  testID="current-password-input"
                   secureTextEntry
                   value={currentPassword}
                   onChangeText={setCurrentPassword}
@@ -142,6 +143,7 @@ export default function ChangePasswordScreen(): React.ReactNode {
               <View style={styles.inputContainer}>
                 <ThemedText style={styles.label}>{t('settings.securitySettings.changePassword.newPassword')}</ThemedText>
                 <ThemedTextInput
+                  testID="new-password-input"
                   secureTextEntry
                   value={newPassword}
                   onChangeText={setNewPassword}
@@ -152,6 +154,7 @@ export default function ChangePasswordScreen(): React.ReactNode {
               <View style={styles.inputContainer}>
                 <ThemedText style={styles.label}>{t('settings.securitySettings.changePassword.confirmNewPassword')}</ThemedText>
                 <ThemedTextInput
+                  testID="confirm-password-input"
                   secureTextEntry
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
@@ -160,6 +163,7 @@ export default function ChangePasswordScreen(): React.ReactNode {
               </View>
 
               <ThemedButton
+                testID="change-password-button"
                 title={t('settings.securitySettings.changePassword.changePassword')}
                 onPress={handleSubmit}
                 loading={isLoading}

@@ -8,6 +8,7 @@ import { useApiUrl } from '@/utils/ApiUrlUtility';
 import { AppInfo } from '@/utils/AppInfo';
 
 import { useColors } from '@/hooks/useColorScheme';
+import { useLogout } from '@/hooks/useLogout';
 import { useMinDurationLoading } from '@/hooks/useMinDurationLoading';
 import { useTranslation } from '@/hooks/useTranslation';
 
@@ -26,8 +27,9 @@ export default function SettingsScreen() : React.ReactNode {
   const colors = useColors();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { getAuthMethodDisplayKey, shouldShowAutofillReminder, logout } = useApp();
+  const { getAuthMethodDisplayKey, shouldShowAutofillReminder } = useApp();
   const { getAutoLockTimeout, getClipboardClearTimeout } = useApp();
+  const { logoutUserInitiated } = useLogout();
   const { loadApiUrl, getDisplayUrl } = useApiUrl();
   const scrollY = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
@@ -105,29 +107,6 @@ export default function SettingsScreen() : React.ReactNode {
       loadData();
     }, [getAutoLockTimeout, getAuthMethodDisplayKey, setIsFirstLoad, loadApiUrl, getClipboardClearTimeout, t])
   );
-
-  /**
-   * Handle the logout.
-   */
-  const handleLogout = async () : Promise<void> => {
-    // Show native confirmation dialog
-    Alert.alert(
-      t('auth.logout'),
-      t('auth.confirmLogout'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('auth.logout'), style: 'destructive',
-          /**
-           * Handle the logout.
-           */
-          onPress: async () : Promise<void> => {
-            await logout();
-            router.replace('/login');
-          }
-        },
-      ]
-    );
-  };
 
   /**
    * Handle the vault unlock press.
@@ -325,7 +304,7 @@ export default function SettingsScreen() : React.ReactNode {
   });
 
   return (
-    <ThemedContainer>
+    <ThemedContainer testID="settings-screen">
       <CollapsibleHeader
         title={t('settings.title')}
         scrollY={scrollY}
@@ -498,6 +477,7 @@ export default function SettingsScreen() : React.ReactNode {
           </TouchableOpacity>
           <View style={styles.separator} />
           <TouchableOpacity
+            testID="security-settings-link"
             style={styles.settingItem}
             onPress={() => router.push('/(tabs)/settings/security')}
           >
@@ -514,7 +494,7 @@ export default function SettingsScreen() : React.ReactNode {
         <View style={styles.section}>
           <TouchableOpacity
             style={styles.settingItem}
-            onPress={handleLogout}
+            onPress={logoutUserInitiated}
           >
             <View style={styles.settingItemIcon}>
               <Ionicons name="log-out" size={20} color={colors.primary} />

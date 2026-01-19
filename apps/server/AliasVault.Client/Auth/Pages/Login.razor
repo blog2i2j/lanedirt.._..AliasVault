@@ -9,8 +9,9 @@
 @using AliasVault.Client.Auth.Models
 @using AliasVault.Client.Utilities
 @using AliasVault.Cryptography.Client
-@using SecureRemotePassword
+@using AliasVault.Client.Services.JsInterop.RustCore
 @using Microsoft.Extensions.Localization
+@inject RustCoreService RustCoreService
 
 @if (_showTwoFactorAuthStep)
 {
@@ -263,18 +264,22 @@ else
         ];
         }
 
+        // Use srpIdentity from server response if available, otherwise fall back to username.
+        // Note: the fallback can be removed in the future after 0.26.0+ is deployed.
+        var srpIdentity = loginResponse.SrpIdentity ?? username;
+
         // 3. Client derives shared session key.
         _passwordHash = await Encryption.DeriveKeyFromPasswordAsync(_loginModel.Password, loginResponse.Salt, loginResponse.EncryptionType, loginResponse.EncryptionSettings);
         var passwordHashString = BitConverter.ToString(_passwordHash).Replace("-", string.Empty);
 
-        _clientEphemeral = Srp.GenerateEphemeralClient();
-        var privateKey = Srp.DerivePrivateKey(loginResponse.Salt, username, passwordHashString);
-        _clientSession = Srp.DeriveSessionClient(
+        _clientEphemeral = await RustCoreService.SrpGenerateEphemeralAsync();
+        var privateKey = await RustCoreService.SrpDerivePrivateKeyAsync(loginResponse.Salt, srpIdentity, passwordHashString);
+        _clientSession = await RustCoreService.SrpDeriveSessionClientAsync(
             privateKey,
             _clientEphemeral.Secret,
             loginResponse.ServerEphemeral,
             loginResponse.Salt,
-            username);
+            srpIdentity);
 
         // 4. Client sends proof of session key to server.
         result = await Http.PostAsJsonAsync("v1/Auth/validate", new ValidateLoginRequest(username, _loginModel.RememberMe, _clientEphemeral.Public, _clientSession.Proof));
@@ -427,7 +432,7 @@ else
     private async Task<List<string>> ProcessLoginVerify(ValidateLoginResponse validateLoginResponse)
     {
         // 5. Client verifies proof.
-        Srp.VerifySession(_clientEphemeral.Public, _clientSession, validateLoginResponse.ServerSessionProof);
+        await RustCoreService.SrpVerifySessionAsync(_clientEphemeral.Public, _clientSession, validateLoginResponse.ServerSessionProof);
 
         // Store the tokens in local storage.
         await AuthService.StoreAccessTokenAsync(validateLoginResponse.Token!.Token);

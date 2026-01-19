@@ -6,6 +6,7 @@ import VaultModels
 import SwiftUI
 import VaultUI
 import AVFoundation
+import RustCoreFramework
 
 /**
  * This class is used as a bridge to allow React Native to interact with the VaultStoreKit class.
@@ -16,23 +17,9 @@ import AVFoundation
 public class VaultManager: NSObject {
     private let vaultStore = VaultStore()
     private let webApiService = WebApiService()
-    private var backgroundTaskIdentifier: UIBackgroundTaskIdentifier = .invalid
-    private var clipboardClearTimer: DispatchSourceTimer?
 
     override init() {
         super.init()
-    }
-
-    @objc
-    func storeDatabase(_ base64EncryptedDb: String,
-                       resolver resolve: @escaping RCTPromiseResolveBlock,
-                       rejecter reject: @escaping RCTPromiseRejectBlock) {
-        do {
-            try vaultStore.storeEncryptedDatabase(base64EncryptedDb)
-            resolve(nil)
-        } catch {
-            reject("DB_ERROR", "Failed to store database: \(error.localizedDescription)", error)
-        }
     }
 
     @objc
@@ -182,6 +169,15 @@ public class VaultManager: NSObject {
         }
     }
 
+    /// Clear session data only (for forced logout).
+    /// Preserves vault data on disk for recovery on next login.
+    @objc
+    func clearSession() {
+        vaultStore.clearSession()
+    }
+
+    /// Clear all vault data including from persisted storage.
+    /// This is used for user-initiated logout.
     @objc
     func clearVault() {
         do {
@@ -199,21 +195,6 @@ public class VaultManager: NSObject {
         } else {
             reject("DB_ERROR", "Failed to get encrypted database", nil)
         }
-    }
-
-    @objc
-    func getCurrentVaultRevisionNumber(_ resolve: @escaping RCTPromiseResolveBlock,
-                                     rejecter reject: @escaping RCTPromiseRejectBlock) {
-        let revisionNumber = vaultStore.getCurrentVaultRevisionNumber()
-        resolve(revisionNumber)
-    }
-
-    @objc
-    func setCurrentVaultRevisionNumber(_ revisionNumber: Int,
-                                     resolver resolve: @escaping RCTPromiseResolveBlock,
-                                     rejecter reject: @escaping RCTPromiseRejectBlock) {
-        vaultStore.setCurrentVaultRevisionNumber(revisionNumber)
-        resolve(nil)
     }
 
     @objc
@@ -260,55 +241,6 @@ public class VaultManager: NSObject {
 
             // Default error handling
             reject("INIT_ERROR", "Failed to unlock vault: \(error.localizedDescription)", error)
-        }
-    }
-
-    @objc
-    func clearClipboardAfterDelay(_ delayInSeconds: Double,
-                                 resolver resolve: @escaping RCTPromiseResolveBlock,
-                                 rejecter reject: @escaping RCTPromiseRejectBlock) {
-        NSLog("VaultManager: Scheduling clipboard clear after %.0f seconds", delayInSeconds)
-
-        if delayInSeconds <= 0 {
-            NSLog("VaultManager: Delay is 0 or negative, not scheduling clipboard clear")
-            resolve(nil)
-            return
-        }
-
-        // Cancel any existing clipboard clear operations
-        cancelClipboardClear()
-
-        // Start background task to keep app alive during clipboard clear
-        backgroundTaskIdentifier = UIApplication.shared.beginBackgroundTask(withName: "ClipboardClear") { [weak self] in
-            NSLog("VaultManager: Background task expired, cleaning up")
-            self?.endBackgroundTask()
-        }
-
-        clipboardClearTimer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
-        clipboardClearTimer?.schedule(deadline: .now() + delayInSeconds)
-        clipboardClearTimer?.setEventHandler { [weak self] in
-            NSLog("VaultManager: Clearing clipboard after %.0f seconds delay", delayInSeconds)
-            UIPasteboard.general.string = ""
-            NSLog("VaultManager: Clipboard cleared successfully")
-            self?.endBackgroundTask()
-            self?.clipboardClearTimer?.cancel()
-            self?.clipboardClearTimer = nil
-        }
-        clipboardClearTimer?.resume()
-
-        resolve(nil)
-    }
-
-    private func cancelClipboardClear() {
-        clipboardClearTimer?.cancel()
-        clipboardClearTimer = nil
-        endBackgroundTask()
-    }
-
-    private func endBackgroundTask() {
-        if backgroundTaskIdentifier != .invalid {
-            UIApplication.shared.endBackgroundTask(backgroundTaskIdentifier)
-            backgroundTaskIdentifier = .invalid
         }
     }
 
@@ -468,7 +400,7 @@ public class VaultManager: NSObject {
         Task {
             do {
                 // Get all credentials from the vault
-                let credentials = try vaultStore.getAllCredentials()
+                let credentials = try vaultStore.getAllAutofillCredentials()
 
                 // Register both passwords and passkeys for QuickType and manual selection
                 try await CredentialIdentityStore.shared.saveCredentialIdentities(credentials)
@@ -676,85 +608,22 @@ public class VaultManager: NSObject {
         resolve(vaultStore.getOfflineMode())
     }
 
-    // MARK: - Vault Sync and Mutate
+    // MARK: - Vault Sync
 
     @objc
-    func isNewVaultVersionAvailable(_ resolve: @escaping RCTPromiseResolveBlock,
-                                   rejecter reject: @escaping RCTPromiseRejectBlock) {
+    func syncVaultWithServer(_ resolve: @escaping RCTPromiseResolveBlock,
+                            rejecter reject: @escaping RCTPromiseRejectBlock) {
         Task {
-            do {
-                let newRevision = try await vaultStore.isNewVaultVersionAvailable(using: webApiService)
-                await MainActor.run {
-                    if let revision = newRevision {
-                        // Return an object with the new revision number
-                        let result: [String: Any] = [
-                            "isNewVersionAvailable": true,
-                            "newRevision": revision
-                        ]
-                        resolve(result)
-                    } else {
-                        // No new version available
-                        let result: [String: Any] = [
-                            "isNewVersionAvailable": false,
-                            "newRevision": NSNull()
-                        ]
-                        resolve(result)
-                    }
-                }
-            } catch {
-                print("VaultManager: Check for new vault version failed: \(error)")
-                await MainActor.run {
-                    // Map VaultSyncError to proper error codes for React Native
-                    if let syncError = error as? VaultSyncError {
-                        reject(syncError.code, syncError.message, error)
-                    } else {
-                        // Fallback for unknown errors
-                        reject("VAULT_CHECK_VERSION_ERROR", "Failed to check vault version: \(error.localizedDescription)", error)
-                    }
-                }
-            }
-        }
-    }
-
-    @objc
-    func downloadVault(_ newRevision: Int,
-                      resolver resolve: @escaping RCTPromiseResolveBlock,
-                      rejecter reject: @escaping RCTPromiseRejectBlock) {
-        Task {
-            do {
-                try await vaultStore.downloadVault(using: webApiService, newRevision: newRevision)
-                await MainActor.run {
-                    resolve(true)
-                }
-            } catch {
-                print("VaultManager: Vault download failed: \(error)")
-                await MainActor.run {
-                    // Map VaultSyncError to proper error codes for React Native
-                    if let syncError = error as? VaultSyncError {
-                        reject(syncError.code, syncError.message, error)
-                    } else {
-                        // Fallback for unknown errors
-                        reject("VAULT_DOWNLOAD_ERROR", "Failed to download vault: \(error.localizedDescription)", error)
-                    }
-                }
-            }
-        }
-    }
-
-    @objc
-    func mutateVault(_ resolve: @escaping RCTPromiseResolveBlock,
-                    rejecter reject: @escaping RCTPromiseRejectBlock) {
-        Task {
-            do {
-                try await vaultStore.mutateVault(using: webApiService)
-                await MainActor.run {
-                    resolve(true)  // Return explicit success
-                }
-            } catch {
-                print("VaultManager: Vault mutation failed: \(error)")
-                await MainActor.run {
-                    reject("MUTATE_ERROR", "Failed to mutate vault: \(error.localizedDescription)", error)
-                }
+            let result = await vaultStore.syncVaultWithServer(using: webApiService)
+            await MainActor.run {
+                let response: [String: Any] = [
+                    "success": result.success,
+                    "action": result.action.rawValue,
+                    "newRevision": result.newRevision,
+                    "wasOffline": result.wasOffline,
+                    "error": result.error as Any
+                ]
+                resolve(response)
             }
         }
     }
@@ -1014,6 +883,112 @@ public class VaultManager: NSObject {
             // Use biometric authentication
             let authenticated = vaultStore.issueBiometricAuthentication(title: title)
             resolve(authenticated)
+        }
+    }
+
+    // MARK: - Sync State Management
+
+    @objc
+    func getSyncState(_ resolve: @escaping RCTPromiseResolveBlock,
+                     rejecter reject: @escaping RCTPromiseRejectBlock) {
+        let syncState = vaultStore.getSyncState()
+        let result: [String: Any] = [
+            "isDirty": syncState.isDirty,
+            "mutationSequence": syncState.mutationSequence,
+            "serverRevision": syncState.serverRevision,
+            "isSyncing": syncState.isSyncing
+        ]
+        resolve(result)
+    }
+
+    @objc
+    func markVaultClean(_ mutationSeqAtStart: Int,
+                       newServerRevision: Int,
+                       resolver resolve: @escaping RCTPromiseResolveBlock,
+                       rejecter reject: @escaping RCTPromiseRejectBlock) {
+        let cleared = vaultStore.markVaultClean(mutationSeqAtStart: mutationSeqAtStart, newServerRevision: newServerRevision)
+        resolve(cleared)
+    }
+
+    // MARK: - SRP (Secure Remote Password) Operations
+
+    /// Generate a cryptographic salt for SRP.
+    /// Returns a 32-byte random salt as an uppercase hex string.
+    @objc
+    func srpGenerateSalt(_ resolve: @escaping RCTPromiseResolveBlock,
+                         rejecter reject: @escaping RCTPromiseRejectBlock) {
+        let salt = RustCoreFramework.srpGenerateSalt()
+        resolve(salt)
+    }
+
+    /// Derive the SRP private key (x) from credentials.
+    /// Formula: x = H(salt | H(identity | ":" | password_hash))
+    @objc
+    func srpDerivePrivateKey(_ salt: String,
+                             identity: String,
+                             passwordHash: String,
+                             resolver resolve: @escaping RCTPromiseResolveBlock,
+                             rejecter reject: @escaping RCTPromiseRejectBlock) {
+        do {
+            let privateKey = try RustCoreFramework.srpDerivePrivateKey(salt: salt, identity: identity, passwordHash: passwordHash)
+            resolve(privateKey)
+        } catch {
+            reject("SRP_ERROR", "Failed to derive SRP private key: \(error.localizedDescription)", error)
+        }
+    }
+
+    /// Derive the SRP verifier (v) from a private key.
+    /// Formula: v = g^x mod N
+    @objc
+    func srpDeriveVerifier(_ privateKey: String,
+                           resolver resolve: @escaping RCTPromiseResolveBlock,
+                           rejecter reject: @escaping RCTPromiseRejectBlock) {
+        do {
+            let verifier = try RustCoreFramework.srpDeriveVerifier(privateKey: privateKey)
+            resolve(verifier)
+        } catch {
+            reject("SRP_ERROR", "Failed to derive SRP verifier: \(error.localizedDescription)", error)
+        }
+    }
+
+    /// Generate a client ephemeral key pair.
+    /// Returns a JSON object with public (A) and secret (a) values as uppercase hex strings.
+    @objc
+    func srpGenerateEphemeral(_ resolve: @escaping RCTPromiseResolveBlock,
+                              rejecter reject: @escaping RCTPromiseRejectBlock) {
+        let ephemeral = RustCoreFramework.srpGenerateEphemeral()
+        let result: [String: String] = [
+            "public": ephemeral.public,
+            "secret": ephemeral.secret
+        ]
+        resolve(result)
+    }
+
+    /// Derive the client session from server response.
+    /// Returns a JSON object with proof (M1) and key (K) as uppercase hex strings.
+    @objc
+    func srpDeriveSession(_ clientSecret: String,
+                          serverPublic: String,
+                          salt: String,
+                          identity: String,
+                          privateKey: String,
+                          resolver resolve: @escaping RCTPromiseResolveBlock,
+                          rejecter reject: @escaping RCTPromiseRejectBlock) {
+        do {
+            let session = try RustCoreFramework.srpDeriveSession(
+                clientSecret: clientSecret,
+                serverPublic: serverPublic,
+                salt: salt,
+                identity: identity,
+                privateKey: privateKey
+            )
+            let result: [String: String] = [
+                "proof": session.proof,
+                "key": session.key
+            ]
+            resolve(result)
+        } catch {
+            reject("SRP_ERROR", "Failed to derive SRP session: \(error.localizedDescription)", error)
         }
     }
 

@@ -1,6 +1,11 @@
 import { Href, useRouter, useLocalSearchParams, useGlobalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 
+import NativeVaultManager from '@/specs/NativeVaultManager';
+
+// Declare __DEV__ global for TypeScript (provided by React Native runtime)
+declare const __DEV__: boolean;
+
 /**
  * Action-based deep link handler for special actions triggered from outside the app.
  *
@@ -8,6 +13,9 @@ import { useEffect, useState } from 'react';
  *
  * Supported actions:
  * - mobile-unlock/[requestId] - Mobile device unlock via QR code
+ * - __debug__/set-offline/[true|false] - (DEV only) Toggle offline mode for E2E testing
+ * - __debug__/set-api-url/[encoded-url] - (DEV only) Set API URL for E2E testing
+ * - __debug__/set-server-revision/[number] - (DEV only) Set local server revision for RPO testing
  *
  * This route exists to handle deep links that Expo Router processes before our
  * Linking.addEventListener can intercept them. It provides proper navigation
@@ -29,8 +37,8 @@ export default function ActionHandler() : null {
     const pathArray = Array.isArray(pathSegments) ? pathSegments : pathSegments ? [pathSegments] : [];
 
     if (pathArray.length === 0) {
-      // No action specified, go to credentials
-      router.replace('/(tabs)/credentials');
+      // No action specified, go to items
+      router.replace('/(tabs)/items');
       setHasNavigated(true);
       return;
     }
@@ -55,10 +63,79 @@ export default function ActionHandler() : null {
         break;
       }
 
+      /**
+       * ----------------------------------------------------------------------------
+       * Debug actions for E2E testing (only works in dev mode)
+       * ----------------------------------------------------------------------------
+       */
+      case '__debug__': {
+        if (!__DEV__) {
+          console.warn('[ActionHandler] Debug actions only available in development');
+          router.replace('/(tabs)/items');
+          setHasNavigated(true);
+          return;
+        }
+
+        const [debugAction, ...debugParams] = actionParams;
+
+        switch (debugAction) {
+          case 'set-offline': {
+            // Set offline mode: aliasvault://open/__debug__/set-offline/true
+            const isOffline = debugParams[0] === 'true';
+            console.debug('[ActionHandler] Setting offline mode:', isOffline);
+            NativeVaultManager.setOfflineMode(isOffline)
+              .then(() => {
+                console.debug('[ActionHandler] Offline mode set to:', isOffline);
+              })
+              .catch((error: Error) => {
+                console.error('[ActionHandler] Failed to set offline mode:', error);
+              });
+            router.replace('/(tabs)/items');
+            setHasNavigated(true);
+            break;
+          }
+
+          case 'set-api-url': {
+            /*
+             * Set API URL: aliasvault://open/__debug__/set-api-url/http%3A%2F%2Flocalhost%3A5092
+             * Note: If slashes in URL aren't encoded, they become separate path segments
+             * So we join all remaining params with '/' to reconstruct the URL
+             */
+            if (debugParams.length === 0) {
+              console.error('[ActionHandler] set-api-url requires URL parameter');
+              router.replace('/(tabs)/items');
+              setHasNavigated(true);
+              return;
+            }
+            // Join params back together (handles both encoded and unencoded slashes)
+            const joinedUrl = debugParams.join('/');
+            const url = decodeURIComponent(joinedUrl);
+            console.debug('[ActionHandler] Setting API URL:', url);
+            NativeVaultManager.setApiUrl(url)
+              .then(() => {
+                console.debug('[ActionHandler] API URL set to:', url);
+              })
+              .catch((error: Error) => {
+                console.error('[ActionHandler] Failed to set API URL:', error);
+              });
+            router.replace('/(tabs)/items');
+            setHasNavigated(true);
+            break;
+          }
+
+          default:
+            console.warn('[ActionHandler] Unknown debug action:', debugAction);
+            router.replace('/(tabs)/items');
+            setHasNavigated(true);
+            break;
+        }
+        break;
+      }
+
       default:
-        // Unknown action, log and go to credentials
+        // Unknown action, log and go to items
         console.warn('[ActionHandler] Unknown action:', action);
-        router.replace('/(tabs)/credentials');
+        router.replace('/(tabs)/items');
         setHasNavigated(true);
         break;
     }

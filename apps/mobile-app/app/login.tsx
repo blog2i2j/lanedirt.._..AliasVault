@@ -9,8 +9,8 @@ import { StyleSheet, View, Text, SafeAreaView, TextInput, ActivityIndicator, Ani
 
 import { useApiUrl } from '@/utils/ApiUrlUtility';
 import ConversionUtility from '@/utils/ConversionUtility';
-import type { EncryptionKeyDerivationParams } from '@/utils/dist/shared/models/metadata';
-import type { LoginResponse } from '@/utils/dist/shared/models/webapi';
+import type { EncryptionKeyDerivationParams } from '@/utils/dist/core/models/metadata';
+import type { LoginResponse } from '@/utils/dist/core/models/webapi';
 import EncryptionUtility from '@/utils/EncryptionUtility';
 import { SrpUtility } from '@/utils/SrpUtility';
 import { ApiAuthError } from '@/utils/types/errors/ApiAuthError';
@@ -28,6 +28,7 @@ import { RobustPressable } from '@/components/ui/RobustPressable';
 import { useApp } from '@/context/AppContext';
 import { useDb } from '@/context/DbContext';
 import { useWebApi } from '@/context/WebApiContext';
+import NativeVaultManager from '@/specs/NativeVaultManager';
 
 /**
  * Login screen.
@@ -45,6 +46,22 @@ export default function LoginScreen() : React.ReactNode {
       useNativeDriver: true,
     }).start();
     loadApiUrl();
+
+    /**
+     * Check for saved username (from forced logout) and prefill the username field.
+     * This enables users to easily re-login after a forced logout.
+     */
+    const loadSavedUsername = async () : Promise<void> => {
+      try {
+        const savedUsername = await NativeVaultManager.getUsername();
+        if (savedUsername) {
+          setCredentials(prev => ({ ...prev, username: savedUsername }));
+        }
+      } catch {
+        // Ignore errors - username prefill is optional
+      }
+    };
+    loadSavedUsername();
   }, [fadeAnim, loadApiUrl]);
 
   // Update URL when returning from settings
@@ -163,20 +180,41 @@ export default function LoginScreen() : React.ReactNode {
     };
 
     /*
-     * Set auth tokens, store encryption key and key derivation params.
-     * Note: We don't call initializeDatabase here anymore - instead, syncVault will download
+     * Store auth tokens and encryption credentials. syncVault will download
      * the vault and store it (including metadata) through native code.
      */
     await authContext.setAuthTokens(ConversionUtility.normalizeUsername(credentials.username), token, refreshToken);
     await dbContext.storeEncryptionKey(passwordHashBase64);
     await dbContext.storeEncryptionKeyDerivationParams(encryptionKeyDerivationParams);
 
+    /*
+     * Forced logout recovery check:
+     * If there's an existing local vault (from forced logout), try to unlock it.
+     * If decryption fails (password changed or corrupted), clear the local vault
+     * so sync will download fresh from server.
+     */
+    const hasExistingVault = await NativeVaultManager.hasEncryptedDatabase();
+    if (hasExistingVault) {
+      try {
+        await NativeVaultManager.unlockVault();
+        /*
+         * Decryption succeeded - local vault is valid, close it for sync to handle.
+         * The sync will compare revisions and decide whether to keep local or download.
+         */
+        console.info('Existing local vault (after forced logout) decrypted successfully, syncing with server');
+      } catch {
+        // Decryption failed - clear local vault so sync downloads fresh from server
+        console.info('Existing vault could not be decrypted (password changed or corrupted), clearing for fresh download');
+        await NativeVaultManager.clearVault();
+      }
+    }
+
     let checkSuccess = true;
-    /**
-     * After setting auth tokens, execute a server status check immediately
-     * which takes care of certain sanity checks such as ensuring client/server
-     * compatibility. This also downloads the vault and stores it (including metadata)
-     * through native code.
+
+    /*
+     * Sync vault from server (downloads, stores, and validates compatibility)
+     * This will handle the forced logout recovery check in case our local vault is dirty
+     * or is ahead of server in case of RPO event.
      */
     await syncVault({
       /**
@@ -235,7 +273,7 @@ export default function LoginScreen() : React.ReactNode {
     setPasswordHashBase64(null);
     setInitiateLoginResponse(null);
     setLoginStatus(null);
-    router.replace('/(tabs)/credentials');
+    router.replace('/(tabs)/items');
     setIsLoading(false);
   };
 
@@ -451,6 +489,10 @@ export default function LoginScreen() : React.ReactNode {
       color: colors.textMuted,
       fontSize: 14,
     },
+    headerSubtitleContainer: {
+      alignItems: 'center',
+      flexDirection: 'row',
+    },
     headerTitle: {
       color: colors.text,
       fontSize: 24,
@@ -505,6 +547,7 @@ export default function LoginScreen() : React.ReactNode {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
+      testID="login-screen"
     >
       <ScrollView
         style={styles.container}
@@ -530,19 +573,23 @@ export default function LoginScreen() : React.ReactNode {
             <>
               <View style={styles.headerContainer}>
                 <Text style={styles.headerTitle}>{t('auth.login')}</Text>
-                <Text style={styles.headerSubtitle}>
-                  {t('auth.connectingTo')} {' '}
-                  <Text
-                    style={styles.clickableLink}
-                    onPress={() => router.push('/login-settings')}
-                  >
-                    {getDisplayUrl()}
+                <View style={styles.headerSubtitleContainer}>
+                  <Text style={styles.headerSubtitle}>
+                    {t('auth.connectingTo')}{' '}
                   </Text>
-                </Text>
+                  <RobustPressable
+                    onPress={() => router.push('/login-settings')}
+                    testID="server-url-link-button"
+                  >
+                    <Text style={styles.clickableLink} testID="server-url-link"                    >
+                      {getDisplayUrl()}
+                    </Text>
+                  </RobustPressable>
+                </View>
               </View>
 
               {error && (
-                <View style={styles.errorContainer}>
+                <View style={styles.errorContainer} testID="error-message">
                   <Text style={styles.errorText}>{error}</Text>
                 </View>
               )}
@@ -622,6 +669,7 @@ export default function LoginScreen() : React.ReactNode {
                       placeholderTextColor={colors.textMuted}
                       multiline={false}
                       numberOfLines={1}
+                      testID="username-input"
                     />
                   </View>
                   <Text style={styles.label}>{t('auth.password')}</Text>
@@ -643,6 +691,7 @@ export default function LoginScreen() : React.ReactNode {
                       autoCapitalize="none"
                       multiline={false}
                       numberOfLines={1}
+                      testID="password-input"
                     />
                     <RobustPressable
                       onPress={() => setShowPassword(!showPassword)}
@@ -659,6 +708,7 @@ export default function LoginScreen() : React.ReactNode {
                     style={[styles.button, styles.primaryButton]}
                     onPress={handleSubmit}
                     disabled={isLoading}
+                    testID="login-button"
                   >
                     {isLoading ? (
                       <ActivityIndicator color={colors.text} />

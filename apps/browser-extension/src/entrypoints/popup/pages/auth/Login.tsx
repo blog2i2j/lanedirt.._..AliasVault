@@ -1,8 +1,7 @@
-import { Buffer } from 'buffer';
-
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { sendMessage } from 'webext-bridge/popup';
 
 import Button from '@/entrypoints/popup/components/Button';
 import MobileUnlockModal from '@/entrypoints/popup/components/Dialogs/MobileUnlockModal';
@@ -14,13 +13,14 @@ import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useHeaderButtons } from '@/entrypoints/popup/context/HeaderButtonsContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
 import { useWebApi } from '@/entrypoints/popup/context/WebApiContext';
-import ConversionUtility from '@/entrypoints/popup/utils/ConversionUtility';
 import { PopoutUtility } from '@/entrypoints/popup/utils/PopoutUtility';
 import SrpUtility from '@/entrypoints/popup/utils/SrpUtility';
 
 import { AppInfo } from '@/utils/AppInfo';
-import type { VaultResponse, LoginResponse } from '@/utils/dist/shared/models/webapi';
-import EncryptionUtility from '@/utils/EncryptionUtility';
+import { SrpAuthService } from '@/utils/auth/SrpAuthService';
+import type { VaultResponse, LoginResponse } from '@/utils/dist/core/models/webapi';
+import { EncryptionUtility } from '@/utils/EncryptionUtility';
+import SqliteClient from '@/utils/SqliteClient';
 import { ApiAuthError } from '@/utils/types/errors/ApiAuthError';
 import type { MobileLoginResult } from '@/utils/types/messaging/MobileLoginResult';
 
@@ -54,6 +54,74 @@ const Login: React.FC = () => {
   const srpUtil = new SrpUtility(webApi);
 
   /**
+   * Helper to persist and load vault after successful authentication.
+   * Checks if local vault exists from forced logout and preserves it if more advanced.
+   * @returns The initialized SqliteClient
+   */
+  const persistAndLoadVault = async (vaultResponse: VaultResponse, encryptionKey: string): Promise<SqliteClient> => {
+    // Check if there's existing vault data (from forced logout)
+    const existingVault = await storage.getItem('local:encryptedVault') as string | null;
+    const existingRevision = await storage.getItem('local:serverRevision') as number | null;
+
+    let vaultToLoad = vaultResponse.vault.blob;
+
+    if (existingVault && existingRevision !== null) {
+      // Try to decrypt existing vault to verify it's valid
+      try {
+        const decryptedExisting = await EncryptionUtility.symmetricDecrypt(existingVault, encryptionKey);
+
+        // Check if existing vault is more advanced than server
+        if (existingRevision >= vaultResponse.vault.currentRevisionNumber) {
+          console.info(
+            `Existing vault is more advanced (rev ${existingRevision} >= ${vaultResponse.vault.currentRevisionNumber}), ` +
+            `preserving local vault and will upload to server`
+          );
+
+          // Keep the existing vault - it will be uploaded via sync flow
+          vaultToLoad = existingVault;
+
+          /*
+           * Don't overwrite the vault - it will be uploaded via sync flow
+           * Just update metadata and load existing vault
+           */
+          await sendMessage('STORE_VAULT_METADATA', {
+            publicEmailDomainList: vaultResponse.vault.publicEmailDomainList,
+            privateEmailDomainList: vaultResponse.vault.privateEmailDomainList,
+            hiddenPrivateEmailDomainList: vaultResponse.vault.hiddenPrivateEmailDomainList,
+          }, 'background');
+
+          return dbContext.loadDatabase(decryptedExisting);
+        }
+
+        // Server is more advanced - will overwrite local
+        console.info(
+          `Server vault is more advanced (rev ${vaultResponse.vault.currentRevisionNumber} > ${existingRevision}), ` +
+          `using server vault`
+        );
+      } catch {
+        // Decryption failed - password changed or corrupt vault
+        console.info('Existing vault could not be decrypted (password changed), using server vault');
+      }
+    }
+
+    // Normal flow: persist server vault to local storage
+    await sendMessage('STORE_ENCRYPTED_VAULT', {
+      vaultBlob: vaultResponse.vault.blob,
+      serverRevision: vaultResponse.vault.currentRevisionNumber,
+    }, 'background');
+
+    await sendMessage('STORE_VAULT_METADATA', {
+      publicEmailDomainList: vaultResponse.vault.publicEmailDomainList,
+      privateEmailDomainList: vaultResponse.vault.privateEmailDomainList,
+      hiddenPrivateEmailDomainList: vaultResponse.vault.hiddenPrivateEmailDomainList,
+    }, 'background');
+
+    // Decrypt and load the vault into memory
+    const decryptedVault = await EncryptionUtility.symmetricDecrypt(vaultToLoad, encryptionKey);
+    return dbContext.loadDatabase(decryptedVault);
+  };
+
+  /**
    * Handle successful authentication by storing tokens and initializing the database
    */
   const handleSuccessfulAuth = async (
@@ -79,8 +147,14 @@ const Login: React.FC = () => {
       encryptionSettings: loginResponse.encryptionSettings
     });
 
-    // Initialize the SQLite context with the new vault data.
-    const sqliteClient = await dbContext.initializeDatabase(vaultResponseJson, passwordHashBase64);
+    /*
+     * Persist and load the vault
+     * If there was a forced logout, persistAndLoadVault checks existing vault data:
+     * - If local vault is more advanced → preserves it (will upload via sync in /reinitialize)
+     * - If server is more advanced → uses server vault
+     * - If password changed (can't decrypt) → uses server vault
+     */
+    const sqliteClient = await persistAndLoadVault(vaultResponseJson, passwordHashBase64);
 
     // If there are pending migrations, redirect to the upgrade page.
     try {
@@ -105,19 +179,26 @@ const Login: React.FC = () => {
 
   useEffect(() => {
     /**
-     * Load the client URL from the storage.
+     * Load the client URL and check for saved username (from forced logout).
      */
-    const loadClientUrl = async () : Promise<void> => {
+    const loadInitialData = async () : Promise<void> => {
+      // Load client URL
       const settingClientUrl = await storage.getItem('local:clientUrl') as string;
       let clientUrl = AppInfo.DEFAULT_CLIENT_URL;
       if (settingClientUrl && settingClientUrl.length > 0) {
         clientUrl = settingClientUrl;
       }
-
       setClientUrl(clientUrl);
+
+      // Check for saved username (from forced logout) and prefill
+      const savedUsername = await storage.getItem('local:username') as string | null;
+      if (savedUsername) {
+        setCredentials(prev => ({ ...prev, username: savedUsername }));
+      }
+
       setIsInitialLoading(false);
     };
-    loadClientUrl();
+    loadInitialData();
   }, [setIsInitialLoading]);
 
   // Set header buttons on mount and clear on unmount
@@ -152,32 +233,27 @@ const Login: React.FC = () => {
       // Clear global message if set with every login attempt.
       app.clearGlobalMessage();
 
-      // Use the srpUtil instance instead of the imported singleton
-      const loginResponse = await srpUtil.initiateLogin(ConversionUtility.normalizeUsername(credentials.username));
+      // Initiate login with server
+      const normalizedUsername = SrpAuthService.normalizeUsername(credentials.username);
+      const loginResponse = await srpUtil.initiateLogin(normalizedUsername);
 
-      // 1. Derive key from password using Argon2id
-      const passwordHash = await EncryptionUtility.deriveKeyFromPassword(
+      // Derive key from password using Argon2id and prepare credentials
+      const { passwordHashString, passwordHashBase64 } = await SrpAuthService.prepareCredentials(
         credentials.password,
         loginResponse.salt,
         loginResponse.encryptionType,
         loginResponse.encryptionSettings
       );
 
-      // Convert uint8 array to uppercase hex string which is expected by the server.
-      const passwordHashString = Buffer.from(passwordHash).toString('hex').toUpperCase();
-
-      // Get the derived key as base64 string required for decryption.
-      const passwordHashBase64 = Buffer.from(passwordHash).toString('base64');
-
-      // 2. Validate login with SRP protocol
+      // Validate login with SRP protocol
       const validationResponse = await srpUtil.validateLogin(
-        ConversionUtility.normalizeUsername(credentials.username),
+        normalizedUsername,
         passwordHashString,
         rememberMe,
         loginResponse
       );
 
-      // 3. Handle 2FA if required
+      // Handle 2FA if required
       if (validationResponse.requiresTwoFactor) {
         // Store login response as we need it for 2FA validation
         setLoginResponse(loginResponse);
@@ -198,7 +274,7 @@ const Login: React.FC = () => {
 
       // Handle successful authentication
       await handleSuccessfulAuth(
-        ConversionUtility.normalizeUsername(credentials.username),
+        normalizedUsername,
         validationResponse.token.token,
         validationResponse.token.refreshToken,
         passwordHashBase64,
@@ -235,8 +311,9 @@ const Login: React.FC = () => {
         throw new Error(t('auth.errors.invalidCode'));
       }
 
+      const twoFaUsername = SrpAuthService.normalizeUsername(credentials.username);
       const validationResponse = await srpUtil.validateLogin2Fa(
-        ConversionUtility.normalizeUsername(credentials.username),
+        twoFaUsername,
         passwordHashString,
         rememberMe,
         loginResponse,
@@ -250,7 +327,7 @@ const Login: React.FC = () => {
 
       // Handle successful authentication
       await handleSuccessfulAuth(
-        ConversionUtility.normalizeUsername(credentials.username),
+        twoFaUsername,
         validationResponse.token.token,
         validationResponse.token.refreshToken,
         passwordHashBase64,
@@ -303,8 +380,8 @@ const Login: React.FC = () => {
         encryptionSettings: result.encryptionSettings,
       });
 
-      // Initialize the database with the vault data
-      const sqliteClient = await dbContext.initializeDatabase(vaultResponse, result.decryptionKey);
+      // Persist and load the vault
+      const sqliteClient = await persistAndLoadVault(vaultResponse, result.decryptionKey);
 
       // Check for pending migrations
       try {
@@ -435,7 +512,7 @@ const Login: React.FC = () => {
           </div>
           <div className="mb-4">
             <label className="block text-gray-700 dark:text-gray-200 font-medium mb-2" htmlFor="password">
-              {t('auth.password')}
+              {t('common.password')}
             </label>
             <div className="relative">
               <input
