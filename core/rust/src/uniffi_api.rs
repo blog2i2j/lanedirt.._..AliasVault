@@ -6,6 +6,12 @@
 use crate::error::VaultError;
 use crate::vault_merge::SYNCABLE_TABLE_NAMES;
 
+/// Get the version of the aliasvault-core library.
+#[uniffi::export]
+pub fn get_core_version() -> String {
+    crate::get_core_version().to_string()
+}
+
 /// Get the list of syncable table names.
 /// These are the tables that need to be read from the database for merge/prune operations.
 #[uniffi::export]

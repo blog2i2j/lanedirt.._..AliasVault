@@ -1,11 +1,11 @@
 [package]
 name = "aliasvault-core"
-version = "0.1.0"
+version = "0.26.0"
 edition = "2021"
-description = "Cross-platform core library for AliasVault - provides shared merge logic for all platforms"
-license = "MIT"
-repository = "https://github.com/landhb/AliasVault"
-authors = ["AliasVault Team"]
+description = "Cross-platform core library for AliasVault"
+license = "AGPL-3.0"
+repository = "https://github.com/aliasvault/aliasvault"
+authors = ["AliasVault"]
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = false

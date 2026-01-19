@@ -9,27 +9,6 @@
 //! This library accepts data as JSON and returns results as JSON.
 //! Each platform (browser, iOS, Android, .NET) handles its own I/O
 //! and calls this library for the core logic.
-//!
-//! # Example (conceptual)
-//! ```ignore
-//! // Merge example
-//! let local_tables = read_all_tables_as_json(local_db);
-//! let server_tables = read_all_tables_as_json(server_db);
-//! let result = merge_vaults(local_tables, server_tables);
-//!
-//! // Prune example (removes items in trash for > 30 days)
-//! let tables = read_all_tables_as_json(local_db);
-//! let result = prune_vault(tables, 30);
-//!
-//! // Credential matching example
-//! let credentials = get_credentials_json();
-//! let matches = filter_credentials(credentials, "https://github.com", "GitHub");
-//!
-//! // SRP authentication example
-//! let salt = srp::srp_generate_salt();
-//! let private_key = srp::srp_derive_private_key(&salt, "user", &password_hash);
-//! let verifier = srp::srp_derive_verifier(&private_key);
-//! ```
 
 pub mod error;
 pub mod vault_merge;
@@ -77,3 +56,9 @@ pub use uniffi_api::*;
 // UniFFI scaffolding - generates the FFI glue code
 #[cfg(feature = "uniffi")]
 uniffi::setup_scaffolding!();
+
+/// Returns the version of the aliasvault-core library.
+/// This is set at compile time from Cargo.toml.
+pub fn get_core_version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}
