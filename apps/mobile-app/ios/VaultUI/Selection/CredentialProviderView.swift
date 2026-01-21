@@ -60,10 +60,10 @@ public struct CredentialProviderView: View {
                                     if !viewModel.isChoosingTextToInsert {
                                         VStack(spacing: 12) {
                                             Button(action: {
-                                                var urlString = "aliasvault://credentials/add-edit-page"
+                                                var urlString = "aliasvault://items/add-edit-page"
                                                 if let serviceUrl = viewModel.serviceUrl {
                                                     let encodedUrl = serviceUrl.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-                                                    urlString += "?serviceUrl=\(encodedUrl)"
+                                                    urlString += "?itemUrl=\(encodedUrl)"
                                                 }
                                                 if let url = URL(string: urlString) {
                                                     UIApplication.shared.open(url, options: [:], completionHandler: nil)
@@ -121,10 +121,10 @@ public struct CredentialProviderView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack {
                         Button(action: {
-                            var urlString = "aliasvault://credentials/add-edit-page"
+                            var urlString = "aliasvault://items/add-edit-page"
                             if let serviceUrl = viewModel.serviceUrl {
                                 let encodedUrl = serviceUrl.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-                                urlString += "?serviceUrl=\(encodedUrl)"
+                                urlString += "?itemUrl=\(encodedUrl)"
                             }
                             if let url = URL(string: urlString) {
                                 UIApplication.shared.open(url, options: [:], completionHandler: nil)
