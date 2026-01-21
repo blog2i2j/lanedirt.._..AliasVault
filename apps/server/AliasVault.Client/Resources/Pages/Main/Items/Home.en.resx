@@ -236,4 +236,14 @@
     <value>Loading more...</value>
     <comment>Text shown when loading more items during infinite scroll</comment>
   </data>
+
+  <!-- Clear Filter -->
+  <data name="ClearFilter" xml:space="preserve">
+    <value>Clear filter</value>
+    <comment>Button text for clearing the active filter</comment>
+  </data>
+  <data name="FilteringBy" xml:space="preserve">
+    <value>Filtering by:</value>
+    <comment>Label shown when a filter is active</comment>
+  </data>
 </root>

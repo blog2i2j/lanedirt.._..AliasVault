@@ -540,12 +540,58 @@ export default function ItemsScreen(): React.ReactNode {
       fontSize: 20,
     },
     // Empty state styles
+    emptyContainer: {
+      alignItems: 'center',
+      marginTop: 24,
+    },
     emptyText: {
       color: colors.textMuted,
       fontSize: 16,
-      marginTop: 24,
       opacity: 0.7,
       textAlign: 'center',
+    },
+    clearButtonsContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      justifyContent: 'center',
+      marginTop: 16,
+    },
+    clearSearchButton: {
+      alignItems: 'center',
+      backgroundColor: colors.accentBackground,
+      borderRadius: 8,
+      flexDirection: 'row',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    clearSearchButtonText: {
+      color: colors.text,
+      fontSize: 14,
+    },
+    clearFilterButton: {
+      alignItems: 'center',
+      backgroundColor: colors.primary + '20',
+      borderRadius: 8,
+      flexDirection: 'row',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    clearFilterButtonText: {
+      color: colors.primary,
+      fontSize: 14,
+    },
+    // Footer clear buttons styles (at bottom of list)
+    footerClearContainer: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      justifyContent: 'center',
+      marginTop: 16,
+      paddingTop: 16,
     },
     // FAB styles
     fab: {
@@ -805,20 +851,95 @@ export default function ItemsScreen(): React.ReactNode {
       return null;
     }
 
+    /**
+     * Determine the appropriate message based on search and filter state.
+     */
+    const getMessage = (): string => {
+      // Both search and filter active
+      if (searchQuery && filterType !== 'all') {
+        return t('items.noMatchingItemsWithFilter', { filter: getFilterTitle(), search: searchQuery });
+      }
+      // Only search active
+      if (searchQuery) {
+        return t('items.noMatchingItemsSearch', { search: searchQuery });
+      }
+      // Only filter active (no search)
+      if (filterType === 'passkeys') {
+        return t('items.noPasskeysFound');
+      }
+      if (filterType === 'attachments') {
+        return t('items.noAttachmentsFound');
+      }
+      if (isItemTypeFilter(filterType)) {
+        return t('items.noItemsOfTypeFound', { type: getFilterTitle() });
+      }
+      // No search, no filter - truly empty vault
+      return t('items.noItemsFound');
+    };
+
+    const showClearButtons = searchQuery || filterType !== 'all';
+
     return (
-      <View>
-        <Text style={styles.emptyText}>
-          {searchQuery
-            ? t('items.noMatchingItems')
-            : filterType === 'passkeys'
-              ? t('items.noPasskeysFound')
-              : filterType === 'attachments'
-                ? t('items.noAttachmentsFound')
-                : isItemTypeFilter(filterType)
-                  ? t('items.noItemsOfTypeFound', { type: getFilterTitle() })
-                  : t('items.noItemsFound')
-          }
-        </Text>
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>{getMessage()}</Text>
+
+        {/* Clear search/filter buttons */}
+        {showClearButtons && (
+          <View style={styles.clearButtonsContainer}>
+            {searchQuery && (
+              <TouchableOpacity
+                style={styles.clearSearchButton}
+                onPress={() => setSearchQuery('')}
+              >
+                <MaterialIcons name="close" size={16} color={colors.text} />
+                <Text style={styles.clearSearchButtonText}>{t('items.clearSearch')}</Text>
+              </TouchableOpacity>
+            )}
+            {filterType !== 'all' && (
+              <TouchableOpacity
+                style={styles.clearFilterButton}
+                onPress={() => setFilterType('all')}
+              >
+                <MaterialIcons name="close" size={16} color={colors.primary} />
+                <Text style={styles.clearFilterButtonText}>{t('items.clearFilter')}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  /**
+   * Render list footer with clear filter/search buttons.
+   * Only shown when there are items and a filter or search is active.
+   */
+  const renderListFooter = (): React.ReactNode => {
+    // Don't show footer if loading, no items, or no active filter/search
+    if (isLoadingItems || filteredItems.length === 0 || (filterType === 'all' && !searchQuery)) {
+      return null;
+    }
+
+    return (
+      <View style={styles.footerClearContainer}>
+        {searchQuery && (
+          <TouchableOpacity
+            style={styles.clearSearchButton}
+            onPress={() => setSearchQuery('')}
+          >
+            <MaterialIcons name="close" size={16} color={colors.text} />
+            <Text style={styles.clearSearchButtonText}>{t('items.clearSearch')}</Text>
+          </TouchableOpacity>
+        )}
+        {filterType !== 'all' && (
+          <TouchableOpacity
+            style={styles.clearFilterButton}
+            onPress={() => setFilterType('all')}
+          >
+            <MaterialIcons name="close" size={16} color={colors.primary} />
+            <Text style={styles.clearFilterButtonText}>{t('items.clearFilter')}</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   };
@@ -872,6 +993,7 @@ export default function ItemsScreen(): React.ReactNode {
             )
           }
           ListEmptyComponent={renderEmptyComponent() as React.ReactElement}
+          ListFooterComponent={renderListFooter() as React.ReactElement}
         />
       </ThemedView>
 
