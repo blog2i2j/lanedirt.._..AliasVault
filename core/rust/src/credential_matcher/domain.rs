@@ -102,11 +102,31 @@ pub fn is_app_package_name(text: &str) -> bool {
     tld_set.contains(first_part.as_str())
 }
 
-/// Extract domain from URL, handling both full URLs and partial domains.
-/// Returns empty string if not a valid URL/domain.
-pub fn extract_domain(url: &str) -> String {
+/// Result of domain extraction containing both the domain and optional port.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DomainWithPort {
+    pub domain: String,
+    pub port: Option<String>,
+}
+
+impl DomainWithPort {
+    /// Returns the domain with port if present (e.g., "example.com:8080")
+    pub fn with_port(&self) -> String {
+        match &self.port {
+            Some(p) => format!("{}:{}", self.domain, p),
+            None => self.domain.clone(),
+        }
+    }
+}
+
+/// Extract domain and port from URL, handling both full URLs and partial domains.
+/// Returns DomainWithPort with empty domain if not a valid URL/domain.
+pub fn extract_domain_with_port(url: &str) -> DomainWithPort {
     if url.is_empty() {
-        return String::new();
+        return DomainWithPort {
+            domain: String::new(),
+            port: None,
+        };
     }
 
     let mut domain = url.to_lowercase();
@@ -116,7 +136,10 @@ pub fn extract_domain(url: &str) -> String {
 
     // If no protocol and starts with TLD + dot, it's likely an app package name
     if !has_protocol && is_app_package_name(&domain) {
-        return String::new();
+        return DomainWithPort {
+            domain: String::new(),
+            port: None,
+        };
     }
 
     // Remove protocol if present
@@ -131,7 +154,7 @@ pub fn extract_domain(url: &str) -> String {
         domain = stripped.to_string();
     }
 
-    // Remove path, query, and fragment
+    // Remove path, query, and fragment first (before extracting port)
     if let Some(pos) = domain.find('/') {
         domain = domain[..pos].to_string();
     }
@@ -142,22 +165,55 @@ pub fn extract_domain(url: &str) -> String {
         domain = domain[..pos].to_string();
     }
 
+    // Extract port number if present (e.g., :8080, :1234)
+    let port = if let Some(pos) = domain.find(':') {
+        let port_str = domain[pos + 1..].to_string();
+        domain = domain[..pos].to_string();
+        // Validate port is numeric
+        if port_str.chars().all(|c| c.is_ascii_digit()) && !port_str.is_empty() {
+            Some(port_str)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
     // Basic domain validation - must contain at least one dot and valid characters
     if !domain.contains('.') {
-        return String::new();
+        return DomainWithPort {
+            domain: String::new(),
+            port: None,
+        };
     }
 
     // Check for valid domain characters
-    if !domain.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-') {
-        return String::new();
+    if !domain
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
+    {
+        return DomainWithPort {
+            domain: String::new(),
+            port: None,
+        };
     }
 
     // Ensure valid domain structure
     if domain.starts_with('.') || domain.ends_with('.') || domain.contains("..") {
-        return String::new();
+        return DomainWithPort {
+            domain: String::new(),
+            port: None,
+        };
     }
 
-    domain
+    DomainWithPort { domain, port }
+}
+
+/// Extract domain from URL, handling both full URLs and partial domains.
+/// Returns empty string if not a valid URL/domain.
+/// Note: This strips port numbers. Use extract_domain_with_port() to preserve port info.
+pub fn extract_domain(url: &str) -> String {
+    extract_domain_with_port(url).domain
 }
 
 /// Extract root domain from a domain string.
@@ -259,6 +315,44 @@ mod tests {
         // Invalid domains
         assert_eq!(extract_domain(""), "");
         assert_eq!(extract_domain("nodot"), "");
+    }
+
+    #[test]
+    fn test_extract_domain_with_port() {
+        // Port numbers should be stripped from extract_domain
+        assert_eq!(extract_domain("https://example.com:8080"), "example.com");
+        assert_eq!(extract_domain("https://example.com:8080/path"), "example.com");
+        assert_eq!(extract_domain("https://blabla.asd.com:1234"), "blabla.asd.com");
+        assert_eq!(extract_domain("https://www.example.com:443/login"), "example.com");
+        assert_eq!(extract_domain("example.com:8080"), "example.com");
+        assert_eq!(extract_domain("sub.domain.example.com:9000/path?query=1"), "sub.domain.example.com");
+    }
+
+    #[test]
+    fn test_extract_domain_with_port_struct() {
+        // Test the DomainWithPort struct
+        let result = extract_domain_with_port("https://example.com:8080/path");
+        assert_eq!(result.domain, "example.com");
+        assert_eq!(result.port, Some("8080".to_string()));
+        assert_eq!(result.with_port(), "example.com:8080");
+
+        let result = extract_domain_with_port("https://example.com/path");
+        assert_eq!(result.domain, "example.com");
+        assert_eq!(result.port, None);
+        assert_eq!(result.with_port(), "example.com");
+
+        let result = extract_domain_with_port("https://www.myserver.local:9443/dashboard");
+        assert_eq!(result.domain, "myserver.local");
+        assert_eq!(result.port, Some("9443".to_string()));
+
+        let result = extract_domain_with_port("myserver.local:8123");
+        assert_eq!(result.domain, "myserver.local");
+        assert_eq!(result.port, Some("8123".to_string()));
+
+        // Test that ports are validated as numeric
+        let result = extract_domain_with_port("https://example.com:abc/path");
+        assert_eq!(result.domain, "example.com");
+        assert_eq!(result.port, None); // Invalid port should be None
     }
 
     #[test]

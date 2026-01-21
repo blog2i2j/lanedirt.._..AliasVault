@@ -15,7 +15,7 @@ mod stop_words;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-pub use domain::{extract_domain, extract_root_domain};
+pub use domain::{extract_domain, extract_domain_with_port, extract_root_domain, DomainWithPort};
 use domain::{domains_match, is_app_package_name};
 use stop_words::STOP_WORDS;
 
@@ -124,13 +124,18 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
     }
 
     // ═══════════════════════════════════════════════════════════════════════════════
-    // PRIORITY 2: URL Domain Matching
+    // PRIORITY 2: URL Domain Matching (with port-aware priority)
     // Try to extract domain from current URL (skip if package name)
+    //
+    // Sub-priorities within URL matching:
+    //   Priority 1: Exact domain+port match (e.g., example.com:8080 == example.com:8080)
+    //   Priority 2: Exact domain match (ignoring port) (e.g., example.com:8080 == example.com)
+    //   Priority 3: Subdomain/root domain match (e.g., sub.example.com matches example.com)
     // ═══════════════════════════════════════════════════════════════════════════════
     if !is_package_name {
-        let current_domain = extract_domain(&current_url);
+        let current_domain_info = extract_domain_with_port(&current_url);
 
-        if !current_domain.is_empty() {
+        if !current_domain_info.domain.is_empty() {
             let mut filtered: Vec<CredentialWithPriority> = Vec::new();
 
             // Determine matching features based on mode
@@ -155,24 +160,37 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
                         continue;
                     }
 
-                    let cred_domain = extract_domain(item_url);
-                    if cred_domain.is_empty() {
+                    let cred_domain_info = extract_domain_with_port(item_url);
+                    if cred_domain_info.domain.is_empty() {
                         continue;
                     }
 
-                    // Check for exact match (priority 1)
-                    if enable_exact_match && current_domain == cred_domain {
+                    // Check for exact domain+port match (priority 1 - highest)
+                    // Both must have same domain AND same port (or both no port)
+                    if enable_exact_match
+                        && current_domain_info.domain == cred_domain_info.domain
+                        && current_domain_info.port == cred_domain_info.port
+                    {
                         best_priority = Some(1);
-                        break; // Can't do better than exact match
+                        break; // Can't do better than exact domain+port match
                     }
 
-                    // Check for subdomain/partial match (priority 2)
-                    if enable_subdomain_match
-                        && domains_match(&current_domain, &cred_domain)
-                        && best_priority.is_none()
+                    // Check for exact domain match, ignoring port (priority 2)
+                    if enable_exact_match
+                        && current_domain_info.domain == cred_domain_info.domain
+                        && best_priority.map_or(true, |p| p > 2)
                     {
                         best_priority = Some(2);
-                        // Don't break - might find exact match in another URL
+                        // Don't break - might find exact domain+port match in another URL
+                    }
+
+                    // Check for subdomain/root domain match (priority 3)
+                    if enable_subdomain_match
+                        && domains_match(&current_domain_info.domain, &cred_domain_info.domain)
+                        && best_priority.is_none()
+                    {
+                        best_priority = Some(3);
+                        // Don't break - might find better match in another URL
                     }
                 }
 
@@ -186,10 +204,24 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
 
             // EARLY RETURN if matches found
             if !filtered.is_empty() {
+                // Find the best (lowest) priority level we have
+                let best_priority = filtered.iter().map(|c| c.priority).min().unwrap_or(3);
+
+                // Only return credentials at the best priority level
+                // This ensures that:
+                // - If we have exact domain+port matches (1), we only show those
+                // - If we have exact domain matches (2) but no port matches, we only show those
+                // - If we only have subdomain matches (3), we show those
+                let filtered_by_priority: Vec<CredentialWithPriority> = filtered
+                    .into_iter()
+                    .filter(|c| c.priority == best_priority)
+                    .collect();
+
                 // Sort by priority, deduplicate by ID, take first 3
-                filtered.sort_by_key(|c| c.priority);
+                let mut sorted = filtered_by_priority;
+                sorted.sort_by_key(|c| c.priority);
                 let mut seen_ids: HashSet<String> = HashSet::new();
-                let unique_ids: Vec<String> = filtered
+                let unique_ids: Vec<String> = sorted
                     .into_iter()
                     .filter(|c| seen_ids.insert(c.credential.id.clone()))
                     .map(|c| c.credential.id)

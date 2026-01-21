@@ -534,3 +534,194 @@ fn test_multi_url_app_package_matching() {
     assert_eq!(ios_matches.len(), 1);
     assert_eq!(ios_matches[0].item_name.as_deref(), Some("Coolblue"));
 }
+
+/// [#27] - URLs with port numbers should match correctly
+#[test]
+fn test_url_with_port_matching() {
+    let credentials = vec![
+        create_test_credential("Local Dev", "https://dev.local:3000", "dev@local.com"),
+        create_test_credential("Staging Server", "https://staging.example.com:8080", "user@staging.com"),
+        create_test_credential("Production", "https://example.com", "user@example.com"),
+    ];
+
+    // URL with port should match credential with same URL+port
+    let local_matches = filter(credentials.clone(), "https://dev.local:3000/login", "");
+    assert_eq!(local_matches.len(), 1);
+    assert_eq!(local_matches[0].item_name.as_deref(), Some("Local Dev"));
+
+    // URL with different port should still match domain (subdomain matching)
+    let staging_matches = filter(credentials.clone(), "https://staging.example.com:8080/dashboard", "");
+    assert_eq!(staging_matches.len(), 1);
+    assert_eq!(staging_matches[0].item_name.as_deref(), Some("Staging Server"));
+
+    // Production URL should match production credential
+    let prod_matches = filter(credentials, "https://example.com/app", "");
+    assert_eq!(prod_matches.len(), 1);
+    assert_eq!(prod_matches[0].item_name.as_deref(), Some("Production"));
+}
+
+/// [#28] - Exact match exclusivity: when exact URL match exists, subdomain matches should be excluded
+#[test]
+fn test_exact_match_excludes_subdomain_matches() {
+    let credentials = vec![
+        create_test_credential("Exact Match Site", "https://blabla.asd.com", "user@blabla.com"),
+        create_test_credential("Root Domain", "https://asd.com", "user@asd.com"),
+        create_test_credential("Other Subdomain", "https://bloe.asd.com", "user@bloe.com"),
+    ];
+
+    // When visiting blabla.asd.com, only the exact match should be shown
+    // NOT the root domain (asd.com) or other subdomains (bloe.asd.com)
+    let matches = filter(credentials.clone(), "https://blabla.asd.com/page", "");
+    assert_eq!(matches.len(), 1, "Should only return the exact match, not subdomain matches");
+    assert_eq!(matches[0].item_name.as_deref(), Some("Exact Match Site"));
+
+    // When visiting asd.com (root), only root domain credential should match
+    let root_matches = filter(credentials.clone(), "https://asd.com/login", "");
+    assert_eq!(root_matches.len(), 1, "Root domain should only match exact root credential");
+    assert_eq!(root_matches[0].item_name.as_deref(), Some("Root Domain"));
+
+    // When visiting bloe.asd.com, only that subdomain should match
+    let bloe_matches = filter(credentials, "https://bloe.asd.com/app", "");
+    assert_eq!(bloe_matches.len(), 1, "Subdomain should only match exact subdomain credential");
+    assert_eq!(bloe_matches[0].item_name.as_deref(), Some("Other Subdomain"));
+}
+
+/// [#29] - Port-aware matching: exact domain+port beats exact domain beats subdomain
+#[test]
+fn test_port_aware_matching_priority() {
+    // Scenario: Self-hosted user with multiple services on same domain but different ports
+    let credentials = vec![
+        create_test_credential("Service A (Port 8080)", "https://myserver.local:8080", "admin@servicea.com"),
+        create_test_credential("Service B (Port 9000)", "https://myserver.local:9000", "admin@serviceb.com"),
+        create_test_credential("Service C (No Port)", "https://myserver.local", "admin@servicec.com"),
+    ];
+
+    // When visiting myserver.local:8080, ONLY the port 8080 credential should match
+    let port_8080_matches = filter(credentials.clone(), "https://myserver.local:8080/dashboard", "");
+    assert_eq!(port_8080_matches.len(), 1, "Should only return exact domain+port match");
+    assert_eq!(port_8080_matches[0].item_name.as_deref(), Some("Service A (Port 8080)"));
+
+    // When visiting myserver.local:9000, ONLY the port 9000 credential should match
+    let port_9000_matches = filter(credentials.clone(), "https://myserver.local:9000/api", "");
+    assert_eq!(port_9000_matches.len(), 1, "Should only return exact domain+port match");
+    assert_eq!(port_9000_matches[0].item_name.as_deref(), Some("Service B (Port 9000)"));
+
+    // When visiting myserver.local (no port), ONLY the no-port credential should match
+    let no_port_matches = filter(credentials.clone(), "https://myserver.local/home", "");
+    assert_eq!(no_port_matches.len(), 1, "Should only return exact domain match (no port)");
+    assert_eq!(no_port_matches[0].item_name.as_deref(), Some("Service C (No Port)"));
+
+    // When visiting myserver.local:5000 (port not matching any credential),
+    // all credentials with exact domain match (priority 2) should be returned (up to 3)
+    // This is expected behavior - when no exact port match exists, we show all domain matches
+    let diff_port_matches = filter(credentials, "https://myserver.local:5000/new", "");
+    assert_eq!(diff_port_matches.len(), 3, "Should return all domain matches when no exact port match");
+}
+
+/// [#30] - Port numbers in URL should still allow exact matching with subdomain fallback
+#[test]
+fn test_port_url_exact_match_exclusivity() {
+    let credentials = vec![
+        create_test_credential("Exact Port Site", "https://blabla.asd.com:1234", "user@blabla.com"),
+        create_test_credential("Root Domain", "https://asd.com", "user@asd.com"),
+        create_test_credential("Other Subdomain", "https://bloe.asd.com", "user@bloe.com"),
+    ];
+
+    // When visiting blabla.asd.com:1234, only the exact domain+port match should be shown
+    let matches = filter(credentials.clone(), "https://blabla.asd.com:1234/page", "");
+    assert_eq!(matches.len(), 1, "Should only return the exact domain+port match");
+    assert_eq!(matches[0].item_name.as_deref(), Some("Exact Port Site"));
+
+    // When visiting blabla.asd.com (no port), should match via domain-only (priority 2)
+    // since we have a credential with same domain (but different port)
+    let no_port_matches = filter(credentials, "https://blabla.asd.com/page", "");
+    assert_eq!(no_port_matches.len(), 1, "Should match domain-only when port differs");
+    assert_eq!(no_port_matches[0].item_name.as_deref(), Some("Exact Port Site"));
+}
+
+/// [#31] - When no exact match exists, subdomain matching should still work
+#[test]
+fn test_subdomain_matching_without_exact() {
+    let credentials = vec![
+        create_test_credential("Root Domain Only", "https://example.com", "user@example.com"),
+    ];
+
+    // Visiting a subdomain should match the root domain credential (subdomain matching)
+    let subdomain_matches = filter(credentials.clone(), "https://app.example.com/login", "");
+    assert_eq!(subdomain_matches.len(), 1, "Subdomain should match root domain when no exact match exists");
+    assert_eq!(subdomain_matches[0].item_name.as_deref(), Some("Root Domain Only"));
+
+    // Visiting another subdomain should also match
+    let another_subdomain = filter(credentials, "https://api.example.com/v1", "");
+    assert_eq!(another_subdomain.len(), 1);
+    assert_eq!(another_subdomain[0].item_name.as_deref(), Some("Root Domain Only"));
+}
+
+/// [#32] - Multiple credentials with same domain but different ports
+#[test]
+fn test_multiple_same_domain_different_ports() {
+    let credentials = vec![
+        create_test_credential("Portainer", "https://server.home:9443", "admin@portainer"),
+        create_test_credential("Nextcloud", "https://server.home:8443", "admin@nextcloud"),
+        create_test_credential("Home Assistant", "https://server.home:8123", "admin@hass"),
+        create_test_credential("Main Site", "https://server.home", "admin@main"),
+    ];
+
+    // Each port should only match its specific credential
+    let portainer = filter(credentials.clone(), "https://server.home:9443", "");
+    assert_eq!(portainer.len(), 1);
+    assert_eq!(portainer[0].item_name.as_deref(), Some("Portainer"));
+
+    let nextcloud = filter(credentials.clone(), "https://server.home:8443", "");
+    assert_eq!(nextcloud.len(), 1);
+    assert_eq!(nextcloud[0].item_name.as_deref(), Some("Nextcloud"));
+
+    let hass = filter(credentials.clone(), "https://server.home:8123", "");
+    assert_eq!(hass.len(), 1);
+    assert_eq!(hass[0].item_name.as_deref(), Some("Home Assistant"));
+
+    let main = filter(credentials, "https://server.home", "");
+    assert_eq!(main.len(), 1);
+    assert_eq!(main[0].item_name.as_deref(), Some("Main Site"));
+}
+
+/// [#33] - User's exact scenario: URL with port should ONLY match exact URL, not items named after domain
+#[test]
+fn test_user_scenario_url_with_port_vs_named_items() {
+    // User has:
+    // 1. An item with exact URL https://blabla.asd.com:1234
+    // 2. Items named "asd.com" and "bloe.asd.com" (possibly with URLs to those domains)
+    let credentials = vec![
+        create_test_credential("blabla.asd.com service", "https://blabla.asd.com:1234", "user@blabla.com"),
+        create_test_credential("asd.com", "https://asd.com", "user@asd.com"),
+        create_test_credential("bloe.asd.com", "https://bloe.asd.com", "user@bloe.com"),
+    ];
+
+    // When visiting https://blabla.asd.com:1234, ONLY the exact match should be returned
+    let matches = filter(credentials.clone(), "https://blabla.asd.com:1234/some/path", "Some Page Title");
+
+    // This should return ONLY 1 credential - the exact domain+port match
+    assert_eq!(matches.len(), 1, "Should ONLY return the exact domain+port match, not subdomain matches");
+    assert_eq!(matches[0].item_name.as_deref(), Some("blabla.asd.com service"));
+
+    // Double-check: items with URLs should NOT be matched via title/name
+    // because we already have a URL match (which takes priority)
+}
+
+/// [#34] - Items WITHOUT URLs should NOT match when URL match exists
+#[test]
+fn test_items_without_urls_not_matched_when_url_match_exists() {
+    let credentials = vec![
+        create_test_credential("blabla service", "https://blabla.asd.com:1234", "user@blabla.com"),
+        // These items have NO URLs - they should NOT be matched via title when URL match exists
+        create_test_credential("asd", "", "user@asd.com"),
+        create_test_credential("blabla", "", "user@blabla.com"),
+    ];
+
+    // When visiting blabla.asd.com:1234, only the URL match should be returned
+    // The items named "asd" and "blabla" should NOT match even though page title might contain those words
+    let matches = filter(credentials.clone(), "https://blabla.asd.com:1234/login", "Welcome to blabla asd service");
+
+    assert_eq!(matches.len(), 1, "Should only return URL match, not title matches");
+    assert_eq!(matches[0].item_name.as_deref(), Some("blabla service"));
+}
