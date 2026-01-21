@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 
-import { useColors, useColorScheme } from '@/hooks/useColorScheme';
+import { useColors } from '@/hooks/useColorScheme';
 
 interface IModalWrapperProps {
   /** Whether the modal is visible. */
@@ -70,7 +70,6 @@ export const ModalWrapper: React.FC<IModalWrapperProps> = ({
   showFooterBorder = true,
 }) => {
   const colors = useColors();
-  const colorScheme = useColorScheme();
 
   /**
    * Handle close - only allow if not submitting.
@@ -85,16 +84,23 @@ export const ModalWrapper: React.FC<IModalWrapperProps> = ({
     backdrop: {
       alignItems: 'center',
       // Lighter backdrop in dark mode for better contrast against black background
-      backgroundColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.5)',
+      backgroundColor: 'rgba(0, 0, 0, 0.65)',
       flex: 1,
       justifyContent: 'center',
     },
     container: {
       backgroundColor: colors.background,
+      borderColor: colors.accentBorder,
       borderRadius: 12,
+      borderWidth: 1,
+      elevation: 10,
       marginHorizontal: 16,
       maxWidth,
       overflow: 'hidden',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
       width: width as never,
     },
     header: {
