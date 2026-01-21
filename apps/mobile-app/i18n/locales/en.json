@@ -680,7 +680,6 @@
   },
   "sync": {
     "offline": "Offline",
-    "offlineWithPending": "Offline (pending)",
     "syncing": "Syncing...",
     "pending": "Pending sync",
     "retrySync": "Tap to retry",
@@ -702,7 +701,6 @@
     },
     "alerts": {
       "syncIssue": "No Connection",
-      "syncIssueMessage": "The AliasVault server could not be reached and your vault could not be synced. Would you like to open your local vault or retry the connection?",
       "openLocalVault": "Open Local Vault",
       "retrySync": "Retry Sync"
     },

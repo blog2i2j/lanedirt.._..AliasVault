@@ -105,8 +105,7 @@
       "vaultIsLocked": "Vault is locked",
       "passwordChanged": "Your password has changed since the last time you logged in. Please login again for security reasons.",
       "syncConflictMaxRetries": "Could not sync vault after multiple attempts. Please try again later.",
-      "mergeFailed": "Failed to merge vault changes. Please try again.",
-      "legacyMergeRequired": "Vault merge required. Please login via the web app to merge the pending updates to your vault."
+      "mergeFailed": "Failed to merge vault changes. Please try again."
     },
     "apiErrors": {
       "UNKNOWN_ERROR": "An unknown error occurred. Please try again.",
