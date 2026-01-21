@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as OTPAuth from 'otpauth';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, StyleSheet, Alert, TextInput, Modal, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, Alert, TextInput, Modal, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 
 import type { TotpCode } from '@/utils/dist/core/models/vault';
 
@@ -391,7 +391,11 @@ export const TotpEditor: React.FC<TotpEditorProps> = ({
         animationType="fade"
         onRequestClose={hideAddForm}
       >
-        <View style={styles.modalContainer}>
+        <KeyboardAvoidingView
+          style={styles.modalContainer}
+          behavior="padding"
+          keyboardVerticalOffset={Platform.OS === 'android' ? 20 : 0}
+        >
           <TouchableOpacity
             style={styles.modalBackdrop}
             activeOpacity={1}
@@ -469,7 +473,7 @@ export const TotpEditor: React.FC<TotpEditorProps> = ({
                 </View>
               </ScrollView>
             </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
