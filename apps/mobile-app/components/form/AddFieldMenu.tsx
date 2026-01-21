@@ -1,7 +1,15 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, StyleSheet, Modal, TextInput, ScrollView } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Modal,
+  TextInput,
+  ScrollView,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+} from 'react-native';
 
 import type { FieldType, SystemFieldDefinition } from '@/utils/dist/core/models/vault';
 import { FieldCategories } from '@/utils/dist/core/models/vault';
@@ -363,46 +371,49 @@ export const AddFieldMenu: React.FC<AddFieldMenuProps> = ({
         animationType="slide"
         onRequestClose={() => setIsOpen(false)}
       >
-        <RobustPressable
-          style={styles.modalOverlay}
-          onPress={() => setIsOpen(false)}
-        >
-          <View style={styles.menuContainer}>
-            {menuOptions.map((option, index) => (
-              <RobustPressable
-                key={option.key}
-                style={[
-                  styles.menuOption,
-                  index === menuOptions.length - 1 && menuOptions.length > 0 && { borderBottomWidth: 1 },
-                ]}
-                onPress={option.action}
-              >
-                <MaterialIcons
-                  name={option.icon}
-                  size={24}
-                  color={colors.textMuted}
-                  style={styles.menuOptionIcon}
-                />
-                <ThemedText style={styles.menuOptionText}>{option.label}</ThemedText>
-              </RobustPressable>
-            ))}
-            {/* Custom field option - always available */}
-            <RobustPressable
-              style={[styles.menuOption, { borderBottomWidth: 0 }]}
-              onPress={handleOpenCustomFieldModal}
-            >
-              <MaterialIcons
-                name="add-circle-outline"
-                size={24}
-                color={colors.textMuted}
-                style={styles.menuOptionIcon}
-              />
-              <ThemedText style={styles.menuOptionText}>
-                {t('itemTypes.addCustomField')}
-              </ThemedText>
-            </RobustPressable>
+        <TouchableWithoutFeedback onPress={() => setIsOpen(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.menuContainer}>
+                {menuOptions.map((option, index) => (
+                  <TouchableOpacity
+                    key={option.key}
+                    style={[
+                      styles.menuOption,
+                      index === menuOptions.length - 1 && menuOptions.length > 0 && { borderBottomWidth: 1 },
+                    ]}
+                    onPress={option.action}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialIcons
+                      name={option.icon}
+                      size={24}
+                      color={colors.textMuted}
+                      style={styles.menuOptionIcon}
+                    />
+                    <ThemedText style={styles.menuOptionText}>{option.label}</ThemedText>
+                  </TouchableOpacity>
+                ))}
+                {/* Custom field option - always available */}
+                <TouchableOpacity
+                  style={[styles.menuOption, { borderBottomWidth: 0 }]}
+                  onPress={handleOpenCustomFieldModal}
+                  activeOpacity={0.7}
+                >
+                  <MaterialIcons
+                    name="add-circle-outline"
+                    size={24}
+                    color={colors.textMuted}
+                    style={styles.menuOptionIcon}
+                  />
+                  <ThemedText style={styles.menuOptionText}>
+                    {t('itemTypes.addCustomField')}
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
           </View>
-        </RobustPressable>
+        </TouchableWithoutFeedback>
       </Modal>
 
       {/* Custom Field Modal */}
@@ -412,79 +423,86 @@ export const AddFieldMenu: React.FC<AddFieldMenuProps> = ({
         animationType="fade"
         onRequestClose={handleCloseCustomFieldModal}
       >
-        <View style={styles.customFieldModalOverlay}>
-          <View style={styles.customFieldModalContent}>
-            <ThemedText style={styles.customFieldModalTitle}>
-              {t('itemTypes.addCustomField')}
-            </ThemedText>
+        <TouchableWithoutFeedback onPress={handleCloseCustomFieldModal}>
+          <View style={styles.customFieldModalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.customFieldModalContent}>
+                <ThemedText style={styles.customFieldModalTitle}>
+                  {t('itemTypes.addCustomField')}
+                </ThemedText>
 
-            <ThemedText style={styles.customFieldModalLabel}>
-              {t('itemTypes.fieldLabel')}
-            </ThemedText>
-            <TextInput
-              style={styles.customFieldModalInput}
-              value={customFieldLabel}
-              onChangeText={setCustomFieldLabel}
-              placeholder={t('itemTypes.enterFieldName')}
-              placeholderTextColor={colors.textMuted}
-              autoFocus
-            />
+                <ThemedText style={styles.customFieldModalLabel}>
+                  {t('itemTypes.fieldLabel')}
+                </ThemedText>
+                <TextInput
+                  style={styles.customFieldModalInput}
+                  value={customFieldLabel}
+                  onChangeText={setCustomFieldLabel}
+                  placeholder={t('itemTypes.enterFieldName')}
+                  placeholderTextColor={colors.textMuted}
+                  autoFocus
+                />
 
-            <ThemedText style={styles.customFieldModalLabel}>
-              {t('itemTypes.fieldType')}
-            </ThemedText>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.fieldTypeScrollView}
-              contentContainerStyle={styles.fieldTypeContainer}
-            >
-              {FIELD_TYPE_OPTIONS.map(option => (
-                <RobustPressable
-                  key={option.value}
-                  style={[
-                    styles.fieldTypeChip,
-                    customFieldType === option.value && styles.fieldTypeChipSelected,
-                  ]}
-                  onPress={() => setCustomFieldType(option.value as FieldType)}
+                <ThemedText style={styles.customFieldModalLabel}>
+                  {t('itemTypes.fieldType')}
+                </ThemedText>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.fieldTypeScrollView}
+                  contentContainerStyle={styles.fieldTypeContainer}
                 >
-                  <ThemedText
-                    style={[
-                      styles.fieldTypeChipText,
-                      customFieldType === option.value && styles.fieldTypeChipTextSelected,
-                    ]}
-                  >
-                    {t(option.labelKey)}
-                  </ThemedText>
-                </RobustPressable>
-              ))}
-            </ScrollView>
+                  {FIELD_TYPE_OPTIONS.map(option => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.fieldTypeChip,
+                        customFieldType === option.value && styles.fieldTypeChipSelected,
+                      ]}
+                      onPress={() => setCustomFieldType(option.value as FieldType)}
+                      activeOpacity={0.7}
+                    >
+                      <ThemedText
+                        style={[
+                          styles.fieldTypeChipText,
+                          customFieldType === option.value && styles.fieldTypeChipTextSelected,
+                        ]}
+                      >
+                        {t(option.labelKey)}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
 
-            <View style={styles.customFieldModalButtons}>
-              <RobustPressable
-                style={[styles.customFieldModalButton, styles.customFieldModalButtonSecondary]}
-                onPress={handleCloseCustomFieldModal}
-              >
-                <ThemedText style={[styles.customFieldModalButtonText, styles.customFieldModalButtonTextSecondary]}>
-                  {t('common.cancel')}
-                </ThemedText>
-              </RobustPressable>
-              <RobustPressable
-                style={[
-                  styles.customFieldModalButton,
-                  styles.customFieldModalButtonPrimary,
-                  !customFieldLabel.trim() && { opacity: 0.5 },
-                ]}
-                onPress={handleAddCustomField}
-                disabled={!customFieldLabel.trim()}
-              >
-                <ThemedText style={[styles.customFieldModalButtonText, styles.customFieldModalButtonTextPrimary]}>
-                  {t('common.add')}
-                </ThemedText>
-              </RobustPressable>
-            </View>
+                <View style={styles.customFieldModalButtons}>
+                  <TouchableOpacity
+                    style={[styles.customFieldModalButton, styles.customFieldModalButtonSecondary]}
+                    onPress={handleCloseCustomFieldModal}
+                    activeOpacity={0.7}
+                  >
+                    <ThemedText style={[styles.customFieldModalButtonText, styles.customFieldModalButtonTextSecondary]}>
+                      {t('common.cancel')}
+                    </ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.customFieldModalButton,
+                      styles.customFieldModalButtonPrimary,
+                      !customFieldLabel.trim() && { opacity: 0.5 },
+                    ]}
+                    onPress={handleAddCustomField}
+                    disabled={!customFieldLabel.trim()}
+                    activeOpacity={0.7}
+                  >
+                    <ThemedText style={[styles.customFieldModalButtonText, styles.customFieldModalButtonTextPrimary]}>
+                      {t('common.add')}
+                    </ThemedText>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </>
   );
