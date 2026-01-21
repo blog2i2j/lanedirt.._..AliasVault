@@ -391,7 +391,8 @@
     }
 
     /// <summary>
-    /// Extracts favicons for credentials.
+    /// Extracts favicons for credentials. Uses domain-based deduplication to avoid
+    /// fetching the same favicon multiple times for the same domain.
     /// </summary>
     private async Task ExtractFaviconsForCredentials()
     {
@@ -402,6 +403,10 @@
         StateHasChanged();
 
         var credentialsWithUrls = ImportedCredentials.Where(c => !string.IsNullOrEmpty(c.ServiceUrl)).ToList();
+
+        // Group credentials by normalized domain to avoid duplicate fetches
+        var processedDomains = new HashSet<string>();
+
         TotalFaviconsToExtract = credentialsWithUrls.Count;
 
         foreach (var credential in credentialsWithUrls)
@@ -411,24 +416,52 @@
                 break;
             }
 
-            await ExtractFaviconForCredential(credential);
+            // Extract normalized domain for deduplication
+            try
+            {
+                var domain = new Uri(credential.ServiceUrl!).Host.ToLowerInvariant();
+                if (domain.StartsWith("www."))
+                {
+                    domain = domain[4..];
+                }
+
+                // Skip if we've already fetched a favicon for this domain
+                if (!processedDomains.Contains(domain))
+                {
+                    processedDomains.Add(domain);
+                    await ExtractFaviconForCredential(credential);
+                }
+            }
+            catch
+            {
+                // Invalid URL - skip
+            }
+
             FaviconExtractionProgress++;
             StateHasChanged();
         }
     }
 
     /// <summary>
-    /// Extracts a favicon for a credential.
+    /// Extracts a favicon for a credential. Stores by normalized domain for deduplication.
     /// </summary>
     /// <param name="credential">The credential to extract the favicon for.</param>
     private async Task ExtractFaviconForCredential(ImportedCredential credential)
     {
         try
         {
-            var apiReturn = await HttpClient.GetFromJsonAsync<FaviconExtractModel>($"v1/Favicon/Extract?url={credential.ServiceUrl!}");
+            // Extract normalized domain for storage key
+            var domain = new Uri(credential.ServiceUrl!).Host.ToLowerInvariant();
+            if (domain.StartsWith("www."))
+            {
+                domain = domain[4..];
+            }
+
+            var apiReturn = await HttpClient.GetFromJsonAsync<FaviconExtractModel>($"v1/Favicon/Extract?url={Uri.EscapeDataString(credential.ServiceUrl!)}");
             if (apiReturn?.Image is not null)
             {
-                ExtractedFavicons[credential.ServiceUrl!] = apiReturn.Image;
+                // Store by normalized domain for deduplication
+                ExtractedFavicons[domain] = apiReturn.Image;
             }
         }
         catch
@@ -468,22 +501,47 @@
     private async Task ProcessSingleItem(Item item)
     {
         var url = ItemService.GetFieldValue(item, FieldKey.LoginUrl);
-        if (!string.IsNullOrEmpty(url) && ExtractedFavicons.TryGetValue(url, out var favicon))
+        if (!string.IsNullOrEmpty(url))
         {
-            // Store favicon in Logo entity
-            var logo = new Logo
+            try
             {
-                Id = Guid.NewGuid(),
-                Source = new Uri(url).Host,
-                FileData = favicon,
-                MimeType = "image/png",
-                FetchedAt = DateTime.UtcNow,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-            var context = await DbService.GetDbContextAsync();
-            context.Logos.Add(logo);
-            item.LogoId = logo.Id;
+                // Extract and normalize domain for deduplication
+                var domain = new Uri(url).Host.ToLowerInvariant();
+                if (domain.StartsWith("www."))
+                {
+                    domain = domain[4..];
+                }
+
+                var context = await DbService.GetDbContextAsync();
+
+                // Check if logo already exists for this source (deduplication)
+                var existingLogo = await context.Logos.FirstOrDefaultAsync(l => l.Source == domain);
+                if (existingLogo != null)
+                {
+                    // Reuse existing logo
+                    item.LogoId = existingLogo.Id;
+                }
+                else if (ExtractedFavicons.TryGetValue(domain, out var favicon))
+                {
+                    // Create new logo from extracted favicon
+                    var logo = new Logo
+                    {
+                        Id = Guid.NewGuid(),
+                        Source = domain,
+                        FileData = favicon,
+                        MimeType = "image/png",
+                        FetchedAt = DateTime.UtcNow,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    context.Logos.Add(logo);
+                    item.LogoId = logo.Id;
+                }
+            }
+            catch
+            {
+                // Invalid URL - skip logo assignment
+            }
         }
         await ItemService.InsertEntryAsync(item, false, false);
     }

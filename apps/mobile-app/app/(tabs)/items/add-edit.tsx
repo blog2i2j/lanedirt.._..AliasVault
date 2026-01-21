@@ -784,24 +784,32 @@ export default function AddEditItemScreen(): React.ReactNode {
     const urlString = Array.isArray(urlValue) ? urlValue[0] : urlValue;
     const shouldFetchFavicon = urlString && urlString !== 'https://' && urlString !== 'http://';
 
-    if (shouldFetchFavicon) {
-      // Only show loading indicator when fetching favicon
-      setIsSaving(true);
-      setSaveStatus(t('vault.savingChangesToVault'));
+    if (shouldFetchFavicon && dbContext.sqliteClient) {
+      // Extract source domain for deduplication check
+      const source = dbContext.sqliteClient.logos.extractSourceFromUrl(urlString);
 
-      try {
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Favicon extraction timed out')), 5000)
-        );
+      // Only fetch favicon if no logo exists for this source (deduplication)
+      const hasExistingLogo = source !== 'unknown' && await dbContext.sqliteClient.logos.hasLogoForSource(source);
 
-        const faviconPromise = webApi.get<FaviconExtractModel>('Favicon/Extract?url=' + urlString);
-        const faviconResponse = await Promise.race([faviconPromise, timeoutPromise]) as FaviconExtractModel;
-        if (faviconResponse?.image) {
-          const decodedImage = Uint8Array.from(Buffer.from(faviconResponse.image as string, 'base64'));
-          itemToSave.Logo = decodedImage;
+      if (!hasExistingLogo) {
+        // Only show loading indicator when fetching favicon
+        setIsSaving(true);
+        setSaveStatus(t('vault.savingChangesToVault'));
+
+        try {
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Favicon extraction timed out')), 5000)
+          );
+
+          const faviconPromise = webApi.get<FaviconExtractModel>('Favicon/Extract?url=' + encodeURIComponent(urlString));
+          const faviconResponse = await Promise.race([faviconPromise, timeoutPromise]) as FaviconExtractModel;
+          if (faviconResponse?.image) {
+            const decodedImage = Uint8Array.from(Buffer.from(faviconResponse.image as string, 'base64'));
+            itemToSave.Logo = decodedImage;
+          }
+        } catch {
+          // Favicon extraction failed or timed out - not critical, continue with save
         }
-      } catch {
-        // Favicon extraction failed or timed out - not critical, continue with save
       }
     }
 

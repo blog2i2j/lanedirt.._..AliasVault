@@ -1163,6 +1163,7 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
 
     /// <summary>
     /// Extract favicon from service URL if available. If successful, links the item to the logo.
+    /// Checks for existing logo first to avoid unnecessary API calls (deduplication).
     /// </summary>
     /// <param name="item">The Item to extract the favicon for.</param>
     /// <returns>Task.</returns>
@@ -1172,40 +1173,44 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
         var url = GetFieldValue(item, FieldKey.LoginUrl);
         if (url != null && !string.IsNullOrEmpty(url) && url != DefaultServiceUrl)
         {
-            // Request favicon from service URL via WebApi
             try
             {
-                var apiReturn = await httpClient.GetFromJsonAsync<FaviconExtractModel>($"v1/Favicon/Extract?url={url}");
+                // Extract and normalize domain for deduplication
+                var domain = new Uri(url).Host.ToLowerInvariant();
+                if (domain.StartsWith("www."))
+                {
+                    domain = domain[4..];
+                }
+
+                var context = await dbService.GetDbContextAsync();
+
+                // Check if logo already exists for this source (deduplication)
+                var existingLogo = await context.Logos.FirstOrDefaultAsync(l => l.Source == domain);
+
+                if (existingLogo != null)
+                {
+                    // Reuse existing logo - no need to fetch
+                    item.LogoId = existingLogo.Id;
+                    return;
+                }
+
+                // No existing logo - fetch from API
+                var apiReturn = await httpClient.GetFromJsonAsync<FaviconExtractModel>($"v1/Favicon/Extract?url={Uri.EscapeDataString(url)}");
                 if (apiReturn?.Image is not null)
                 {
-                    // For now, we store the favicon directly on the item's logo
-                    // In the future, we should use the Logo deduplication table
-                    var context = await dbService.GetDbContextAsync();
-
-                    // Try to find existing logo by source
-                    var domain = new Uri(url).Host;
-                    var existingLogo = await context.Logos.FirstOrDefaultAsync(l => l.Source == domain);
-
-                    if (existingLogo != null)
+                    // Create new logo
+                    var newLogo = new Logo
                     {
-                        item.LogoId = existingLogo.Id;
-                    }
-                    else
-                    {
-                        // Create new logo
-                        var newLogo = new Logo
-                        {
-                            Id = Guid.NewGuid(),
-                            Source = domain,
-                            FileData = apiReturn.Image,
-                            MimeType = "image/png",
-                            FetchedAt = DateTime.UtcNow,
-                            CreatedAt = DateTime.UtcNow,
-                            UpdatedAt = DateTime.UtcNow,
-                        };
-                        context.Logos.Add(newLogo);
-                        item.LogoId = newLogo.Id;
-                    }
+                        Id = Guid.NewGuid(),
+                        Source = domain,
+                        FileData = apiReturn.Image,
+                        MimeType = "image/png",
+                        FetchedAt = DateTime.UtcNow,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
+                    };
+                    context.Logos.Add(newLogo);
+                    item.LogoId = newLogo.Id;
                 }
             }
             catch
