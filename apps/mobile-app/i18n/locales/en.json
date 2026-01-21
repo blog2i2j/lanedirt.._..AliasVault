@@ -417,7 +417,7 @@
         "confirmSubtitle": "Re-authenticate to approve login on another device.",
         "confirmMessage": "You are about to log in on a remote device with your account. This other device will have full access to your vault. Only proceed if you trust this device.",
         "successDescription": "The remote device has been successfully logged in.",
-        "requestExpired": "This login request has expired. Please generate a new QR code.",
+        "requestExpired": "This login request has expired. Please generate a new QR code."
       }
     }
   },
