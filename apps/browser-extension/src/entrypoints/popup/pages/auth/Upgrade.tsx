@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 import Button from '@/entrypoints/popup/components/Button';
+import LogoutConfirmModal from '@/entrypoints/popup/components/Dialogs/LogoutConfirmModal';
 import Modal from '@/entrypoints/popup/components/Dialogs/Modal';
 import HeaderButton from '@/entrypoints/popup/components/HeaderButton';
 import { HeaderIconType } from '@/entrypoints/popup/components/Icons/HeaderIcons';
@@ -34,6 +35,7 @@ const Upgrade: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showSelfHostedWarning, setShowSelfHostedWarning] = useState(false);
   const [showVersionInfo, setShowVersionInfo] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { setIsInitialLoading } = useLoading();
   const webApi = useWebApi();
   const { executeVaultMutationAsync } = useVaultMutate();
@@ -190,9 +192,17 @@ const Upgrade: React.FC = () => {
   };
 
   /**
-   * Handle the logout.
+   * Handle logout click - opens the logout confirmation modal.
    */
-  const handleLogout = async (): Promise<void> => {
+  const handleLogoutClick = (): void => {
+    setShowLogoutConfirm(true);
+  };
+
+  /**
+   * Handle the logout (after confirmation).
+   */
+  const handleLogout = (): void => {
+    setShowLogoutConfirm(false);
     logout();
   };
 
@@ -306,7 +316,7 @@ const Upgrade: React.FC = () => {
           </Button>
           <button
             type="button"
-            onClick={handleLogout}
+            onClick={handleLogoutClick}
             className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium py-2"
             disabled={isLoading}
           >
@@ -314,6 +324,13 @@ const Upgrade: React.FC = () => {
           </button>
         </div>
       </form>
+
+      {/* Logout Confirmation Modal */}
+      <LogoutConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={handleLogout}
+      />
     </div>
   );
 };

@@ -5,6 +5,7 @@ import { sendMessage } from 'webext-bridge/popup';
 
 import AlertMessage from '@/entrypoints/popup/components/AlertMessage';
 import Button from '@/entrypoints/popup/components/Button';
+import LogoutConfirmModal from '@/entrypoints/popup/components/Dialogs/LogoutConfirmModal';
 import MobileUnlockModal from '@/entrypoints/popup/components/Dialogs/MobileUnlockModal';
 import HeaderButton from '@/entrypoints/popup/components/HeaderButton';
 import { HeaderIcon, HeaderIconType } from '@/entrypoints/popup/components/Icons/HeaderIcons';
@@ -74,6 +75,9 @@ const Unlock: React.FC = () => {
 
   // Mobile unlock state
   const [showMobileUnlockModal, setShowMobileUnlockModal] = useState(false);
+
+  // Logout confirmation state
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   /**
    * Make status call to API which acts as health check.
@@ -418,9 +422,17 @@ const Unlock: React.FC = () => {
   };
 
   /**
-   * Handle logout
+   * Handle logout click - opens the logout confirmation modal.
+   */
+  const handleLogoutClick = () : void => {
+    setShowLogoutConfirm(true);
+  };
+
+  /**
+   * Handle logout (after confirmation).
    */
   const handleLogout = () : void => {
+    setShowLogoutConfirm(false);
     app.logout();
   };
 
@@ -670,7 +682,7 @@ const Unlock: React.FC = () => {
           )}
 
           <div className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
-            {t('auth.switchAccounts')} <button type="button" onClick={handleLogout} className="text-primary-600 hover:text-primary-700 dark:text-primary-500 dark:hover:text-primary-400 hover:underline font-medium">{t('common.logout')}</button>
+            {t('auth.switchAccounts')} <button type="button" onClick={handleLogoutClick} className="text-primary-600 hover:text-primary-700 dark:text-primary-500 dark:hover:text-primary-400 hover:underline font-medium">{t('common.logout')}</button>
           </div>
         </form>
       </div>
@@ -688,6 +700,13 @@ const Unlock: React.FC = () => {
         onSuccess={handleMobileUnlockSuccess}
         webApi={webApi}
         mode="unlock"
+      />
+
+      {/* Logout Confirmation Modal */}
+      <LogoutConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={handleLogout}
       />
     </div>
   );

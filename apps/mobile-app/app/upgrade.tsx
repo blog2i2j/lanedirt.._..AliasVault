@@ -8,6 +8,7 @@ import type { VaultVersion } from '@/utils/dist/core/vault';
 import { VaultSqlGenerator } from '@/utils/dist/core/vault';
 
 import { useColors } from '@/hooks/useColorScheme';
+import { useLogout } from '@/hooks/useLogout';
 import { useVaultMutate } from '@/hooks/useVaultMutate';
 import { useVaultSync } from '@/hooks/useVaultSync';
 
@@ -26,7 +27,8 @@ import NativeVaultManager from '@/specs/NativeVaultManager';
  * Upgrade screen.
  */
 export default function UpgradeScreen() : React.ReactNode {
-  const { username, logout } = useApp();
+  const { username } = useApp();
+  const { logoutUserInitiated } = useLogout();
   const webApi = useWebApi();
   const dbContext = useDb();
   const { sqliteClient } = dbContext;
@@ -252,15 +254,11 @@ export default function UpgradeScreen() : React.ReactNode {
   };
 
   /**
-   * Handle the logout.
+   * Handle the logout - uses the shared useLogout hook which
+   * checks for unsynced changes and shows appropriate confirmation dialog.
    */
   const handleLogout = async () : Promise<void> => {
-    /*
-     * Clear any stored tokens or session data
-     * This will be handled by the auth context
-     */
-    await logout();
-    router.replace('/login');
+    await logoutUserInitiated();
   };
 
   /**
