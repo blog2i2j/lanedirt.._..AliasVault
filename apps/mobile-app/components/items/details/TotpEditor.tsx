@@ -21,6 +21,10 @@ type TotpEditorProps = {
   totpCodes: TotpCode[];
   onTotpCodesChange: (totpCodes: TotpCode[]) => void;
   originalTotpCodeIds: string[];
+  /** Called when the add button in the header is pressed */
+  onAddPress?: () => void;
+  /** Ref callback to expose the showAddForm function to parent */
+  showAddFormRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 /**
@@ -29,7 +33,8 @@ type TotpEditorProps = {
 export const TotpEditor: React.FC<TotpEditorProps> = ({
   totpCodes,
   onTotpCodesChange,
-  originalTotpCodeIds
+  originalTotpCodeIds,
+  showAddFormRef
 }) => {
   const { t } = useTranslation();
   const colors = useColors();
@@ -37,6 +42,27 @@ export const TotpEditor: React.FC<TotpEditorProps> = ({
   const [isAddFormVisible, setIsAddFormVisible] = useState(false);
   const [formData, setFormData] = useState<TotpFormData>({ name: '', secretKey: '' });
   const [formError, setFormError] = useState<string | null>(null);
+
+  /**
+   * Shows the add form
+   */
+  const showAddForm = (): void => {
+    setFormData({ name: '', secretKey: '' });
+    setFormError(null);
+    setIsAddFormVisible(true);
+  };
+
+  // Expose showAddForm to parent via ref
+  React.useEffect(() => {
+    if (showAddFormRef) {
+      showAddFormRef.current = showAddForm;
+    }
+    return () => {
+      if (showAddFormRef) {
+        showAddFormRef.current = null;
+      }
+    };
+  }, [showAddFormRef]);
 
   /**
    * Sanitizes the secret key by extracting it from a TOTP URI if needed
@@ -70,15 +96,6 @@ export const TotpEditor: React.FC<TotpEditorProps> = ({
     }
 
     return { secretKey, name: name || 'Authenticator' };
-  };
-
-  /**
-   * Shows the add form
-   */
-  const showAddForm = (): void => {
-    setFormData({ name: '', secretKey: '' });
-    setFormError(null);
-    setIsAddFormVisible(true);
   };
 
   /**
@@ -325,20 +342,19 @@ export const TotpEditor: React.FC<TotpEditorProps> = ({
 
   return (
     <View>
-      <View style={styles.header}>
-        {hasActiveTotpCodes && (
-          <TouchableOpacity
-            style={styles.addButtonCompact}
-            onPress={showAddForm}
-          >
-          <Ionicons name="add" size={24} color={colors.background} />
-        </TouchableOpacity>
-        )}
-      </View>
-
-      {!hasActiveTotpCodes && (
+      {/* Show inline add button only if parent is not handling it via showAddFormRef */}
+      {!showAddFormRef && !hasActiveTotpCodes && (
         <TouchableOpacity
           style={styles.addButton}
+          onPress={showAddForm}
+        >
+          <Ionicons name="add" size={24} color={colors.background} />
+        </TouchableOpacity>
+      )}
+
+      {!showAddFormRef && hasActiveTotpCodes && (
+        <TouchableOpacity
+          style={styles.addButtonCompact}
           onPress={showAddForm}
         >
           <Ionicons name="add" size={24} color={colors.background} />

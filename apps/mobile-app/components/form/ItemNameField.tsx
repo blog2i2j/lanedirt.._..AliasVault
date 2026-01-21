@@ -169,7 +169,7 @@ export const ItemNameField = forwardRef<ItemNameFieldRef, IItemNameFieldProps>((
   return (
     <View style={styles.wrapper}>
       <Text style={styles.label}>
-        {t('items.serviceName')} <Text style={styles.requiredAsterisk}>*</Text>
+        {t('items.itemName')} <Text style={styles.requiredAsterisk}>*</Text>
       </Text>
       <View style={styles.container}>
         <TextInput
@@ -177,7 +177,7 @@ export const ItemNameField = forwardRef<ItemNameFieldRef, IItemNameFieldProps>((
           style={styles.input}
           value={value}
           onChangeText={onChangeText}
-          placeholder={t('items.serviceName')}
+          placeholder={t('items.itemName')}
           placeholderTextColor={colors.textMuted}
           testID="item-name-input"
         />

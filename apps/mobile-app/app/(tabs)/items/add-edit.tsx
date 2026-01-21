@@ -28,6 +28,7 @@ import { FormField } from '@/components/form/FormField';
 import { FormSection } from '@/components/form/FormSection';
 import { HiddenField } from '@/components/form/HiddenField';
 import { ItemNameField, ItemNameFieldRef } from '@/components/form/ItemNameField';
+import { MultiValueField } from '@/components/form/MultiValueField';
 import { AttachmentUploader } from '@/components/items/details/AttachmentUploader';
 import { TotpEditor } from '@/components/items/details/TotpEditor';
 import { ItemTypeSelector } from '@/components/items/ItemTypeSelector';
@@ -83,6 +84,7 @@ export default function AddEditItemScreen(): React.ReactNode {
   const [originalAttachmentIds, setOriginalAttachmentIds] = useState<string[]>([]);
   const [totpCodes, setTotpCodes] = useState<TotpCode[]>([]);
   const [originalTotpCodeIds, setOriginalTotpCodeIds] = useState<string[]>([]);
+  const totpShowAddFormRef = useRef<(() => void) | null>(null);
   const [passkeyIds, setPasskeyIds] = useState<string[]>([]);
   const [passkeyIdsMarkedForDeletion, setPasskeyIdsMarkedForDeletion] = useState<string[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -991,12 +993,26 @@ export default function AddEditItemScreen(): React.ReactNode {
     label: string,
     fieldType: FieldType,
     isHidden: boolean,
-    _isMultiValue: boolean,
+    isMultiValue: boolean,
     onRemove?: () => void
   ): React.ReactNode => {
     const value = fieldValues[fieldKey] || '';
-    const stringValue = Array.isArray(value) ? value[0] || '' : value;
     const testID = getFieldTestId(fieldKey);
+
+    // Handle multi-value fields (like URL)
+    if (isMultiValue) {
+      const values = Array.isArray(value) && value.length > 0 ? value : (value ? [value as string] : ['']);
+      return (
+        <MultiValueField
+          label={label}
+          values={values}
+          onValuesChange={(newValues) => handleFieldChange(fieldKey, newValues)}
+          testID={testID}
+        />
+      );
+    }
+
+    const stringValue = Array.isArray(value) ? value[0] || '' : value;
 
     switch (fieldType) {
       case FieldTypes.Password:
@@ -1268,7 +1284,7 @@ export default function AddEditItemScreen(): React.ReactNode {
             />
 
             {/* Item Name and Primary Fields Section */}
-            <FormSection title={t('items.service')}>
+            <FormSection>
               <ItemNameField
                 ref={itemNameRef}
                 value={item.Name ?? ''}
@@ -1497,11 +1513,19 @@ export default function AddEditItemScreen(): React.ReactNode {
 
             {/* 2FA TOTP Section - only for types with login fields */}
             {show2FA && hasLoginFields && (
-              <FormSection title={t('common.twoFactorAuthentication')}>
+              <FormSection
+                title={t('common.twoFactorAuthentication')}
+                actions={
+                  <RobustPressable onPress={() => totpShowAddFormRef.current?.()} style={{ padding: 4 }}>
+                    <MaterialIcons name="add" size={20} color={colors.primary} />
+                  </RobustPressable>
+                }
+              >
                 <TotpEditor
                   totpCodes={totpCodes}
                   onTotpCodesChange={setTotpCodes}
                   originalTotpCodeIds={originalTotpCodeIds}
+                  showAddFormRef={totpShowAddFormRef}
                 />
               </FormSection>
             )}
