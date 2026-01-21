@@ -430,10 +430,16 @@ const Unlock: React.FC = () => {
 
   /**
    * Handle logout (after confirmation).
+   * Uses clearAuthUserInitiated to fully clear vault data since user explicitly chose to logout.
    */
-  const handleLogout = () : void => {
+  const handleLogout = async () : Promise<void> => {
     setShowLogoutConfirm(false);
-    app.logout();
+    try {
+      await webApi.revokeTokens();
+      await authContext.clearAuthUserInitiated();
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
   };
 
   /**

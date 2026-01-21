@@ -9,6 +9,7 @@ import HeaderButton from '@/entrypoints/popup/components/HeaderButton';
 import { HeaderIconType } from '@/entrypoints/popup/components/Icons/HeaderIcons';
 import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
 import { useApp } from '@/entrypoints/popup/context/AppContext';
+import { useAuth } from '@/entrypoints/popup/context/AuthContext';
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useHeaderButtons } from '@/entrypoints/popup/context/HeaderButtonsContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
@@ -25,7 +26,8 @@ import { VaultSqlGenerator } from '@/utils/dist/core/vault';
  */
 const Upgrade: React.FC = () => {
   const { t } = useTranslation();
-  const { username, logout } = useApp();
+  const { username } = useApp();
+  const auth = useAuth();
   const dbContext = useDb();
   const { sqliteClient } = dbContext;
   const { setHeaderButtons } = useHeaderButtons();
@@ -200,10 +202,16 @@ const Upgrade: React.FC = () => {
 
   /**
    * Handle the logout (after confirmation).
+   * Uses clearAuthUserInitiated to fully clear vault data since user explicitly chose to logout.
    */
-  const handleLogout = (): void => {
+  const handleLogout = async (): Promise<void> => {
     setShowLogoutConfirm(false);
-    logout();
+    try {
+      await webApi.revokeTokens();
+      await auth.clearAuthUserInitiated();
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
   };
 
   /**
