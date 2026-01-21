@@ -2,12 +2,10 @@ import { MaterialIcons } from '@expo/vector-icons';
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Modal,
   StyleSheet,
   Text,
   View,
   ActivityIndicator,
-  ScrollView,
   TouchableOpacity,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
@@ -15,10 +13,11 @@ import Toast from 'react-native-toast-message';
 import type { FieldHistory, FieldType } from '@/utils/dist/core/models/vault';
 import { FieldTypes } from '@/utils/dist/core/models/vault';
 
-import { useColors, useColorScheme } from '@/hooks/useColorScheme';
+import { useColors } from '@/hooks/useColorScheme';
 import { useDb } from '@/context/DbContext';
 import { copyToClipboardWithExpiration } from '@/utils/ClipboardUtility';
 import { useAuth } from '@/context/AuthContext';
+import { ModalWrapper } from '@/components/common/ModalWrapper';
 
 type FieldHistoryModalProps = {
   isOpen: boolean;
@@ -47,7 +46,6 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const colors = useColors();
-  const colorScheme = useColorScheme();
   const dbContext = useDb();
   const { getClipboardClearTimeout } = useAuth();
   const [history, setHistory] = useState<FieldHistory[]>([]);
@@ -109,34 +107,6 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
   };
 
   const styles = StyleSheet.create({
-    backdrop: {
-      alignItems: 'center',
-      // Lighter backdrop in dark mode for better contrast against black background
-      backgroundColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.5)',
-      flex: 1,
-      justifyContent: 'center',
-    },
-    container: {
-      backgroundColor: colors.background,
-      borderRadius: 12,
-      marginHorizontal: 16,
-      maxHeight: '80%',
-      width: '95%',
-    },
-    header: {
-      borderBottomColor: colors.accentBorder,
-      borderBottomWidth: 1,
-      padding: 20,
-    },
-    title: {
-      color: colors.text,
-      fontSize: 18,
-      fontWeight: '600',
-    },
-    body: {
-      maxHeight: 400,
-      padding: 20,
-    },
     loadingContainer: {
       alignItems: 'center',
       justifyContent: 'center',
@@ -188,11 +158,6 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
     iconButton: {
       padding: 4,
     },
-    footer: {
-      borderTopColor: colors.accentBorder,
-      borderTopWidth: 1,
-      padding: 16,
-    },
     closeButton: {
       alignItems: 'center',
       backgroundColor: colors.accentBackground,
@@ -208,127 +173,132 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
     },
   });
 
-  return (
-    <Modal
-      visible={isOpen}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <View style={styles.backdrop}>
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <Text style={styles.title}>{fieldLabel} {t('items.history')}</Text>
-          </View>
+  const renderContent = (): React.ReactNode => {
+    if (loading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      );
+    }
 
-          <ScrollView style={styles.body}>
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={colors.primary} />
-              </View>
-            ) : history.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>
-                  {t('items.noHistoryAvailable')}
+    if (history.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>
+            {t('items.noHistoryAvailable')}
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View>
+        {history.map((record) => {
+          const values = parseValueSnapshot(record.ValueSnapshot);
+
+          return (
+            <View key={record.Id} style={styles.historyItem}>
+              <View style={styles.historyHeader}>
+                <Text style={styles.historyDate}>
+                  {formatDate(record.ChangedAt)}
                 </Text>
               </View>
-            ) : (
-              <View>
-                {history.map((record) => {
-                  const values = parseValueSnapshot(record.ValueSnapshot);
 
-                  return (
-                    <View key={record.Id} style={styles.historyItem}>
-                      <View style={styles.historyHeader}>
-                        <Text style={styles.historyDate}>
-                          {formatDate(record.ChangedAt)}
-                        </Text>
-                      </View>
+              {values.map((value, idx) => {
+                const valueId = `${record.Id}-${idx}`;
+                const isVisible = visibleValues.has(valueId);
+                const displayValue = shouldMaskByDefault && !isVisible
+                  ? '•'.repeat(value.length)
+                  : value;
 
-                      {values.map((value, idx) => {
-                        const valueId = `${record.Id}-${idx}`;
-                        const isVisible = visibleValues.has(valueId);
-                        const displayValue = shouldMaskByDefault && !isVisible
-                          ? '•'.repeat(value.length)
-                          : value;
+                const handleCopy = async (): Promise<void> => {
+                  try {
+                    const timeoutSeconds = await getClipboardClearTimeout();
+                    await copyToClipboardWithExpiration(value, timeoutSeconds);
+                    Toast.show({
+                      type: 'success',
+                      text1: t('common.copied'),
+                      position: 'bottom',
+                      visibilityTime: 2000,
+                    });
+                  } catch (error) {
+                    console.error('Failed to copy:', error);
+                  }
+                };
 
-                        const handleCopy = async (): Promise<void> => {
-                          try {
-                            const timeoutSeconds = await getClipboardClearTimeout();
-                            await copyToClipboardWithExpiration(value, timeoutSeconds);
-                            Toast.show({
-                              type: 'success',
-                              text1: t('common.copied'),
-                              position: 'bottom',
-                              visibilityTime: 2000,
-                            });
-                          } catch (error) {
-                            console.error('Failed to copy:', error);
-                          }
-                        };
+                const toggleVisibility = (): void => {
+                  setVisibleValues(prev => {
+                    const newSet = new Set(prev);
+                    if (newSet.has(valueId)) {
+                      newSet.delete(valueId);
+                    } else {
+                      newSet.add(valueId);
+                    }
+                    return newSet;
+                  });
+                };
 
-                        const toggleVisibility = (): void => {
-                          setVisibleValues(prev => {
-                            const newSet = new Set(prev);
-                            if (newSet.has(valueId)) {
-                              newSet.delete(valueId);
-                            } else {
-                              newSet.add(valueId);
-                            }
-                            return newSet;
-                          });
-                        };
-
-                        return (
-                          <View key={idx} style={styles.historyValue}>
-                            <Text style={styles.valueText} numberOfLines={1} ellipsizeMode="tail">
-                              {displayValue}
-                            </Text>
-                            <View style={styles.actions}>
-                              {shouldMaskByDefault && (
-                                <TouchableOpacity
-                                  onPress={toggleVisibility}
-                                  style={styles.iconButton}
-                                >
-                                  <MaterialIcons
-                                    name={isVisible ? 'visibility-off' : 'visibility'}
-                                    size={20}
-                                    color={colors.primary}
-                                  />
-                                </TouchableOpacity>
-                              )}
-                              <TouchableOpacity
-                                onPress={handleCopy}
-                                style={styles.iconButton}
-                              >
-                                <MaterialIcons
-                                  name="content-copy"
-                                  size={18}
-                                  color={colors.textMuted}
-                                />
-                              </TouchableOpacity>
-                            </View>
-                          </View>
-                        );
-                      })}
+                return (
+                  <View key={idx} style={styles.historyValue}>
+                    <Text style={styles.valueText} numberOfLines={1} ellipsizeMode="tail">
+                      {displayValue}
+                    </Text>
+                    <View style={styles.actions}>
+                      {shouldMaskByDefault && (
+                        <TouchableOpacity
+                          onPress={toggleVisibility}
+                          style={styles.iconButton}
+                        >
+                          <MaterialIcons
+                            name={isVisible ? 'visibility-off' : 'visibility'}
+                            size={20}
+                            color={colors.primary}
+                          />
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity
+                        onPress={handleCopy}
+                        style={styles.iconButton}
+                      >
+                        <MaterialIcons
+                          name="content-copy"
+                          size={18}
+                          color={colors.textMuted}
+                        />
+                      </TouchableOpacity>
                     </View>
-                  );
-                })}
-              </View>
-            )}
-          </ScrollView>
-
-          <View style={styles.footer}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={onClose}
-            >
-              <Text style={styles.closeButtonText}>{t('common.close')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+                  </View>
+                );
+              })}
+            </View>
+          );
+        })}
       </View>
-    </Modal>
+    );
+  };
+
+  const footer = (
+    <TouchableOpacity
+      style={styles.closeButton}
+      onPress={onClose}
+    >
+      <Text style={styles.closeButtonText}>{t('common.close')}</Text>
+    </TouchableOpacity>
+  );
+
+  return (
+    <ModalWrapper
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`${fieldLabel} ${t('items.history')}`}
+      scrollable
+      maxScrollHeight={400}
+      footer={footer}
+      width="95%"
+    >
+      {renderContent()}
+    </ModalWrapper>
   );
 };
 

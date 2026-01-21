@@ -2,7 +2,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import React, { forwardRef, useImperativeHandle, useMemo, useRef, useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, TextInput, TextInputProps, StyleSheet, TouchableOpacity, Platform, Modal, ScrollView, Switch } from 'react-native';
+import { View, TextInput, TextInputProps, StyleSheet, TouchableOpacity, Platform, ScrollView, Switch } from 'react-native';
 
 import type { PasswordSettings } from '@/utils/dist/core/models/vault';
 import { CreatePasswordGenerator } from '@/utils/dist/core/password-generator';
@@ -11,6 +11,7 @@ import { useColors } from '@/hooks/useColorScheme';
 
 import { ThemedText } from '@/components/themed/ThemedText';
 import { useDb } from '@/context/DbContext';
+import { ModalWrapper } from '@/components/common/ModalWrapper';
 
 export type AdvancedPasswordFieldRef = {
   focus: () => void;
@@ -243,25 +244,11 @@ const AdvancedPasswordFieldComponent = forwardRef<AdvancedPasswordFieldRef, Adva
     removeButton: {
       padding: 4,
     },
-    modalContent: {
-      backgroundColor: colors.accentBackground,
-      borderRadius: 12,
-      maxHeight: '80%',
-      maxWidth: 400,
-      padding: 20,
-      width: '90%',
-    },
     modalHeader: {
       alignItems: 'center',
       flexDirection: 'row',
       justifyContent: 'space-between',
       marginBottom: 20,
-    },
-    modalOverlay: {
-      alignItems: 'center',
-      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-      flex: 1,
-      justifyContent: 'center',
     },
     modalTitle: {
       color: colors.text,
@@ -360,6 +347,101 @@ const AdvancedPasswordFieldComponent = forwardRef<AdvancedPasswordFieldRef, Adva
 
   const showClearButton = Platform.OS === 'android' && value && value.length > 0;
 
+  const settingsModalContent = (
+    <>
+      <View style={styles.modalHeader}>
+        <ThemedText style={styles.modalTitle}>{t('items.changePasswordComplexity')}</ThemedText>
+        <TouchableOpacity
+          style={styles.closeButton}
+          onPress={() => setShowSettingsModal(false)}
+          activeOpacity={0.7}
+        >
+          <MaterialIcons name="close" size={24} color={colors.textMuted} />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={styles.previewContainer}>
+          <View style={styles.previewInputContainer}>
+            <TextInput
+              style={styles.previewInput}
+              value={previewPassword}
+              editable={false}
+            />
+            <TouchableOpacity
+              style={styles.refreshButton}
+              onPress={handleRefreshPreview}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons name="refresh" size={20} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.settingsSection}>
+          <View style={styles.settingItem}>
+            <ThemedText style={styles.settingLabel}>{t('items.includeLowercase')}</ThemedText>
+            <Switch
+              value={currentSettings?.UseLowercase ?? true}
+              onValueChange={(settingValue) => updateSetting('UseLowercase', settingValue)}
+              trackColor={{ false: colors.accentBorder, true: colors.primary }}
+              thumbColor={Platform.OS === 'android' ? colors.background : undefined}
+            />
+          </View>
+
+          <View style={styles.settingItem}>
+            <ThemedText style={styles.settingLabel}>{t('items.includeUppercase')}</ThemedText>
+            <Switch
+              value={currentSettings?.UseUppercase ?? true}
+              onValueChange={(settingValue) => updateSetting('UseUppercase', settingValue)}
+              trackColor={{ false: colors.accentBorder, true: colors.primary }}
+              thumbColor={Platform.OS === 'android' ? colors.background : undefined}
+            />
+          </View>
+
+          <View style={styles.settingItem}>
+            <ThemedText style={styles.settingLabel}>{t('items.includeNumbers')}</ThemedText>
+            <Switch
+              value={currentSettings?.UseNumbers ?? true}
+              onValueChange={(settingValue) => updateSetting('UseNumbers', settingValue)}
+              trackColor={{ false: colors.accentBorder, true: colors.primary }}
+              thumbColor={Platform.OS === 'android' ? colors.background : undefined}
+            />
+          </View>
+
+          <View style={styles.settingItem}>
+            <ThemedText style={styles.settingLabel}>{t('items.includeSpecialChars')}</ThemedText>
+            <Switch
+              value={currentSettings?.UseSpecialChars ?? true}
+              onValueChange={(settingValue) => updateSetting('UseSpecialChars', settingValue)}
+              trackColor={{ false: colors.accentBorder, true: colors.primary }}
+              thumbColor={Platform.OS === 'android' ? colors.background : undefined}
+            />
+          </View>
+
+          <View style={styles.settingItem}>
+            <ThemedText style={styles.settingLabel}>{t('items.avoidAmbiguousChars')}</ThemedText>
+            <Switch
+              value={currentSettings?.UseNonAmbiguousChars ?? false}
+              onValueChange={(settingValue) => updateSetting('UseNonAmbiguousChars', settingValue)}
+              trackColor={{ false: colors.accentBorder, true: colors.primary }}
+              thumbColor={Platform.OS === 'android' ? colors.background : undefined}
+            />
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={styles.useButton}
+          onPress={handleUsePassword}
+          activeOpacity={0.7}
+        >
+          <MaterialIcons name="keyboard-arrow-down" size={20} color={colors.text} />
+          <ThemedText style={styles.useButtonText}>{t('common.use')}</ThemedText>
+        </TouchableOpacity>
+      </ScrollView>
+    </>
+  );
+
   return (
     <View style={styles.inputGroup}>
       <View style={styles.labelContainer}>
@@ -455,107 +537,14 @@ const AdvancedPasswordFieldComponent = forwardRef<AdvancedPasswordFieldRef, Adva
         />
       </View>
 
-      <Modal
-        visible={showSettingsModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowSettingsModal(false)}
+      <ModalWrapper
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        showHeaderBorder={false}
+        showFooterBorder={false}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <ThemedText style={styles.modalTitle}>{t('items.changePasswordComplexity')}</ThemedText>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setShowSettingsModal(false)}
-                activeOpacity={0.7}
-              >
-                <MaterialIcons name="close" size={24} color={colors.textMuted} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.previewContainer}>
-                <View style={styles.previewInputContainer}>
-                  <TextInput
-                    style={styles.previewInput}
-                    value={previewPassword}
-                    editable={false}
-                  />
-                  <TouchableOpacity
-                    style={styles.refreshButton}
-                    onPress={handleRefreshPreview}
-                    activeOpacity={0.7}
-                  >
-                    <MaterialIcons name="refresh" size={20} color={colors.primary} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View style={styles.settingsSection}>
-                <View style={styles.settingItem}>
-                  <ThemedText style={styles.settingLabel}>{t('items.includeLowercase')}</ThemedText>
-                  <Switch
-                    value={currentSettings?.UseLowercase ?? true}
-                    onValueChange={(settingValue) => updateSetting('UseLowercase', settingValue)}
-                    trackColor={{ false: colors.accentBorder, true: colors.primary }}
-                    thumbColor={Platform.OS === 'android' ? colors.background : undefined}
-                  />
-                </View>
-
-                <View style={styles.settingItem}>
-                  <ThemedText style={styles.settingLabel}>{t('items.includeUppercase')}</ThemedText>
-                  <Switch
-                    value={currentSettings?.UseUppercase ?? true}
-                    onValueChange={(settingValue) => updateSetting('UseUppercase', settingValue)}
-                    trackColor={{ false: colors.accentBorder, true: colors.primary }}
-                    thumbColor={Platform.OS === 'android' ? colors.background : undefined}
-                  />
-                </View>
-
-                <View style={styles.settingItem}>
-                  <ThemedText style={styles.settingLabel}>{t('items.includeNumbers')}</ThemedText>
-                  <Switch
-                    value={currentSettings?.UseNumbers ?? true}
-                    onValueChange={(settingValue) => updateSetting('UseNumbers', settingValue)}
-                    trackColor={{ false: colors.accentBorder, true: colors.primary }}
-                    thumbColor={Platform.OS === 'android' ? colors.background : undefined}
-                  />
-                </View>
-
-                <View style={styles.settingItem}>
-                  <ThemedText style={styles.settingLabel}>{t('items.includeSpecialChars')}</ThemedText>
-                  <Switch
-                    value={currentSettings?.UseSpecialChars ?? true}
-                    onValueChange={(settingValue) => updateSetting('UseSpecialChars', settingValue)}
-                    trackColor={{ false: colors.accentBorder, true: colors.primary }}
-                    thumbColor={Platform.OS === 'android' ? colors.background : undefined}
-                  />
-                </View>
-
-                <View style={styles.settingItem}>
-                  <ThemedText style={styles.settingLabel}>{t('items.avoidAmbiguousChars')}</ThemedText>
-                  <Switch
-                    value={currentSettings?.UseNonAmbiguousChars ?? false}
-                    onValueChange={(settingValue) => updateSetting('UseNonAmbiguousChars', settingValue)}
-                    trackColor={{ false: colors.accentBorder, true: colors.primary }}
-                    thumbColor={Platform.OS === 'android' ? colors.background : undefined}
-                  />
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={styles.useButton}
-                onPress={handleUsePassword}
-                activeOpacity={0.7}
-              >
-                <MaterialIcons name="keyboard-arrow-down" size={20} color={colors.text} />
-                <ThemedText style={styles.useButtonText}>{t('common.use')}</ThemedText>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        {settingsModalContent}
+      </ModalWrapper>
     </View>
   );
 });

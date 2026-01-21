@@ -2,16 +2,15 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
   ScrollView,
 } from 'react-native';
 
-import { useColors, useColorScheme } from '@/hooks/useColorScheme';
+import { useColors } from '@/hooks/useColorScheme';
+import { ModalWrapper } from '@/components/common/ModalWrapper';
 
 type Folder = {
   Id: string;
@@ -37,7 +36,6 @@ export const FolderSelector: React.FC<IFolderSelectorProps> = ({
 }) => {
   const { t } = useTranslation();
   const colors = useColors();
-  const colorScheme = useColorScheme();
   const [showModal, setShowModal] = useState(false);
 
   const selectedFolder = folders.find(f => f.Id === selectedFolderId);
@@ -51,12 +49,6 @@ export const FolderSelector: React.FC<IFolderSelectorProps> = ({
   }, [onFolderChange]);
 
   const styles = StyleSheet.create({
-    backdrop: {
-      alignItems: 'center',
-      backgroundColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.5)',
-      flex: 1,
-      justifyContent: 'center',
-    },
     button: {
       alignItems: 'center',
       backgroundColor: selectedFolderId ? colors.tint + '20' : colors.accentBackground,
@@ -76,17 +68,8 @@ export const FolderSelector: React.FC<IFolderSelectorProps> = ({
     closeButton: {
       padding: 4,
       position: 'absolute',
-      right: 16,
-      top: 16,
-    },
-    container: {
-      backgroundColor: colors.background,
-      borderRadius: 12,
-      marginHorizontal: 20,
-      maxHeight: '70%',
-      maxWidth: 400,
-      padding: 20,
-      width: '90%',
+      right: 0,
+      top: 0,
     },
     folderOption: {
       alignItems: 'center',
@@ -114,19 +97,96 @@ export const FolderSelector: React.FC<IFolderSelectorProps> = ({
       fontWeight: '500',
       marginBottom: 6,
     },
-    optionsList: {
-      marginTop: 16,
+    modalHeader: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 16,
     },
-    title: {
+    modalTitle: {
       color: colors.text,
       fontSize: 18,
       fontWeight: '600',
-      marginBottom: 4,
+    },
+    optionsList: {
+      maxHeight: 300,
     },
     wrapper: {
       marginBottom: 16,
     },
   });
+
+  const modalContent = (
+    <>
+      <View style={styles.modalHeader}>
+        <Text style={styles.modalTitle}>{t('items.folders.selectFolder')}</Text>
+        <TouchableOpacity
+          style={styles.closeButton}
+          onPress={() => setShowModal(false)}
+        >
+          <MaterialIcons name="close" size={24} color={colors.textMuted} />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView style={styles.optionsList}>
+        {/* No folder option */}
+        <TouchableOpacity
+          style={[
+            styles.folderOption,
+            !selectedFolderId && styles.folderOptionActive,
+          ]}
+          onPress={() => handleSelectFolder(null)}
+        >
+          <MaterialIcons
+            name="folder-open"
+            size={22}
+            color={!selectedFolderId ? colors.tint : colors.textMuted}
+          />
+          <Text
+            style={[
+              styles.folderOptionText,
+              !selectedFolderId && styles.folderOptionTextActive,
+            ]}
+          >
+            {t('items.folders.noFolder')}
+          </Text>
+          {!selectedFolderId && (
+            <MaterialIcons name="check" size={20} color={colors.tint} />
+          )}
+        </TouchableOpacity>
+
+        {/* Folder options */}
+        {folders.map(folder => (
+          <TouchableOpacity
+            key={folder.Id}
+            style={[
+              styles.folderOption,
+              selectedFolderId === folder.Id && styles.folderOptionActive,
+            ]}
+            onPress={() => handleSelectFolder(folder.Id)}
+          >
+            <MaterialIcons
+              name="folder"
+              size={22}
+              color={selectedFolderId === folder.Id ? colors.tint : colors.textMuted}
+            />
+            <Text
+              style={[
+                styles.folderOptionText,
+                selectedFolderId === folder.Id && styles.folderOptionTextActive,
+              ]}
+              numberOfLines={1}
+            >
+              {folder.Name}
+            </Text>
+            {selectedFolderId === folder.Id && (
+              <MaterialIcons name="check" size={20} color={colors.tint} />
+            )}
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </>
+  );
 
   return (
     <View style={styles.wrapper}>
@@ -151,87 +211,14 @@ export const FolderSelector: React.FC<IFolderSelectorProps> = ({
         />
       </TouchableOpacity>
 
-      <Modal
-        visible={showModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowModal(false)}
+      <ModalWrapper
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        showHeaderBorder={false}
+        showFooterBorder={false}
       >
-        <TouchableWithoutFeedback onPress={() => setShowModal(false)}>
-          <View style={styles.backdrop}>
-            <TouchableWithoutFeedback>
-              <View style={styles.container}>
-                <Text style={styles.title}>{t('items.folders.selectFolder')}</Text>
-
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={() => setShowModal(false)}
-                >
-                  <MaterialIcons name="close" size={24} color={colors.textMuted} />
-                </TouchableOpacity>
-
-                <ScrollView style={styles.optionsList}>
-                  {/* No folder option */}
-                  <TouchableOpacity
-                    style={[
-                      styles.folderOption,
-                      !selectedFolderId && styles.folderOptionActive,
-                    ]}
-                    onPress={() => handleSelectFolder(null)}
-                  >
-                    <MaterialIcons
-                      name="folder-open"
-                      size={22}
-                      color={!selectedFolderId ? colors.tint : colors.textMuted}
-                    />
-                    <Text
-                      style={[
-                        styles.folderOptionText,
-                        !selectedFolderId && styles.folderOptionTextActive,
-                      ]}
-                    >
-                      {t('items.folders.noFolder')}
-                    </Text>
-                    {!selectedFolderId && (
-                      <MaterialIcons name="check" size={20} color={colors.tint} />
-                    )}
-                  </TouchableOpacity>
-
-                  {/* Folder options */}
-                  {folders.map(folder => (
-                    <TouchableOpacity
-                      key={folder.Id}
-                      style={[
-                        styles.folderOption,
-                        selectedFolderId === folder.Id && styles.folderOptionActive,
-                      ]}
-                      onPress={() => handleSelectFolder(folder.Id)}
-                    >
-                      <MaterialIcons
-                        name="folder"
-                        size={22}
-                        color={selectedFolderId === folder.Id ? colors.tint : colors.textMuted}
-                      />
-                      <Text
-                        style={[
-                          styles.folderOptionText,
-                          selectedFolderId === folder.Id && styles.folderOptionTextActive,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {folder.Name}
-                      </Text>
-                      {selectedFolderId === folder.Id && (
-                        <MaterialIcons name="check" size={20} color={colors.tint} />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
+        {modalContent}
+      </ModalWrapper>
     </View>
   );
 };
