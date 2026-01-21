@@ -3,17 +3,27 @@
 # ============================================
 # Stage 1: Build core libraries
 # ============================================
-FROM node:20-slim AS core-builder
+FROM rust:1-slim-bookworm AS core-builder
+
+# Install Node.js and wasm-pack (Rust already included in base image)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl ca-certificates && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
+    rustup target add wasm32-unknown-unknown && \
+    cargo install wasm-pack --locked && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
 
 # Copy core library source files
 COPY core/ ./core/
 
-# Build core libraries
+# Build core libraries (only browser target needed for server apps)
 RUN cd ./core && \
     chmod +x build-and-distribute.sh && \
-    ./build-and-distribute.sh
+    ./build-and-distribute.sh --browser
 
 # ============================================
 # Stage 2: Build .NET applications
