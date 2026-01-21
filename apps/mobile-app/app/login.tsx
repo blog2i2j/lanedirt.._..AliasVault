@@ -5,7 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, SafeAreaView, TextInput, ActivityIndicator, Animated, ScrollView, KeyboardAvoidingView, Platform, Dimensions, Alert } from 'react-native';
+import { StyleSheet, View, Text, SafeAreaView, TextInput, ActivityIndicator, Animated, ScrollView, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
 
 import { useApiUrl } from '@/utils/ApiUrlUtility';
 import ConversionUtility from '@/utils/ConversionUtility';
@@ -27,6 +27,7 @@ import { InAppBrowserView } from '@/components/ui/InAppBrowserView';
 import { RobustPressable } from '@/components/ui/RobustPressable';
 import { useApp } from '@/context/AppContext';
 import { useDb } from '@/context/DbContext';
+import { useDialog } from '@/context/DialogContext';
 import { useWebApi } from '@/context/WebApiContext';
 import NativeVaultManager from '@/specs/NativeVaultManager';
 
@@ -36,6 +37,7 @@ import NativeVaultManager from '@/specs/NativeVaultManager';
 export default function LoginScreen() : React.ReactNode {
   const colors = useColors();
   const { t } = useTranslation();
+  const { showAlert, showDialog } = useDialog();
   const [fadeAnim] = useState(new Animated.Value(0));
   const { loadApiUrl, getDisplayUrl } = useApiUrl();
 
@@ -109,7 +111,7 @@ export default function LoginScreen() : React.ReactNode {
 
     if (isBiometricsEnabledOnDevice) {
       // Show biometric prompt if biometrics are available (faceid or fingerprint enrolled) on device.
-      Alert.alert(
+      showDialog(
         t('auth.enableBiometric', { biometric: biometricDisplayName }),
         t('auth.biometricPrompt', { biometric: biometricDisplayName }),
         [
@@ -131,7 +133,7 @@ export default function LoginScreen() : React.ReactNode {
           },
           {
             text: t('common.yes'),
-            isPreferred: true,
+            style: 'default',
             /**
              * Handle enabling biometric authentication
              */
@@ -230,11 +232,7 @@ export default function LoginScreen() : React.ReactNode {
         checkSuccess = false;
 
         // Show modal with error message
-        Alert.alert(
-          t('common.error'),
-          message,
-          [{ text: t('common.ok'), style: 'default' }]
-        );
+        showAlert(t('common.error'), message);
         // Error will trigger logout through the sync process
         setIsLoading(false);
       },

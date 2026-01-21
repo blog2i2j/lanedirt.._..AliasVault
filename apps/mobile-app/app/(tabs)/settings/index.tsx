@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useRef, useState, useCallback } from 'react';
-import { StyleSheet, View, ScrollView, TouchableOpacity, Animated, Platform, Alert, Linking } from 'react-native';
+import { StyleSheet, View, ScrollView, TouchableOpacity, Animated, Platform, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useApiUrl } from '@/utils/ApiUrlUtility';
@@ -19,6 +19,7 @@ import { InlineSkeletonLoader } from '@/components/ui/InlineSkeletonLoader';
 import { TitleContainer } from '@/components/ui/TitleContainer';
 import { UsernameDisplay } from '@/components/ui/UsernameDisplay';
 import { useApp } from '@/context/AppContext';
+import { useDialog } from '@/context/DialogContext';
 
 /**
  * Settings screen.
@@ -26,6 +27,7 @@ import { useApp } from '@/context/AppContext';
 export default function SettingsScreen() : React.ReactNode {
   const colors = useColors();
   const { t } = useTranslation();
+  const { showAlert, showConfirm } = useDialog();
   const insets = useSafeAreaInsets();
   const { getAuthMethodDisplayKey, shouldShowAutofillReminder } = useApp();
   const { getAutoLockTimeout, getClipboardClearTimeout } = useApp();
@@ -163,47 +165,39 @@ export default function SettingsScreen() : React.ReactNode {
   const handleLanguagePress = (): void => {
     const isIOS = Platform.OS === 'ios';
 
-    Alert.alert(
+    showConfirm(
       t('settings.language'),
       t('settings.languageSystemMessage'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('settings.openSettings'),
-          style: 'default',
-          /**
-           * Open platform-specific settings
-           */
-          onPress: async (): Promise<void> => {
-            if (isIOS) {
-              // Open iOS Settings app
-              await Linking.openURL('app-settings:');
-            } else {
-              // Fallback to general locale settings
-              try {
-                await Linking.openSettings();
-                return;
-              } catch (error) {
-                console.warn('Failed to open general locale settings:', error);
-              }
-
-              // Fallback to general settings
-              try {
-                await Linking.openSettings();
-                return;
-              } catch (error) {
-                console.warn('Failed to open general settings:', error);
-              }
-
-              // Final fallback - show manual instructions
-              Alert.alert(
-                t('common.error') ?? 'Error',
-                'Unable to open device settings. Please manually navigate to the app settings and change the language.'
-              );
-            }
+      t('settings.openSettings'),
+      async (): Promise<void> => {
+        if (isIOS) {
+          // Open iOS Settings app
+          await Linking.openURL('app-settings:');
+        } else {
+          // Fallback to general locale settings
+          try {
+            await Linking.openSettings();
+            return;
+          } catch (error) {
+            console.warn('Failed to open general locale settings:', error);
           }
+
+          // Fallback to general settings
+          try {
+            await Linking.openSettings();
+            return;
+          } catch (error) {
+            console.warn('Failed to open general settings:', error);
+          }
+
+          // Final fallback - show manual instructions
+          showAlert(
+            t('common.error') ?? 'Error',
+            'Unable to open device settings. Please manually navigate to the app settings and change the language.'
+          );
         }
-      ]
+      },
+      { cancelText: t('common.cancel') }
     );
   };
 

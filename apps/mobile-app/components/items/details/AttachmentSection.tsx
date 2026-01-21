@@ -5,7 +5,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 
 import type { Item, Attachment } from '@/utils/dist/core/models/vault';
 import emitter from '@/utils/EventEmitter';
@@ -15,6 +15,7 @@ import { useColors } from '@/hooks/useColorScheme';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedView } from '@/components/themed/ThemedView';
 import { useDb } from '@/context/DbContext';
+import { useDialog } from '@/context/DialogContext';
 
 import { FilePreviewModal } from './FilePreviewModal';
 
@@ -36,6 +37,7 @@ export const AttachmentSection: React.FC<AttachmentSectionProps> = ({ item }): R
   const colors = useColors();
   const dbContext = useDb();
   const { t } = useTranslation();
+  const { showAlert } = useDialog();
 
   /**
    * Handle attachment action - preview or download.
@@ -87,7 +89,7 @@ export const AttachmentSection: React.FC<AttachmentSectionProps> = ({ item }): R
       }
     } catch (error) {
       console.error('Error handling attachment:', error);
-      Alert.alert('Error', 'Failed to process attachment');
+      showAlert('Error', 'Failed to process attachment');
     }
   };
 
@@ -105,14 +107,11 @@ export const AttachmentSection: React.FC<AttachmentSectionProps> = ({ item }): R
           UTI: getUTI(filename),
         });
       } else {
-        Alert.alert(
-          t('common.success'),
-          `${t('items.fileSavedTo')}: ${filePath}`
-        );
+        showAlert(t('common.success'), `${t('items.fileSavedTo')}: ${filePath}`);
       }
     } catch (error) {
       console.error('Error downloading file:', error);
-      Alert.alert(t('common.error'), t('common.errors.unknownError'));
+      showAlert(t('common.error'), t('common.errors.unknownError'));
     }
   };
 

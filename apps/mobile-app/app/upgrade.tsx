@@ -2,7 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View, Alert, KeyboardAvoidingView, Platform, ScrollView, Dimensions, TouchableWithoutFeedback, Keyboard, Text } from 'react-native';
+import { StyleSheet, View, KeyboardAvoidingView, Platform, ScrollView, Dimensions, TouchableWithoutFeedback, Keyboard, Text } from 'react-native';
 
 import type { VaultVersion } from '@/utils/dist/core/vault';
 import { VaultSqlGenerator } from '@/utils/dist/core/vault';
@@ -20,6 +20,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { RobustPressable } from '@/components/ui/RobustPressable';
 import { useApp } from '@/context/AppContext';
 import { useDb } from '@/context/DbContext';
+import { useDialog } from '@/context/DialogContext';
 import { useWebApi } from '@/context/WebApiContext';
 import NativeVaultManager from '@/specs/NativeVaultManager';
 
@@ -40,6 +41,7 @@ export default function UpgradeScreen() : React.ReactNode {
   const { t } = useTranslation();
   const { executeVaultMutation, isLoading: isVaultMutationLoading, syncStatus } = useVaultMutate();
   const { syncVault } = useVaultSync();
+  const { showAlert, showConfirm } = useDialog();
 
   // Initialize upgrade status with translation
   useEffect(() => {
@@ -71,32 +73,17 @@ export default function UpgradeScreen() : React.ReactNode {
    */
   const handleUpgrade = async (): Promise<void> => {
     if (!sqliteClient || !currentVersion || !latestVersion) {
-      Alert.alert(
-        t('common.error'),
-        t('upgrade.alerts.unableToGetVersionInfo'),
-        [{ text: t('common.ok'), style: 'default' }]
-      );
+      showAlert(t('common.error'), t('upgrade.alerts.unableToGetVersionInfo'));
       return;
     }
 
     // Check if this is a self-hosted instance and show warning if needed
     if (await webApi.isSelfHosted()) {
-      Alert.alert(
+      showConfirm(
         t('upgrade.alerts.selfHostedServer'),
         t('upgrade.alerts.selfHostedWarning'),
-        [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('upgrade.alerts.continueUpgrade'),
-            style: 'default',
-            /**
-             * Continue upgrade.
-             */
-            onPress: async () : Promise<void> => {
-              await performUpgrade();
-            }
-          }
-        ]
+        t('upgrade.alerts.continueUpgrade'),
+        performUpgrade
       );
     } else {
       await performUpgrade();
@@ -108,11 +95,7 @@ export default function UpgradeScreen() : React.ReactNode {
    */
   const performUpgrade = async (): Promise<void> => {
     if (!sqliteClient || !currentVersion || !latestVersion) {
-      Alert.alert(
-        t('common.error'),
-        t('upgrade.alerts.unableToGetVersionInfo'),
-        [{ text: t('common.ok'), style: 'default' }]
-      );
+      showAlert(t('common.error'), t('upgrade.alerts.unableToGetVersionInfo'));
       return;
     }
 
@@ -123,11 +106,7 @@ export default function UpgradeScreen() : React.ReactNode {
         await NativeVaultManager.unlockVault();
       } catch (error) {
         console.error('Failed to unlock vault for upgrade:', error);
-        Alert.alert(
-          t('common.error'),
-          t('auth.errors.enterPassword'),
-          [{ text: t('common.ok'), style: 'default' }]
-        );
+        showAlert(t('common.error'), t('auth.errors.enterPassword'));
         return;
       }
     }
@@ -190,20 +169,15 @@ export default function UpgradeScreen() : React.ReactNode {
          */
         onError: (error: Error) => {
           console.error('Upgrade failed:', error);
-          Alert.alert(
-            t('upgrade.alerts.upgradeFailed'),
-            error.message,
-            [{ text: t('common.ok'), style: 'default' }]
-          );
+          showAlert(t('upgrade.alerts.upgradeFailed'), error.message);
         }
       });
 
-    } catch (error) {
-      console.error('Upgrade failed:', error);
-      Alert.alert(
+    } catch (err) {
+      console.error('Upgrade failed:', err);
+      showAlert(
         t('upgrade.alerts.upgradeFailed'),
-        error instanceof Error ? error.message : t('common.errors.unknownError'),
-        [{ text: t('common.ok'), style: 'default' }]
+        err instanceof Error ? err.message : t('common.errors.unknownError')
       );
     } finally {
       setIsLoading(false);
@@ -265,12 +239,9 @@ export default function UpgradeScreen() : React.ReactNode {
    * Show native dialog with version description.
    */
   const showVersionDialog = (): void => {
-    Alert.alert(
+    showAlert(
       t('upgrade.whatsNew'),
-      `${t('upgrade.whatsNewDescription')}\n\n${latestVersion?.description ?? t('upgrade.noDescriptionAvailable')}`,
-      [
-        { text: t('common.ok'), style: 'default' }
-      ]
+      `${t('upgrade.whatsNewDescription')}\n\n${latestVersion?.description ?? t('upgrade.noDescriptionAvailable')}`
     );
   };
 

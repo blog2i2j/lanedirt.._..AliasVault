@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, StyleSheet, Text, Platform, Animated, TextInput, TouchableOpacity, View, RefreshControl } from 'react-native';
+import { StyleSheet, Text, Platform, Animated, TextInput, TouchableOpacity, View, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 
@@ -20,6 +20,7 @@ import { useVaultMutate } from '@/hooks/useVaultMutate';
 import { useVaultSync } from '@/hooks/useVaultSync';
 
 import Logo from '@/assets/images/logo.svg';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { FolderModal } from '@/components/folders/FolderModal';
 import { FolderPill, type FolderWithCount } from '@/components/folders/FolderPill';
 import { ItemCard } from '@/components/items/ItemCard';
@@ -92,6 +93,16 @@ export default function ItemsScreen(): React.ReactNode {
 
   // Recently deleted count state
   const [recentlyDeletedCount, setRecentlyDeletedCount] = useState(0);
+
+  // Alert dialog state
+  const [alertConfig, setAlertConfig] = useState<{ title: string; message: string } | null>(null);
+
+  /**
+   * Hide the alert dialog.
+   */
+  const hideAlert = useCallback((): void => {
+    setAlertConfig(null);
+  }, []);
 
   const authContext = useApp();
   const dbContext = useDb();
@@ -304,11 +315,7 @@ export default function ItemsScreen(): React.ReactNode {
           setRefreshing(false);
           setIsLoadingItems(false);
 
-          Alert.alert(
-            t('common.error'),
-            error,
-            [{ text: t('common.ok'), style: 'default' }]
-          );
+          setAlertConfig({ title: t('common.error'), message: error });
         },
         /**
          * On upgrade required.
@@ -1170,6 +1177,15 @@ export default function ItemsScreen(): React.ReactNode {
         onClose={() => setShowFolderModal(false)}
         onSave={handleCreateFolder}
         mode="create"
+      />
+
+      {/* Alert dialog */}
+      <ConfirmDialog
+        isVisible={alertConfig !== null}
+        title={alertConfig?.title ?? ''}
+        message={alertConfig?.message ?? ''}
+        buttons={[{ text: t('common.ok'), style: 'default', onPress: hideAlert }]}
+        onClose={hideAlert}
       />
     </ThemedContainer>
   );

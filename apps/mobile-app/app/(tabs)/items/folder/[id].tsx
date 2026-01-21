@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, StyleSheet, Platform, View, Text, TextInput, TouchableOpacity, RefreshControl, FlatList } from 'react-native';
+import { StyleSheet, Platform, View, Text, TextInput, TouchableOpacity, RefreshControl, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 
@@ -29,6 +29,7 @@ import { RobustPressable } from '@/components/ui/RobustPressable';
 import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
 import { useApp } from '@/context/AppContext';
 import { useDb } from '@/context/DbContext';
+import { useDialog } from '@/context/DialogContext';
 
 /**
  * Folder view screen - displays items within a specific folder.
@@ -59,6 +60,7 @@ export default function FolderViewScreen(): React.ReactNode {
 
   const authContext = useApp();
   const dbContext = useDb();
+  const { showAlert } = useDialog();
 
   const isAuthenticated = authContext.isLoggedIn;
   const isDatabaseAvailable = dbContext.dbAvailable;
@@ -178,11 +180,7 @@ export default function FolderViewScreen(): React.ReactNode {
           console.error('Error syncing vault:', error);
           setRefreshing(false);
           setIsLoadingItems(false);
-          Alert.alert(
-            t('common.error'),
-            error,
-            [{ text: t('common.ok'), style: 'default' }]
-          );
+          showAlert(t('common.error'), error);
         },
         /**
          * On upgrade required.
@@ -204,7 +202,7 @@ export default function FolderViewScreen(): React.ReactNode {
         });
       }
     }
-  }, [syncVault, loadItems, setIsLoadingItems, setRefreshing, authContext, dbContext, router, t]);
+  }, [syncVault, loadItems, setIsLoadingItems, setRefreshing, authContext, dbContext, router, showAlert, t]);
 
   useEffect(() => {
     if (!isAuthenticated || !isDatabaseAvailable) {

@@ -3,14 +3,13 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 
-import type { Attachment } from '@/utils/dist/core/models/vault';
-
-import { useColors } from '@/hooks/useColorScheme';
-
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedView } from '@/components/themed/ThemedView';
+import { useColors } from '@/hooks/useColorScheme';
+import type { Attachment } from '@/utils/dist/core/models/vault';
 
 type AttachmentUploaderProps = {
   attachments: Attachment[];
@@ -27,6 +26,7 @@ export const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
   const { t } = useTranslation();
   const colors = useColors();
   const [statusMessage, setStatusMessage] = useState<string>('');
+  const [attachmentToDelete, setAttachmentToDelete] = useState<Attachment | null>(null);
 
   /**
    * Handles file selection and upload.
@@ -112,44 +112,36 @@ export const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
   };
 
   /**
-   * Deletes an attachment.
+   * Initiates the delete process for an attachment.
    */
-  const deleteAttachment = (attachmentToDelete: Attachment): void => {
-    Alert.alert(
-      'Delete Attachment',
-      `Are you sure you want to delete ${attachmentToDelete.Filename}?`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          /**
-           * Deletes the attachment.
-           */
-          onPress: (): void => {
-            try {
-              const updatedAttachments = [...attachments];
+  const initiateDeleteAttachment = (attachment: Attachment): void => {
+    setAttachmentToDelete(attachment);
+  };
 
-              // Remove the attachment from the list
-              const index = updatedAttachments.findIndex(a => a.Id === attachmentToDelete.Id);
-              if (index !== -1) {
-                updatedAttachments.splice(index, 1);
-              }
+  /**
+   * Confirms and deletes an attachment.
+   */
+  const confirmDeleteAttachment = (): void => {
+    if (!attachmentToDelete) return;
 
-              onAttachmentsChange(updatedAttachments);
-              setStatusMessage('');
-            } catch (error) {
-              console.error('Error deleting attachment:', error);
-              setStatusMessage('Error deleting attachment.');
-              setTimeout(() => setStatusMessage(''), 3000);
-            }
-          },
-        },
-      ]
-    );
+    try {
+      const updatedAttachments = [...attachments];
+
+      // Remove the attachment from the list
+      const index = updatedAttachments.findIndex(a => a.Id === attachmentToDelete.Id);
+      if (index !== -1) {
+        updatedAttachments.splice(index, 1);
+      }
+
+      onAttachmentsChange(updatedAttachments);
+      setStatusMessage('');
+    } catch (error) {
+      console.error('Error deleting attachment:', error);
+      setStatusMessage(t('items.attachments.errorDeleting'));
+      setTimeout(() => setStatusMessage(''), 3000);
+    }
+
+    setAttachmentToDelete(null);
   };
 
   const activeAttachments = attachments.filter(a => !a.IsDeleted);
@@ -226,7 +218,7 @@ export const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
               </View>
               <TouchableOpacity
                 style={styles.deleteButton}
-                onPress={() => deleteAttachment(attachment)}
+                onPress={() => initiateDeleteAttachment(attachment)}
               >
                 <ThemedText style={styles.deleteButtonText}>
                   {t('items.deleteAttachment')}
@@ -243,6 +235,25 @@ export const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
       >
         <Ionicons name="add" size={24} color={colors.background} />
       </TouchableOpacity>
+
+      <ConfirmDialog
+        isVisible={attachmentToDelete !== null}
+        title={t('items.attachments.deleteTitle')}
+        message={t('items.attachments.deleteConfirm', { filename: attachmentToDelete?.Filename })}
+        buttons={[
+          {
+            text: t('common.cancel'),
+            style: 'cancel',
+            onPress: (): void => setAttachmentToDelete(null),
+          },
+          {
+            text: t('common.delete'),
+            style: 'destructive',
+            onPress: confirmDeleteAttachment,
+          },
+        ]}
+        onClose={(): void => setAttachmentToDelete(null)}
+      />
     </ThemedView>
   );
 };

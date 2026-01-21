@@ -3,7 +3,7 @@ import Slider from '@react-native-community/slider';
 import { useFocusEffect } from 'expo-router';
 import { useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View, Alert, TouchableOpacity, Switch, Platform } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Switch, Platform } from 'react-native';
 
 import type { PasswordSettings } from '@/utils/dist/core/models/vault';
 import { CreatePasswordGenerator } from '@/utils/dist/core/password-generator';
@@ -15,6 +15,7 @@ import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedScrollView } from '@/components/themed/ThemedScrollView';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { useDb } from '@/context/DbContext';
+import { useDialog } from '@/context/DialogContext';
 
 /**
  * Password Generator Settings screen.
@@ -23,6 +24,7 @@ export default function PasswordGeneratorSettingsScreen(): React.ReactNode {
   const colors = useColors();
   const { t } = useTranslation();
   const dbContext = useDb();
+  const { showAlert } = useDialog();
   const { executeVaultMutation } = useVaultMutate();
 
   const [settings, setSettings] = useState<PasswordSettings | null>(null);
@@ -76,7 +78,7 @@ export default function PasswordGeneratorSettingsScreen(): React.ReactNode {
           console.debug('Settings loaded and initialized');
         } catch (error) {
           console.error('Error loading password generator settings:', error);
-          Alert.alert(t('common.error'), t('common.errors.unknownError'));
+          showAlert(t('common.error'), t('common.errors.unknownError'));
         }
       };
 
@@ -110,7 +112,7 @@ export default function PasswordGeneratorSettingsScreen(): React.ReactNode {
           console.error('Error saving password generator settings:', error);
         });
       };
-    }, [dbContext.sqliteClient, t, executeVaultMutation])
+    }, [dbContext.sqliteClient, showAlert, t, executeVaultMutation])
   );
 
   /**

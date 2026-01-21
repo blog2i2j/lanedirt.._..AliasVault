@@ -1,12 +1,12 @@
 import { Buffer } from 'buffer';
 
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { usePreventRemove } from '@react-navigation/native';
+import { usePreventRemove, NavigationAction } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View, Alert, Keyboard, Platform, ScrollView, KeyboardAvoidingView, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Keyboard, Platform, ScrollView, KeyboardAvoidingView, TouchableOpacity } from 'react-native';
 import Toast from 'react-native-toast-message';
 
 import type { Folder } from '@/utils/db/repositories/FolderRepository';
@@ -21,6 +21,7 @@ import { extractServiceNameFromUrl } from '@/utils/UrlUtility';
 import { useColors } from '@/hooks/useColorScheme';
 import { useVaultMutate } from '@/hooks/useVaultMutate';
 
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { AddFieldMenu, type OptionalSection } from '@/components/form/AddFieldMenu';
 import { AdvancedPasswordField } from '@/components/form/AdvancedPasswordField';
 import { EmailDomainField } from '@/components/form/EmailDomainField';
@@ -88,6 +89,10 @@ export default function AddEditItemScreen(): React.ReactNode {
   const [passkeyIds, setPasskeyIds] = useState<string[]>([]);
   const [passkeyIdsMarkedForDeletion, setPasskeyIdsMarkedForDeletion] = useState<string[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  // Store the pending navigation action when usePreventRemove triggers
+  const [pendingNavigationAction, setPendingNavigationAction] = useState<NavigationAction | null>(null);
 
   // Item state
   const [item, setItem] = useState<Item | null>(null);
@@ -380,33 +385,12 @@ export default function AddEditItemScreen(): React.ReactNode {
 
   /**
    * Prevent accidental dismissal when there are unsaved changes.
+   * Shows custom dialog on Android, stores pending action for later execution.
    */
   usePreventRemove(hasUnsavedChanges, ({ data }): void => {
-    Alert.alert(
-      t('items.unsavedChanges.title'),
-      t('items.unsavedChanges.message'),
-      [
-        {
-          text: t('common.cancel'),
-          style: 'cancel',
-          /**
-           * Do nothing
-           */
-          onPress: (): void => {}
-        },
-        {
-          text: t('items.unsavedChanges.discard'),
-          style: 'destructive',
-          /**
-           * Discard unsaved changes and navigate back
-           */
-          onPress: (): void => {
-            setHasUnsavedChanges(false);
-            navigation.dispatch(data.action);
-          },
-        },
-      ]
-    );
+    // Store the pending navigation action and show the discard confirm dialog
+    setPendingNavigationAction(data.action);
+    setShowDiscardConfirm(true);
   });
 
   /**
@@ -878,80 +862,115 @@ export default function AddEditItemScreen(): React.ReactNode {
   /**
    * Handle the delete button press.
    */
-  const handleDelete = async (): Promise<void> => {
+  const handleDelete = (): void => {
     if (!id) {
       return;
     }
 
     Keyboard.dismiss();
-
-    Alert.alert(
-      t('items.deleteItem'),
-      t('items.deleteConfirm'),
-      [
-        {
-          text: t('common.cancel'),
-          style: "cancel"
-        },
-        {
-          text: t('common.delete'),
-          style: "destructive",
-          /**
-           * Delete the item
-           */
-          onPress: async (): Promise<void> => {
-            await executeVaultMutation(async () => {
-              await dbContext.sqliteClient!.items.trash(id);
-            });
-
-            emitter.emit('credentialChanged', id);
-
-            setTimeout(() => {
-              Toast.show({
-                type: 'success',
-                text1: t('items.toasts.itemDeleted'),
-                position: 'bottom'
-              });
-            }, 200);
-
-            router.back();
-            router.back();
-          }
-        }
-      ]
-    );
+    setShowDeleteConfirm(true);
   };
+
+  /**
+   * Confirm and execute item deletion.
+   */
+  const confirmDelete = useCallback(async (): Promise<void> => {
+    if (!id) {
+      return;
+    }
+
+    await executeVaultMutation(async () => {
+      await dbContext.sqliteClient!.items.trash(id);
+    });
+
+    emitter.emit('credentialChanged', id);
+
+    setTimeout(() => {
+      Toast.show({
+        type: 'success',
+        text1: t('items.toasts.itemDeleted'),
+        position: 'bottom'
+      });
+    }, 200);
+
+    setShowDeleteConfirm(false);
+    router.back();
+    router.back();
+  }, [id, executeVaultMutation, dbContext.sqliteClient, t, router]);
 
   /**
    * Handle cancel button press.
    */
   const handleCancel = useCallback((): void => {
     if (hasUnsavedChanges) {
-      Alert.alert(
-        t('items.unsavedChanges.title'),
-        t('items.unsavedChanges.message'),
-        [
-          {
-            text: t('common.cancel'),
-            style: 'cancel',
-          },
-          {
-            text: t('items.unsavedChanges.discard'),
-            style: 'destructive',
-            /**
-             * Discard unsaved changes and navigate back
-             */
-            onPress: (): void => {
-              setHasUnsavedChanges(false);
-              router.back();
-            },
-          },
-        ]
-      );
+      setShowDiscardConfirm(true);
     } else {
       router.back();
     }
-  }, [hasUnsavedChanges, router, t]);
+  }, [hasUnsavedChanges, router]);
+
+  /**
+   * Confirm discard and navigate back.
+   */
+  const confirmDiscard = useCallback((): void => {
+    setHasUnsavedChanges(false);
+    setShowDiscardConfirm(false);
+
+    // If we have a pending navigation action (from usePreventRemove), dispatch it
+    if (pendingNavigationAction) {
+      navigation.dispatch(pendingNavigationAction);
+      setPendingNavigationAction(null);
+    } else {
+      // Otherwise just go back (from cancel button press)
+      router.back();
+    }
+  }, [router, navigation, pendingNavigationAction]);
+
+  /**
+   * Hide delete confirmation dialog.
+   */
+  const hideDeleteConfirm = useCallback((): void => {
+    setShowDeleteConfirm(false);
+  }, []);
+
+  /**
+   * Hide discard confirmation dialog.
+   */
+  const hideDiscardConfirm = useCallback((): void => {
+    setShowDiscardConfirm(false);
+  }, []);
+
+  /**
+   * Buttons for delete confirmation dialog.
+   */
+  const deleteConfirmButtons = useMemo(() => [
+    {
+      text: t('common.cancel'),
+      style: 'cancel' as const,
+      onPress: hideDeleteConfirm,
+    },
+    {
+      text: t('common.delete'),
+      style: 'destructive' as const,
+      onPress: confirmDelete,
+    },
+  ], [t, hideDeleteConfirm, confirmDelete]);
+
+  /**
+   * Buttons for discard confirmation dialog.
+   */
+  const discardConfirmButtons = useMemo(() => [
+    {
+      text: t('common.cancel'),
+      style: 'cancel' as const,
+      onPress: hideDiscardConfirm,
+    },
+    {
+      text: t('items.unsavedChanges.discard'),
+      style: 'destructive' as const,
+      onPress: confirmDiscard,
+    },
+  ], [t, hideDiscardConfirm, confirmDiscard]);
 
   /**
    * Get the top padding for the container.
@@ -1575,6 +1594,22 @@ export default function AddEditItemScreen(): React.ReactNode {
         </KeyboardAvoidingView>
       </ThemedContainer>
       <AliasVaultToast />
+
+      <ConfirmDialog
+        isVisible={showDeleteConfirm}
+        title={t('items.deleteItem')}
+        message={t('items.deleteConfirm')}
+        buttons={deleteConfirmButtons}
+        onClose={hideDeleteConfirm}
+      />
+
+      <ConfirmDialog
+        isVisible={showDiscardConfirm}
+        title={t('items.unsavedChanges.title')}
+        message={t('items.unsavedChanges.message')}
+        buttons={discardConfirmButtons}
+        onClose={hideDiscardConfirm}
+      />
     </>
   );
 }

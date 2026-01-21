@@ -1,7 +1,7 @@
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View, Alert, Platform, Linking, Switch, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Platform, Linking, Switch, TouchableOpacity } from 'react-native';
 import Toast from 'react-native-toast-message';
 
 import { useColors } from '@/hooks/useColorScheme';
@@ -10,6 +10,7 @@ import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedScrollView } from '@/components/themed/ThemedScrollView';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { AuthMethod, useAuth } from '@/context/AuthContext';
+import { useDialog } from '@/context/DialogContext';
 import NativeVaultManager from '@/specs/NativeVaultManager';
 
 /**
@@ -18,6 +19,7 @@ import NativeVaultManager from '@/specs/NativeVaultManager';
 export default function VaultUnlockSettingsScreen() : React.ReactNode {
   const colors = useColors();
   const { t } = useTranslation();
+  const { showAlert, showDialog } = useDialog();
   const [initialized, setInitialized] = useState(false);
   const { setAuthMethods, getEnabledAuthMethods, getBiometricDisplayName } = useAuth();
   const [hasBiometrics, setHasBiometrics] = useState(false);
@@ -95,12 +97,13 @@ export default function VaultUnlockSettingsScreen() : React.ReactNode {
 
   const handleBiometricsToggle = useCallback(async (value: boolean) : Promise<void> => {
     if (value && !hasBiometrics) {
-      Alert.alert(
+      showDialog(
         t('settings.vaultUnlockSettings.biometricNotAvailable', { biometric: biometricDisplayName }),
         t('settings.vaultUnlockSettings.biometricDisabledMessage', { biometric: biometricDisplayName }),
         [
           {
             text: t('settings.openSettings'),
+            style: 'default',
             /**
              * Handle the open settings press.
              */
@@ -152,7 +155,7 @@ export default function VaultUnlockSettingsScreen() : React.ReactNode {
         visibilityTime: 1200,
       });
     }
-  }, [hasBiometrics, pinEnabled, setAuthMethods, biometricDisplayName, t]);
+  }, [hasBiometrics, pinEnabled, setAuthMethods, biometricDisplayName, showDialog, t]);
 
   /**
    * Handle enable PIN - launches native PIN setup UI.
@@ -183,13 +186,9 @@ export default function VaultUnlockSettingsScreen() : React.ReactNode {
       }
 
       console.error('Failed to enable PIN:', error);
-      Alert.alert(
-        t('common.error'),
-        t('common.errors.unknownErrorTryAgain'),
-        [{ text: t('common.ok'), style: 'default' }]
-      );
+      showAlert(t('common.error'), t('common.errors.unknownErrorTryAgain'));
     }
-  }, [isBiometricsEnabled, setAuthMethods, t]);
+  }, [isBiometricsEnabled, setAuthMethods, showAlert, t]);
 
   /**
    * Handle disable PIN.
@@ -206,13 +205,9 @@ export default function VaultUnlockSettingsScreen() : React.ReactNode {
       });
     } catch (error) {
       console.error('Failed to disable PIN:', error);
-      Alert.alert(
-        t('common.error'),
-        t('common.errors.unknownErrorTryAgain'),
-        [{ text: t('common.ok'), style: 'default' }]
-      );
+      showAlert(t('common.error'), t('common.errors.unknownErrorTryAgain'));
     }
-  }, [t]);
+  }, [showAlert, t]);
 
   const styles = StyleSheet.create({
     button: {

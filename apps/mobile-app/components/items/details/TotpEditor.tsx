@@ -1,16 +1,15 @@
+import { Ionicons } from '@expo/vector-icons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as OTPAuth from 'otpauth';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, StyleSheet, Alert, TextInput, Modal, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-
-import type { TotpCode } from '@/utils/dist/core/models/vault';
-
-import { useColors, useColorScheme } from '@/hooks/useColorScheme';
+import { View, StyleSheet, TextInput, Modal, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 
 import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedView } from '@/components/themed/ThemedView';
-import { Ionicons } from '@expo/vector-icons';
+import { useDialog } from '@/context/DialogContext';
+import { useColors, useColorScheme } from '@/hooks/useColorScheme';
+import type { TotpCode } from '@/utils/dist/core/models/vault';
 
 type TotpFormData = {
   name: string;
@@ -39,6 +38,7 @@ export const TotpEditor: React.FC<TotpEditorProps> = ({
   const { t } = useTranslation();
   const colors = useColors();
   const colorScheme = useColorScheme();
+  const { showConfirm } = useDialog();
   const [isAddFormVisible, setIsAddFormVisible] = useState(false);
   const [formData, setFormData] = useState<TotpFormData>({ name: '', secretKey: '' });
   const [formError, setFormError] = useState<string | null>(null);
@@ -150,20 +150,12 @@ export const TotpEditor: React.FC<TotpEditorProps> = ({
    * Initiates the delete process for a TOTP code
    */
   const initiateTotpDelete = (totpCode: TotpCode): void => {
-    Alert.alert(
+    showConfirm(
       t('common.deleteItemConfirmTitle'),
       t('common.deleteItemConfirmDescription'),
-      [
-        {
-          text: t('common.cancel'),
-          style: 'cancel'
-        },
-        {
-          text: t('common.delete'),
-          style: 'destructive',
-          onPress: () => confirmDeleteTotpCode(totpCode)
-        }
-      ]
+      t('common.delete'),
+      () => confirmDeleteTotpCode(totpCode),
+      { confirmStyle: 'destructive' }
     );
   };
 
