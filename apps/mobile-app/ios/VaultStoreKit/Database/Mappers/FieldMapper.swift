@@ -92,72 +92,34 @@ public struct ProcessedField {
 /// Handles both system fields (with FieldKey) and custom fields (with FieldDefinitionId).
 public struct FieldMapper {
     /// Process raw field rows from database into a map of ItemId -> [ItemField].
-    /// Handles system vs custom fields and multi-value field grouping.
+    /// Handles system vs custom fields. Multi-value fields (like URLs) create separate ItemField entries
+    /// with the same fieldKey but different values, allowing Item.getFieldValues() to return all values.
     /// - Parameter rows: Raw field rows from database
     /// - Returns: Dictionary of ItemId to array of ItemField objects
     public static func processFieldRows(_ rows: [FieldRow]) -> [String: [ItemField]] {
         // First, convert rows to processed fields with proper metadata
         let processedFields = rows.map { processFieldRow($0) }
 
-        // Group by ItemId and FieldKey (to handle multi-value fields)
+        // Group fields by ItemId, keeping separate entries for multi-value fields
         var fieldsByItem: [String: [ItemField]] = [:]
-        var fieldValuesByKey: [String: [String]] = [:]
 
         for field in processedFields {
-            let key = "\(field.itemId)_\(field.fieldKey)"
-
-            // Accumulate values for the same field
-            if fieldValuesByKey[key] == nil {
-                fieldValuesByKey[key] = []
-            }
-            fieldValuesByKey[key]!.append(field.value)
-
-            // Create ItemField entry only once per unique FieldKey per item
             if fieldsByItem[field.itemId] == nil {
                 fieldsByItem[field.itemId] = []
             }
 
-            let itemFields = fieldsByItem[field.itemId]!
-            let existingField = itemFields.first { $0.fieldKey == field.fieldKey }
-
-            if existingField == nil {
-                let itemField = ItemField(
-                    fieldKey: field.fieldKey,
-                    label: field.label,
-                    fieldType: field.fieldType,
-                    value: "", // Will be set below
-                    isHidden: field.isHidden,
-                    displayOrder: field.displayOrder,
-                    isCustomField: field.isCustomField,
-                    enableHistory: field.enableHistory
-                )
-                fieldsByItem[field.itemId]!.append(itemField)
-            }
-        }
-
-        // Set Values (using first value for single value or concatenated for multi-value)
-        for (itemId, fields) in fieldsByItem {
-            var updatedFields: [ItemField] = []
-            for field in fields {
-                let key = "\(itemId)_\(field.fieldKey)"
-                let values = fieldValuesByKey[key] ?? []
-
-                // Use first value (multi-value fields would need different handling in the model)
-                let value = values.first ?? ""
-
-                let updatedField = ItemField(
-                    fieldKey: field.fieldKey,
-                    label: field.label,
-                    fieldType: field.fieldType,
-                    value: value,
-                    isHidden: field.isHidden,
-                    displayOrder: field.displayOrder,
-                    isCustomField: field.isCustomField,
-                    enableHistory: field.enableHistory
-                )
-                updatedFields.append(updatedField)
-            }
-            fieldsByItem[itemId] = updatedFields
+            // Create an ItemField for each row (including duplicates for multi-value fields)
+            let itemField = ItemField(
+                fieldKey: field.fieldKey,
+                label: field.label,
+                fieldType: field.fieldType,
+                value: field.value,
+                isHidden: field.isHidden,
+                displayOrder: field.displayOrder,
+                isCustomField: field.isCustomField,
+                enableHistory: field.enableHistory
+            )
+            fieldsByItem[field.itemId]!.append(itemField)
         }
 
         return fieldsByItem
@@ -209,72 +171,48 @@ public struct FieldMapper {
 
     /// Process field rows for a single item (without ItemId in result).
     /// Used when fetching a single item by ID.
+    /// Multi-value fields (like URLs) create separate ItemField entries with the same fieldKey.
     /// - Parameter rows: Raw field rows for a single item
     /// - Returns: Array of ItemField objects
     public static func processFieldRowsForSingleItem(_ rows: [SingleItemFieldRow]) -> [ItemField] {
-        var fieldValuesByKey: [String: [String]] = [:]
-        var uniqueFields: [String: UniqueFieldData] = [:]
-
-        for row in rows {
+        // Create an ItemField for each row (including duplicates for multi-value fields)
+        return rows.map { row in
             let fieldKey = row.fieldKey ?? row.fieldDefinitionId ?? ""
+            let isCustomField = row.fieldKey == nil || row.fieldKey!.isEmpty
 
-            // Accumulate values
-            if fieldValuesByKey[fieldKey] == nil {
-                fieldValuesByKey[fieldKey] = []
+            if !isCustomField, let rowFieldKey = row.fieldKey {
+                // System field
+                let metadata = resolveFieldMetadata(
+                    fieldKey: rowFieldKey,
+                    customLabel: nil,
+                    customFieldType: nil,
+                    customIsHidden: false,
+                    customEnableHistory: false,
+                    isCustomField: false
+                )
+                return ItemField(
+                    fieldKey: rowFieldKey,
+                    label: metadata.label,
+                    fieldType: metadata.fieldType,
+                    value: row.value,
+                    isHidden: metadata.isHidden,
+                    displayOrder: row.displayOrder,
+                    isCustomField: false,
+                    enableHistory: metadata.enableHistory
+                )
+            } else {
+                // Custom field
+                return ItemField(
+                    fieldKey: fieldKey,
+                    label: row.customLabel ?? "",
+                    fieldType: row.customFieldType ?? FieldType.text,
+                    value: row.value,
+                    isHidden: row.customIsHidden == 1,
+                    displayOrder: row.displayOrder,
+                    isCustomField: true,
+                    enableHistory: row.customEnableHistory == 1
+                )
             }
-            fieldValuesByKey[fieldKey]!.append(row.value)
-
-            // Store field metadata (only once per FieldKey)
-            if uniqueFields[fieldKey] == nil {
-                if let rowFieldKey = row.fieldKey, !rowFieldKey.isEmpty {
-                    // System field
-                    let metadata = resolveFieldMetadata(
-                        fieldKey: rowFieldKey,
-                        customLabel: nil,
-                        customFieldType: nil,
-                        customIsHidden: false,
-                        customEnableHistory: false,
-                        isCustomField: false
-                    )
-                    uniqueFields[fieldKey] = UniqueFieldData(
-                        fieldKey: rowFieldKey,
-                        label: metadata.label,
-                        fieldType: metadata.fieldType,
-                        isHidden: metadata.isHidden,
-                        displayOrder: row.displayOrder,
-                        isCustomField: false,
-                        enableHistory: metadata.enableHistory
-                    )
-                } else {
-                    // Custom field
-                    uniqueFields[fieldKey] = UniqueFieldData(
-                        fieldKey: fieldKey,
-                        label: row.customLabel ?? "",
-                        fieldType: row.customFieldType ?? FieldType.text,
-                        isHidden: row.customIsHidden == 1,
-                        displayOrder: row.displayOrder,
-                        isCustomField: true,
-                        enableHistory: row.customEnableHistory == 1
-                    )
-                }
-            }
-        }
-
-        // Build fields array with proper single/multi values
-        return uniqueFields.map { (fieldKey, fieldData) in
-            let values = fieldValuesByKey[fieldKey] ?? []
-            let value = values.first ?? ""
-
-            return ItemField(
-                fieldKey: fieldData.fieldKey,
-                label: fieldData.label,
-                fieldType: fieldData.fieldType,
-                value: value,
-                isHidden: fieldData.isHidden,
-                displayOrder: fieldData.displayOrder,
-                isCustomField: fieldData.isCustomField,
-                enableHistory: fieldData.enableHistory
-            )
         }.sorted { $0.displayOrder < $1.displayOrder }
     }
 
@@ -285,17 +223,6 @@ public struct FieldMapper {
         let label: String
         let fieldType: String
         let isHidden: Bool
-        let enableHistory: Bool
-    }
-
-    /// Helper struct to hold unique field data for single item processing.
-    private struct UniqueFieldData {
-        let fieldKey: String
-        let label: String
-        let fieldType: String
-        let isHidden: Bool
-        let displayOrder: Int
-        let isCustomField: Bool
         let enableHistory: Bool
     }
 

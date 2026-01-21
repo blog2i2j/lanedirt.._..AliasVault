@@ -22,8 +22,8 @@ public class RustCredentialMatcher {
             let rustCredentials = credentials.map { credential -> [String: Any?] in
                 return [
                     "Id": credential.id.uuidString,
-                    "ServiceName": credential.serviceName,
-                    "ServiceUrl": credential.serviceUrl,
+                    "ItemName": credential.serviceName,
+                    "ItemUrls": credential.serviceUrls,
                     "Username": credential.username
                 ]
             }

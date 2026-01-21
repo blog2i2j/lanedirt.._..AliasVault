@@ -77,36 +77,39 @@ public class CredentialIdentityStore {
     }
 
     /// Create password credential identities from credentials
+    /// Creates one identity per URL for multi-URL support (iOS matches by domain itself)
     private func createPasswordIdentities(from credentials: [AutofillCredential]) -> [ASPasswordCredentialIdentity] {
-        return credentials.compactMap { credential in
+        return credentials.flatMap { credential -> [ASPasswordCredentialIdentity] in
             guard !credential.hasPasskey else {
                 // Skip if this record has a passkey as they will be saved in createPasskeyIdentities
-                return nil
+                return []
             }
 
             guard credential.hasPassword else {
                 // Skip credentials with no password
-                return nil
-            }
-
-            guard let urlString = credential.serviceUrl,
-                  let url = URL(string: urlString),
-                  let host = url.host else {
-                return nil
+                return []
             }
 
             let identifier = credential.identifier
             guard !identifier.isEmpty else {
-                return nil // Skip credentials with no identifier
+                return [] // Skip credentials with no identifier
             }
 
-            let effectiveDomain = Self.effectiveDomain(from: host)
+            // Create one identity per URL for multi-URL support
+            return credential.serviceUrls.compactMap { urlString -> ASPasswordCredentialIdentity? in
+                guard let url = URL(string: urlString),
+                      let host = url.host else {
+                    return nil
+                }
 
-            return ASPasswordCredentialIdentity(
-                serviceIdentifier: ASCredentialServiceIdentifier(identifier: effectiveDomain, type: .domain),
-                user: identifier,
-                recordIdentifier: credential.id.uuidString
-            )
+                let effectiveDomain = Self.effectiveDomain(from: host)
+
+                return ASPasswordCredentialIdentity(
+                    serviceIdentifier: ASCredentialServiceIdentifier(identifier: effectiveDomain, type: .domain),
+                    user: identifier,
+                    recordIdentifier: credential.id.uuidString
+                )
+            }
         }
     }
 

@@ -41,10 +41,23 @@ data class Item(
     }
 
     /**
+     * Get all values for a field by its key (for multi-value fields like URLs).
+     */
+    fun getFieldValues(fieldKey: String): List<String> {
+        return fields.filter { it.fieldKey == fieldKey }.map { it.value }
+    }
+
+    /**
      * Get the URL field value (login.url).
      */
     val url: String?
         get() = getFieldValue(FieldKey.LOGIN_URL)
+
+    /**
+     * Get all URL field values (login.url) for multi-URL support.
+     */
+    val urls: List<String>
+        get() = getFieldValues(FieldKey.LOGIN_URL)
 
     /**
      * Get the username field value (login.username).

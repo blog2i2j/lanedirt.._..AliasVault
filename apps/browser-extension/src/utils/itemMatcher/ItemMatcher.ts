@@ -34,14 +34,18 @@ async function ensureInit(): Promise<void> {
 }
 
 /**
- * Helper to get field value from an item's fields array.
+ * Helper to get all field values from an item's fields array.
+ * Returns an array of strings for multi-value fields.
  */
-function getFieldValue(item: Item, fieldKey: string): string | undefined {
+function getFieldValues(item: Item, fieldKey: string): string[] {
   const field = item.Fields?.find(f => f.FieldKey === fieldKey);
   if (!field) {
-    return undefined;
+    return [];
   }
-  return Array.isArray(field.Value) ? field.Value[0] : field.Value;
+  if (Array.isArray(field.Value)) {
+    return field.Value.filter(v => v && v.length > 0);
+  }
+  return field.Value ? [field.Value] : [];
 }
 
 /**
@@ -60,8 +64,8 @@ export async function filterItems(
   const result = wasmFilterItems({
     credentials: items.map(item => ({
       Id: item.Id,
-      ServiceName: item.Name ?? '',
-      ServiceUrl: getFieldValue(item, FieldKey.LoginUrl)
+      ItemName: item.Name ?? '',
+      ItemUrls: getFieldValues(item, FieldKey.LoginUrl)
     })),
     current_url: currentUrl,
     page_title: pageTitle,

@@ -40,10 +40,12 @@ object RustItemMatcher {
 
             for (item in items) {
                 val idString = item.id.toString()
+                val urlsArray = JSONArray()
+                item.urls.forEach { urlsArray.put(it) }
                 val credJson = JSONObject().apply {
                     put("Id", idString)
-                    put("ServiceName", item.name ?: JSONObject.NULL)
-                    put("ServiceUrl", item.url ?: JSONObject.NULL)
+                    put("ItemName", item.name ?: JSONObject.NULL)
+                    put("ItemUrls", urlsArray)
                     put("Username", item.username ?: JSONObject.NULL)
                 }
                 rustCredentials.put(credJson)
