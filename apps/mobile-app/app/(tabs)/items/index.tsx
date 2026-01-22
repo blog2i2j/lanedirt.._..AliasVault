@@ -528,6 +528,7 @@ export default function ItemsScreen(): React.ReactNode {
       flexWrap: 'wrap',
       gap: 8,
       marginBottom: 12,
+      marginTop: 6,
     },
     newFolderButton: {
       alignItems: 'center',
