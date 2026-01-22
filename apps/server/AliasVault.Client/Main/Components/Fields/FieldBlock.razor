@@ -116,9 +116,10 @@
         await base.OnParametersSetAsync();
 
         // Check history count if field has history enabled and item ID is provided
+        // Pass current value for smart comparison (only show icon if history differs from current)
         if (Field.EnableHistory && ItemId != Guid.Empty && !string.IsNullOrEmpty(Field.FieldKey))
         {
-            HistoryCount = await ItemService.GetFieldHistoryCountAsync(ItemId, Field.FieldKey);
+            HistoryCount = await ItemService.GetFieldHistoryCountAsync(ItemId, Field.FieldKey, Field.Value);
         }
         else
         {

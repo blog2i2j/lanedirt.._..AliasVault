@@ -222,6 +222,21 @@ export class ItemRepository extends BaseRepository {
   }
 
   /**
+   * Delete a specific field history record.
+   * @param historyId - The ID of the history record to delete
+   * @returns Number of rows affected
+   */
+  public async deleteFieldHistory(historyId: string): Promise<number> {
+    return this.withTransaction(async () => {
+      const now = this.now();
+      return this.client.executeUpdate(FieldHistoryQueries.SOFT_DELETE, [
+        now,
+        historyId
+      ]);
+    });
+  }
+
+  /**
    * Move an item to trash (set DeletedAt timestamp).
    * @param itemId - The ID of the item to trash
    * @returns Number of rows affected

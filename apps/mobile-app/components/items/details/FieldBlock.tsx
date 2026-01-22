@@ -57,7 +57,10 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId, hideLabel = fals
   // Check if this field has history enabled
   const hasHistoryEnabled = field.EnableHistory === true;
 
-  // Check if there's actual history available
+  // Check if there's meaningful history available
+  // Only show history icon if:
+  // 1. There are more than 1 history records, OR
+  // 2. There is exactly 1 history record but its value differs from current value
   useEffect(() => {
     if (hasHistoryEnabled && itemId && dbContext?.sqliteClient) {
       const checkHistory = async (): Promise<void> => {
@@ -65,7 +68,25 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId, hideLabel = fals
 
         try {
           const history = await dbContext.sqliteClient.items.getFieldHistory(itemId, field.FieldKey);
-          setHistoryCount(history.length);
+
+          if (history.length > 1) {
+            // Multiple history records - always show icon
+            setHistoryCount(history.length);
+          } else if (history.length === 1) {
+            // Single history record - check if value differs from current
+            const currentValues = Array.isArray(field.Value) ? field.Value : [field.Value];
+            const currentValueJson = JSON.stringify(currentValues.filter(v => v && v.trim() !== ''));
+            const historyValueJson = history[0].ValueSnapshot;
+
+            // Only show icon if history value differs from current value
+            if (currentValueJson !== historyValueJson) {
+              setHistoryCount(1);
+            } else {
+              setHistoryCount(0);
+            }
+          } else {
+            setHistoryCount(0);
+          }
         } catch (error) {
           console.error('[FieldBlock] Error checking history:', error);
         }
@@ -73,7 +94,7 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId, hideLabel = fals
 
       void checkHistory();
     }
-  }, [hasHistoryEnabled, itemId, field.FieldKey, dbContext?.sqliteClient]);
+  }, [hasHistoryEnabled, itemId, field.FieldKey, field.Value, dbContext?.sqliteClient]);
 
   // Skip rendering if no value
   if (!field.Value || (typeof field.Value === 'string' && field.Value.trim() === '')) {

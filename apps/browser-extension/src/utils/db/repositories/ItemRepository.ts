@@ -387,6 +387,21 @@ export class ItemRepository extends BaseRepository {
     }));
   }
 
+  /**
+   * Delete a specific field history record.
+   * @param historyId - The ID of the history record to delete
+   * @returns Number of rows affected
+   */
+  public async deleteFieldHistory(historyId: string): Promise<number> {
+    return this.withTransaction(async () => {
+      const currentDateTime = this.now();
+      return this.client.executeUpdate(FieldHistoryQueries.SOFT_DELETE, [
+        currentDateTime,
+        historyId
+      ]);
+    });
+  }
+
   // ===== Private Helper Methods =====
 
   /**

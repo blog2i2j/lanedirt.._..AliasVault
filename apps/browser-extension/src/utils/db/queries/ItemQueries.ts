@@ -361,4 +361,12 @@ export class FieldHistoryQueries {
       SET IsDeleted = 1, UpdatedAt = ?
       WHERE Id IN (${placeholders})`;
   }
+
+  /**
+   * Soft delete a single history record.
+   */
+  public static readonly SOFT_DELETE = `
+    UPDATE FieldHistories
+    SET IsDeleted = 1, UpdatedAt = ?
+    WHERE Id = ?`;
 }

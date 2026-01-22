@@ -13,6 +13,7 @@ using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Threading.Tasks;
 using AliasClientDb;
 using AliasClientDb.Models;
@@ -584,6 +585,17 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
             totp.UpdatedAt = deleteDateTime;
         }
 
+        // Also delete field histories (queried separately since no navigation property)
+        var fieldHistories = await context.FieldHistories
+            .Where(fh => fh.ItemId == id && !fh.IsDeleted)
+            .ToListAsync();
+
+        foreach (var history in fieldHistories)
+        {
+            history.IsDeleted = true;
+            history.UpdatedAt = deleteDateTime;
+        }
+
         return await dbService.SaveDatabaseAsync();
     }
 
@@ -633,6 +645,17 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
         {
             totp.IsDeleted = true;
             totp.UpdatedAt = deleteDateTime;
+        }
+
+        // Also delete field histories (queried separately since no navigation property)
+        var fieldHistories = await context.FieldHistories
+            .Where(fh => fh.ItemId == id && !fh.IsDeleted)
+            .ToListAsync();
+
+        foreach (var history in fieldHistories)
+        {
+            history.IsDeleted = true;
+            history.UpdatedAt = deleteDateTime;
         }
 
         // Save locally and sync to server in background
@@ -706,17 +729,71 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
 
     /// <summary>
     /// Get field history count for a specific item and field.
+    /// Returns the count only if history is meaningful (more than 1 record,
+    /// or 1 record with value different from current).
     /// </summary>
     /// <param name="itemId">The item ID.</param>
     /// <param name="fieldKey">The field key.</param>
-    /// <returns>Number of history records.</returns>
-    public async Task<int> GetFieldHistoryCountAsync(Guid itemId, string fieldKey)
+    /// <param name="currentValue">The current field value to compare against.</param>
+    /// <returns>Number of history records if meaningful, 0 otherwise.</returns>
+    public async Task<int> GetFieldHistoryCountAsync(Guid itemId, string fieldKey, string? currentValue = null)
     {
         var context = await dbService.GetDbContextAsync();
 
-        return await context.FieldHistories
+        var historyRecords = await context.FieldHistories
             .Where(fh => fh.ItemId == itemId && fh.FieldKey == fieldKey && !fh.IsDeleted)
-            .CountAsync();
+            .OrderByDescending(fh => fh.ChangedAt)
+            .Take(2) // Only need to check first 2 records
+            .ToListAsync();
+
+        var count = historyRecords.Count;
+
+        if (count > 1)
+        {
+            // More than 1 history record - always show icon
+            return await context.FieldHistories
+                .Where(fh => fh.ItemId == itemId && fh.FieldKey == fieldKey && !fh.IsDeleted)
+                .CountAsync();
+        }
+
+        if (count == 1 && currentValue != null)
+        {
+            // Single history record - check if value differs from current
+            var historyValue = historyRecords[0].ValueSnapshot;
+            var currentValueJson = JsonSerializer.Serialize(new[] { currentValue }.Where(v => !string.IsNullOrWhiteSpace(v)));
+
+            // Only show icon if history value differs from current value
+            if (currentValueJson != historyValue)
+            {
+                return 1;
+            }
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// Delete a specific field history record.
+    /// </summary>
+    /// <param name="historyId">The ID of the history record to delete.</param>
+    /// <returns>True if deleted, false otherwise.</returns>
+    public async Task<bool> DeleteFieldHistoryAsync(Guid historyId)
+    {
+        var context = await dbService.GetDbContextAsync();
+
+        var history = await context.FieldHistories
+            .FirstOrDefaultAsync(fh => fh.Id == historyId && !fh.IsDeleted);
+
+        if (history == null)
+        {
+            return false;
+        }
+
+        history.IsDeleted = true;
+        history.UpdatedAt = DateTime.UtcNow;
+
+        await context.SaveChangesAsync();
+        return true;
     }
 
     /// <summary>

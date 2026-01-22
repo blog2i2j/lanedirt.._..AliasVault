@@ -1,5 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   StyleSheet,
@@ -18,6 +18,8 @@ import { useDb } from '@/context/DbContext';
 import { copyToClipboardWithExpiration } from '@/utils/ClipboardUtility';
 import { useAuth } from '@/context/AuthContext';
 import { ModalWrapper } from '@/components/common/ModalWrapper';
+import { useVaultMutate } from '@/hooks/useVaultMutate';
+import { useDialog } from '@/context/DialogContext';
 
 type FieldHistoryModalProps = {
   isOpen: boolean;
@@ -48,6 +50,8 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
   const colors = useColors();
   const dbContext = useDb();
   const { getClipboardClearTimeout } = useAuth();
+  const { executeVaultMutation } = useVaultMutate();
+  const { showConfirm } = useDialog();
   const [history, setHistory] = useState<FieldHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [visibleValues, setVisibleValues] = useState<Set<string>>(new Set());
@@ -55,27 +59,26 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
   // For non-hidden fields, show values by default
   const shouldMaskByDefault = isHidden || fieldType === FieldTypes.Password || fieldType === FieldTypes.Hidden;
 
+  const loadHistory = useCallback(async (): Promise<void> => {
+    if (!dbContext?.sqliteClient) return;
+
+    try {
+      setLoading(true);
+      const historyRecords = await dbContext.sqliteClient.items.getFieldHistory(itemId, fieldKey);
+      setHistory(historyRecords);
+    } catch (error) {
+      console.error('Error loading field history:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [dbContext?.sqliteClient, itemId, fieldKey]);
+
   useEffect(() => {
-    if (!isOpen || !dbContext?.sqliteClient) {
+    if (!isOpen) {
       return;
     }
-
-    const loadHistory = async (): Promise<void> => {
-      if (!dbContext.sqliteClient) return;
-
-      try {
-        setLoading(true);
-        const historyRecords = await dbContext.sqliteClient.items.getFieldHistory(itemId, fieldKey);
-        setHistory(historyRecords);
-      } catch (error) {
-        console.error('Error loading field history:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     void loadHistory();
-  }, [isOpen, dbContext?.sqliteClient, itemId, fieldKey]);
+  }, [isOpen, loadHistory]);
 
   /**
    * Format a date string to a human readable format.
@@ -106,6 +109,48 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
     }
   };
 
+  /**
+   * Handle delete of a history record.
+   */
+  const handleDelete = async (historyId: string): Promise<void> => {
+    if (!dbContext?.sqliteClient) {
+      return;
+    }
+
+    try {
+      // Use vault mutation to delete and sync in background
+      await executeVaultMutation(async () => {
+        await dbContext.sqliteClient!.items.deleteFieldHistory(historyId);
+      });
+      // Reload history after deletion
+      await loadHistory();
+      Toast.show({
+        type: 'success',
+        text1: t('common.delete'),
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
+    } catch (error) {
+      console.error('Error deleting field history:', error);
+    }
+  };
+
+  /**
+   * Show delete confirmation dialog.
+   */
+  const confirmDelete = (historyId: string): void => {
+    showConfirm(
+      t('common.delete'),
+      t('items.deleteHistoryConfirm'),
+      t('common.confirm'),
+      () => handleDelete(historyId),
+      {
+        cancelText: t('common.cancel'),
+        confirmStyle: 'destructive',
+      }
+    );
+  };
+
   const styles = StyleSheet.create({
     loadingContainer: {
       alignItems: 'center',
@@ -129,8 +174,11 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
       overflow: 'hidden',
     },
     historyHeader: {
+      alignItems: 'center',
       borderBottomColor: colors.accentBorder,
       borderBottomWidth: 1,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
       paddingHorizontal: 12,
       paddingVertical: 8,
     },
@@ -138,6 +186,9 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
       color: colors.textMuted,
       fontSize: 12,
       fontWeight: '500',
+    },
+    deleteButton: {
+      padding: 4,
     },
     historyValue: {
       alignItems: 'center',
@@ -203,6 +254,17 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
                 <Text style={styles.historyDate}>
                   {formatDate(record.ChangedAt)}
                 </Text>
+                <TouchableOpacity
+                  onPress={() => confirmDelete(record.Id)}
+                  style={styles.deleteButton}
+                  accessibilityLabel={t('common.delete')}
+                >
+                  <MaterialIcons
+                    name="delete-outline"
+                    size={18}
+                    color={colors.textMuted}
+                  />
+                </TouchableOpacity>
               </View>
 
               {values.map((value, idx) => {

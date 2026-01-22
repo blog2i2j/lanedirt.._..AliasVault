@@ -66,8 +66,8 @@
     <value>No history available</value>
     <comment>Message shown when no history records exist</comment>
   </data>
-  <data name="CloseButton" xml:space="preserve">
-    <value>Close</value>
-    <comment>Close button text</comment>
+  <data name="DeleteConfirm" xml:space="preserve">
+    <value>Are you sure?</value>
+    <comment>Delete confirmation text</comment>
   </data>
 </root>
