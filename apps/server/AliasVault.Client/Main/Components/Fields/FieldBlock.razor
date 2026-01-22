@@ -1,6 +1,7 @@
 @using AliasVault.Client.Main.Utilities
 @using AliasClientDb.Models
 @using Microsoft.Extensions.Localization
+@inject ItemService ItemService
 
 @* FieldBlock component - renders a single field based on its type *@
 @switch (Field.FieldType)
@@ -8,9 +9,10 @@
     case FieldType.Password:
     case FieldType.Hidden:
         <div class="col-span-6">
+            @RenderLabelWithHistory()
             <CopyPastePasswordFormRow
                 Id="@GetFieldId()"
-                Label="@GetLabel()"
+                Label=""
                 Value="@(Field.Value ?? string.Empty)" />
         </div>
         break;
@@ -18,7 +20,7 @@
         <div class="col-span-6">
             @if (!HideLabel)
             {
-                <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">@GetLabel()</label>
+                @RenderLabelWithHistory()
             }
             <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white whitespace-pre-wrap text-sm">
                 @RenderTextWithLinks(Field.Value ?? string.Empty)
@@ -27,7 +29,7 @@
         break;
     case FieldType.URL:
         <div class="col-span-6">
-            <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">@GetLabel()</label>
+            @RenderLabelWithHistory()
             @if (!string.IsNullOrEmpty(Field.Value))
             {
                 @if (Field.Value.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || Field.Value.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
@@ -45,21 +47,34 @@
         break;
     case FieldType.Date:
         <div class="@(FullWidth ? "col-span-6" : "col-span-6 sm:col-span-3")">
+            @RenderLabelWithHistory()
             <CopyPasteFormRow
                 Id="@GetFieldId()"
-                Label="@GetLabel()"
+                Label=""
                 Value="@(Field.Value ?? string.Empty)" />
         </div>
         break;
     default:
         @* Text, Email, Phone, Number - use standard copy/paste row *@
         <div class="@(FullWidth ? "col-span-6" : "col-span-6 sm:col-span-3")">
+            @RenderLabelWithHistory()
             <CopyPasteFormRow
                 Id="@GetFieldId()"
-                Label="@GetLabel()"
+                Label=""
                 Value="@(Field.Value ?? string.Empty)" />
         </div>
         break;
+}
+
+@* Field History Modal *@
+@if (ShowHistoryModal)
+{
+    <FieldHistoryModal
+        ItemId="@ItemId"
+        FieldKey="@Field.FieldKey"
+        FieldLabel="@GetLabel()"
+        IsHidden="@(Field.FieldType == FieldType.Password || Field.FieldType == FieldType.Hidden)"
+        OnClose="CloseHistoryModal" />
 }
 
 @code {
@@ -75,6 +90,12 @@
     public required DisplayField Field { get; set; }
 
     /// <summary>
+    /// Gets or sets the item ID (required for history lookup).
+    /// </summary>
+    [Parameter]
+    public Guid ItemId { get; set; }
+
+    /// <summary>
     /// Gets or sets whether the field should span full width.
     /// </summary>
     [Parameter]
@@ -85,6 +106,82 @@
     /// </summary>
     [Parameter]
     public bool HideLabel { get; set; }
+
+    private bool ShowHistoryModal { get; set; }
+    private int HistoryCount { get; set; }
+
+    /// <inheritdoc />
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+
+        // Check history count if field has history enabled and item ID is provided
+        if (Field.EnableHistory && ItemId != Guid.Empty && !string.IsNullOrEmpty(Field.FieldKey))
+        {
+            HistoryCount = await ItemService.GetFieldHistoryCountAsync(ItemId, Field.FieldKey);
+        }
+        else
+        {
+            HistoryCount = 0;
+        }
+    }
+
+    /// <summary>
+    /// Renders the label with optional history icon.
+    /// </summary>
+    private RenderFragment RenderLabelWithHistory() => builder =>
+    {
+        builder.OpenElement(0, "label");
+        builder.AddAttribute(1, "for", GetFieldId());
+        builder.AddAttribute(2, "class", "block mb-2 text-sm font-medium text-gray-900 dark:text-white");
+
+        // Label text
+        builder.AddContent(3, GetLabel());
+
+        // History icon (only if history is enabled and there's history data)
+        if (Field.EnableHistory && HistoryCount > 0)
+        {
+            builder.OpenElement(4, "button");
+            builder.AddAttribute(5, "type", "button");
+            builder.AddAttribute(6, "class", "ml-2 inline-flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none");
+            builder.AddAttribute(7, "title", Localizer["ViewHistory"]);
+            builder.AddAttribute(8, "onclick", EventCallback.Factory.Create(this, OpenHistoryModal));
+
+            // Clock/history icon SVG
+            builder.OpenElement(9, "svg");
+            builder.AddAttribute(10, "class", "h-4 w-4");
+            builder.AddAttribute(11, "fill", "none");
+            builder.AddAttribute(12, "viewBox", "0 0 24 24");
+            builder.AddAttribute(13, "stroke-width", "1.5");
+            builder.AddAttribute(14, "stroke", "currentColor");
+            builder.OpenElement(15, "path");
+            builder.AddAttribute(16, "stroke-linecap", "round");
+            builder.AddAttribute(17, "stroke-linejoin", "round");
+            builder.AddAttribute(18, "d", "M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z");
+            builder.CloseElement(); // path
+            builder.CloseElement(); // svg
+
+            builder.CloseElement(); // button
+        }
+
+        builder.CloseElement(); // label
+    };
+
+    /// <summary>
+    /// Opens the history modal.
+    /// </summary>
+    private void OpenHistoryModal()
+    {
+        ShowHistoryModal = true;
+    }
+
+    /// <summary>
+    /// Closes the history modal.
+    /// </summary>
+    private void CloseHistoryModal()
+    {
+        ShowHistoryModal = false;
+    }
 
     /// <summary>
     /// Gets the label for the field.

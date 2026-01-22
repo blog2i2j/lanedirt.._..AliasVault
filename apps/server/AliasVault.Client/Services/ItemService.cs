@@ -294,6 +294,9 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
             ClearInapplicableData(context, existingItem, item.ItemType, updateDateTime);
         }
 
+        // Track history for fields with EnableHistory=true before updating
+        await TrackFieldHistoryAsync(context, existingItem, item, updateDateTime);
+
         // Update field values
         UpdateFieldValues(context, existingItem, item, updateDateTime);
 
@@ -679,6 +682,38 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Get field history for a specific item and field.
+    /// </summary>
+    /// <param name="itemId">The item ID.</param>
+    /// <param name="fieldKey">The field key.</param>
+    /// <returns>List of field history records.</returns>
+    public async Task<List<FieldHistory>> GetFieldHistoryAsync(Guid itemId, string fieldKey)
+    {
+        var context = await dbService.GetDbContextAsync();
+
+        return await context.FieldHistories
+            .Where(fh => fh.ItemId == itemId && fh.FieldKey == fieldKey && !fh.IsDeleted)
+            .OrderByDescending(fh => fh.ChangedAt)
+            .Take(10)
+            .ToListAsync();
+    }
+
+    /// <summary>
+    /// Get field history count for a specific item and field.
+    /// </summary>
+    /// <param name="itemId">The item ID.</param>
+    /// <param name="fieldKey">The field key.</param>
+    /// <returns>Number of history records.</returns>
+    public async Task<int> GetFieldHistoryCountAsync(Guid itemId, string fieldKey)
+    {
+        var context = await dbService.GetDbContextAsync();
+
+        return await context.FieldHistories
+            .Where(fh => fh.ItemId == itemId && fh.FieldKey == fieldKey && !fh.IsDeleted)
+            .CountAsync();
     }
 
     /// <summary>
@@ -1249,5 +1284,108 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
 
         // Return the mapped language, or fall back to "en" if no match found
         return mappedLanguage ?? "en";
+    }
+
+    /// <summary>
+    /// Track field history for fields with EnableHistory=true.
+    /// Compares old values with new values and creates history records.
+    /// </summary>
+    /// <param name="context">The database context.</param>
+    /// <param name="existingItem">The existing item in the database.</param>
+    /// <param name="newItem">The new item with updated field values.</param>
+    /// <param name="updateDateTime">The timestamp for updates.</param>
+    /// <returns>Task.</returns>
+#pragma warning disable SA1204 // Static members should appear before non-static members
+    private static async Task TrackFieldHistoryAsync(AliasClientDbContext context, Item existingItem, Item newItem, DateTime updateDateTime)
+#pragma warning restore SA1204
+    {
+        // Maximum number of history records to keep per field
+        const int MaxFieldHistoryRecords = 10;
+
+        // Get the existing tracked field values from the existingItem (loaded with Include)
+        var existingFields = existingItem.FieldValues.Where(fv => !fv.IsDeleted).ToList();
+
+        // Group existing fields by key to support multi-value fields
+        var existingByFieldKey = existingFields
+            .Where(f => f.FieldKey != null)
+            .GroupBy(f => f.FieldKey!)
+            .ToDictionary(g => g.Key, g => g.OrderBy(f => f.Weight).Select(f => f.Value ?? string.Empty).ToList());
+
+        // Group new fields by key to handle multi-value fields
+        var newFieldsByKey = newItem.FieldValues
+            .Where(fv => !fv.IsDeleted && fv.FieldKey != null)
+            .GroupBy(f => f.FieldKey!)
+            .ToDictionary(g => g.Key, g => g.OrderBy(f => f.Weight).Select(f => f.Value ?? string.Empty).ToList());
+
+        foreach (var (fieldKey, newValues) in newFieldsByKey)
+        {
+            // Check if history tracking is enabled for this field
+            var fieldDef = SystemFieldRegistry.GetSystemField(fieldKey);
+            if (fieldDef == null || !fieldDef.EnableHistory)
+            {
+                continue;
+            }
+
+            var oldValues = existingByFieldKey.TryGetValue(fieldKey, out var values) ? values : new List<string>();
+
+            // Check if values have changed
+            var valuesChanged = oldValues.Count != newValues.Count ||
+                !oldValues.SequenceEqual(newValues);
+
+            // Only create history if values changed AND there were old values
+            if (valuesChanged && oldValues.Count > 0)
+            {
+                // Create a JSON snapshot of old values
+                var valueSnapshot = System.Text.Json.JsonSerializer.Serialize(oldValues);
+
+                // Create new history record
+                var historyRecord = new FieldHistory
+                {
+                    Id = Guid.NewGuid(),
+                    ItemId = existingItem.Id,
+                    FieldKey = fieldKey,
+                    FieldDefinitionId = null,
+                    ValueSnapshot = valueSnapshot,
+                    ChangedAt = updateDateTime,
+                    CreatedAt = updateDateTime,
+                    UpdatedAt = updateDateTime,
+                    IsDeleted = false,
+                };
+                context.FieldHistories.Add(historyRecord);
+
+                // Prune old history records to keep only the most recent
+                await PruneFieldHistoryAsync(context, existingItem.Id, fieldKey, MaxFieldHistoryRecords, updateDateTime);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Prune old field history records.
+    /// Keeps only the most recent MaxFieldHistoryRecords records.
+    /// </summary>
+    /// <param name="context">The database context.</param>
+    /// <param name="itemId">The item ID.</param>
+    /// <param name="fieldKey">The field key.</param>
+    /// <param name="maxRecords">Maximum number of records to keep.</param>
+    /// <param name="updateDateTime">The timestamp for updates.</param>
+    /// <returns>Task.</returns>
+    private static async Task PruneFieldHistoryAsync(AliasClientDbContext context, Guid itemId, string fieldKey, int maxRecords, DateTime updateDateTime)
+    {
+        // Get all history records for this field, ordered by ChangedAt descending
+        var historyRecords = await context.FieldHistories
+            .Where(fh => fh.ItemId == itemId && fh.FieldKey == fieldKey && !fh.IsDeleted)
+            .OrderByDescending(fh => fh.ChangedAt)
+            .ToListAsync();
+
+        // If we have more than maxRecords, soft-delete the old ones
+        if (historyRecords.Count > maxRecords)
+        {
+            var recordsToDelete = historyRecords.Skip(maxRecords);
+            foreach (var record in recordsToDelete)
+            {
+                record.IsDeleted = true;
+                record.UpdatedAt = updateDateTime;
+            }
+        }
     }
 }

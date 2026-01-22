@@ -97,7 +97,7 @@ else
                     <div class="grid grid-cols-6 gap-6">
                         @foreach (var field in notesFields)
                         {
-                            <FieldBlock Field="@field" HideLabel="true" />
+                            <FieldBlock Field="@field" ItemId="@Item.Id" HideLabel="true" />
                         }
                     </div>
                 </div>
@@ -173,7 +173,7 @@ else
                         <div class="grid grid-cols-6 gap-6">
                             @foreach (var field in loginFields)
                             {
-                                <FieldBlock Field="@field" />
+                                <FieldBlock Field="@field" ItemId="@Item.Id" />
                             }
                         </div>
                     </form>
@@ -201,7 +201,7 @@ else
                             }
                             @foreach (var field in aliasFields)
                             {
-                                <FieldBlock Field="@field" />
+                                <FieldBlock Field="@field" ItemId="@Item.Id" />
                             }
                         </div>
                     </form>
@@ -218,7 +218,7 @@ else
                         <div class="grid grid-cols-6 gap-6">
                             @foreach (var field in cardFields)
                             {
-                                <FieldBlock Field="@field" />
+                                <FieldBlock Field="@field" ItemId="@Item.Id" />
                             }
                         </div>
                     </form>
@@ -233,7 +233,7 @@ else
                     <div class="grid grid-cols-6 gap-6">
                         @foreach (var field in noteTypeNotesFields)
                         {
-                            <FieldBlock Field="@field" HideLabel="true" />
+                            <FieldBlock Field="@field" ItemId="@Item.Id" HideLabel="true" />
                         }
                     </div>
                 </div>
@@ -247,7 +247,7 @@ else
                         <div class="grid grid-cols-6 gap-6">
                             @foreach (var field in customFields)
                             {
-                                <FieldBlock Field="@field" FullWidth="true" />
+                                <FieldBlock Field="@field" ItemId="@Item.Id" FullWidth="true" />
                             }
                         </div>
                     </form>
