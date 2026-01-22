@@ -156,7 +156,7 @@ export class ItemQueries {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
 
   /**
-   * Update an existing item.
+   * Update an existing item (preserves LogoId if null is passed).
    */
   public static readonly UPDATE_ITEM = `
     UPDATE Items
@@ -164,6 +164,18 @@ export class ItemQueries {
         ItemType = ?,
         FolderId = ?,
         LogoId = COALESCE(?, LogoId),
+        UpdatedAt = ?
+    WHERE Id = ?`;
+
+  /**
+   * Update an existing item with explicit LogoId setting (can clear LogoId to null).
+   */
+  public static readonly UPDATE_ITEM_WITH_LOGO = `
+    UPDATE Items
+    SET Name = ?,
+        ItemType = ?,
+        FolderId = ?,
+        LogoId = ?,
         UpdatedAt = ?
     WHERE Id = ?`;
 

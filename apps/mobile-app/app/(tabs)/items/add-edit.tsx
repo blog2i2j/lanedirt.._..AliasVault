@@ -795,6 +795,9 @@ export default function AddEditItemScreen(): React.ReactNode {
           // Favicon extraction failed or timed out - not critical, continue with save
         }
       }
+    } else if (!shouldFetchFavicon) {
+      // URL is empty or just a placeholder - clear any existing logo
+      itemToSave.Logo = undefined;
     }
 
     /*

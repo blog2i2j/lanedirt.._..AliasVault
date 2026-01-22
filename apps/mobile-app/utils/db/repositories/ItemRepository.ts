@@ -5,6 +5,7 @@ import { BaseRepository } from '../BaseRepository';
 import { ItemQueries, FieldValueQueries, FieldHistoryQueries } from '../queries/ItemQueries';
 import { FieldMapper, type FieldRow } from '../mappers/FieldMapper';
 import { ItemMapper, type ItemRow, type TagRow, type ItemWithDeletedAt } from '../mappers/ItemMapper';
+import type { LogoRepository } from './LogoRepository';
 
 /**
  * SQL query constants for Item-related tag operations.
@@ -43,6 +44,15 @@ const TagQueries = {
  * Handles fetching, creating, updating, and deleting items with their related data.
  */
 export class ItemRepository extends BaseRepository {
+  private logoRepository: LogoRepository | null = null;
+
+  /**
+   * Set the logo repository for logo handling operations.
+   * @param logoRepository - The logo repository instance
+   */
+  public setLogoRepository(logoRepository: LogoRepository): void {
+    this.logoRepository = logoRepository;
+  }
   /**
    * Fetch all active items (not deleted, not in trash) with their fields and tags.
    * @returns Array of Item objects
@@ -337,25 +347,32 @@ export class ItemRepository extends BaseRepository {
     return this.withTransaction(async () => {
       const now = this.now();
 
-      // 1. Update Item only if item-level fields changed
+      // 1. Handle Logo - resolve new logoId based on item.Logo
+      const logoId = await this.resolveLogoId(item, now);
+
+      // 2. Update Item only if item-level fields changed
       const existing = await this.client.executeQuery<{
         Name: string | null;
         ItemType: string | null;
         FolderId: string | null;
-      }>(`SELECT Name, ItemType, FolderId FROM Items WHERE Id = ?`, [item.Id]);
+        LogoId: string | null;
+      }>(`SELECT Name, ItemType, FolderId, LogoId FROM Items WHERE Id = ?`, [item.Id]);
 
       if (existing.length > 0) {
         const existingItem = existing[0];
         const nameChanged = item.Name !== existingItem.Name;
         const itemTypeChanged = String(item.ItemType) !== String(existingItem.ItemType);
         const folderIdChanged = (item.FolderId || null) !== existingItem.FolderId;
+        // Logo changed if: we have a new logo ID, OR we're clearing the logo (item.Logo is undefined and existing has logo)
+        const logoIdChanged = logoId !== existingItem.LogoId;
 
-        if (nameChanged || itemTypeChanged || folderIdChanged) {
-          await this.client.executeUpdate(ItemQueries.UPDATE_ITEM, [
+        if (nameChanged || itemTypeChanged || folderIdChanged || logoIdChanged) {
+          // Use UPDATE_ITEM_WITH_LOGO to allow explicit clearing of LogoId
+          await this.client.executeUpdate(ItemQueries.UPDATE_ITEM_WITH_LOGO, [
             item.Name,
             item.ItemType,
             item.FolderId || null,
-            null, // LogoId update handled separately if needed
+            logoId,
             now,
             item.Id
           ]);
@@ -617,5 +634,39 @@ export class ItemRepository extends BaseRepository {
         );
       }
     }
+  }
+
+  /**
+   * Resolve the logo ID for an item (create new or reuse existing).
+   * If item.Logo is undefined, returns null to clear any existing logo.
+   * @param item - The item to resolve logo for
+   * @param currentDateTime - The current timestamp
+   * @returns The logo ID, or null if no logo
+   */
+  private async resolveLogoId(item: Item, currentDateTime: string): Promise<string | null> {
+    // If no logo repository is set, we can't handle logos
+    if (!this.logoRepository) {
+      return null;
+    }
+
+    // Get URL field for source extraction
+    const urlField = item.Fields?.find(f => f.FieldKey === 'login.url');
+    const urlValue = urlField?.Value;
+    const urlString = Array.isArray(urlValue) ? urlValue[0] : urlValue;
+    const source = this.logoRepository.extractSourceFromUrl(urlString);
+
+    // If item has Logo data, create or reuse a logo entry
+    if (item.Logo) {
+      const logoData = this.logoRepository.convertLogoToUint8Array(item.Logo);
+      if (logoData) {
+        return this.logoRepository.getOrCreate(source, logoData, currentDateTime);
+      }
+    } else if (source !== 'unknown') {
+      // No logo data provided, but we have a valid URL - try to find existing logo for this source
+      return this.logoRepository.getIdForSource(source);
+    }
+
+    // No logo data and no valid URL - return null to clear any existing logo
+    return null;
   }
 }

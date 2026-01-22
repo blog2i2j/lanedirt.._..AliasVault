@@ -189,10 +189,12 @@ export class ItemRepository extends BaseRepository {
         const nameChanged = (item.Name ?? null) !== existing.Name;
         const itemTypeChanged = String(item.ItemType) !== String(existing.ItemType);
         const folderIdChanged = (item.FolderId ?? null) !== existing.FolderId;
-        const logoIdChanged = logoId !== null && logoId !== existing.LogoId;
+        // Logo is considered changed if: new logo differs from existing, OR logo was cleared (undefined/null in item.Logo while existing has one)
+        const logoIdChanged = logoId !== existing.LogoId;
 
         if (nameChanged || itemTypeChanged || folderIdChanged || logoIdChanged) {
-          this.client.executeUpdate(ItemQueries.UPDATE_ITEM, [
+          // Use UPDATE_ITEM_WITH_LOGO to allow explicit clearing of LogoId
+          this.client.executeUpdate(ItemQueries.UPDATE_ITEM_WITH_LOGO, [
             item.Name ?? null,
             item.ItemType,
             item.FolderId ?? null,

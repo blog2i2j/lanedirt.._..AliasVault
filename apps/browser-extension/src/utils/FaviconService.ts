@@ -173,11 +173,12 @@ export class FaviconService {
   /**
    * Fetch and attach favicon to an item if needed.
    * This is a convenience method that combines URL extraction, deduplication, and fetching.
+   * If the URL is empty or invalid, clears any existing logo from the item.
    * @param item The item to potentially update with a logo
    * @param urlFieldValue The value of the URL field (can be string or string[])
    * @param sqliteClient The SQLite client for deduplication check
    * @param webApi The WebAPI service for making the request
-   * @returns The updated item with Logo attached (if favicon was fetched), or the original item
+   * @returns The updated item with Logo attached (if favicon was fetched), cleared (if URL is empty), or the original item
    */
   public static async fetchAndAttachFavicon(
     item: Item,
@@ -186,8 +187,13 @@ export class FaviconService {
     webApi: WebApiService
   ): Promise<Item> {
     const urlString = FaviconService.extractFirstValidUrl(urlFieldValue);
+
+    // If URL is empty or invalid, explicitly clear logo to signal that any existing logo should be removed
     if (!urlString) {
-      return item;
+      return {
+        ...item,
+        Logo: undefined
+      };
     }
 
     const result = await FaviconService.fetchFavicon(urlString, sqliteClient, webApi);

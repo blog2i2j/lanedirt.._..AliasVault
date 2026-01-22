@@ -1164,6 +1164,7 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
     /// <summary>
     /// Extract favicon from service URL if available. If successful, links the item to the logo.
     /// Checks for existing logo first to avoid unnecessary API calls (deduplication).
+    /// If URL is empty or just the placeholder, clears any existing logo from the item.
     /// </summary>
     /// <param name="item">The Item to extract the favicon for.</param>
     /// <returns>Task.</returns>
@@ -1217,6 +1218,11 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
             {
                 // Ignore favicon extraction errors
             }
+        }
+        else
+        {
+            // URL is empty or just the placeholder - clear any existing logo
+            item.LogoId = null;
         }
     }
 
