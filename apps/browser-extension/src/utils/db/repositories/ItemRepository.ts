@@ -412,6 +412,7 @@ export class ItemRepository extends BaseRepository {
 
   /**
    * Insert field values for a new item.
+   * Also creates history records for fields with EnableHistory=true.
    */
   private insertFieldValues(
     itemId: string,
@@ -434,12 +435,9 @@ export class ItemRepository extends BaseRepository {
 
       // Handle multi-value fields
       const values = Array.isArray(field.Value) ? field.Value : [field.Value];
+      const filteredValues = values.filter(v => v && v.trim() !== '');
 
-      for (const value of values) {
-        if (!value || (typeof value === 'string' && value.trim() === '')) {
-          continue;
-        }
-
+      for (const value of filteredValues) {
         this.client.executeUpdate(FieldValueQueries.INSERT, [
           this.generateId(),
           itemId,
@@ -447,6 +445,24 @@ export class ItemRepository extends BaseRepository {
           field.IsCustomField ? null : field.FieldKey,
           value,
           field.DisplayOrder ?? 0,
+          currentDateTime,
+          currentDateTime,
+          0
+        ]);
+      }
+
+      // Create history record for fields with EnableHistory=true
+      if (field.EnableHistory && filteredValues.length > 0) {
+        const historyId = this.generateId();
+        const valueSnapshot = JSON.stringify(filteredValues);
+
+        this.client.executeUpdate(FieldHistoryQueries.INSERT, [
+          historyId,
+          itemId,
+          null,
+          field.FieldKey,
+          valueSnapshot,
+          currentDateTime,
           currentDateTime,
           currentDateTime,
           0
@@ -615,6 +631,11 @@ export class ItemRepository extends BaseRepository {
 
   /**
    * Track field history for fields with EnableHistory=true.
+   *
+   * This saves the NEW value to history on every change. Since each value is saved
+   * when it's set, we don't need to save the old value (it was already saved when
+   * it was first set). This ensures that during merge conflicts, no values are ever
+   * lost since history records sync independently via LWW and each has a unique ID.
    */
   private async trackFieldHistory(
     itemId: string,
@@ -648,12 +669,16 @@ export class ItemRepository extends BaseRepository {
       const oldValues = existingValuesMap[newField.FieldKey] || [];
       const newValues = Array.isArray(newField.Value) ? newField.Value : [newField.Value];
 
-      const valuesChanged = oldValues.length !== newValues.length ||
-        !oldValues.every((val, idx) => val === newValues[idx]);
+      // Filter out empty values for comparison
+      const filteredNewValues = newValues.filter(v => v && v.trim() !== '');
 
-      if (valuesChanged && oldValues.length > 0) {
+      const valuesChanged = oldValues.length !== filteredNewValues.length ||
+        !oldValues.every((val, idx) => val === filteredNewValues[idx]);
+
+      // Save new values to history when they change (ensures they survive merge conflicts)
+      if (valuesChanged && filteredNewValues.length > 0) {
         const historyId = this.generateId();
-        const valueSnapshot = JSON.stringify(oldValues);
+        const valueSnapshot = JSON.stringify(filteredNewValues);
 
         this.client.executeUpdate(FieldHistoryQueries.INSERT, [
           historyId,

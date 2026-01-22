@@ -413,15 +413,16 @@ export class ItemRepository extends BaseRepository {
 
   /**
    * Insert field values for an item.
+   * Also creates history records for fields with EnableHistory=true.
    */
   private async insertFieldValues(itemId: string, fields: ItemField[], now: string): Promise<void> {
     for (let i = 0; i < fields.length; i++) {
       const field = fields[i];
       const values = Array.isArray(field.Value) ? field.Value : [field.Value];
+      const filteredValues = values.filter(v => v !== undefined && v !== null && v !== '');
 
-      for (let j = 0; j < values.length; j++) {
-        const value = values[j];
-        if (value === undefined || value === null || value === '') continue;
+      for (let j = 0; j < filteredValues.length; j++) {
+        const value = filteredValues[j];
 
         await this.client.executeUpdate(FieldValueQueries.INSERT, [
           this.generateId(),
@@ -434,6 +435,27 @@ export class ItemRepository extends BaseRepository {
           now,
           0
         ]);
+      }
+
+      // Create history record for fields with EnableHistory=true
+      if (field.EnableHistory && filteredValues.length > 0) {
+        // Check if FieldHistories table exists
+        if (await this.tableExists('FieldHistories')) {
+          const historyId = this.generateId();
+          const valueSnapshot = JSON.stringify(filteredValues);
+
+          await this.client.executeUpdate(FieldHistoryQueries.INSERT, [
+            historyId,
+            itemId,
+            null,
+            field.FieldKey,
+            valueSnapshot,
+            now,
+            now,
+            now,
+            0
+          ]);
+        }
       }
     }
   }
@@ -547,6 +569,11 @@ export class ItemRepository extends BaseRepository {
   /**
    * Track field history for fields with EnableHistory=true.
    * Compares old values with new values and creates history records.
+   *
+   * This saves the NEW value to history on every change. Since each value is saved
+   * when it's set, we don't need to save the old value (it was already saved when
+   * it was first set). This ensures that during merge conflicts, no values are ever
+   * lost since history records sync independently via LWW and each has a unique ID.
    */
   private async trackFieldHistory(
     itemId: string,
@@ -585,12 +612,16 @@ export class ItemRepository extends BaseRepository {
       const oldValues = existingValuesMap[newField.FieldKey] || [];
       const newValues = Array.isArray(newField.Value) ? newField.Value : [newField.Value];
 
-      const valuesChanged = oldValues.length !== newValues.length ||
-        !oldValues.every((val, idx) => val === newValues[idx]);
+      // Filter out empty values for comparison
+      const filteredNewValues = newValues.filter(v => v && v.trim() !== '');
 
-      if (valuesChanged && oldValues.length > 0) {
+      const valuesChanged = oldValues.length !== filteredNewValues.length ||
+        !oldValues.every((val, idx) => val === filteredNewValues[idx]);
+
+      // Save new values to history when they change (ensures they survive merge conflicts)
+      if (valuesChanged && filteredNewValues.length > 0) {
         const historyId = this.generateId();
-        const valueSnapshot = JSON.stringify(oldValues);
+        const valueSnapshot = JSON.stringify(filteredNewValues);
 
         await this.client.executeUpdate(FieldHistoryQueries.INSERT, [
           historyId,

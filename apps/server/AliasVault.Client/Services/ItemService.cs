@@ -226,6 +226,9 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
             totpCode.UpdatedAt = currentDateTime;
         }
 
+        // Create history records for fields with EnableHistory=true
+        await CreateInitialFieldHistoryAsync(context, item, currentDateTime);
+
         context.Items.Add(item);
 
         // Save the database to the server if saveToDb is true.
@@ -1289,6 +1292,11 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
     /// <summary>
     /// Track field history for fields with EnableHistory=true.
     /// Compares old values with new values and creates history records.
+    ///
+    /// This saves the NEW value to history on every change. Since each value is saved
+    /// when it's set, we don't need to save the old value (it was already saved when
+    /// it was first set). This ensures that during merge conflicts, no values are ever
+    /// lost since history records sync independently via LWW and each has a unique ID.
     /// </summary>
     /// <param name="context">The database context.</param>
     /// <param name="existingItem">The existing item in the database.</param>
@@ -1328,17 +1336,17 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
 
             var oldValues = existingByFieldKey.TryGetValue(fieldKey, out var values) ? values : new List<string>();
 
+            // Filter out empty values for comparison
+            var filteredNewValues = newValues.Where(v => !string.IsNullOrWhiteSpace(v)).ToList();
+
             // Check if values have changed
-            var valuesChanged = oldValues.Count != newValues.Count ||
-                !oldValues.SequenceEqual(newValues);
+            var valuesChanged = oldValues.Count != filteredNewValues.Count ||
+                !oldValues.SequenceEqual(filteredNewValues);
 
-            // Only create history if values changed AND there were old values
-            if (valuesChanged && oldValues.Count > 0)
+            // Save new values to history when they change (ensures they survive merge conflicts)
+            if (valuesChanged && filteredNewValues.Count > 0)
             {
-                // Create a JSON snapshot of old values
-                var valueSnapshot = System.Text.Json.JsonSerializer.Serialize(oldValues);
-
-                // Create new history record
+                var valueSnapshot = System.Text.Json.JsonSerializer.Serialize(filteredNewValues);
                 var historyRecord = new FieldHistory
                 {
                     Id = Guid.NewGuid(),
@@ -1357,6 +1365,56 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
                 await PruneFieldHistoryAsync(context, existingItem.Id, fieldKey, MaxFieldHistoryRecords, updateDateTime);
             }
         }
+    }
+
+    /// <summary>
+    /// Create initial field history records for fields with EnableHistory=true when creating a new item.
+    /// This ensures the initial value is captured in history for merge conflict resolution.
+    /// </summary>
+    /// <param name="context">The database context.</param>
+    /// <param name="item">The new item being created.</param>
+    /// <param name="createDateTime">The timestamp for creation.</param>
+    /// <returns>Task.</returns>
+    private static Task CreateInitialFieldHistoryAsync(AliasClientDbContext context, Item item, DateTime createDateTime)
+    {
+        // Group field values by key to handle multi-value fields
+        var fieldsByKey = item.FieldValues
+            .Where(fv => !fv.IsDeleted && fv.FieldKey != null)
+            .GroupBy(f => f.FieldKey!)
+            .ToDictionary(g => g.Key, g => g.OrderBy(f => f.Weight).Select(f => f.Value ?? string.Empty).ToList());
+
+        foreach (var (fieldKey, values) in fieldsByKey)
+        {
+            // Check if history tracking is enabled for this field
+            var fieldDef = SystemFieldRegistry.GetSystemField(fieldKey);
+            if (fieldDef == null || !fieldDef.EnableHistory)
+            {
+                continue;
+            }
+
+            // Filter out empty values
+            var filteredValues = values.Where(v => !string.IsNullOrWhiteSpace(v)).ToList();
+
+            if (filteredValues.Count > 0)
+            {
+                var valueSnapshot = System.Text.Json.JsonSerializer.Serialize(filteredValues);
+                var historyRecord = new FieldHistory
+                {
+                    Id = Guid.NewGuid(),
+                    ItemId = item.Id,
+                    FieldKey = fieldKey,
+                    FieldDefinitionId = null,
+                    ValueSnapshot = valueSnapshot,
+                    ChangedAt = createDateTime,
+                    CreatedAt = createDateTime,
+                    UpdatedAt = createDateTime,
+                    IsDeleted = false,
+                };
+                context.FieldHistories.Add(historyRecord);
+            }
+        }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>
