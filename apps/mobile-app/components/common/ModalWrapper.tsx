@@ -107,6 +107,7 @@ export const ModalWrapper: React.FC<IModalWrapperProps> = ({
       borderBottomColor: showHeaderBorder ? colors.accentBorder : 'transparent',
       borderBottomWidth: showHeaderBorder ? 1 : 0,
       padding: 20,
+      paddingBottom: 0,
     },
     title: {
       color: colors.text,

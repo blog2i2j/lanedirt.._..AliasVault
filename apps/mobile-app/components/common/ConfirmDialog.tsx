@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
+  ViewStyle,
+  TextStyle,
 } from 'react-native';
 
 import { useColors } from '@/hooks/useColorScheme';
@@ -129,19 +131,19 @@ export const ConfirmDialog: React.FC<IConfirmDialogProps> = ({
   /**
    * Get button style based on button configuration.
    */
-  const getButtonStyle = (button: IConfirmDialogButton, index: number): object[] => {
-    const baseStyle = [styles.button];
+  const getButtonStyle = (button: IConfirmDialogButton, index: number): ViewStyle[] => {
+    const baseStyle: ViewStyle[] = [styles.button];
 
     if (button.style === 'destructive') {
-      baseStyle.push({ backgroundColor: colors.destructive });
+      baseStyle.push({ backgroundColor: colors.destructive } as ViewStyle);
     } else if (button.style === 'cancel') {
       baseStyle.push({
         backgroundColor: colors.accentBackground,
         borderColor: colors.accentBorder,
         borderWidth: 1,
-      });
+      } as ViewStyle);
     } else {
-      baseStyle.push({ backgroundColor: colors.primary });
+      baseStyle.push({ backgroundColor: colors.primary } as ViewStyle);
     }
 
     if (isSubmitting && loadingButtonIndex === index) {
@@ -154,13 +156,13 @@ export const ConfirmDialog: React.FC<IConfirmDialogProps> = ({
   /**
    * Get button text style based on button configuration.
    */
-  const getButtonTextStyle = (button: IConfirmDialogButton): object[] => {
-    const baseStyle = [styles.buttonText];
+  const getButtonTextStyle = (button: IConfirmDialogButton): TextStyle[] => {
+    const baseStyle: TextStyle[] = [styles.buttonText];
 
     if (button.style === 'cancel') {
-      baseStyle.push({ color: colors.text });
+      baseStyle.push({ color: colors.text } as TextStyle);
     } else {
-      baseStyle.push({ color: colors.white });
+      baseStyle.push({ color: colors.white } as TextStyle);
     }
 
     return baseStyle;
