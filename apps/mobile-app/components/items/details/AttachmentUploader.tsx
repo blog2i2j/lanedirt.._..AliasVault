@@ -5,7 +5,6 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 
-import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedView } from '@/components/themed/ThemedView';
 import { useColors } from '@/hooks/useColorScheme';
@@ -18,6 +17,8 @@ type AttachmentUploaderProps = {
 
 /**
  * This component allows uploading and managing attachments for a credential.
+ * Deletion is pending until the item is saved - attachments are removed from the list
+ * immediately but only persisted when the parent form saves.
  */
 export const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
   attachments,
@@ -26,7 +27,6 @@ export const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
   const { t } = useTranslation();
   const colors = useColors();
   const [statusMessage, setStatusMessage] = useState<string>('');
-  const [attachmentToDelete, setAttachmentToDelete] = useState<Attachment | null>(null);
 
   /**
    * Handles file selection and upload.
@@ -112,36 +112,12 @@ export const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
   };
 
   /**
-   * Initiates the delete process for an attachment.
+   * Deletes an attachment immediately from the list (pending save).
+   * The actual database deletion happens when the parent item is saved.
    */
-  const initiateDeleteAttachment = (attachment: Attachment): void => {
-    setAttachmentToDelete(attachment);
-  };
-
-  /**
-   * Confirms and deletes an attachment.
-   */
-  const confirmDeleteAttachment = (): void => {
-    if (!attachmentToDelete) return;
-
-    try {
-      const updatedAttachments = [...attachments];
-
-      // Remove the attachment from the list
-      const index = updatedAttachments.findIndex(a => a.Id === attachmentToDelete.Id);
-      if (index !== -1) {
-        updatedAttachments.splice(index, 1);
-      }
-
-      onAttachmentsChange(updatedAttachments);
-      setStatusMessage('');
-    } catch (error) {
-      console.error('Error deleting attachment:', error);
-      setStatusMessage(t('items.attachments.errorDeleting'));
-      setTimeout(() => setStatusMessage(''), 3000);
-    }
-
-    setAttachmentToDelete(null);
+  const deleteAttachment = (attachmentToDelete: Attachment): void => {
+    const updatedAttachments = attachments.filter(a => a.Id !== attachmentToDelete.Id);
+    onAttachmentsChange(updatedAttachments);
   };
 
   const activeAttachments = attachments.filter(a => !a.IsDeleted);
@@ -218,7 +194,7 @@ export const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
               </View>
               <TouchableOpacity
                 style={styles.deleteButton}
-                onPress={() => initiateDeleteAttachment(attachment)}
+                onPress={() => deleteAttachment(attachment)}
               >
                 <ThemedText style={styles.deleteButtonText}>
                   {t('items.deleteAttachment')}
@@ -235,25 +211,6 @@ export const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
       >
         <Ionicons name="add" size={24} color={colors.background} />
       </TouchableOpacity>
-
-      <ConfirmDialog
-        isVisible={attachmentToDelete !== null}
-        title={t('items.attachments.deleteTitle')}
-        message={t('items.attachments.deleteConfirm', { filename: attachmentToDelete?.Filename })}
-        buttons={[
-          {
-            text: t('common.cancel'),
-            style: 'cancel',
-            onPress: (): void => setAttachmentToDelete(null),
-          },
-          {
-            text: t('common.delete'),
-            style: 'destructive',
-            onPress: confirmDeleteAttachment,
-          },
-        ]}
-        onClose={(): void => setAttachmentToDelete(null)}
-      />
     </ThemedView>
   );
 };

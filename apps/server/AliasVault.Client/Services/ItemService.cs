@@ -397,15 +397,15 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
             Email = GetFieldValue(x, FieldKey.LoginEmail),
             CardNumber = GetFieldValue(x, FieldKey.CardNumber),
             CreatedAt = x.CreatedAt,
-            HasPasskey = x.Passkeys != null && x.Passkeys.Any(),
+            HasPasskey = x.Passkeys != null && x.Passkeys.Any(p => !p.IsDeleted),
             HasAlias = !string.IsNullOrWhiteSpace(GetFieldValue(x, FieldKey.AliasFirstName)) ||
                        !string.IsNullOrWhiteSpace(GetFieldValue(x, FieldKey.AliasLastName)) ||
                        !string.IsNullOrWhiteSpace(GetFieldValue(x, FieldKey.AliasGender)) ||
                        !string.IsNullOrWhiteSpace(GetFieldValue(x, FieldKey.AliasBirthdate)),
             HasUsernameOrPassword = !string.IsNullOrWhiteSpace(GetFieldValue(x, FieldKey.LoginUsername)) ||
                                     !string.IsNullOrWhiteSpace(GetFieldValue(x, FieldKey.LoginPassword)),
-            HasAttachment = x.Attachments != null && x.Attachments.Any(),
-            HasTotp = x.TotpCodes != null && x.TotpCodes.Any(),
+            HasAttachment = x.Attachments != null && x.Attachments.Any(a => !a.IsDeleted),
+            HasTotp = x.TotpCodes != null && x.TotpCodes.Any(t => !t.IsDeleted),
             FolderId = x.FolderId,
             FolderName = x.Folder?.Name,
         }).ToList();

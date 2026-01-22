@@ -848,6 +848,20 @@ export class ItemRepository extends BaseRepository {
     originalIds: string[],
     currentDateTime: string
   ): void {
+    // Track which original attachments are still present
+    const currentAttachmentIds = new Set(attachments.map(a => a.Id));
+
+    // Soft-delete any original attachments that are no longer in the list
+    for (const originalId of originalIds) {
+      if (!currentAttachmentIds.has(originalId)) {
+        this.client.executeUpdate(
+          `UPDATE Attachments SET IsDeleted = 1, UpdatedAt = ? WHERE Id = ?`,
+          [currentDateTime, originalId]
+        );
+      }
+    }
+
+    // Process current attachments
     for (const attachment of attachments) {
       const wasOriginal = originalIds.includes(attachment.Id);
 

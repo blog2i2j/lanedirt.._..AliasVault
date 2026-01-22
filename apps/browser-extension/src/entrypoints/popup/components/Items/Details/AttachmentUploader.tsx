@@ -108,7 +108,6 @@ const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
 
         {activeAttachments.length > 0 && (
           <div>
-            <h4 className="mb-2 text-md font-medium text-gray-900 dark:text-white">{t('attachmentUploader.currentAttachments')}</h4>
             <div className="space-y-2">
               {activeAttachments.map(attachment => (
                 <div

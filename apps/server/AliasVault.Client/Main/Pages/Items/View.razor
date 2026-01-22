@@ -104,7 +104,7 @@ else
             }
 
             @* Attachments *@
-            @if (Item.Attachments.Count > 0)
+            @if (Item.Attachments.Any(a => !a.IsDeleted))
             {
                 <AttachmentViewer Attachments="@Item.Attachments" />
             }
