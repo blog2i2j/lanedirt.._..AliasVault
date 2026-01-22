@@ -130,7 +130,7 @@ export function ServerSyncIndicator(): React.ReactNode {
     container: {
       alignItems: 'center',
       borderRadius: 24,
-      bottom: Platform.OS === 'ios' ? insets.bottom + 60 : 70,
+      bottom: insets.bottom + 60,
       elevation: 4,
       flexDirection: 'row',
       gap: 6,
