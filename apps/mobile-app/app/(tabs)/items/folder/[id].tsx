@@ -114,10 +114,11 @@ export default function FolderViewScreen(): React.ReactNode {
       setFolder(currentFolder || null);
       setIsLoadingItems(false);
     } catch (err) {
+      console.error('Error loading folder items:', err);
       Toast.show({
         type: 'error',
         text1: t('items.errorLoadingItems'),
-        text2: err instanceof Error ? err.message : 'Unknown error',
+        text2: t('common.errors.unknownError'),
       });
       setIsLoadingItems(false);
     }
@@ -198,7 +199,7 @@ export default function FolderViewScreen(): React.ReactNode {
         Toast.show({
           type: 'error',
           text1: t('items.vaultSyncFailed'),
-          text2: err instanceof Error ? err.message : 'Unknown error',
+          text2: t('common.errors.unknownError'),
         });
       }
     }

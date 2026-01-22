@@ -230,10 +230,11 @@ export default function ItemsScreen(): React.ReactNode {
       setRecentlyDeletedCount(deletedCount);
       setIsLoadingItems(false);
     } catch (err) {
+      console.error('Error loading items:', err);
       Toast.show({
         type: 'error',
         text1: t('items.errorLoadingItems'),
-        text2: err instanceof Error ? err.message : 'Unknown error',
+        text2: t('common.errors.unknownError'),
       });
       setIsLoadingItems(false);
     }
@@ -315,7 +316,8 @@ export default function ItemsScreen(): React.ReactNode {
           setRefreshing(false);
           setIsLoadingItems(false);
 
-          setAlertConfig({ title: t('common.error'), message: error });
+          // Show generic error message to user, detailed error is logged above
+          setAlertConfig({ title: t('common.error'), message: t('common.errors.unknownError') });
         },
         /**
          * On upgrade required.
@@ -333,7 +335,7 @@ export default function ItemsScreen(): React.ReactNode {
         Toast.show({
           type: 'error',
           text1: t('items.vaultSyncFailed'),
-          text2: err instanceof Error ? err.message : 'Unknown error',
+          text2: t('common.errors.unknownError'),
         });
       }
     }
