@@ -11,7 +11,7 @@ import Toast from 'react-native-toast-message';
 
 import type { Folder } from '@/utils/db/repositories/FolderRepository';
 import { CreateIdentityGenerator, CreateUsernameEmailGenerator, Gender, Identity, IdentityHelperUtils, convertAgeRangeToBirthdateOptions } from '@/utils/dist/core/identity-generator';
-import type { Attachment, Item, ItemField, TotpCode, ItemType, FieldType } from '@/utils/dist/core/models/vault';
+import type { Attachment, Item, ItemField, TotpCode, ItemType, FieldType, PasswordSettings } from '@/utils/dist/core/models/vault';
 import { ItemTypes, getSystemFieldsForItemType, getOptionalFieldsForItemType, isFieldShownByDefault, getSystemField, fieldAppliesToType, FieldCategories, FieldTypes } from '@/utils/dist/core/models/vault';
 import type { FaviconExtractModel } from '@/utils/dist/core/models/webapi';
 import { CreatePasswordGenerator, PasswordGenerator } from '@/utils/dist/core/password-generator';
@@ -125,6 +125,9 @@ export default function AddEditItemScreen(): React.ReactNode {
     password: string | null;
     email: string | null;
   }>({ username: null, password: null, email: null });
+
+  // Password settings state (loaded immediately to prevent flicker)
+  const [passwordSettings, setPasswordSettings] = useState<PasswordSettings | undefined>(undefined);
 
   /**
    * If we received an ID, we're in edit mode.
@@ -395,6 +398,7 @@ export default function AddEditItemScreen(): React.ReactNode {
 
   /**
    * Load an existing item from the database in edit mode.
+   * Note: passwordSettings should already be loaded before this is called.
    */
   const loadExistingItem = useCallback(async (): Promise<void> => {
     try {
@@ -483,8 +487,23 @@ export default function AddEditItemScreen(): React.ReactNode {
       }
 
       if (isEditMode) {
+        // Load password settings BEFORE loading item so it's available when components render
+        try {
+          const settings = await dbContext.sqliteClient!.getPasswordSettings();
+          setPasswordSettings(settings);
+        } catch (err) {
+          console.error('Error loading password settings:', err);
+        }
+        // Now load the item - passwordSettings is already set
         loadExistingItem();
       } else {
+        // Create mode - load password settings for new items too
+        try {
+          const settings = await dbContext.sqliteClient!.getPasswordSettings();
+          setPasswordSettings(settings);
+        } catch (err) {
+          console.error('Error loading password settings:', err);
+        }
         // Create mode - initialize new item
         let serviceName = '';
         let decodedItemUrl = '';
@@ -1056,6 +1075,7 @@ export default function AddEditItemScreen(): React.ReactNode {
             isNewCredential={!isEditMode}
             onRemove={onRemove}
             testID={testID}
+            initialSettings={passwordSettings}
           />
         );
 
@@ -1071,7 +1091,9 @@ export default function AddEditItemScreen(): React.ReactNode {
           />
         );
 
-      case FieldTypes.Email:
+      case FieldTypes.Email: {
+        // Default to email mode (free text) for Login items, alias mode (domain chooser) for Alias items
+        const defaultEmailMode = item?.ItemType === ItemTypes.Login;
         return (
           <EmailDomainField
             value={stringValue}
@@ -1079,8 +1101,10 @@ export default function AddEditItemScreen(): React.ReactNode {
             label={label}
             onRemove={onRemove}
             testID={testID}
+            defaultEmailMode={defaultEmailMode}
           />
         );
+      }
 
       case FieldTypes.TextArea:
         return (
@@ -1130,7 +1154,7 @@ export default function AddEditItemScreen(): React.ReactNode {
           />
         );
     }
-  }, [fieldValues, handleFieldChange, isPasswordVisible, isEditMode, aliasFieldsShownByDefault, generateRandomUsername, t, getFieldTestId]);
+  }, [fieldValues, handleFieldChange, isPasswordVisible, isEditMode, aliasFieldsShownByDefault, generateRandomUsername, t, getFieldTestId, item?.ItemType, passwordSettings]);
 
   const styles = StyleSheet.create({
     container: {

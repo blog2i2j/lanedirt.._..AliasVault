@@ -30,6 +30,8 @@ type AdvancedPasswordFieldProps = Omit<TextInputProps, 'value' | 'onChangeText'>
   onRemove?: () => void;
   /** Optional testID for the text input */
   testID?: string;
+  /** Optional initial password settings to use immediately (prevents flicker) */
+  initialSettings?: PasswordSettings;
 }
 
 const AdvancedPasswordFieldComponent = forwardRef<AdvancedPasswordFieldRef, AdvancedPasswordFieldProps>(({
@@ -42,6 +44,7 @@ const AdvancedPasswordFieldComponent = forwardRef<AdvancedPasswordFieldRef, Adva
   isNewCredential = false,
   onRemove,
   testID,
+  initialSettings,
   ...props
 }, ref) => {
   const colors = useColors();
@@ -49,12 +52,22 @@ const AdvancedPasswordFieldComponent = forwardRef<AdvancedPasswordFieldRef, Adva
   const inputRef = useRef<TextInput>(null);
   const [internalShowPassword, setInternalShowPassword] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [currentSettings, setCurrentSettings] = useState<PasswordSettings | null>(null);
+  // Initialize settings immediately from initialSettings if provided, otherwise null
+  const [currentSettings, setCurrentSettings] = useState<PasswordSettings | null>(initialSettings || null);
   const [previewPassword, setPreviewPassword] = useState<string>('');
-  const [sliderValue, setSliderValue] = useState<number>(16);
+  // Initialize slider value immediately from initialSettings or value length, otherwise default to 16
+  const [sliderValue, setSliderValue] = useState<number>(() => {
+    if (initialSettings) {
+      return initialSettings.Length;
+    }
+    if (!isNewCredential && value && value.length > 0) {
+      return value.length;
+    }
+    return 16;
+  });
   const lastGeneratedLength = useRef<number>(0);
   const isSliding = useRef(false);
-  const hasSetInitialLength = useRef(false);
+  const hasSetInitialLength = useRef(!!initialSettings || (!isNewCredential && value && value.length > 0));
   const dbContext = useDb();
   const showPassword = controlledShowPassword ?? internalShowPassword;
 
@@ -66,24 +79,31 @@ const AdvancedPasswordFieldComponent = forwardRef<AdvancedPasswordFieldRef, Adva
     }
   }, [controlledShowPassword, onShowPasswordChange]);
 
-  // Load password settings from database
+  // Load password settings from database (only if initialSettings not provided)
   useEffect(() => {
+    // If we already have initialSettings, skip loading from database
+    if (initialSettings) {
+      return;
+    }
     const loadSettings = async () => {
       try {
         if (dbContext.sqliteClient) {
           const settings = await dbContext.sqliteClient.getPasswordSettings();
           setCurrentSettings(settings);
-          setSliderValue(settings.Length);
-          hasSetInitialLength.current = true;
+          // Only update slider if we haven't set it from value yet
+          if (!hasSetInitialLength.current) {
+            setSliderValue(settings.Length);
+            hasSetInitialLength.current = true;
+          }
         }
       } catch (error) {
         console.error('Error loading password settings:', error);
       }
     };
     loadSettings();
-  }, [dbContext.sqliteClient]);
+  }, [dbContext.sqliteClient, initialSettings]);
 
-  // Sync slider value with password length
+  // Sync slider value with password length (only if not already initialized)
   useEffect(() => {
     if (!hasSetInitialLength.current) {
       if (!isNewCredential && value && value.length > 0) {

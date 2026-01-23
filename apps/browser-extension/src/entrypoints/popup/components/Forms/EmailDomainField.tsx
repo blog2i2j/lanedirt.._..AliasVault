@@ -115,15 +115,20 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
       setSelectedDomain(domain);
 
       /*
-       * Only auto-switch modes in uncontrolled mode.
-       * In controlled mode, the parent manages the mode state.
+       * Auto-detect mode based on domain recognition.
+       * In controlled mode, notify parent via onEmailModeChange.
+       * In uncontrolled mode, update internal state directly.
        */
-      if (!isControlled) {
-        // Check if it's a known domain (public, private, or hidden private)
-        const isKnownDomain = publicEmailDomains.includes(domain) ||
-                             privateEmailDomains.includes(domain) ||
-                             hiddenPrivateEmailDomains.includes(domain);
-        // Switch to domain chooser mode if domain is recognized
+      // Check if it's a known domain (public, private, or hidden private)
+      const isKnownDomain = publicEmailDomains.includes(domain) ||
+                           privateEmailDomains.includes(domain) ||
+                           hiddenPrivateEmailDomains.includes(domain);
+
+      if (isControlled && onEmailModeChange) {
+        // Controlled mode: notify parent that mode should be alias (domain chooser) if domain is known
+        onEmailModeChange(!isKnownDomain);
+      } else if (!isControlled) {
+        // Uncontrolled mode: update internal state directly
         setIsCustomDomain(!isKnownDomain);
       }
     } else {
@@ -139,20 +144,14 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
         }
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, privateEmailDomains, hiddenPrivateEmailDomains, showPrivateDomains, isControlled]);
+  }, [value, publicEmailDomains, privateEmailDomains, hiddenPrivateEmailDomains, showPrivateDomains, isControlled, onEmailModeChange, selectedDomain, setIsCustomDomain]);
 
   /*
-   * Re-check domain mode when private domains finish loading.
+   * Re-check domain mode when domains finish loading.
    * This handles the case where value was set before domains were loaded.
-   * Only applies in uncontrolled mode - in controlled mode, parent manages the state.
+   * Works in both controlled and uncontrolled modes.
    */
   useEffect(() => {
-    // Skip auto-correction in controlled mode
-    if (isControlled) {
-      return;
-    }
-
     if (!value || !value.includes('@')) {
       return;
     }
@@ -162,16 +161,60 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
       return;
     }
 
-    // Check if the domain is now recognized after private domains loaded
+    // Check if the domain is now recognized after domains loaded
     const isKnownDomain = publicEmailDomains.includes(domain) ||
                          privateEmailDomains.includes(domain) ||
                          hiddenPrivateEmailDomains.includes(domain);
 
-    // If domain is recognized and we're in custom mode, switch to domain chooser
-    if (isKnownDomain && isCustomDomain) {
-      setIsCustomDomain(false);
+    if (isControlled && onEmailModeChange) {
+      // Controlled mode: notify parent that mode should be alias (domain chooser) if domain is known
+      onEmailModeChange(!isKnownDomain);
+    } else if (!isControlled) {
+      /*
+       * Uncontrolled mode: update internal state directly.
+       * If domain is recognized and we're in custom mode, switch to domain chooser.
+       */
+      if (isKnownDomain && isCustomDomain) {
+        setIsCustomDomain(false);
+      }
     }
-  }, [publicEmailDomains, privateEmailDomains, hiddenPrivateEmailDomains, value, isCustomDomain, isControlled, setIsCustomDomain]);
+  }, [publicEmailDomains, privateEmailDomains, hiddenPrivateEmailDomains, value, isCustomDomain, isControlled, onEmailModeChange, setIsCustomDomain]);
+
+  /*
+   * Ensure that when in alias mode (domain chooser), the value always includes the domain.
+   * This handles the case when switching from email mode to alias mode, where the value
+   * might be just a prefix without the domain.
+   *
+   * This effect runs after the toggle function, ensuring the value is updated with the domain.
+   */
+  useEffect(() => {
+    // Only handle this in alias mode (not isCustomDomain)
+    if (isCustomDomain) {
+      return;
+    }
+
+    // If value exists but doesn't include @, we need to add the domain
+    if (value && !value.includes('@') && value.trim()) {
+      const defaultDomain = showPrivateDomains && privateEmailDomains[0]
+        ? privateEmailDomains[0]
+        : publicEmailDomains[0];
+
+      const domainToUse = selectedDomain || defaultDomain;
+
+      // Only proceed if we have a domain available
+      if (domainToUse) {
+        // Update selectedDomain if not set
+        if (!selectedDomain && defaultDomain) {
+          setSelectedDomain(defaultDomain);
+        }
+        /*
+         * Call onChange with the full email - this will update the parent's value.
+         * Once the value includes @, this effect won't trigger again.
+         */
+        onChange(`${value}@${domainToUse}`);
+      }
+    }
+  }, [value, isCustomDomain, selectedDomain, showPrivateDomains, privateEmailDomains, publicEmailDomains, onChange]);
 
   // Handle local part changes
   const handleLocalPartChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -195,10 +238,28 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
     // If the local part is empty, treat the whole field as empty
     if (!newLocalPart || newLocalPart.trim() === '') {
       onChange('');
-    } else if (selectedDomain) {
-      onChange(`${newLocalPart}@${selectedDomain}`);
+    } else {
+      /*
+       * Always ensure we have a domain - use selectedDomain if available, otherwise use default.
+       * This ensures that when user types in alias mode, we always have a domain to construct the full email.
+       */
+      const domainToUse = selectedDomain ||
+        (showPrivateDomains && privateEmailDomains[0] ? privateEmailDomains[0] : publicEmailDomains[0] || '');
+      if (domainToUse) {
+        onChange(`${newLocalPart}@${domainToUse}`);
+        // Update selectedDomain if it wasn't set
+        if (!selectedDomain) {
+          setSelectedDomain(domainToUse);
+        }
+      } else {
+        /*
+         * No domain available yet - just store the local part temporarily.
+         * This should be rare, but handle it gracefully.
+         */
+        onChange(newLocalPart);
+      }
     }
-  }, [isCustomDomain, selectedDomain, onChange, setIsCustomDomain]);
+  }, [isCustomDomain, selectedDomain, onChange, setIsCustomDomain, showPrivateDomains, privateEmailDomains, publicEmailDomains]);
 
   // Select a domain from the popup
   const selectDomain = useCallback((domain: string) => {
@@ -236,12 +297,22 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
         : publicEmailDomains[0];
       setSelectedDomain(defaultDomain);
 
-      // Only add domain if we have a local part
+      /*
+       * Use the same simple pattern as mobile app:
+       * 1. Check localPart first (most reliable, kept in sync by useEffect)
+       * 2. Fallback to value if it doesn't have @ (value is just a prefix)
+       *
+       * Note: If value has @, the useEffect will have already extracted and set localPart,
+       * so checking localPart first is the right approach.
+       */
       if (localPart && localPart.trim()) {
+        // localPart is available - use it directly
         onChange(`${localPart}@${defaultDomain}`);
       } else if (value && !value.includes('@')) {
-        // If we have a value without @, add the domain
+        // Fallback: value is just a prefix without @
         onChange(`${value}@${defaultDomain}`);
+        // Also update localPart to keep in sync
+        setLocalPart(value);
       }
     }
   }, [isCustomDomain, value, localPart, showPrivateDomains, publicEmailDomains, privateEmailDomains, onChange, setIsCustomDomain]);
@@ -268,6 +339,7 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
   /**
    * Handle the "Generate alias email" button click.
    * Calls onGenerateAlias if provided, and switches to domain chooser mode.
+   * Also ensures the value is updated with the domain when switching modes.
    */
   const handleGenerateAliasClick = useCallback(() => {
     if (onGenerateAlias) {
@@ -275,7 +347,30 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
     }
     // Always switch to domain chooser mode
     setIsCustomDomain(false);
-  }, [onGenerateAlias, setIsCustomDomain]);
+
+    /*
+     * When switching to alias mode, ensure the value includes the domain.
+     * Use the same simple pattern as toggleCustomDomain: check localPart first, then value.
+     */
+    const defaultDomain = showPrivateDomains && privateEmailDomains[0]
+      ? privateEmailDomains[0]
+      : publicEmailDomains[0];
+
+    if (defaultDomain) {
+      setSelectedDomain(defaultDomain);
+
+      // Use the same pattern as toggleCustomDomain: check localPart first, then value
+      if (localPart && localPart.trim()) {
+        // localPart is available - use it directly
+        onChange(`${localPart}@${defaultDomain}`);
+      } else if (value && !value.includes('@')) {
+        // Fallback: value is just a prefix without @
+        onChange(`${value}@${defaultDomain}`);
+        // Also update localPart to keep in sync
+        setLocalPart(value);
+      }
+    }
+  }, [onGenerateAlias, setIsCustomDomain, showPrivateDomains, privateEmailDomains, publicEmailDomains, value, localPart, onChange]);
 
   return (
     <div className="space-y-2">

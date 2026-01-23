@@ -358,6 +358,12 @@ const ItemAddEdit: React.FC = () => {
 
         setItem(newItem);
 
+        /*
+         * Initialize email field mode based on item type
+         * Login type: email mode (free text), Alias type: alias mode (domain chooser)
+         */
+        setIsLoginEmailInEmailMode(effectiveType === ItemTypes.Login);
+
         // Set the detected URL in field values if we have one
         if (serviceUrl) {
           setFieldValues(prev => ({
@@ -823,6 +829,12 @@ const ItemAddEdit: React.FC = () => {
 
     // Reset alias generated flag, so alias fields will be filled (again) if they are shown by the new type
     aliasGeneratedRef.current = false;
+
+    /*
+     * Update email field mode based on new item type
+     * Login type: email mode (free text), Alias type: alias mode (domain chooser)
+     */
+    setIsLoginEmailInEmailMode(newType === ItemTypes.Login);
 
     setItem({
       ...item,
