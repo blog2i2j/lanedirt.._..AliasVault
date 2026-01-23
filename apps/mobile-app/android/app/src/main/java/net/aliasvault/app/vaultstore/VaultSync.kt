@@ -196,6 +196,9 @@ class VaultSync(
             )
             storeVaultMetadata(vaultMetadata)
 
+            // Clear dirty flag - we just downloaded fresh from server, no local changes
+            metadata.setIsDirty(false)
+
             // Re-unlock if was unlocked
             if (database.isVaultUnlocked()) {
                 // Note: unlock requires auth methods from VaultStore
@@ -619,6 +622,7 @@ class VaultSync(
             }
             is VaultSyncError.SessionExpired,
             is VaultSyncError.AuthenticationFailed,
+            is VaultSyncError.PasswordChanged,
             -> {
                 VaultSyncResult(
                     success = false,

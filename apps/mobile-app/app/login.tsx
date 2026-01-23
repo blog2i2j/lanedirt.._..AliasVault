@@ -52,12 +52,19 @@ export default function LoginScreen() : React.ReactNode {
     /**
      * Check for saved username (from forced logout) and prefill the username field.
      * This enables users to easily re-login after a forced logout.
+     * Only prefill if the username field is empty (user hasn't started typing).
      */
     const loadSavedUsername = async () : Promise<void> => {
       try {
         const savedUsername = await NativeVaultManager.getUsername();
         if (savedUsername) {
-          setCredentials(prev => ({ ...prev, username: savedUsername }));
+          setCredentials(prev => {
+            // Only prefill if username is empty - don't overwrite user input
+            if (prev.username === '') {
+              return { ...prev, username: savedUsername };
+            }
+            return prev;
+          });
         }
       } catch {
         // Ignore errors - username prefill is optional
@@ -192,22 +199,26 @@ export default function LoginScreen() : React.ReactNode {
     /*
      * Forced logout recovery check:
      * If there's an existing local vault (from forced logout), try to unlock it.
-     * If decryption fails (password changed or corrupted), clear the local vault
-     * so sync will download fresh from server.
+     * If decryption fails (password changed or corrupted), reset sync state so
+     * sync will do a clean download instead of trying to merge.
      */
     const hasExistingVault = await NativeVaultManager.hasEncryptedDatabase();
     if (hasExistingVault) {
       try {
         await NativeVaultManager.unlockVault();
         /*
-         * Decryption succeeded - local vault is valid, close it for sync to handle.
+         * Decryption succeeded - local vault is valid, sync will handle it.
          * The sync will compare revisions and decide whether to keep local or download.
          */
         console.info('Existing local vault (after forced logout) decrypted successfully, syncing with server');
       } catch {
-        // Decryption failed - clear local vault so sync downloads fresh from server
-        console.info('Existing vault could not be decrypted (password changed or corrupted), clearing for fresh download');
-        await NativeVaultManager.clearVault();
+        /*
+         * Decryption failed (password changed or corrupted).
+         * Reset sync state so sync will do a clean download instead of trying to merge.
+         * This matches the browser extension behavior in persistAndLoadVault().
+         */
+        console.info('Existing vault could not be decrypted (password changed or corrupted), resetting for fresh download');
+        await NativeVaultManager.resetSyncStateForFreshDownload();
       }
     }
 

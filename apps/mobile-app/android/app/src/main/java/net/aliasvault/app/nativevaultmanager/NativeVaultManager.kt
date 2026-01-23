@@ -1424,6 +1424,22 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
         }
     }
 
+    /**
+     * Reset sync state to force a fresh download on next sync.
+     * Clears isDirty flag so sync will download instead of trying to merge.
+     * @param promise The promise to resolve when complete.
+     */
+    @ReactMethod
+    override fun resetSyncStateForFreshDownload(promise: Promise) {
+        try {
+            vaultStore.metadata.setIsDirty(false)
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error resetting sync state", e)
+            promise.reject("ERR_RESET_SYNC_STATE", "Failed to reset sync state: ${e.message}", e)
+        }
+    }
+
     // MARK: - SRP Functions (via Rust Core UniFFI)
 
     /**
