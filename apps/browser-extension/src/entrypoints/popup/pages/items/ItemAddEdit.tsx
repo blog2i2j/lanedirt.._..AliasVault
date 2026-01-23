@@ -29,7 +29,7 @@ import useServiceDetection from '@/entrypoints/popup/hooks/useServiceDetection';
 import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
 import { SKIP_FORM_RESTORE_KEY } from '@/utils/Constants';
-import type { Item, ItemField, ItemType, FieldType, Attachment, TotpCode } from '@/utils/dist/core/models/vault';
+import type { Item, ItemField, ItemType, FieldType, Attachment, TotpCode, PasswordSettings } from '@/utils/dist/core/models/vault';
 import { FieldCategories, FieldTypes, ItemTypes, getSystemFieldsForItemType, getOptionalFieldsForItemType, isFieldShownByDefault, getSystemField, fieldAppliesToType } from '@/utils/dist/core/models/vault';
 import { FaviconService } from '@/utils/FaviconService';
 
@@ -71,6 +71,7 @@ type PersistedFormData = {
   showAttachments: boolean;
   manuallyAddedFields: string[];
   isLoginEmailInEmailMode?: boolean;
+  passwordSettings?: PasswordSettings;
 };
 
 /**
@@ -152,6 +153,9 @@ const ItemAddEdit: React.FC = () => {
   // Track email field mode for Login type (true = free text "Email", false = domain chooser "Alias")
   const [isLoginEmailInEmailMode, setIsLoginEmailInEmailMode] = useState(true);
 
+  // Track password settings for persistence (so slider position and options are remembered)
+  const [passwordSettings, setPasswordSettings] = useState<PasswordSettings | undefined>(undefined);
+
   // Track whether to skip form restoration (set during initialization)
   const [skipFormRestore] = useState(false);
 
@@ -184,6 +188,9 @@ const ItemAddEdit: React.FC = () => {
     if (data.isLoginEmailInEmailMode !== undefined) {
       setIsLoginEmailInEmailMode(data.isLoginEmailInEmailMode);
     }
+    if (data.passwordSettings !== undefined) {
+      setPasswordSettings(data.passwordSettings);
+    }
   }, []);
 
   /**
@@ -202,6 +209,7 @@ const ItemAddEdit: React.FC = () => {
       showAttachments,
       manuallyAddedFields: Array.from(manuallyAddedFields),
       isLoginEmailInEmailMode,
+      passwordSettings,
     },
     onRestore: handleFormRestore,
     skipRestore: skipFormRestore,
@@ -1026,6 +1034,8 @@ const ItemAddEdit: React.FC = () => {
             onChange={(val) => handleFieldChange(fieldKey, val)}
             showPassword={showPassword}
             onShowPasswordChange={setShowPassword}
+            initialSettings={passwordSettings}
+            onSettingsChange={setPasswordSettings}
           />
         );
 
@@ -1103,7 +1113,7 @@ const ItemAddEdit: React.FC = () => {
         );
     }
 
-  }, [fieldValues, handleFieldChange, showPassword, t, handleGenerateAliasEmail, aliasFieldsShownByDefault, generateRandomUsername, isLoginEmailInEmailMode]);
+  }, [fieldValues, handleFieldChange, showPassword, t, handleGenerateAliasEmail, aliasFieldsShownByDefault, generateRandomUsername, isLoginEmailInEmailMode, passwordSettings]);
 
   /**
    * Handle form submission via Enter key.
