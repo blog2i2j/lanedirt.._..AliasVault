@@ -117,22 +117,27 @@ const FormFieldComponent = forwardRef<FormFieldRef, FormFieldProps>(({
 
   const showClearButton = Platform.OS === 'android' && value && value.length > 0 && isFocused;
 
+  // Only show label container if there's a label or remove button
+  const showLabelContainer = label || onRemove;
+
   return (
     <View style={styles.inputGroup}>
-      <View style={styles.labelContainer}>
-        <ThemedText style={styles.inputLabel}>
-          {label} {required && <ThemedText style={styles.requiredIndicator}>*</ThemedText>}
-        </ThemedText>
-        {onRemove && (
-          <TouchableHighlight
-            style={styles.removeButton}
-            onPress={onRemove}
-            underlayColor={colors.accentBackground}
-          >
-            <MaterialIcons name="close" size={18} color={colors.textMuted} />
-          </TouchableHighlight>
-        )}
-      </View>
+      {showLabelContainer && (
+        <View style={styles.labelContainer}>
+          <ThemedText style={styles.inputLabel}>
+            {label} {required && <ThemedText style={styles.requiredIndicator}>*</ThemedText>}
+          </ThemedText>
+          {onRemove && (
+            <TouchableHighlight
+              style={styles.removeButton}
+              onPress={onRemove}
+              underlayColor={colors.accentBackground}
+            >
+              <MaterialIcons name="close" size={18} color={colors.textMuted} />
+            </TouchableHighlight>
+          )}
+        </View>
+      )}
       <View style={[styles.inputContainer, error ? styles.inputError : null]}>
         <TextInput
           ref={inputRef}

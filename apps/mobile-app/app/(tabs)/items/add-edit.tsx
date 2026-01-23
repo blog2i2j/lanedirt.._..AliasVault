@@ -24,6 +24,7 @@ import { useVaultMutate } from '@/hooks/useVaultMutate';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { AddFieldMenu, type OptionalSection } from '@/components/form/AddFieldMenu';
 import { AdvancedPasswordField } from '@/components/form/AdvancedPasswordField';
+import { EditableFieldLabel } from '@/components/form/EditableFieldLabel';
 import { EmailDomainField } from '@/components/form/EmailDomainField';
 import { FormField } from '@/components/form/FormField';
 import { FormSection } from '@/components/form/FormSection';
@@ -685,6 +686,16 @@ export default function AddEditItemScreen(): React.ReactNode {
       delete newValues[tempId];
       return newValues;
     });
+    setHasUnsavedChanges(true);
+  }, []);
+
+  /**
+   * Update custom field label handler.
+   */
+  const handleUpdateCustomFieldLabel = useCallback((tempId: string, newLabel: string) => {
+    setCustomFields(prev => prev.map(f =>
+      f.tempId === tempId ? { ...f, label: newLabel } : f
+    ));
     setHasUnsavedChanges(true);
   }, []);
 
@@ -1527,13 +1538,17 @@ export default function AddEditItemScreen(): React.ReactNode {
               <FormSection title={t('itemTypes.customFields')}>
                 {customFields.map(field => (
                   <View key={field.tempId}>
+                    <EditableFieldLabel
+                      label={field.label}
+                      onLabelChange={(newLabel) => handleUpdateCustomFieldLabel(field.tempId, newLabel)}
+                      onDelete={() => handleDeleteCustomField(field.tempId)}
+                    />
                     {renderFieldInput(
                       field.tempId,
-                      field.label,
+                      '', // Label is shown by EditableFieldLabel
                       field.fieldType,
                       field.isHidden,
-                      false,
-                      () => handleDeleteCustomField(field.tempId)
+                      false
                     )}
                   </View>
                 ))}

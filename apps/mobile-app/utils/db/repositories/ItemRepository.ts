@@ -2,7 +2,7 @@ import type { Item, ItemField, TotpCode, Attachment, FieldHistory } from '@/util
 import { FieldKey, MAX_FIELD_HISTORY_RECORDS } from '@/utils/dist/core/models/vault';
 
 import { BaseRepository } from '../BaseRepository';
-import { ItemQueries, FieldValueQueries, FieldHistoryQueries } from '../queries/ItemQueries';
+import { ItemQueries, FieldValueQueries, FieldDefinitionQueries, FieldHistoryQueries } from '../queries/ItemQueries';
 import { FieldMapper, type FieldRow } from '../mappers/FieldMapper';
 import { ItemMapper, type ItemRow, type TagRow, type ItemWithDeletedAt } from '../mappers/ItemMapper';
 import type { LogoRepository } from './LogoRepository';
@@ -319,7 +319,7 @@ export class ItemRepository extends BaseRepository {
       ]);
 
       // 2. Insert FieldValues
-      await this.insertFieldValues(itemId, item.Fields, now);
+      await this.insertFieldValues(itemId, item.Fields, item.ItemType, now);
 
       // 3. Insert TOTP codes
       for (const totp of totpCodes) {
@@ -398,7 +398,7 @@ export class ItemRepository extends BaseRepository {
       await this.trackFieldHistory(item.Id, item.Fields, now);
 
       // 3. Update FieldValues using preserve-and-track strategy
-      await this.updateFieldValues(item.Id, item.Fields, now);
+      await this.updateFieldValues(item.Id, item.Fields, item.ItemType, now);
 
       // 4. Handle TOTP codes
       await this.syncRelatedEntities(
@@ -430,11 +430,23 @@ export class ItemRepository extends BaseRepository {
    * Insert field values for an item.
    * Also creates history records for fields with EnableHistory=true.
    */
-  private async insertFieldValues(itemId: string, fields: ItemField[], now: string): Promise<void> {
+  private async insertFieldValues(itemId: string, fields: ItemField[], itemType: string, now: string): Promise<void> {
     for (let i = 0; i < fields.length; i++) {
       const field = fields[i];
       const values = Array.isArray(field.Value) ? field.Value : [field.Value];
       const filteredValues = values.filter(v => v !== undefined && v !== null && v !== '');
+
+      // Skip empty fields
+      if (filteredValues.length === 0) {
+        continue;
+      }
+
+      let fieldDefinitionId: string | null = null;
+
+      // For custom fields, create or get FieldDefinition first
+      if (field.IsCustomField) {
+        fieldDefinitionId = await this.ensureFieldDefinition(field, itemType, now);
+      }
 
       for (let j = 0; j < filteredValues.length; j++) {
         const value = filteredValues[j];
@@ -442,8 +454,8 @@ export class ItemRepository extends BaseRepository {
         await this.client.executeUpdate(FieldValueQueries.INSERT, [
           this.generateId(),
           itemId,
-          field.IsCustomField ? field.FieldKey : null, // FieldDefinitionId for custom
-          field.IsCustomField ? null : field.FieldKey, // FieldKey for system
+          fieldDefinitionId, // FieldDefinitionId for custom, null for system
+          field.IsCustomField ? null : field.FieldKey, // FieldKey for system, null for custom
           value,
           (i * 100) + j, // Weight for ordering
           now,
@@ -476,10 +488,88 @@ export class ItemRepository extends BaseRepository {
   }
 
   /**
+   * Ensure a field definition exists for a custom field.
+   * Creates the definition if it doesn't exist.
+   * @returns The field definition ID (which is the field's FieldKey/tempId)
+   */
+  private async ensureFieldDefinition(
+    field: ItemField,
+    itemType: string,
+    currentDateTime: string
+  ): Promise<string> {
+    const existingDef = await this.client.executeQuery<{ Id: string }>(
+      FieldDefinitionQueries.EXISTS,
+      [field.FieldKey]
+    );
+
+    if (existingDef.length === 0) {
+      await this.client.executeUpdate(FieldDefinitionQueries.INSERT, [
+        field.FieldKey,
+        field.FieldType,
+        field.Label,
+        0, // IsMultiValue
+        field.IsHidden ? 1 : 0,
+        0, // EnableHistory
+        field.DisplayOrder ?? 0,
+        itemType,
+        currentDateTime,
+        currentDateTime,
+        0
+      ]);
+    }
+
+    return field.FieldKey;
+  }
+
+  /**
+   * Ensure a field definition exists and is up-to-date.
+   * Creates the definition if it doesn't exist, or updates it if it does.
+   * @returns The field definition ID (which is the field's FieldKey/tempId)
+   */
+  private async ensureOrUpdateFieldDefinition(
+    field: ItemField,
+    itemType: string,
+    currentDateTime: string
+  ): Promise<string> {
+    const existingDef = await this.client.executeQuery<{ Id: string }>(
+      FieldDefinitionQueries.EXISTS_ACTIVE,
+      [field.FieldKey]
+    );
+
+    if (existingDef.length === 0) {
+      await this.client.executeUpdate(FieldDefinitionQueries.INSERT, [
+        field.FieldKey,
+        field.FieldType,
+        field.Label,
+        0, // IsMultiValue
+        field.IsHidden ? 1 : 0,
+        0, // EnableHistory
+        field.DisplayOrder ?? 0,
+        itemType,
+        currentDateTime,
+        currentDateTime,
+        0
+      ]);
+    } else {
+      // Update existing field definition (label, type, etc. may have changed)
+      await this.client.executeUpdate(FieldDefinitionQueries.UPDATE, [
+        field.Label,
+        field.FieldType,
+        field.IsHidden ? 1 : 0,
+        field.DisplayOrder ?? 0,
+        currentDateTime,
+        field.FieldKey
+      ]);
+    }
+
+    return field.FieldKey;
+  }
+
+  /**
    * Update field values using preserve-and-track strategy.
    * Preserves existing field value IDs when possible for stable merge behavior.
    */
-  private async updateFieldValues(itemId: string, fields: ItemField[], now: string): Promise<void> {
+  private async updateFieldValues(itemId: string, fields: ItemField[], itemType: string, now: string): Promise<void> {
     // 1. Get existing field values
     const existingFields = await this.client.executeQuery<{
       Id: string;
@@ -507,9 +597,21 @@ export class ItemRepository extends BaseRepository {
       const values = Array.isArray(field.Value) ? field.Value : [field.Value];
       const existingForKey = existingByKey.get(field.FieldKey) || [];
 
-      for (let j = 0; j < values.length; j++) {
-        const value = values[j];
-        if (value === undefined || value === null || value === '') continue;
+      // Skip empty fields
+      const filteredValues = values.filter(v => v !== undefined && v !== null && v !== '');
+      if (filteredValues.length === 0) {
+        continue;
+      }
+
+      let fieldDefinitionId: string | null = null;
+
+      // For custom fields, ensure FieldDefinition exists and is up-to-date
+      if (field.IsCustomField) {
+        fieldDefinitionId = await this.ensureOrUpdateFieldDefinition(field, itemType, now);
+      }
+
+      for (let j = 0; j < filteredValues.length; j++) {
+        const value = filteredValues[j];
 
         const existingEntry = existingForKey[j];
 
@@ -529,8 +631,8 @@ export class ItemRepository extends BaseRepository {
           await this.client.executeUpdate(FieldValueQueries.INSERT, [
             this.generateId(),
             itemId,
-            field.IsCustomField ? field.FieldKey : null,
-            field.IsCustomField ? null : field.FieldKey,
+            fieldDefinitionId, // FieldDefinitionId for custom, null for system
+            field.IsCustomField ? null : field.FieldKey, // FieldKey for system, null for custom
             value,
             (i * 100) + j,
             now,
