@@ -214,7 +214,9 @@ else
                                     </div>
                                 }
                                 <div class="col-span-6">
-                                    <EmailDomainField Id="email" @bind-Value="Obj.GetField(FieldKey.LoginEmail)!.Value"></EmailDomainField>
+                                    <EmailDomainField Id="email"
+                                                      @bind-Value="Obj.GetField(FieldKey.LoginEmail)!.Value"
+                                                      DefaultToEmailMode="@(Obj.ItemType == ItemType.Login)"></EmailDomainField>
                                 </div>
                                 <div class="col-span-6">
                                     <EditPasswordFormRow Id="password" Label="@Localizer["PasswordLabel"]" @bind-Value="Obj.GetField(FieldKey.LoginPassword)!.Value" ShowPassword="IsPasswordVisible"></EditPasswordFormRow>
@@ -230,12 +232,14 @@ else
                                         {
                                             <EmailDomainField Id="email"
                                                               @bind-Value="Obj.GetField(FieldKey.LoginEmail)!.Value"
+                                                              DefaultToEmailMode="@(Obj.ItemType == ItemType.Login)"
                                                               OnRemove="@(() => RemoveOptionalField(FieldKey.LoginEmail))"></EmailDomainField>
                                         }
                                         else
                                         {
                                             <EmailDomainField Id="email"
-                                                              @bind-Value="Obj.GetField(FieldKey.LoginEmail)!.Value"></EmailDomainField>
+                                                              @bind-Value="Obj.GetField(FieldKey.LoginEmail)!.Value"
+                                                              DefaultToEmailMode="@(Obj.ItemType == ItemType.Login)"></EmailDomainField>
                                         }
                                     </div>
                                 }

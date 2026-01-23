@@ -171,9 +171,14 @@ else
 
                     <form action="#">
                         <div class="grid grid-cols-6 gap-6">
+                            @{
+                                var hasEmail = loginFields.Any(f => f.FieldKey == FieldKey.LoginEmail);
+                            }
                             @foreach (var field in loginFields)
                             {
-                                <FieldBlock Field="@field" ItemId="@Item.Id" />
+                                @* Make username full width if there's no email field *@
+                                var isUsernameWithoutEmail = field.FieldKey == FieldKey.LoginUsername && !hasEmail;
+                                <FieldBlock Field="@field" ItemId="@Item.Id" FullWidth="@isUsernameWithoutEmail" />
                             }
                         </div>
                     </form>
@@ -218,7 +223,9 @@ else
                         <div class="grid grid-cols-6 gap-6">
                             @foreach (var field in cardFields)
                             {
-                                <FieldBlock Field="@field" ItemId="@Item.Id" />
+                                @* Cardholder name should be full width *@
+                                var isFullWidthCardField = field.FieldKey == FieldKey.CardCardholderName;
+                                <FieldBlock Field="@field" ItemId="@Item.Id" FullWidth="@isFullWidthCardField" />
                             }
                         </div>
                     </form>

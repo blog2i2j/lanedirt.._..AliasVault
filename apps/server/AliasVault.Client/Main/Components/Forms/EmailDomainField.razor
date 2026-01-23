@@ -168,6 +168,13 @@
     [Parameter]
     public EventCallback OnRemove { get; set; }
 
+    /// <summary>
+    /// When true, defaults to Email mode (custom domain / plain text input) instead of Alias mode.
+    /// Use this for Login item types where users typically enter existing email addresses.
+    /// </summary>
+    [Parameter]
+    public bool DefaultToEmailMode { get; set; } = false;
+
     private IStringLocalizer Localizer => LocalizerFactory.Create("Components.Main.Forms.EmailDomainField", "AliasVault.Client");
     private IStringLocalizer SharedLocalizer => LocalizerFactory.Create("SharedResources", "AliasVault.Client");
 
@@ -187,8 +194,14 @@
     protected override void OnInitialized()
     {
         base.OnInitialized();
-        
-        // Set default domain
+
+        // Set default mode based on parameter
+        if (DefaultToEmailMode)
+        {
+            IsCustomDomain = true;
+        }
+
+        // Set default domain (for when switching to alias mode later)
         if (ShowPrivateDomains && PrivateDomains.Count > 0)
         {
             SelectedDomain = PrivateDomains[0];
