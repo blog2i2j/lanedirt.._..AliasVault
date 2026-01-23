@@ -208,11 +208,9 @@ public abstract class PlaywrightTest
             var logMessage = $"[CONTEXT CONSOLE {type.ToUpper()}] {text}";
 
             // Write to multiple outputs to ensure visibility
-            Console.WriteLine(logMessage);
-            TestContext.Progress.WriteLine(logMessage);
-
             if (type == "error")
             {
+                TestContext.Progress.WriteLine(logMessage);
                 Console.Error.WriteLine(logMessage);
             }
         };

@@ -154,12 +154,11 @@ public class ClientPlaywrightTest : PlaywrightTest
 
             // Log all console messages to both Console and TestContext
             var logMessage = $"[PAGE CONSOLE {type.ToUpper()}] {text}";
-            Console.WriteLine(logMessage);
-            TestContext.Progress.WriteLine(logMessage);
 
             // Also write to stderr for errors to ensure visibility
             if (type == "error")
             {
+                TestContext.Progress.WriteLine(logMessage);
                 Console.Error.WriteLine(logMessage);
             }
         };
