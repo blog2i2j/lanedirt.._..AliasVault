@@ -98,12 +98,12 @@ export const useVaultSync = (): {
         if (result.error) {
           const errorCode = getVaultSyncErrorCodeFromString(result.error);
           if (errorCode) {
-            return await handleSyncError(result.error, errorCode, app, t, onError, onOffline);
+            return await handleSyncError(result.error, errorCode, app, dbContext, t, onError, onOffline);
           }
         }
 
         if (result.wasOffline) {
-          await NativeVaultManager.setOfflineMode(true);
+          await dbContext.setIsOffline(true);
           onOffline?.();
           // Return true to continue with local vault
           return true;
@@ -112,6 +112,9 @@ export const useVaultSync = (): {
         onError?.(result.error ?? t('common.errors.unknownError'));
         return false;
       }
+
+      // Sync succeeded - clear offline mode if it was set
+      await dbContext.setIsOffline(false);
 
       // Update status based on action taken
       switch (result.action) {
@@ -179,7 +182,7 @@ export const useVaultSync = (): {
       // Check if it's a vault sync error with error code
       const errorCode = getVaultSyncErrorCode(err);
       if (errorCode) {
-        return await handleSyncError(err, errorCode, app, t, onError, onOffline);
+        return await handleSyncError(err, errorCode, app, dbContext, t, onError, onOffline);
       }
 
       const errorMessage = err instanceof Error ? err.message : t('common.errors.unknownError');
@@ -226,6 +229,7 @@ async function handleSyncError(
   err: unknown,
   errorCode: VaultSyncErrorCode | null,
   app: ReturnType<typeof useApp>,
+  dbContext: ReturnType<typeof useDb>,
   t: (key: string) => string,
   onError?: (error: string) => void,
   onOffline?: () => void
@@ -251,7 +255,7 @@ async function handleSyncError(
     case VaultSyncErrorCode.SERVER_UNAVAILABLE:
     case VaultSyncErrorCode.NETWORK_ERROR:
     case VaultSyncErrorCode.TIMEOUT:
-      await NativeVaultManager.setOfflineMode(true);
+      await dbContext.setIsOffline(true);
       onOffline?.();
       // Return true to continue with local vault
       return true;

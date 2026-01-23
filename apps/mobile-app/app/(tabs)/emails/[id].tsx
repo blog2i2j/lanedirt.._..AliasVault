@@ -56,6 +56,13 @@ export default function EmailDetailsScreen() : React.ReactNode {
         return;
       }
 
+      // Check if we are in offline mode
+      if (dbContext.isOffline) {
+        setError(t('emails.offlineMessage'));
+        setIsLoading(false);
+        return;
+      }
+
       const response = await webApi.get<Email>(`Email/${id}`);
 
       // Decrypt email locally using public/private key pairs
@@ -77,11 +84,20 @@ export default function EmailDetailsScreen() : React.ReactNode {
         setHtmlView(false);
       }
     } catch (err) {
+      /*
+       * Suppress errors while vault has unsynced changes
+       * Network errors during sync can trigger false positives
+       */
+      if (dbContext.shouldSuppressEmailErrors()) {
+        setIsLoading(false);
+        return;
+      }
+
       setError(err instanceof Error ? err.message : t('common.error'));
     } finally {
       setIsLoading(false);
     }
-  }, [dbContext.sqliteClient, id, webApi, t]);
+  }, [dbContext.sqliteClient, dbContext, dbContext.isOffline, id, webApi, t]);
 
   useEffect(() => {
     loadEmail();

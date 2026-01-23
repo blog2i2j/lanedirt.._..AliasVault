@@ -46,6 +46,13 @@ const EmailsList: React.FC = () => {
         return;
       }
 
+      // Check if we are in offline mode
+      if (dbContext.isOffline) {
+        setIsLoading(false);
+        setIsInitialLoading(false);
+        return;
+      }
+
       // Get unique email addresses from all credentials.
       const emailAddresses = dbContext.sqliteClient.items.getAllEmailAddresses();
 
@@ -74,7 +81,7 @@ const EmailsList: React.FC = () => {
       setIsLoading(false);
       setIsInitialLoading(false);
     }
-  }, [dbContext?.sqliteClient, webApi, setIsLoading, setIsInitialLoading, t]);
+  }, [dbContext?.sqliteClient, dbContext.isOffline, webApi, setIsLoading, setIsInitialLoading, t]);
 
   useEffect(() => {
     loadEmails();
@@ -145,6 +152,22 @@ const EmailsList: React.FC = () => {
 
   if (error) {
     return <div className="text-red-500">{t('common.error')}: {error}</div>;
+  }
+
+  // Show offline message if in offline mode
+  if (dbContext.isOffline) {
+    return (
+      <div>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-gray-900 dark:text-white text-xl">{t('emails.title')}</h2>
+        </div>
+        <div className="text-gray-500 dark:text-gray-400 space-y-2">
+          <p className="text-sm">
+            {t('emails.offlineMessage')}
+          </p>
+        </div>
+      </div>
+    );
   }
 
   if (emails.length === 0) {

@@ -14,7 +14,6 @@ import { useColors } from '@/hooks/useColorScheme';
 import { PulseDot } from '@/components/PulseDot';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedView } from '@/components/themed/ThemedView';
-import { useAuth } from '@/context/AuthContext';
 import { useDb } from '@/context/DbContext';
 import { useWebApi } from '@/context/WebApiContext';
 
@@ -37,7 +36,6 @@ export const EmailPreview: React.FC<EmailPreviewProps> = ({ email }) : React.Rea
   const [displayedCount, setDisplayedCount] = useState(2);
   const webApi = useWebApi();
   const dbContext = useDb();
-  const authContext = useAuth();
   const colors = useColors();
   const { t } = useTranslation();
 
@@ -120,12 +118,6 @@ export const EmailPreview: React.FC<EmailPreviewProps> = ({ email }) : React.Rea
           return;
         }
 
-        // Check if we are in offline mode, if so, we don't need to load emails from the server
-        const isOffline = authContext.isOffline;
-        if (isOffline) {
-          return;
-        }
-
         const isPublic = await isPublicDomain(email);
         const isPrivate = await isPrivateDomain(email);
         const isSupported = isPublic || isPrivate;
@@ -134,6 +126,13 @@ export const EmailPreview: React.FC<EmailPreviewProps> = ({ email }) : React.Rea
         setIsSupportedDomain(isSupported);
 
         if (!isSupported) {
+          setLoading(false);
+          return;
+        }
+
+        // Check if we are in offline mode - still show the component but with offline message
+        if (dbContext.isOffline) {
+          setLoading(false);
           return;
         }
 
@@ -240,7 +239,7 @@ export const EmailPreview: React.FC<EmailPreviewProps> = ({ email }) : React.Rea
         clearInterval(interval);
       }
     };
-  }, [email, loading, webApi, dbContext, isPublicDomain, isPrivateDomain, authContext.isOffline, isComponentVisible, t, displayedCount, updateDisplayedEmails]);
+  }, [email, loading, webApi, dbContext, isPublicDomain, isPrivateDomain, isComponentVisible, t, displayedCount, updateDisplayedEmails]);
 
   const styles = StyleSheet.create({
     date: {
@@ -319,6 +318,18 @@ export const EmailPreview: React.FC<EmailPreviewProps> = ({ email }) : React.Rea
     return null;
   }
 
+  // Show offline message before error - offline mode should take precedence
+  if (dbContext.isOffline) {
+    return (
+      <ThemedView style={styles.section}>
+        <View style={styles.titleContainer}>
+          <ThemedText type="title" style={styles.title}>{t('items.recentEmails')}</ThemedText>
+        </View>
+        <ThemedText style={styles.placeholderText}>{t('items.offlineEmailsMessage')}</ThemedText>
+      </ThemedView>
+    );
+  }
+
   if (error) {
     return (
       <ThemedView style={styles.section}>
@@ -340,17 +351,6 @@ export const EmailPreview: React.FC<EmailPreviewProps> = ({ email }) : React.Rea
           <PulseDot />
         </View>
         <ThemedText style={styles.placeholderText}>{t('items.loadingEmails')}</ThemedText>
-      </ThemedView>
-    );
-  }
-
-  if (authContext.isOffline) {
-    return (
-      <ThemedView style={styles.section}>
-        <View style={styles.titleContainer}>
-          <ThemedText type="title" style={styles.title}>{t('items.recentEmails')}</ThemedText>
-        </View>
-        <ThemedText style={styles.placeholderText}>{t('items.offlineEmailsMessage')}</ThemedText>
       </ThemedView>
     );
   }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import ModalWrapper from '@/entrypoints/popup/components/Dialogs/ModalWrapper';
@@ -47,7 +47,7 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
   /**
    * Load field history from the database.
    */
-  const loadHistory = (): void => {
+  const loadHistory = useCallback(async (): Promise<void> => {
     if (!dbContext?.sqliteClient) {
       return;
     }
@@ -61,14 +61,14 @@ const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [dbContext?.sqliteClient, itemId, fieldKey]);
 
   useEffect(() => {
     if (!isOpen) {
       return;
     }
     loadHistory();
-  }, [isOpen, dbContext?.sqliteClient, itemId, fieldKey]);
+  }, [isOpen, dbContext?.sqliteClient, itemId, fieldKey, loadHistory]);
 
   /**
    * Format a date string to a human readable format.

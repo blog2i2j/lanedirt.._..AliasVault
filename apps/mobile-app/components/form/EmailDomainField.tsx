@@ -67,9 +67,6 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
         const metadata = await dbContext.getVaultMetadata();
         setPrivateEmailDomains(metadata?.privateEmailDomains ?? []);
         setHiddenPrivateEmailDomains(metadata?.hiddenPrivateEmailDomains ?? []);
-
-        console.log('privateEmailDomains', metadata?.privateEmailDomains);
-        console.log('hiddenPrivateEmailDomains', metadata?.hiddenPrivateEmailDomains);
       } catch (err) {
         console.error('Error loading email domains:', err);
       }

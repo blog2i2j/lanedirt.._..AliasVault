@@ -141,9 +141,6 @@ public class VaultController(ILogger<VaultController> logger, IAliasServerDbCont
             return Unauthorized();
         }
 
-        // Simulate a delay to test the email error suppression logic.
-        await Task.Delay(10000);
-
         // Compare the logged-in username with the username in the provided vault model.
         // If they do not match reject the request. This is important because it's
         // possible that a user has logged in with a different username than the one
