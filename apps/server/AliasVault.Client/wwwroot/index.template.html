@@ -32,8 +32,8 @@
     <link rel="apple-touch-icon" sizes="500x500" href="img/icon-500.png" />
     <link rel="apple-touch-icon" sizes="192x192" href="img/icon-192.png" />
     <!-- Preload Rust WASM module for faster initialization -->
-    <link rel="preload" href="/wasm/aliasvault_core_bg.wasm" as="fetch" type="application/wasm" crossorigin />
-    <link rel="modulepreload" href="/wasm/aliasvault_core.js" />
+    <link rel="preload" href="/wasm/aliasvault_core_bg.wasm?v=@CacheBuster" as="fetch" type="application/wasm" crossorigin />
+    <link rel="modulepreload" href="/wasm/aliasvault_core.js?v=@CacheBuster" />
 </head>
 
 <body class="bg-gray-100 dark:bg-gray-900" av-disable="true">
@@ -336,6 +336,7 @@
         };
     </script>
 
+    <script>window.__CACHE_BUSTER__ = '@CacheBuster';</script>
     <script src="js/crypto.js?v=@CacheBuster" async></script>
     <script src="js/utilities.js?v=@CacheBuster" async></script>
     <script src="js/rustCoreInterop.js?v=@CacheBuster"></script>
