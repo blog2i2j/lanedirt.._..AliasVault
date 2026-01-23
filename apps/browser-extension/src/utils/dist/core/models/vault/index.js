@@ -366,7 +366,7 @@ function groupFields(item, grouper) {
   return groups;
 }
 function groupFieldsByCategory(item) {
-  return groupFields(item, (field) => {
+  const groups = groupFields(item, (field) => {
     if (field.FieldKey.startsWith("login.")) {
       return FieldCategories.Login;
     }
@@ -384,6 +384,10 @@ function groupFieldsByCategory(item) {
     }
     return FieldCategories.Custom;
   });
+  for (const category of Object.keys(groups)) {
+    groups[category].sort((a, b) => (a.DisplayOrder ?? 0) - (b.DisplayOrder ?? 0));
+  }
+  return groups;
 }
 function itemToCredential(item) {
   return {

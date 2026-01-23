@@ -60,9 +60,10 @@ export function groupFields(
 
 /**
  * Group fields by standard categories (Login, Alias, Card, Notes, Custom)
+ * Fields within each category are sorted by DisplayOrder.
  */
 export function groupFieldsByCategory(item: Item): Record<string, ItemField[]> {
-  return groupFields(item, (field) => {
+  const groups = groupFields(item, (field) => {
     if (field.FieldKey.startsWith('login.')) {
       return FieldCategories.Login;
     }
@@ -80,6 +81,13 @@ export function groupFieldsByCategory(item: Item): Record<string, ItemField[]> {
     }
     return FieldCategories.Custom;
   });
+
+  // Sort fields within each category by DisplayOrder
+  for (const category of Object.keys(groups)) {
+    groups[category].sort((a, b) => (a.DisplayOrder ?? 0) - (b.DisplayOrder ?? 0));
+  }
+
+  return groups;
 }
 
 /**
