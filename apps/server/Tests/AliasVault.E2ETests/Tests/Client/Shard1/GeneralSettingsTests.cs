@@ -37,6 +37,20 @@ public class GeneralSettingsTests : ClientPlaywrightTest
         await NavigateUsingBlazorRouter("items/create");
         await WaitForUrlAsync("items/create", "Add Item");
 
+        // Click the "+ Email" button to add the email field section (not shown by default for Login type).
+        var addEmailButton = Page.Locator("button:has-text('Email')").First;
+        await addEmailButton.ClickAsync();
+
+        // Wait for the email field to appear.
+        await Page.WaitForSelectorAsync("input#email", new() { State = WaitForSelectorState.Visible, Timeout = 5000 });
+
+        // Click the "Alias" button to switch from "Email" mode to "Alias" mode.
+        var aliasButton = Page.Locator("button:has-text('Alias')").First;
+        await aliasButton.ClickAsync();
+
+        // Wait for the alias mode to be active (the input should now show a domain suffix button).
+        await Page.WaitForSelectorAsync("button:has-text('@')", new() { State = WaitForSelectorState.Visible, Timeout = 5000 });
+
         var defaultEmailDomainText = await Page.TextContentAsync("body");
         Assert.That(defaultEmailDomainText, Does.Contain("example2.tld"), "Default email domain not visible on add item page.");
     }

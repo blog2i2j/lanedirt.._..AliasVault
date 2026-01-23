@@ -81,15 +81,15 @@ public class DbSyncTests : ClientPlaywrightTest
     {
         var baselineVault = await CreateBaselineVault(async () =>
         {
-            await CreateItemEntry(new Dictionary<string, string> { { "service-name", "TestBaseline1" }, { "username", "user1" }, { "email", "email1" } });
-            await CreateItemEntry(new Dictionary<string, string> { { "service-name", "TestBaseline2" }, { "username", "user2" }, { "email", "email2" } });
-            await CreateItemEntry(new Dictionary<string, string> { { "service-name", "TestBaseline3" }, { "username", "user3" }, { "email", "email3" } });
+            await CreateItemEntry(new Dictionary<string, string> { { "service-name", "TestBaseline1" }, { "username", "user1" }, { "email", "email1@example.tld" } });
+            await CreateItemEntry(new Dictionary<string, string> { { "service-name", "TestBaseline2" }, { "username", "user2" }, { "email", "email2@example.tld" } });
+            await CreateItemEntry(new Dictionary<string, string> { { "service-name", "TestBaseline3" }, { "username", "user3" }, { "email", "email3@example.tld" } });
         });
 
         // Client 1 updates the vault first.
         var client1Vault = await SimulateClient(baselineVault, async () =>
         {
-            await UpdateItemEntry("TestBaseline2", new Dictionary<string, string> { { "service-name", "TestBaseMutate2" }, { "username", "usermutate2" }, { "email", "emailmutate2" } });
+            await UpdateItemEntry("TestBaseline2", new Dictionary<string, string> { { "service-name", "TestBaseMutate2" }, { "username", "usermutate2" }, { "email", "emailmutate2@example.tld" } });
         });
 
         // Then client 2 updates the same vault causing a conflict and requiring a client-side merge.
@@ -100,7 +100,7 @@ public class DbSyncTests : ClientPlaywrightTest
             ApiDbContext.Vaults.Add(client1Vault);
             await ApiDbContext.SaveChangesAsync();
 
-            await UpdateItemEntry("TestBaseline3", new Dictionary<string, string> { { "service-name", "TestBaseMutate3" }, { "username", "usermutate3" }, { "email", "emailmutate3" } });
+            await UpdateItemEntry("TestBaseline3", new Dictionary<string, string> { { "service-name", "TestBaseMutate3" }, { "username", "usermutate3" }, { "email", "emailmutate3@example.tld" } });
         });
 
         // Then another client updates the client 1 vault again, which should also cause a conflict with the client 2 vault update.

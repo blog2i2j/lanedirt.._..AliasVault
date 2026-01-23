@@ -2,6 +2,7 @@
 @inject JsInteropService JsInteropService
 @inject IStringLocalizerFactory LocalizerFactory
 @inject ItemService ItemService
+@inject DbService DbService
 @using Microsoft.Extensions.Localization
 @using AliasVault.Client.Services.JsInterop.Models
 @using AliasVault.Client.Main.Models
@@ -389,12 +390,18 @@
         }
 
         IsCustomDomain = false;
-        
-        // Switching to domain chooser mode
-        var defaultDomain = ShowPrivateDomains && PrivateDomains.Count > 0
-            ? PrivateDomains[0]
-            : (PublicDomains.Count > 0 ? PublicDomains[0] : string.Empty);
-        
+
+        // Switching to domain chooser mode - use user's configured default domain from settings
+        var userDefaultDomain = DbService.Settings.DefaultEmailDomain;
+        var allDomains = PrivateDomains.Concat(PublicDomains).ToList();
+
+        // Use user's configured default if it's a valid domain, otherwise fall back to first available
+        var defaultDomain = !string.IsNullOrEmpty(userDefaultDomain) && allDomains.Contains(userDefaultDomain)
+            ? userDefaultDomain
+            : (ShowPrivateDomains && PrivateDomains.Count > 0
+                ? PrivateDomains[0]
+                : (PublicDomains.Count > 0 ? PublicDomains[0] : string.Empty));
+
         if (!string.IsNullOrEmpty(defaultDomain))
         {
             SelectedDomain = defaultDomain;

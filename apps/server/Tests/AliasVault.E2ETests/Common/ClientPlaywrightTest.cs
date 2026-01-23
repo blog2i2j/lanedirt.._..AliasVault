@@ -231,6 +231,28 @@ public class ClientPlaywrightTest : PlaywrightTest
         var generateButton = Page.Locator("text=Generate Random Alias");
         Assert.That(generateButton, Is.Not.Null, "Generate button not found.");
 
+        // Check if email field is specified with a private email domain (alias).
+        // In that case we need to:
+        // 1. Click "+ Email" button to add the email field (for Login type items)
+        // 2. Switch from "Email" mode to "Alias" mode
+        if (formValues != null && formValues.TryGetValue("email", out var emailValue) && IsPrivateEmailDomain(emailValue))
+        {
+            // Click the "+ Email" button to add the email field section
+            var addEmailButton = Page.Locator("button:has-text('Email')").First;
+            await addEmailButton.ClickAsync();
+
+            // Wait for the email field to appear
+            await Page.WaitForSelectorAsync("input#email", new() { State = WaitForSelectorState.Visible, Timeout = 5000 });
+
+            // Click the "Alias" button to switch from "Email" mode to "Alias" mode.
+            // This will also generate a random email prefix.
+            var aliasButton = Page.Locator("button:has-text('Alias')").First;
+            await aliasButton.ClickAsync();
+
+            // Wait for the alias mode to be active (the input should now show a domain suffix button)
+            await Page.WaitForSelectorAsync("button:has-text('@')", new() { State = WaitForSelectorState.Visible, Timeout = 5000 });
+        }
+
         // Fill all input fields with specified values and remaining empty fields with random data.
         await InputHelper.FillInputFields(formValues);
         await InputHelper.FillEmptyInputFieldsWithRandom();
@@ -478,5 +500,24 @@ public class ClientPlaywrightTest : PlaywrightTest
 
         // Wait for "Find all of your items below" message to appear.
         await WaitForUrlAsync("items**", "Find all of your items below");
+    }
+
+    /// <summary>
+    /// Checks if the email address belongs to a private email domain configured for this test environment.
+    /// </summary>
+    /// <param name="email">The email address to check.</param>
+    /// <returns>True if the email is from a private domain (example.tld, example2.tld).</returns>
+    private static bool IsPrivateEmailDomain(string email)
+    {
+        if (string.IsNullOrEmpty(email) || !email.Contains('@'))
+        {
+            return false;
+        }
+
+        var domain = email.Split('@')[1].ToLowerInvariant();
+
+        // These are the private email domains configured in SetupEnvironment()
+        string[] privateDomains = ["example.tld", "example2.tld", "disabled.tld"];
+        return privateDomains.Contains(domain);
     }
 }
