@@ -121,7 +121,20 @@ else
                 @if (HasLoginFields())
                 {
                     <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
-                        <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["LoginDetailsSectionHeader"]</h3>
+                        <h3 class="mb-4 text-xl font-semibold dark:text-white flex items-center gap-2">
+                            <span>@Localizer["LoginDetailsSectionHeader"]</span>
+                            @if (Obj.ItemType == ItemType.Login && !ShouldShowField(FieldKey.LoginEmail))
+                            {
+                                <button type="button" @onclick="() => AddOptionalField(FieldKey.LoginEmail)" @onclick:preventDefault="true"
+                                        class="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full transition-colors focus:outline-none text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 border border-dashed border-gray-300 dark:border-gray-600 hover:border-primary-400 dark:hover:border-primary-500">
+                                    <svg class="w-2.5 h-2.5 -ml-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                        <line x1="12" y1="5" x2="12" y2="19" />
+                                        <line x1="5" y1="12" x2="19" y2="12" />
+                                    </svg>
+                                    <span>@SharedLocalizer["Email"]</span>
+                                </button>
+                            }
+                        </h3>
                         <div class="grid gap-6">
                             @if (EditMode && Obj.Passkeys != null && Obj.Passkeys.Any())
                             {
@@ -215,28 +228,15 @@ else
                                     <div class="col-span-6">
                                         @if (CanRemoveField(FieldKey.LoginEmail))
                                         {
-                                            <EmailDomainField Id="email" 
+                                            <EmailDomainField Id="email"
                                                               @bind-Value="Obj.GetField(FieldKey.LoginEmail)!.Value"
                                                               OnRemove="@(() => RemoveOptionalField(FieldKey.LoginEmail))"></EmailDomainField>
                                         }
                                         else
                                         {
-                                            <EmailDomainField Id="email" 
+                                            <EmailDomainField Id="email"
                                                               @bind-Value="Obj.GetField(FieldKey.LoginEmail)!.Value"></EmailDomainField>
                                         }
-                                    </div>
-                                }
-                                else if (Obj.ItemType == ItemType.Login && !ManuallyAddedFields.Contains(FieldKey.LoginEmail))
-                                {
-                                    @* Show + Email button for Login type when email is not visible *@
-                                    <div class="col-span-6">
-                                        <button type="button" @onclick="() => AddOptionalField(FieldKey.LoginEmail)" @onclick:preventDefault="true"
-                                                class="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center gap-1">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                            </svg>
-                                            @Localizer["AddEmailField"]
-                                        </button>
                                     </div>
                                 }
 
@@ -876,7 +876,8 @@ else
             Passkeys = new List<Passkey>()
         };
 
-        ItemService.SetFieldValue(item, FieldKey.LoginEmail, "@" + ItemService.GetDefaultEmailDomain());
+        // Don't pre-populate email for Login type - it's an optional field
+        // Email will be populated when user switches to Alias type or manually adds the field
 
         return item;
     }
