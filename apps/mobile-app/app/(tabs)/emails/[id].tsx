@@ -97,7 +97,7 @@ export default function EmailDetailsScreen() : React.ReactNode {
     } finally {
       setIsLoading(false);
     }
-  }, [dbContext.sqliteClient, dbContext, dbContext.isOffline, id, webApi, t]);
+  }, [dbContext, id, webApi, t]);
 
   useEffect(() => {
     loadEmail();
