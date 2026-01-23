@@ -158,7 +158,7 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId, hideLabel = fals
             </View>
           )}
           <View style={styles.textAreaContainer}>
-            <Text style={styles.textAreaText}>{value}</Text>
+            <Text style={styles.textAreaText} selectable={true}>{value}</Text>
           </View>
         </View>
       );
@@ -172,7 +172,7 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId, hideLabel = fals
       // Add text before URL
       if (urlMatch.start > lastEnd) {
         segments.push(
-          <Text key={`text-${idx}`} style={styles.textAreaText}>
+          <Text key={`text-${idx}`} style={styles.textAreaText} selectable={true}>
             {value.substring(lastEnd, urlMatch.start)}
           </Text>
         );
@@ -185,6 +185,7 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId, hideLabel = fals
           key={`url-${idx}`}
           style={[styles.textAreaText, styles.linkText]}
           onPress={() => Linking.openURL(href)}
+          selectable={true}
         >
           {urlMatch.url}
         </Text>
@@ -196,7 +197,7 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId, hideLabel = fals
     // Add remaining text after last URL
     if (lastEnd < value.length) {
       segments.push(
-        <Text key="text-end" style={styles.textAreaText}>
+        <Text key="text-end" style={styles.textAreaText} selectable={true}>
           {value.substring(lastEnd)}
         </Text>
       );
@@ -211,7 +212,7 @@ const FieldBlock: React.FC<FieldBlockProps> = ({ field, itemId, hideLabel = fals
           </View>
         )}
         <View style={styles.textAreaContainer}>
-          <Text>{segments}</Text>
+          <Text selectable={true}>{segments}</Text>
         </View>
       </View>
     );
