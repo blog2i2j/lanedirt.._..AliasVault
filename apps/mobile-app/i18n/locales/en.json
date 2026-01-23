@@ -387,6 +387,7 @@
     "serviceName": "Service Name",
     "serviceUrl": "Service URL",
     "loginCredentials": "Login credentials",
+    "cardInformation": "Card Information",
     "username": "Username",
     "email": "Email",
     "alias": "Alias",

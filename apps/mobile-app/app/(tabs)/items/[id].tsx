@@ -13,6 +13,7 @@ import { useColors } from '@/hooks/useColorScheme';
 
 import { AliasDetails } from '@/components/items/details/AliasDetails';
 import { AttachmentSection } from '@/components/items/details/AttachmentSection';
+import { CardDetails } from '@/components/items/details/CardDetails';
 import { CustomFieldsSection } from '@/components/items/details/CustomFieldsSection';
 import { EmailPreview } from '@/components/items/details/EmailPreview';
 import { LoginFields } from '@/components/items/details/LoginFields';
@@ -186,6 +187,7 @@ export default function ItemDetailsScreen() : React.ReactNode {
         <EmailPreview email={email} />
         <TotpSection item={item} />
         <LoginFields item={item} />
+        <CardDetails item={item} />
         <AliasDetails item={item} />
         <CustomFieldsSection item={item} />
         <NotesSection item={item} />
