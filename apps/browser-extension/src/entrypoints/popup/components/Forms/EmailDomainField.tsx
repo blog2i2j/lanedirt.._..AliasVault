@@ -382,19 +382,19 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
               onClick={isCustomDomain ? undefined : toggleCustomDomain}
               className={`text-sm font-medium transition-colors ${
                 isCustomDomain
-                  ? 'text-gray-700 dark:text-gray-300'
+                  ? 'text-primary-600 dark:text-primary-400'
                   : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 cursor-pointer'
               }`}
             >
               {t('common.email')}
             </button>
-            <span className="mx-1.5 text-gray-400 dark:text-gray-500">/</span>
+            <span className="mx-2 text-gray-400 dark:text-gray-500">/</span>
             <button
               type="button"
               onClick={!isCustomDomain ? undefined : handleGenerateAliasClick}
               className={`text-sm font-medium transition-colors ${
                 !isCustomDomain
-                  ? 'text-gray-700 dark:text-gray-300'
+                  ? 'text-primary-600 dark:text-primary-400'
                   : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 cursor-pointer'
               }`}
             >

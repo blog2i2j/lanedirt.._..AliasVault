@@ -201,7 +201,7 @@ else
                                     </div>
                                 }
                                 <div class="col-span-6">
-                                    <EditEmailFormRow Id="email" Label="@Localizer["EmailLabel"]" @bind-Value="Obj.GetField(FieldKey.LoginEmail)!.Value"></EditEmailFormRow>
+                                    <EmailDomainField Id="email" @bind-Value="Obj.GetField(FieldKey.LoginEmail)!.Value"></EmailDomainField>
                                 </div>
                                 <div class="col-span-6">
                                     <EditPasswordFormRow Id="password" Label="@Localizer["PasswordLabel"]" @bind-Value="Obj.GetField(FieldKey.LoginPassword)!.Value" ShowPassword="IsPasswordVisible"></EditPasswordFormRow>
@@ -212,16 +212,17 @@ else
                                 @* Without passkey: Email (optional add for Login), Username, Password *@
                                 @if (ShouldShowField(FieldKey.LoginEmail))
                                 {
-                                    <div class="col-span-6 relative">
-                                        <EditEmailFormRow Id="email" Label="@Localizer["EmailLabel"]" @bind-Value="Obj.GetField(FieldKey.LoginEmail)!.Value"></EditEmailFormRow>
+                                    <div class="col-span-6">
                                         @if (CanRemoveField(FieldKey.LoginEmail))
                                         {
-                                            <button type="button" @onclick="() => RemoveOptionalField(FieldKey.LoginEmail)" @onclick:preventDefault="true"
-                                                    class="absolute top-0 right-0 text-gray-400 hover:text-red-500 transition-colors" title="@Localizer["RemoveField"]">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                                </svg>
-                                            </button>
+                                            <EmailDomainField Id="email" 
+                                                              @bind-Value="Obj.GetField(FieldKey.LoginEmail)!.Value"
+                                                              OnRemove="@(() => RemoveOptionalField(FieldKey.LoginEmail))"></EmailDomainField>
+                                        }
+                                        else
+                                        {
+                                            <EmailDomainField Id="email" 
+                                                              @bind-Value="Obj.GetField(FieldKey.LoginEmail)!.Value"></EmailDomainField>
                                         }
                                     </div>
                                 }
