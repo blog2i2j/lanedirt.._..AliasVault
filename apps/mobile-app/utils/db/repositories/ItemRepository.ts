@@ -436,10 +436,15 @@ export class ItemRepository extends BaseRepository {
       const values = Array.isArray(field.Value) ? field.Value : [field.Value];
       const filteredValues = values.filter(v => v !== undefined && v !== null && v !== '');
 
-      // Skip empty fields
-      if (filteredValues.length === 0) {
+      // Skip empty system fields, but always persist custom fields (even if empty)
+      if (filteredValues.length === 0 && !field.IsCustomField) {
         continue;
       }
+
+      // For custom fields with no values, use empty string to preserve the field
+      const valuesToInsert = field.IsCustomField && filteredValues.length === 0
+        ? ['']
+        : filteredValues;
 
       let fieldDefinitionId: string | null = null;
 
@@ -448,8 +453,8 @@ export class ItemRepository extends BaseRepository {
         fieldDefinitionId = await this.ensureFieldDefinition(field, itemType, now);
       }
 
-      for (let j = 0; j < filteredValues.length; j++) {
-        const value = filteredValues[j];
+      for (let j = 0; j < valuesToInsert.length; j++) {
+        const value = valuesToInsert[j];
 
         await this.client.executeUpdate(FieldValueQueries.INSERT, [
           this.generateId(),
@@ -597,11 +602,16 @@ export class ItemRepository extends BaseRepository {
       const values = Array.isArray(field.Value) ? field.Value : [field.Value];
       const existingForKey = existingByKey.get(field.FieldKey) || [];
 
-      // Skip empty fields
+      // Skip empty system fields, but always persist custom fields (even if empty)
       const filteredValues = values.filter(v => v !== undefined && v !== null && v !== '');
-      if (filteredValues.length === 0) {
+      if (filteredValues.length === 0 && !field.IsCustomField) {
         continue;
       }
+
+      // For custom fields with no values, use empty string to preserve the field
+      const valuesToProcess = field.IsCustomField && filteredValues.length === 0
+        ? ['']
+        : filteredValues;
 
       let fieldDefinitionId: string | null = null;
 
@@ -610,8 +620,8 @@ export class ItemRepository extends BaseRepository {
         fieldDefinitionId = await this.ensureOrUpdateFieldDefinition(field, itemType, now);
       }
 
-      for (let j = 0; j < filteredValues.length; j++) {
-        const value = filteredValues[j];
+      for (let j = 0; j < valuesToProcess.length; j++) {
+        const value = valuesToProcess[j];
 
         const existingEntry = existingForKey[j];
 

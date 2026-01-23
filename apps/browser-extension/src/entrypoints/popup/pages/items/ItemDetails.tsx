@@ -227,18 +227,7 @@ const ItemDetails: React.FC = (): React.ReactElement => {
             </div>
           )}
 
-          {groupedFields[FieldCategories.Custom] && groupedFields[FieldCategories.Custom].length > 0 && (
-            <div className="space-y-2">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                {t('common.customFields')}
-              </h2>
-              {groupedFields[FieldCategories.Custom].map((field) => (
-                <FieldBlock key={field.FieldKey} field={field} itemId={item.Id} />
-              ))}
-            </div>
-          )}
-
-          {/* Notes - shown at bottom for non-Note types (metadata) */}
+          {/* Notes - shown before custom fields for non-Note types */}
           {item.ItemType !== ItemTypes.Note && groupedFields[FieldCategories.Notes] && groupedFields[FieldCategories.Notes].length > 0 && (
             groupedFields[FieldCategories.Notes].map((field) => (
               <div key={field.FieldKey} className="space-y-2">
@@ -248,6 +237,18 @@ const ItemDetails: React.FC = (): React.ReactElement => {
                 <FieldBlock field={field} itemId={item.Id} hideLabel />
               </div>
             ))
+          )}
+
+          {/* Custom Fields */}
+          {groupedFields[FieldCategories.Custom] && groupedFields[FieldCategories.Custom].length > 0 && (
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                {t('common.customFields')}
+              </h2>
+              {groupedFields[FieldCategories.Custom].map((field) => (
+                <FieldBlock key={field.FieldKey} field={field} itemId={item.Id} />
+              ))}
+            </div>
           )}
         </>
       )}

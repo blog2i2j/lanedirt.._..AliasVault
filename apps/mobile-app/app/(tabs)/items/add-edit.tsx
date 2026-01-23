@@ -760,22 +760,20 @@ export default function AddEditItemScreen(): React.ReactNode {
       }
     });
 
-    // Add custom fields
+    // Add custom fields - always persist even if empty (only deleted when explicitly removed)
     customFields.forEach(customField => {
-      const value = fieldValues[customField.tempId];
+      const value = fieldValues[customField.tempId] || '';
 
-      if (value && (Array.isArray(value) ? value.length > 0 : value.toString().trim() !== '')) {
-        fields.push({
-          FieldKey: customField.tempId,
-          Label: customField.label,
-          FieldType: customField.fieldType,
-          Value: value,
-          IsHidden: customField.isHidden,
-          DisplayOrder: customField.displayOrder,
-          IsCustomField: true,
-          EnableHistory: false
-        });
-      }
+      fields.push({
+        FieldKey: customField.tempId,
+        Label: customField.label,
+        FieldType: customField.fieldType,
+        Value: value,
+        IsHidden: customField.isHidden,
+        DisplayOrder: customField.displayOrder,
+        IsCustomField: true,
+        EnableHistory: false
+      });
     });
 
     // Normalize birthdate if present
@@ -1533,28 +1531,6 @@ export default function AddEditItemScreen(): React.ReactNode {
               );
             })}
 
-            {/* Custom Fields Section */}
-            {customFields.length > 0 && (
-              <FormSection title={t('itemTypes.customFields')}>
-                {customFields.map(field => (
-                  <View key={field.tempId}>
-                    <EditableFieldLabel
-                      label={field.label}
-                      onLabelChange={(newLabel) => handleUpdateCustomFieldLabel(field.tempId, newLabel)}
-                      onDelete={() => handleDeleteCustomField(field.tempId)}
-                    />
-                    {renderFieldInput(
-                      field.tempId,
-                      '', // Label is shown by EditableFieldLabel
-                      field.fieldType,
-                      field.isHidden,
-                      false
-                    )}
-                  </View>
-                ))}
-              </FormSection>
-            )}
-
             {/* Notes Section */}
             {notesField && visibleFieldKeys.has('notes.content') && (
               <FormSection
@@ -1577,6 +1553,28 @@ export default function AddEditItemScreen(): React.ReactNode {
                   notesField.IsHidden,
                   notesField.IsMultiValue
                 )}
+              </FormSection>
+            )}
+
+            {/* Custom Fields Section */}
+            {customFields.length > 0 && (
+              <FormSection title={t('itemTypes.customFields')}>
+                {customFields.map(field => (
+                  <View key={field.tempId}>
+                    <EditableFieldLabel
+                      label={field.label}
+                      onLabelChange={(newLabel) => handleUpdateCustomFieldLabel(field.tempId, newLabel)}
+                      onDelete={() => handleDeleteCustomField(field.tempId)}
+                    />
+                    {renderFieldInput(
+                      field.tempId,
+                      '', // Label is shown by EditableFieldLabel
+                      field.fieldType,
+                      field.isHidden,
+                      false
+                    )}
+                  </View>
+                ))}
               </FormSection>
             )}
 

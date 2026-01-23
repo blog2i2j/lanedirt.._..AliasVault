@@ -618,23 +618,20 @@ const ItemAddEdit: React.FC = () => {
         }
       });
 
-      // Add custom fields
+      // Add custom fields - always persist even if empty (only deleted when explicitly removed)
       customFields.forEach(customField => {
-        const value = fieldValues[customField.tempId];
+        const value = fieldValues[customField.tempId] || '';
 
-        // Only include fields with non-empty values
-        if (value && (Array.isArray(value) ? value.length > 0 : value.trim() !== '')) {
-          fields.push({
-            FieldKey: customField.tempId,
-            Label: customField.label,
-            FieldType: customField.fieldType,
-            Value: value,
-            IsHidden: customField.isHidden,
-            DisplayOrder: customField.displayOrder,
-            IsCustomField: true,
-            EnableHistory: false // Custom fields don't have history enabled by default
-          });
-        }
+        fields.push({
+          FieldKey: customField.tempId,
+          Label: customField.label,
+          FieldType: customField.fieldType,
+          Value: value,
+          IsHidden: customField.isHidden,
+          DisplayOrder: customField.displayOrder,
+          IsCustomField: true,
+          EnableHistory: false // Custom fields don't have history enabled by default
+        });
       });
 
       let updatedItem: Item = {
@@ -1303,29 +1300,6 @@ const ItemAddEdit: React.FC = () => {
         );
       })}
 
-      {/* Custom Fields Section */}
-      {customFields.length > 0 && (
-        <FormSection title={t('common.customFields')}>
-          {customFields.map(field => (
-            <div key={field.tempId}>
-              <EditableFieldLabel
-                htmlFor={field.tempId}
-                label={field.label}
-                onLabelChange={(newLabel) => handleUpdateCustomFieldLabel(field.tempId, newLabel)}
-                onDelete={() => handleDeleteCustomField(field.tempId)}
-              />
-              {renderFieldInput(
-                field.tempId,
-                '',
-                field.fieldType,
-                field.isHidden,
-                false
-              )}
-            </div>
-          ))}
-        </FormSection>
-      )}
-
       {/* Notes Section */}
       {notesField && visibleFieldKeys.has('notes.content') && (
         <FormSection
@@ -1353,6 +1327,29 @@ const ItemAddEdit: React.FC = () => {
             notesField.IsHidden,
             notesField.IsMultiValue
           )}
+        </FormSection>
+      )}
+
+      {/* Custom Fields Section */}
+      {customFields.length > 0 && (
+        <FormSection title={t('common.customFields')}>
+          {customFields.map(field => (
+            <div key={field.tempId}>
+              <EditableFieldLabel
+                htmlFor={field.tempId}
+                label={field.label}
+                onLabelChange={(newLabel) => handleUpdateCustomFieldLabel(field.tempId, newLabel)}
+                onDelete={() => handleDeleteCustomField(field.tempId)}
+              />
+              {renderFieldInput(
+                field.tempId,
+                '',
+                field.fieldType,
+                field.isHidden,
+                false
+              )}
+            </div>
+          ))}
         </FormSection>
       )}
 

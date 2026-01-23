@@ -436,8 +436,9 @@ export class ItemRepository extends BaseRepository {
     currentDateTime: string
   ): void {
     for (const field of fields) {
-      // Skip empty fields
-      if (!field.Value || (typeof field.Value === 'string' && field.Value.trim() === '')) {
+      // Skip empty system fields, but always persist custom fields (even if empty)
+      const isEmpty = !field.Value || (typeof field.Value === 'string' && field.Value.trim() === '');
+      if (isEmpty && !field.IsCustomField) {
         continue;
       }
 
@@ -452,7 +453,12 @@ export class ItemRepository extends BaseRepository {
       const values = Array.isArray(field.Value) ? field.Value : [field.Value];
       const filteredValues = values.filter(v => v && v.trim() !== '');
 
-      for (const value of filteredValues) {
+      // For custom fields with no values, insert with empty string to preserve the field
+      const valuesToInsert = field.IsCustomField && filteredValues.length === 0
+        ? ['']
+        : filteredValues;
+
+      for (const value of valuesToInsert) {
         this.client.executeUpdate(FieldValueQueries.INSERT, [
           this.generateId(),
           itemId,
@@ -546,7 +552,9 @@ export class ItemRepository extends BaseRepository {
     // Update existing or insert new FieldValues
     if (item.Fields && item.Fields.length > 0) {
       for (const field of item.Fields) {
-        if (!field.Value || (typeof field.Value === 'string' && field.Value.trim() === '')) {
+        // Skip empty system fields, but always persist custom fields (even if empty)
+        const isEmpty = !field.Value || (typeof field.Value === 'string' && field.Value.trim() === '');
+        if (isEmpty && !field.IsCustomField) {
           continue;
         }
 
@@ -559,11 +567,14 @@ export class ItemRepository extends BaseRepository {
         const values = Array.isArray(field.Value) ? field.Value : [field.Value];
         const effectiveKey = field.FieldKey;
 
-        for (let i = 0; i < values.length; i++) {
-          const value = values[i];
-          if (!value || (typeof value === 'string' && value.trim() === '')) {
-            continue;
-          }
+        // For custom fields with no values, use empty string to preserve the field
+        const filteredValues = values.filter(v => v && (typeof v !== 'string' || v.trim() !== ''));
+        const valuesToProcess = field.IsCustomField && filteredValues.length === 0
+          ? ['']
+          : filteredValues;
+
+        for (let i = 0; i < valuesToProcess.length; i++) {
+          const value = valuesToProcess[i];
 
           const lookupKey = `${effectiveKey}:${i}`;
           const existing = existingByKey.get(lookupKey);

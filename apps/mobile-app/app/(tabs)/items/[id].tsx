@@ -189,8 +189,8 @@ export default function ItemDetailsScreen() : React.ReactNode {
         <LoginFields item={item} />
         <CardDetails item={item} />
         <AliasDetails item={item} />
-        <CustomFieldsSection item={item} />
         <NotesSection item={item} />
+        <CustomFieldsSection item={item} />
         <AttachmentSection item={item} />
       </ThemedScrollView>
     </ThemedContainer>
