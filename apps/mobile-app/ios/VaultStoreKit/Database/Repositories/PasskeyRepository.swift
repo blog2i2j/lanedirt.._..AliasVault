@@ -59,13 +59,14 @@ public class PasskeyRepository: BaseRepository {
         return mappedResults
     }
 
-    /// Get Items that match an rpId but don't have a passkey yet.
-    /// Used for finding existing credentials that could have a passkey added to them.
+    /// Get Items that match an rpId but don't have a passkey yet using legacy SQL LIKE matching.
+    /// Note: The public API now uses getAllItemsWithoutPasskey + Rust credential matcher for consistent cross-platform matching.
+    /// This method is kept for potential fallback scenarios.
     /// - Parameters:
     ///   - rpId: The relying party identifier (domain)
     ///   - userName: Optional username to filter by
     /// - Returns: Array of ItemWithCredentialInfoData objects
-    public func getItemsWithoutPasskey(forRpId rpId: String, userName: String? = nil) throws -> [ItemWithCredentialInfoData] {
+    func getItemsWithoutPasskeyLegacy(forRpId rpId: String, userName: String? = nil) throws -> [ItemWithCredentialInfoData] {
         let rpIdLower = rpId.lowercased()
         let urlPattern1 = "%\(rpIdLower)%"
         let urlPattern2 = "%\(rpIdLower.replacingOccurrences(of: "www.", with: ""))%"
@@ -98,6 +99,44 @@ public class PasskeyRepository: BaseRepository {
                 itemId: itemId,
                 serviceName: serviceName,
                 url: url,
+                username: itemUsername,
+                hasPassword: hasPassword,
+                createdAt: createdAt,
+                updatedAt: updatedAt
+            ))
+        }
+
+        return items
+    }
+
+    /// Get ALL Login items that don't have a passkey yet (no URL filtering).
+    /// Used with RustItemMatcher for intelligent, cross-platform consistent filtering.
+    /// - Returns: Array of ItemWithCredentialInfoData objects with all URLs
+    public func getAllItemsWithoutPasskey() throws -> [ItemWithCredentialInfoData] {
+        let results = try client.executeQuery(PasskeyQueries.getAllItemsWithoutPasskey, params: [])
+
+        var items: [ItemWithCredentialInfoData] = []
+
+        for row in results {
+            guard let idString = row["Id"] as? String,
+                  let itemId = UUID(uuidString: idString) else {
+                continue
+            }
+
+            let serviceName = row["Name"] as? String
+            let urlsString = row["Urls"] as? String
+            let urls = urlsString?.components(separatedBy: ",").filter { !$0.isEmpty } ?? []
+            let itemUsername = row["Username"] as? String
+            let password = row["Password"] as? String
+            let hasPassword = password != nil && !password!.isEmpty
+
+            let createdAt = DateHelpers.parseDateString(row["CreatedAt"] as? String ?? "") ?? Date.distantPast
+            let updatedAt = DateHelpers.parseDateString(row["UpdatedAt"] as? String ?? "") ?? Date.distantPast
+
+            items.append(ItemWithCredentialInfoData(
+                itemId: itemId,
+                serviceName: serviceName,
+                urls: urls,
                 username: itemUsername,
                 hasPassword: hasPassword,
                 createdAt: createdAt,
@@ -462,6 +501,8 @@ public struct ItemWithCredentialInfoData {
     public let itemId: UUID
     public let serviceName: String?
     public let url: String?
+    /// All URLs associated with this item (supports multi-value URL fields)
+    public let urls: [String]
     public let username: String?
     public let hasPassword: Bool
     public let createdAt: Date
@@ -471,6 +512,18 @@ public struct ItemWithCredentialInfoData {
         self.itemId = itemId
         self.serviceName = serviceName
         self.url = url
+        self.urls = url.map { [$0] } ?? []
+        self.username = username
+        self.hasPassword = hasPassword
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    public init(itemId: UUID, serviceName: String?, urls: [String], username: String?, hasPassword: Bool, createdAt: Date, updatedAt: Date) {
+        self.itemId = itemId
+        self.serviceName = serviceName
+        self.url = urls.first
+        self.urls = urls
         self.username = username
         self.hasPassword = hasPassword
         self.createdAt = createdAt

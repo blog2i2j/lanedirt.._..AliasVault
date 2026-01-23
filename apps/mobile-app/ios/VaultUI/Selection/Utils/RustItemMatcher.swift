@@ -2,10 +2,10 @@ import Foundation
 import VaultModels
 import RustCoreFramework
 
-/// Wrapper for the Rust credential matcher using UniFFI bindings.
-public class RustCredentialMatcher {
+/// Wrapper for the Rust item matcher using UniFFI bindings.
+public class RustItemMatcher {
 
-    /// Filter credentials based on search text using the Rust core credential matcher.
+    /// Filter credentials based on search text using the Rust core item matcher.
     ///
     /// - Parameters:
     ///   - credentials: List of credentials to filter
@@ -38,7 +38,7 @@ public class RustCredentialMatcher {
 
             let inputData = try JSONSerialization.data(withJSONObject: input, options: [])
             guard let inputJson = String(data: inputData, encoding: .utf8) else {
-                print("[RustCredentialMatcher] Failed to create input JSON")
+                print("[RustItemMatcher] Failed to create input JSON")
                 return credentials
             }
 
@@ -49,7 +49,7 @@ public class RustCredentialMatcher {
             guard let outputData = outputJson.data(using: .utf8),
                   let output = try JSONSerialization.jsonObject(with: outputData) as? [String: Any],
                   let matchedIds = output["matched_ids"] as? [String] else {
-                print("[RustCredentialMatcher] Failed to parse output JSON")
+                print("[RustItemMatcher] Failed to parse output JSON")
                 return credentials
             }
 
@@ -69,7 +69,7 @@ public class RustCredentialMatcher {
             return filtered
 
         } catch {
-            print("[RustCredentialMatcher] Error filtering credentials: \(error)")
+            print("[RustItemMatcher] Error filtering credentials: \(error)")
             // Fallback to returning all credentials on error
             return credentials
         }

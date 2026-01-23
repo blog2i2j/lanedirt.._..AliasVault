@@ -242,9 +242,11 @@ extension CredentialProviderViewController: PasskeyProviderDelegate {
         }
 
         // Query for existing Items without passkeys that match this rpId
+        // Note: Don't filter by userName here - we want to show all matching items
+        // regardless of username so user can choose which item to merge into
         var existingItemsWithoutPasskey: [ItemWithCredentialInfo] = []
         do {
-            let results = try vaultStore.getItemsWithoutPasskey(forRpId: rpId, userName: userName)
+            let results = try vaultStore.getItemsWithoutPasskey(forRpId: rpId)
             existingItemsWithoutPasskey = results.map { item in
                 ItemWithCredentialInfo(
                     itemId: item.itemId,
