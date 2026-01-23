@@ -184,10 +184,14 @@
     /// <summary>
     /// Select an item type.
     /// </summary>
-    private void SelectItemType(string itemType)
+    private async Task SelectItemType(string itemType)
     {
         Model.ItemType = itemType;
         StateHasChanged();
+
+        // Refocus the service name input so user can continue typing
+        await Task.Delay(50);
+        await JsInteropService.FocusElementById("serviceName");
     }
 
     /// <summary>
