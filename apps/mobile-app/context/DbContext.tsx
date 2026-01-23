@@ -15,6 +15,12 @@ type DbContextType = {
   isOffline: boolean;
   setIsSyncing: (syncing: boolean) => void;
   setIsOffline: (offline: boolean) => Promise<void>;
+  /**
+   * Check if email errors should be suppressed.
+   * Errors are suppressed when vault has local changes not yet synced,
+   * as the server may not know about newly created items/aliases yet.
+   */
+  shouldSuppressEmailErrors: () => boolean;
   refreshSyncState: () => Promise<void>;
   storeEncryptionKey: (derivedKey: string) => Promise<void>;
   storeEncryptionKeyDerivationParams: (keyDerivationParams: EncryptionKeyDerivationParams) => Promise<void>;
@@ -62,6 +68,15 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
    * Offline mode state - indicates network is unavailable.
    */
   const [isOffline, setIsOfflineState] = useState(false);
+
+  /**
+   * Check if email errors should be suppressed.
+   * Errors are suppressed when vault has local changes not yet synced,
+   * as the server may not know about newly created items/aliases yet.
+   */
+  const shouldSuppressEmailErrors = useCallback(() => {
+    return isDirty || isSyncing;
+  }, [isDirty, isSyncing]);
 
   /**
    * Unlock the vault in the native module which will decrypt the database using the stored encryption key
@@ -246,6 +261,7 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     isOffline,
     setIsSyncing,
     setIsOffline,
+    shouldSuppressEmailErrors,
     refreshSyncState,
     hasPendingMigrations,
     clearDatabase,
@@ -256,7 +272,7 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     storeEncryptionKeyDerivationParams,
     checkStoredVault,
     setDatabaseAvailable,
-  }), [sqliteClient, dbInitialized, dbAvailable, isDirty, isSyncing, isOffline, setIsSyncing, setIsOffline, refreshSyncState, hasPendingMigrations, clearDatabase, getVaultMetadata, testDatabaseConnection, unlockVault, storeEncryptionKey, storeEncryptionKeyDerivationParams, checkStoredVault, setDatabaseAvailable]);
+  }), [sqliteClient, dbInitialized, dbAvailable, isDirty, isSyncing, isOffline, setIsSyncing, setIsOffline, shouldSuppressEmailErrors, refreshSyncState, hasPendingMigrations, clearDatabase, getVaultMetadata, testDatabaseConnection, unlockVault, storeEncryptionKey, storeEncryptionKeyDerivationParams, checkStoredVault, setDatabaseAvailable]);
 
   return (
     <DbContext.Provider value={contextValue}>

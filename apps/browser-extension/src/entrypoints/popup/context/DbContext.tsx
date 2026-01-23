@@ -45,6 +45,12 @@ type DbContextType = {
    */
   setIsSyncing: (syncing: boolean) => void;
   /**
+   * Check if email errors should be suppressed.
+   * Errors are suppressed when vault has local changes not yet synced,
+   * as the server may not know about newly created items/aliases yet.
+   */
+  shouldSuppressEmailErrors: () => boolean;
+  /**
    * Load a decrypted vault into memory (SQLite client).
    */
   loadDatabase: (decryptedVaultBase64: string) => Promise<SqliteClient>;
@@ -106,6 +112,15 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
    * Server revision number.
    */
   const [serverRevision, setServerRevision] = useState(0);
+
+  /**
+   * Check if email errors should be suppressed.
+   * Errors are suppressed when vault has local changes not yet synced,
+   * as the server may not know about newly created items/aliases yet.
+   */
+  const shouldSuppressEmailErrors = useCallback(() => {
+    return isDirty || isSyncing;
+  }, [isDirty, isSyncing]);
 
   /**
    * Set the offline mode state and persist it to local storage.
@@ -277,6 +292,7 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     serverRevision,
     setIsOffline,
     setIsSyncing,
+    shouldSuppressEmailErrors,
     loadDatabase,
     loadStoredDatabase,
     storeEncryptionKey,
@@ -285,7 +301,7 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     getVaultMetadata,
     refreshSyncState,
     hasPendingMigrations,
-  }), [sqliteClient, dbInitialized, dbAvailable, isOffline, getIsOffline, isDirty, isSyncing, serverRevision, setIsOffline, loadDatabase, loadStoredDatabase, storeEncryptionKey, storeEncryptionKeyDerivationParams, clearDatabase, getVaultMetadata, refreshSyncState, hasPendingMigrations]);
+  }), [sqliteClient, dbInitialized, dbAvailable, isOffline, getIsOffline, isDirty, isSyncing, serverRevision, setIsOffline, shouldSuppressEmailErrors, loadDatabase, loadStoredDatabase, storeEncryptionKey, storeEncryptionKeyDerivationParams, clearDatabase, getVaultMetadata, refreshSyncState, hasPendingMigrations]);
 
   return (
     <DbContext.Provider value={contextValue}>
