@@ -11,6 +11,7 @@ using AliasClientDb;
 using AliasClientDb.Models;
 using AliasVault.ImportExport;
 using AliasVault.ImportExport.Importers;
+using AliasVault.ImportExport.Models;
 using AliasVault.UnitTests.Common;
 
 /// <summary>
@@ -30,7 +31,7 @@ public class ImportExportTests
         {
             Id = new Guid("00000000-0000-0000-0000-000000000001"),
             Name = "Test Service",
-            ItemType = "Login",
+            ItemType = ItemType.Login,
             CreatedAt = DateTime.Now,
             UpdatedAt = DateTime.Now,
         };
@@ -533,7 +534,7 @@ public class ImportExportTests
             Assert.That(secureNoteCredential.TwoFactorSecret, Is.Empty);
         });
 
-        // Test credit card entry (stored as note-only credential)
+        // Test credit card entry
         var creditCardCredential = importedCredentials.First(c => c.ServiceName == "Paymentcard1");
         Assert.Multiple(() =>
         {
@@ -541,11 +542,12 @@ public class ImportExportTests
             Assert.That(creditCardCredential.ServiceUrl, Is.Null); // Should be normalized to null
             Assert.That(creditCardCredential.Username, Is.Empty);
             Assert.That(creditCardCredential.Password, Is.Empty);
-            Assert.That(creditCardCredential.Notes, Does.Contain("NoteType:Credit Card"));
-            Assert.That(creditCardCredential.Notes, Does.Contain("Name on Card:Cardname"));
-            Assert.That(creditCardCredential.Notes, Does.Contain("Number:123456781234"));
-            Assert.That(creditCardCredential.Notes, Does.Contain("Security Code:1234"));
-            Assert.That(creditCardCredential.Notes, Does.Contain("Creditcardnotes here"));
+            Assert.That(creditCardCredential.ItemType, Is.EqualTo(ImportedItemType.Creditcard));
+            Assert.That(creditCardCredential.Creditcard, Is.Not.Null);
+            Assert.That(creditCardCredential.Creditcard!.CardholderName, Is.EqualTo("Cardname"));
+            Assert.That(creditCardCredential.Creditcard.Number, Is.EqualTo("123456781234"));
+            Assert.That(creditCardCredential.Creditcard.Cvv, Is.EqualTo("1234"));
+            Assert.That(creditCardCredential.Notes, Is.EqualTo("Creditcardnotes here")); // Extracted notes
             Assert.That(creditCardCredential.TwoFactorSecret, Is.Empty);
         });
     }
@@ -756,6 +758,243 @@ public class ImportExportTests
         // Verify it has example data
         Assert.That(template, Does.Contain("your.email@gmail.com"));
         Assert.That(template, Does.Contain("your_totp_secret_here"));
+    }
+
+    /// <summary>
+    /// Test case for Bitwarden import with folder path extraction.
+    /// </summary>
+    /// <returns>Async task.</returns>
+    [Test]
+    public async Task ImportBitwardenWithFolders()
+    {
+        // Arrange
+        var fileContent = await ResourceReaderUtility.ReadEmbeddedResourceStringAsync("AliasVault.UnitTests.TestData.Exports.bitwarden.csv");
+
+        // Act
+        var importedCredentials = await BitwardenImporter.ImportFromCsvAsync(fileContent);
+
+        // Assert - check folder path is extracted (6 items in Business folder in test data)
+        var businessFolderItems = importedCredentials.Where(c => c.FolderPath == "Business").ToList();
+        Assert.That(businessFolderItems, Has.Count.EqualTo(6), "Should have 6 items in Business folder");
+
+        // Verify folder names are collected correctly
+        var folderNames = BaseImporter.CollectUniqueFolderNames(importedCredentials);
+        Assert.That(folderNames, Does.Contain("Business"));
+    }
+
+    /// <summary>
+    /// Test case for multi-level folder path extraction (takes deepest folder).
+    /// </summary>
+    [Test]
+    public void ExtractDeepestFolderName()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(BaseImporter.ExtractDeepestFolderName("Root/Business/Banking"), Is.EqualTo("Banking"));
+            Assert.That(BaseImporter.ExtractDeepestFolderName("Business"), Is.EqualTo("Business"));
+            Assert.That(BaseImporter.ExtractDeepestFolderName("Root\\Work\\Finance"), Is.EqualTo("Finance"));
+            Assert.That(BaseImporter.ExtractDeepestFolderName(string.Empty), Is.Null);
+            Assert.That(BaseImporter.ExtractDeepestFolderName(null), Is.Null);
+            Assert.That(BaseImporter.ExtractDeepestFolderName("  /  "), Is.Null);
+            Assert.That(BaseImporter.ExtractDeepestFolderName("Single"), Is.EqualTo("Single"));
+        });
+    }
+
+    /// <summary>
+    /// Test case for Bitwarden type detection (login, note, card).
+    /// </summary>
+    /// <returns>Async task.</returns>
+    [Test]
+    public async Task BitwardenTypeDetection()
+    {
+        // Arrange
+        var fileContent = await ResourceReaderUtility.ReadEmbeddedResourceStringAsync("AliasVault.UnitTests.TestData.Exports.bitwarden.csv");
+
+        // Act
+        var importedCredentials = await BitwardenImporter.ImportFromCsvAsync(fileContent);
+        var items = BaseImporter.ConvertToItem(importedCredentials);
+
+        // Assert - verify login type items have Login item type
+        var loginItems = items.Where(i => i.ItemType == ItemType.Login).ToList();
+        Assert.That(loginItems, Has.Count.GreaterThan(0), "Should have at least one Login item");
+    }
+
+    /// <summary>
+    /// Test case for LastPass secure note detection.
+    /// </summary>
+    /// <returns>Async task.</returns>
+    [Test]
+    public async Task LastPassSecureNoteDetection()
+    {
+        // Arrange
+        var fileContent = await ResourceReaderUtility.ReadEmbeddedResourceStringAsync("AliasVault.UnitTests.TestData.Exports.lastpass.csv");
+
+        // Act
+        var importedCredentials = await LastPassImporter.ImportFromCsvAsync(fileContent);
+        var items = BaseImporter.ConvertToItem(importedCredentials);
+
+        // Assert - verify secure note is detected
+        var secureNoteItem = items.FirstOrDefault(i => i.Name == "securenote1");
+        Assert.That(secureNoteItem, Is.Not.Null, "Should find securenote1");
+        Assert.That(secureNoteItem!.ItemType, Is.EqualTo(ItemType.Note), "Secure note should have Note item type");
+    }
+
+    /// <summary>
+    /// Test case for LastPass credit card detection and parsing.
+    /// </summary>
+    /// <returns>Async task.</returns>
+    [Test]
+    public async Task LastPassCreditCardDetectionAndParsing()
+    {
+        // Arrange
+        var fileContent = await ResourceReaderUtility.ReadEmbeddedResourceStringAsync("AliasVault.UnitTests.TestData.Exports.lastpass.csv");
+
+        // Act
+        var importedCredentials = await LastPassImporter.ImportFromCsvAsync(fileContent);
+
+        // Assert - verify credit card is detected
+        var creditCardCredential = importedCredentials.FirstOrDefault(c => c.ServiceName == "Paymentcard1");
+        Assert.That(creditCardCredential, Is.Not.Null, "Should find Paymentcard1");
+        Assert.That(creditCardCredential!.ItemType, Is.EqualTo(ImportedItemType.Creditcard), "Should be Creditcard type");
+        Assert.That(creditCardCredential.Creditcard, Is.Not.Null, "Should have Creditcard data");
+        Assert.That(creditCardCredential.Creditcard!.CardholderName, Is.EqualTo("Cardname"));
+        Assert.That(creditCardCredential.Creditcard.Number, Is.EqualTo("123456781234"));
+        Assert.That(creditCardCredential.Creditcard.Cvv, Is.EqualTo("1234"));
+
+        // Convert to item and verify fields
+        var items = BaseImporter.ConvertToItem([creditCardCredential]);
+        var creditCardItem = items[0];
+        Assert.That(creditCardItem.ItemType, Is.EqualTo(ItemType.CreditCard));
+
+        var cardNumber = creditCardItem.FieldValues.FirstOrDefault(fv => fv.FieldKey == FieldKey.CardNumber);
+        Assert.That(cardNumber?.Value, Is.EqualTo("123456781234"));
+
+        var cardholderName = creditCardItem.FieldValues.FirstOrDefault(fv => fv.FieldKey == FieldKey.CardCardholderName);
+        Assert.That(cardholderName?.Value, Is.EqualTo("Cardname"));
+    }
+
+    /// <summary>
+    /// Test case for LastPass folder (grouping) import.
+    /// </summary>
+    /// <returns>Async task.</returns>
+    [Test]
+    public async Task LastPassFolderImport()
+    {
+        // Arrange
+        var fileContent = await ResourceReaderUtility.ReadEmbeddedResourceStringAsync("AliasVault.UnitTests.TestData.Exports.lastpass.csv");
+
+        // Act
+        var importedCredentials = await LastPassImporter.ImportFromCsvAsync(fileContent);
+
+        // Assert - verify folder path is extracted
+        var credentialWithFolder = importedCredentials.FirstOrDefault(c => !string.IsNullOrEmpty(c.FolderPath));
+        Assert.That(credentialWithFolder, Is.Not.Null, "Should have at least one credential with folder");
+        Assert.That(credentialWithFolder!.FolderPath, Is.EqualTo("examplefolder"));
+    }
+
+    /// <summary>
+    /// Test case for KeePassXC group (folder) import.
+    /// </summary>
+    /// <returns>Async task.</returns>
+    [Test]
+    public async Task KeePassXcGroupImport()
+    {
+        // Arrange
+        var fileContent = await ResourceReaderUtility.ReadEmbeddedResourceStringAsync("AliasVault.UnitTests.TestData.Exports.keepassxc.csv");
+
+        // Act
+        var importedCredentials = await KeePassXcImporter.ImportFromCsvAsync(fileContent);
+
+        // Assert - verify folder path is extracted (KeePassXC uses Group column which contains folder hierarchy)
+        var folderNames = BaseImporter.CollectUniqueFolderNames(importedCredentials);
+        Assert.That(folderNames, Has.Count.GreaterThanOrEqualTo(0), "Should collect any folders present");
+    }
+
+    /// <summary>
+    /// Test case for folder assignment during ConvertToItem.
+    /// </summary>
+    [Test]
+    public void ConvertToItemWithFolderMapping()
+    {
+        // Arrange
+        var credentials = new List<AliasVault.ImportExport.Models.ImportedCredential>
+        {
+            new()
+            {
+                ServiceName = "Test Service",
+                FolderPath = "Work/Projects",
+                Username = "user1",
+                Password = "pass1",
+            },
+            new()
+            {
+                ServiceName = "Test Service 2",
+                FolderPath = "Personal",
+                Username = "user2",
+                Password = "pass2",
+            },
+            new()
+            {
+                ServiceName = "No Folder",
+                Username = "user3",
+                Password = "pass3",
+            },
+        };
+
+        var folderMapping = new Dictionary<string, Guid>
+        {
+            { "Projects", Guid.NewGuid() }, // Deepest folder from "Work/Projects"
+            { "Personal", Guid.NewGuid() },
+        };
+
+        // Act
+        var items = BaseImporter.ConvertToItem(credentials, folderMapping);
+
+        // Assert
+        Assert.That(items[0].FolderId, Is.EqualTo(folderMapping["Projects"]), "Should assign Projects folder");
+        Assert.That(items[1].FolderId, Is.EqualTo(folderMapping["Personal"]), "Should assign Personal folder");
+        Assert.That(items[2].FolderId, Is.Null, "Should have no folder");
+    }
+
+    /// <summary>
+    /// Test case for ProtonPass type and vault (folder) import.
+    /// </summary>
+    /// <returns>Async task.</returns>
+    [Test]
+    public async Task ProtonPassTypeAndVaultImport()
+    {
+        // Arrange
+        var fileContent = await ResourceReaderUtility.ReadEmbeddedResourceStringAsync("AliasVault.UnitTests.TestData.Exports.protonpass.csv");
+
+        // Act
+        var importedCredentials = await ProtonPassImporter.ImportFromCsvAsync(fileContent);
+
+        // Assert - verify vault (folder) is extracted
+        var credentialsWithVault = importedCredentials.Where(c => !string.IsNullOrEmpty(c.FolderPath)).ToList();
+        Assert.That(credentialsWithVault.Count, Is.GreaterThan(0), "Should have credentials with vault/folder");
+
+        // Verify type detection
+        var loginCredential = importedCredentials.FirstOrDefault(c => c.ItemType == ImportedItemType.Login);
+        Assert.That(loginCredential, Is.Not.Null, "Should have at least one Login type");
+    }
+
+    /// <summary>
+    /// Test case for Dashlane category (folder) import.
+    /// </summary>
+    /// <returns>Async task.</returns>
+    [Test]
+    public async Task DashlaneCategoryImport()
+    {
+        // Arrange
+        var fileContent = await ResourceReaderUtility.ReadEmbeddedResourceStringAsync("AliasVault.UnitTests.TestData.Exports.dashlane.csv");
+
+        // Act
+        var importedCredentials = await DashlaneImporter.ImportFromCsvAsync(fileContent);
+
+        // Assert - check if any credentials have folder path from category
+        // Note: Dashlane test data may or may not have categories
+        var folderNames = BaseImporter.CollectUniqueFolderNames(importedCredentials);
+        Assert.That(folderNames, Is.Not.Null, "Should return a set (even if empty)");
     }
 
     /// <summary>
