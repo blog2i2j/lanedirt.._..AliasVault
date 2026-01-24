@@ -33,6 +33,8 @@ class SqliteClient implements IDatabaseClient {
   public get items(): ItemRepository {
     if (!this._items) {
       this._items = new ItemRepository(this);
+      // Set the logo repository for logo handling in item updates
+      this._items.setLogoRepository(this.logos);
     }
     return this._items;
   }

@@ -3,7 +3,7 @@ import { Buffer } from 'buffer';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { StyleSheet, View, KeyboardAvoidingView, Platform } from 'react-native';
 
 import type { DeleteAccountInitiateRequest, DeleteAccountInitiateResponse, DeleteAccountRequest } from '@/utils/dist/core/models/webapi';
 
@@ -17,6 +17,7 @@ import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedTextInput } from '@/components/themed/ThemedTextInput';
 import { UsernameDisplay } from '@/components/ui/UsernameDisplay';
 import { useApp } from '@/context/AppContext';
+import { useDialog } from '@/context/DialogContext';
 import { useWebApi } from '@/context/WebApiContext';
 import NativeVaultManager from '@/specs/NativeVaultManager';
 
@@ -28,6 +29,7 @@ export default function DeleteAccountScreen(): React.ReactNode {
   const webApi = useWebApi();
   const { username, verifyPassword, logout } = useApp();
   const { t } = useTranslation();
+  const { showAlert, showConfirm } = useDialog();
 
   const [confirmUsername, setConfirmUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -99,7 +101,7 @@ export default function DeleteAccountScreen(): React.ReactNode {
    */
   const handleUsernameSubmit = (): void => {
     if (confirmUsername !== username) {
-      Alert.alert(t('common.error'), t('settings.securitySettings.deleteAccount.usernameDoesNotMatch'));
+      showAlert(t('common.error'), t('settings.securitySettings.deleteAccount.usernameDoesNotMatch'));
       return;
     }
     setStep('password');
@@ -110,24 +112,16 @@ export default function DeleteAccountScreen(): React.ReactNode {
    */
   const handleDeleteAccount = async (): Promise<void> => {
     if (!password) {
-      Alert.alert(t('common.error'), t('settings.securitySettings.deleteAccount.enterPassword'));
+      showAlert(t('common.error'), t('settings.securitySettings.deleteAccount.enterPassword'));
       return;
     }
 
-    Alert.alert(
+    showConfirm(
       t('settings.securitySettings.deleteAccount.deleteAccount'),
       t('settings.securitySettings.deleteAccount.confirmationMessage'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('settings.securitySettings.deleteAccount.deleteAccount'),
-          style: 'destructive',
-          /**
-           * Handles the delete account press.
-           */
-          onPress: async (): Promise<void> => handleDeleteAccountPress(),
-        },
-      ]
+      t('settings.securitySettings.deleteAccount.deleteAccount'),
+      async (): Promise<void> => handleDeleteAccountPress(),
+      { confirmStyle: 'destructive' }
     );
   };
 
@@ -140,7 +134,7 @@ export default function DeleteAccountScreen(): React.ReactNode {
       setLoadingStatus(t('settings.securitySettings.deleteAccount.verifyingPassword'));
       const currentPasswordHashBase64 = await verifyPassword(password);
       if (!currentPasswordHashBase64) {
-        Alert.alert(t('common.error'), t('settings.securitySettings.deleteAccount.currentPasswordIncorrect'));
+        showAlert(t('common.error'), t('settings.securitySettings.deleteAccount.currentPasswordIncorrect'));
         return;
       }
 
@@ -200,7 +194,7 @@ export default function DeleteAccountScreen(): React.ReactNode {
       router.replace('/login');
     } catch (error) {
       console.error('Error deleting account:', error);
-      Alert.alert(t('common.error'), t('settings.securitySettings.deleteAccount.failedToDelete'));
+      showAlert(t('common.error'), t('settings.securitySettings.deleteAccount.failedToDelete'));
     } finally {
       setIsLoading(false);
       setLoadingStatus(null);

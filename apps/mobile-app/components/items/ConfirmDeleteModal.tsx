@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -9,7 +8,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 
-import { useColors, useColorScheme } from '@/hooks/useColorScheme';
+import { useColors } from '@/hooks/useColorScheme';
+import { ModalWrapper } from '@/components/common/ModalWrapper';
 
 interface IConfirmDeleteModalProps {
   isOpen: boolean;
@@ -33,7 +33,6 @@ export const ConfirmDeleteModal: React.FC<IConfirmDeleteModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const colors = useColors();
-  const colorScheme = useColorScheme();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   /**
@@ -50,46 +49,16 @@ export const ConfirmDeleteModal: React.FC<IConfirmDeleteModalProps> = ({
     }
   };
 
-  /**
-   * Handle close - only allow if not submitting.
-   */
-  const handleClose = (): void => {
-    if (!isSubmitting) {
-      onClose();
-    }
-  };
-
   const styles = StyleSheet.create({
-    backdrop: {
-      alignItems: 'center',
-      // Lighter backdrop in dark mode for better contrast against black background
-      backgroundColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.5)',
-      flex: 1,
-      justifyContent: 'center',
-    },
-    container: {
-      backgroundColor: colors.background,
-      borderRadius: 12,
-      marginHorizontal: 20,
-      maxWidth: 400,
-      padding: 20,
-      width: '90%',
-    },
-    title: {
-      color: colors.text,
-      fontSize: 18,
-      fontWeight: '600',
-      marginBottom: 12,
-    },
     message: {
       color: colors.textMuted,
       fontSize: 14,
       lineHeight: 20,
-      marginBottom: 20,
     },
     buttonsContainer: {
       flexDirection: 'row',
       gap: 12,
+      marginTop: 20,
     },
     cancelButton: {
       alignItems: 'center',
@@ -126,45 +95,42 @@ export const ConfirmDeleteModal: React.FC<IConfirmDeleteModalProps> = ({
   });
 
   return (
-    <Modal
-      visible={isOpen}
-      transparent
-      animationType="fade"
-      onRequestClose={handleClose}
+    <ModalWrapper
+      isOpen={isOpen}
+      onClose={onClose}
+      isSubmitting={isSubmitting}
+      title={title}
+      showHeaderBorder={false}
+      showFooterBorder={false}
     >
-      <View style={styles.backdrop}>
-        <View style={styles.container}>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.message}>{message}</Text>
+      <Text style={styles.message}>{message}</Text>
 
-          <View style={styles.buttonsContainer}>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={handleClose}
-              disabled={isSubmitting}
-            >
-              <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
-            </TouchableOpacity>
+      <View style={styles.buttonsContainer}>
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={onClose}
+          disabled={isSubmitting}
+        >
+          <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
+        </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.confirmButton,
-                isSubmitting && styles.confirmButtonDisabled
-              ]}
-              onPress={handleConfirm}
-              disabled={isSubmitting}
-            >
-              {isSubmitting && (
-                <ActivityIndicator size="small" color={colors.white} />
-              )}
-              <Text style={styles.confirmButtonText}>
-                {confirmText || t('common.delete')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <TouchableOpacity
+          style={[
+            styles.confirmButton,
+            isSubmitting && styles.confirmButtonDisabled
+          ]}
+          onPress={handleConfirm}
+          disabled={isSubmitting}
+        >
+          {isSubmitting && (
+            <ActivityIndicator size="small" color={colors.white} />
+          )}
+          <Text style={styles.confirmButtonText}>
+            {confirmText || t('common.delete')}
+          </Text>
+        </TouchableOpacity>
       </View>
-    </Modal>
+    </ModalWrapper>
   );
 };
 

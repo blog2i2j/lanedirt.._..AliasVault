@@ -1,4 +1,12 @@
-# iOS Testing Guide
+---
+layout: default
+title: Testing guide
+parent: iOS
+grand_parent: Mobile Apps
+nav_order: 1
+---
+
+# Testing guide
 
 This guide explains how to run the iOS test suites for the AliasVault mobile app.
 

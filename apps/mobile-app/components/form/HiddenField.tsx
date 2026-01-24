@@ -81,20 +81,25 @@ export const HiddenField: React.FC<HiddenFieldProps> = ({
     },
   });
 
+  // Only show label container if there's a label or remove button
+  const showLabelContainer = label || onRemove;
+
   return (
     <View style={styles.container}>
-      <View style={styles.labelContainer}>
-        <ThemedText style={styles.label}>{label}</ThemedText>
-        {onRemove && (
-          <TouchableOpacity
-            style={styles.removeButton}
-            onPress={onRemove}
-            activeOpacity={0.7}
-          >
-            <MaterialIcons name="close" size={18} color={colors.textMuted} />
-          </TouchableOpacity>
-        )}
-      </View>
+      {showLabelContainer && (
+        <View style={styles.labelContainer}>
+          <ThemedText style={styles.label}>{label}</ThemedText>
+          {onRemove && (
+            <TouchableOpacity
+              style={styles.removeButton}
+              onPress={onRemove}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons name="close" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}

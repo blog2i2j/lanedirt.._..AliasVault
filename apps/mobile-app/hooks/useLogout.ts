@@ -1,10 +1,10 @@
 import { useCallback } from 'react';
-import { Alert } from 'react-native';
 import { router } from 'expo-router';
 
 import { useTranslation } from '@/hooks/useTranslation';
 import { useAuth } from '@/context/AuthContext';
 import { useDb } from '@/context/DbContext';
+import { useDialog } from '@/context/DialogContext';
 import { useWebApi } from '@/context/WebApiContext';
 
 type UseLogoutReturn = {
@@ -46,6 +46,7 @@ export function useLogout(): UseLogoutReturn {
   const { t } = useTranslation();
   const { clearAuthUserInitiated } = useAuth();
   const { isDirty } = useDb();
+  const { showConfirm } = useDialog();
   const webApi = useWebApi();
 
   /**
@@ -78,34 +79,24 @@ export function useLogout(): UseLogoutReturn {
   const logoutUserInitiated = useCallback(async (): Promise<void> => {
     if (isDirty) {
       // Show warning about unsynced changes
-      Alert.alert(
+      showConfirm(
         t('logout.unsyncedChangesTitle'),
         t('logout.unsyncedChangesWarning'),
-        [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('logout.logoutAnyway'),
-            style: 'destructive',
-            onPress: performLogout,
-          },
-        ]
+        t('logout.logoutAnyway'),
+        performLogout,
+        { confirmStyle: 'destructive' }
       );
     } else {
       // Show normal confirmation dialog
-      Alert.alert(
+      showConfirm(
         t('auth.logout'),
         t('auth.confirmLogout'),
-        [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('auth.logout'),
-            style: 'destructive',
-            onPress: performLogout,
-          },
-        ]
+        t('auth.logout'),
+        performLogout,
+        { confirmStyle: 'destructive' }
       );
     }
-  }, [isDirty, t, performLogout]);
+  }, [isDirty, showConfirm, t, performLogout]);
 
   return {
     logoutUserInitiated,

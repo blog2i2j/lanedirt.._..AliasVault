@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View, Alert, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, TouchableOpacity } from 'react-native';
 
 import { getAvailableAgeRanges, IAgeRangeOption, getAvailableLanguages, ILanguageOption } from '@/utils/dist/core/identity-generator';
 
@@ -13,6 +13,7 @@ import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedScrollView } from '@/components/themed/ThemedScrollView';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { useDb } from '@/context/DbContext';
+import { useDialog } from '@/context/DialogContext';
 
 /**
  * Identity Generator Settings screen.
@@ -21,6 +22,7 @@ export default function IdentityGeneratorSettingsScreen(): React.ReactNode {
   const colors = useColors();
   const { t } = useTranslation();
   const dbContext = useDb();
+  const { showAlert } = useDialog();
   const { executeVaultMutation } = useVaultMutate();
 
   const [language, setLanguage] = useState<string>('en');
@@ -69,7 +71,7 @@ export default function IdentityGeneratorSettingsScreen(): React.ReactNode {
           pendingChanges.current = {};
         } catch (error) {
           console.error('Error loading identity generator settings:', error);
-          Alert.alert(t('common.error'), t('common.errors.unknownError'));
+          showAlert(t('common.error'), t('common.errors.unknownError'));
         }
       };
 
@@ -113,7 +115,7 @@ export default function IdentityGeneratorSettingsScreen(): React.ReactNode {
         // Execute save without blocking navigation
         saveChanges();
       };
-    }, [dbContext.sqliteClient, t, executeVaultMutation])
+    }, [dbContext.sqliteClient, showAlert, t, executeVaultMutation])
   );
 
   /**

@@ -5,7 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, SafeAreaView, TextInput, ActivityIndicator, Animated, ScrollView, KeyboardAvoidingView, Platform, Dimensions, Alert } from 'react-native';
+import { StyleSheet, View, Text, SafeAreaView, TextInput, ActivityIndicator, Animated, ScrollView, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
 
 import { useApiUrl } from '@/utils/ApiUrlUtility';
 import ConversionUtility from '@/utils/ConversionUtility';
@@ -27,6 +27,7 @@ import { InAppBrowserView } from '@/components/ui/InAppBrowserView';
 import { RobustPressable } from '@/components/ui/RobustPressable';
 import { useApp } from '@/context/AppContext';
 import { useDb } from '@/context/DbContext';
+import { useDialog } from '@/context/DialogContext';
 import { useWebApi } from '@/context/WebApiContext';
 import NativeVaultManager from '@/specs/NativeVaultManager';
 
@@ -36,6 +37,7 @@ import NativeVaultManager from '@/specs/NativeVaultManager';
 export default function LoginScreen() : React.ReactNode {
   const colors = useColors();
   const { t } = useTranslation();
+  const { showAlert, showDialog } = useDialog();
   const [fadeAnim] = useState(new Animated.Value(0));
   const { loadApiUrl, getDisplayUrl } = useApiUrl();
 
@@ -50,12 +52,19 @@ export default function LoginScreen() : React.ReactNode {
     /**
      * Check for saved username (from forced logout) and prefill the username field.
      * This enables users to easily re-login after a forced logout.
+     * Only prefill if the username field is empty (user hasn't started typing).
      */
     const loadSavedUsername = async () : Promise<void> => {
       try {
         const savedUsername = await NativeVaultManager.getUsername();
         if (savedUsername) {
-          setCredentials(prev => ({ ...prev, username: savedUsername }));
+          setCredentials(prev => {
+            // Only prefill if username is empty - don't overwrite user input
+            if (prev.username === '') {
+              return { ...prev, username: savedUsername };
+            }
+            return prev;
+          });
         }
       } catch {
         // Ignore errors - username prefill is optional
@@ -109,7 +118,7 @@ export default function LoginScreen() : React.ReactNode {
 
     if (isBiometricsEnabledOnDevice) {
       // Show biometric prompt if biometrics are available (faceid or fingerprint enrolled) on device.
-      Alert.alert(
+      showDialog(
         t('auth.enableBiometric', { biometric: biometricDisplayName }),
         t('auth.biometricPrompt', { biometric: biometricDisplayName }),
         [
@@ -131,7 +140,7 @@ export default function LoginScreen() : React.ReactNode {
           },
           {
             text: t('common.yes'),
-            isPreferred: true,
+            style: 'default',
             /**
              * Handle enabling biometric authentication
              */
@@ -190,22 +199,26 @@ export default function LoginScreen() : React.ReactNode {
     /*
      * Forced logout recovery check:
      * If there's an existing local vault (from forced logout), try to unlock it.
-     * If decryption fails (password changed or corrupted), clear the local vault
-     * so sync will download fresh from server.
+     * If decryption fails (password changed or corrupted), reset sync state so
+     * sync will do a clean download instead of trying to merge.
      */
     const hasExistingVault = await NativeVaultManager.hasEncryptedDatabase();
     if (hasExistingVault) {
       try {
         await NativeVaultManager.unlockVault();
         /*
-         * Decryption succeeded - local vault is valid, close it for sync to handle.
+         * Decryption succeeded - local vault is valid, sync will handle it.
          * The sync will compare revisions and decide whether to keep local or download.
          */
         console.info('Existing local vault (after forced logout) decrypted successfully, syncing with server');
       } catch {
-        // Decryption failed - clear local vault so sync downloads fresh from server
-        console.info('Existing vault could not be decrypted (password changed or corrupted), clearing for fresh download');
-        await NativeVaultManager.clearVault();
+        /*
+         * Decryption failed (password changed or corrupted).
+         * Reset sync state so sync will do a clean download instead of trying to merge.
+         * This matches the browser extension behavior in persistAndLoadVault().
+         */
+        console.info('Existing vault could not be decrypted (password changed or corrupted), resetting for fresh download');
+        await NativeVaultManager.resetSyncStateForFreshDownload();
       }
     }
 
@@ -230,11 +243,7 @@ export default function LoginScreen() : React.ReactNode {
         checkSuccess = false;
 
         // Show modal with error message
-        Alert.alert(
-          t('common.error'),
-          message,
-          [{ text: t('common.ok'), style: 'default' }]
-        );
+        showAlert(t('common.error'), message);
         // Error will trigger logout through the sync process
         setIsLoading(false);
       },

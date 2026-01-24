@@ -104,38 +104,45 @@ if $BUILD_COMMON; then
     echo ""
 fi
 
-# Rust core build (optional - requires Rust toolchain)
+# Rust core build (required when any platform target is specified)
 if $BUILD_BROWSER || $BUILD_DOTNET || $BUILD_IOS || $BUILD_ANDROID; then
     cd ./rust
 
-    if command -v rustc &> /dev/null; then
-        echo "📦 Building Rust core..."
-
-        if $BUILD_ANDROID; then
-            echo "  → Building for Android..."
-            ./build.sh --android
-        fi
-
-        if $BUILD_IOS; then
-            echo "  → Building for iOS..."
-            ./build.sh --ios
-        fi
-
-        if $BUILD_BROWSER; then
-            echo "  → Building for Browser/WASM..."
-            ./build.sh --browser
-        fi
-
-        if $BUILD_DOTNET; then
-            echo "  → Building for .NET..."
-            ./build.sh --dotnet
-        fi
-
-        echo "✅ Rust core built"
-    else
-        echo "⚠️  Skipping Rust core build (Rust not installed)"
-        echo "   Install Rust from https://rustup.rs to enable Rust core builds"
+    if ! command -v rustc &> /dev/null; then
+        echo "❌ ERROR: Rust toolchain is required but not installed"
+        echo "   Install Rust from https://rustup.rs"
+        echo ""
+        echo "   Requested targets require Rust:"
+        $BUILD_BROWSER && echo "     - Browser/WASM"
+        $BUILD_DOTNET && echo "     - .NET"
+        $BUILD_IOS && echo "     - iOS"
+        $BUILD_ANDROID && echo "     - Android"
+        exit 1
     fi
+
+    echo "📦 Building Rust core..."
+
+    if $BUILD_ANDROID; then
+        echo "  → Building for Android..."
+        ./build.sh --android
+    fi
+
+    if $BUILD_IOS; then
+        echo "  → Building for iOS..."
+        ./build.sh --ios
+    fi
+
+    if $BUILD_BROWSER; then
+        echo "  → Building for Browser/WASM..."
+        ./build.sh --browser
+    fi
+
+    if $BUILD_DOTNET; then
+        echo "  → Building for .NET..."
+        ./build.sh --dotnet
+    fi
+
+    echo "✅ Rust core built"
 
     cd ..
 fi

@@ -685,19 +685,59 @@ const ItemsList: React.FC = () => {
           )}
         </>
       ) : filteredItems.length === 0 && folders.length === 0 ? (
-        <div className="text-gray-500 dark:text-gray-400 space-y-2 mb-10">
+        <div className="text-gray-500 dark:text-gray-400 space-y-3 mb-10">
           {/* Show filter/search-specific messages only when actively filtering or searching */}
           {(filterType !== 'all' || searchTerm) && (
-            <p>
-              {filterType === 'passkeys'
-                ? t('items.noPasskeysFound')
-                : filterType === 'attachments'
-                  ? t('items.noAttachmentsFound')
-                  : isItemTypeFilter(filterType)
-                    ? t('items.noItemsOfTypeFound', { type: getFilterTitle() })
-                    : t('items.noMatchingItems')
-              }
-            </p>
+            <>
+              <p>
+                {/* Different messages based on what's causing no results */}
+                {searchTerm && filterType !== 'all'
+                  // Both search and filter active
+                  ? t('items.noMatchingItemsWithFilter', { filter: getFilterTitle(), search: searchTerm })
+                  : searchTerm
+                    // Only search active
+                    ? t('items.noMatchingItemsSearch', { search: searchTerm })
+                    // Only filter active (no search)
+                    : filterType === 'passkeys'
+                      ? t('items.noPasskeysFound')
+                      : filterType === 'attachments'
+                        ? t('items.noAttachmentsFound')
+                        : isItemTypeFilter(filterType)
+                          ? t('items.noItemsOfTypeFound', { type: getFilterTitle() })
+                          : t('items.noMatchingItems')
+                }
+              </p>
+              {/* Clear filter/search buttons */}
+              <div className="flex flex-wrap gap-2">
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                    {t('items.clearSearch')}
+                  </button>
+                )}
+                {filterType !== 'all' && (
+                  <button
+                    onClick={() => {
+                      setFilterType('all');
+                      localStorage.removeItem(FILTER_STORAGE_KEY);
+                    }}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-orange-100 dark:bg-orange-900/30 hover:bg-orange-200 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-300 rounded-lg transition-colors"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                    {t('items.clearFilter')}
+                  </button>
+                )}
+              </div>
+            </>
           )}
           {/* Show help text when inside an empty folder */}
           {currentFolderId && (
@@ -755,6 +795,39 @@ const ItemsList: React.FC = () => {
                 />
               ))}
             </ul>
+          )}
+
+          {/* Clear filter/search pills at bottom of list when filtering or searching */}
+          {(filterType !== 'all' || searchTerm) && (
+            <div className="flex flex-wrap justify-center gap-2 mt-4 pt-4">
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                  {t('items.clearSearch')}
+                </button>
+              )}
+              {filterType !== 'all' && (
+                <button
+                  onClick={() => {
+                    setFilterType('all');
+                    localStorage.removeItem(FILTER_STORAGE_KEY);
+                  }}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-orange-100 dark:bg-orange-900/30 hover:bg-orange-200 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-300 rounded-lg transition-colors"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                  {t('items.clearFilter')}
+                </button>
+              )}
+            </div>
           )}
 
           {/* Recently Deleted link (only show at root level when not searching and not filtering) */}

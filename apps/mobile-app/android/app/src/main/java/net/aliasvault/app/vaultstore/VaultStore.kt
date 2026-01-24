@@ -747,9 +747,10 @@ class VaultStore(
      */
     fun getItemsWithoutPasskeyForRpId(
         rpId: String,
+        rpName: String? = null,
         userName: String? = null,
     ): List<net.aliasvault.app.vaultstore.repositories.ItemWithCredentialInfo> {
-        return passkey.getItemsWithoutPasskeyForRpId(rpId, userName)
+        return passkey.getItemsWithoutPasskeyForRpId(rpId, rpName, userName)
     }
 
     /**

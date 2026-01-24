@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { useState } from 'react';
-import { StyleSheet, View, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, View, TouchableOpacity } from 'react-native';
 
 import type { Item } from '@/utils/dist/core/models/vault';
 import { FieldKey, getFieldValue, itemToCredential } from '@/utils/dist/core/models/vault';
@@ -14,6 +14,7 @@ import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedScrollView } from '@/components/themed/ThemedScrollView';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { useDb } from '@/context/DbContext';
+import { useDialog } from '@/context/DialogContext';
 
 /**
  * CSV record for Credential objects (matching server format).
@@ -44,6 +45,7 @@ export default function ImportExportScreen(): React.ReactNode {
   const colors = useColors();
   const { t } = useTranslation();
   const dbContext = useDb();
+  const { showAlert, showConfirm } = useDialog();
   const [isExporting, setIsExporting] = useState(false);
 
   /**
@@ -183,24 +185,14 @@ export default function ImportExportScreen(): React.ReactNode {
    * Show export confirmation dialog.
    */
   const showExportConfirmation = (): void => {
-    const warningMessage = t('settings.exportWarning');
-
-    Alert.alert(
+    showConfirm(
       t('settings.exportConfirmTitle'),
-      warningMessage,
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.confirm'),
-          style: 'destructive',
-          /**
-           * Handle export confirmation.
-           */
-          onPress: (): void => {
-            handleExport();
-          }
-        },
-      ]
+      t('settings.exportWarning'),
+      t('common.confirm'),
+      () => {
+        handleExport();
+      },
+      { confirmStyle: 'destructive' }
     );
   };
 
@@ -260,10 +252,7 @@ export default function ImportExportScreen(): React.ReactNode {
       }
     } catch (error) {
       console.error('Export error:', error);
-      Alert.alert(
-        t('common.error'),
-        t('common.errors.unknownError')
-      );
+      showAlert(t('common.error'), t('common.errors.unknownError'));
     } finally {
       setIsExporting(false);
     }

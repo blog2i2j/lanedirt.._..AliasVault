@@ -3,11 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 import Button from '@/entrypoints/popup/components/Button';
+import LogoutConfirmModal from '@/entrypoints/popup/components/Dialogs/LogoutConfirmModal';
 import Modal from '@/entrypoints/popup/components/Dialogs/Modal';
 import HeaderButton from '@/entrypoints/popup/components/HeaderButton';
 import { HeaderIconType } from '@/entrypoints/popup/components/Icons/HeaderIcons';
 import LoadingSpinner from '@/entrypoints/popup/components/LoadingSpinner';
 import { useApp } from '@/entrypoints/popup/context/AppContext';
+import { useAuth } from '@/entrypoints/popup/context/AuthContext';
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 import { useHeaderButtons } from '@/entrypoints/popup/context/HeaderButtonsContext';
 import { useLoading } from '@/entrypoints/popup/context/LoadingContext';
@@ -24,7 +26,8 @@ import { VaultSqlGenerator } from '@/utils/dist/core/vault';
  */
 const Upgrade: React.FC = () => {
   const { t } = useTranslation();
-  const { username, logout } = useApp();
+  const { username } = useApp();
+  const auth = useAuth();
   const dbContext = useDb();
   const { sqliteClient } = dbContext;
   const { setHeaderButtons } = useHeaderButtons();
@@ -34,6 +37,7 @@ const Upgrade: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showSelfHostedWarning, setShowSelfHostedWarning] = useState(false);
   const [showVersionInfo, setShowVersionInfo] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { setIsInitialLoading } = useLoading();
   const webApi = useWebApi();
   const { executeVaultMutationAsync } = useVaultMutate();
@@ -190,10 +194,24 @@ const Upgrade: React.FC = () => {
   };
 
   /**
-   * Handle the logout.
+   * Handle logout click - opens the logout confirmation modal.
+   */
+  const handleLogoutClick = (): void => {
+    setShowLogoutConfirm(true);
+  };
+
+  /**
+   * Handle the logout (after confirmation).
+   * Uses clearAuthUserInitiated to fully clear vault data since user explicitly chose to logout.
    */
   const handleLogout = async (): Promise<void> => {
-    logout();
+    setShowLogoutConfirm(false);
+    try {
+      await webApi.revokeTokens();
+      await auth.clearAuthUserInitiated();
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
   };
 
   /**
@@ -306,7 +324,7 @@ const Upgrade: React.FC = () => {
           </Button>
           <button
             type="button"
-            onClick={handleLogout}
+            onClick={handleLogoutClick}
             className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium py-2"
             disabled={isLoading}
           >
@@ -314,6 +332,13 @@ const Upgrade: React.FC = () => {
           </button>
         </div>
       </form>
+
+      {/* Logout Confirmation Modal */}
+      <LogoutConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={handleLogout}
+      />
     </div>
   );
 };

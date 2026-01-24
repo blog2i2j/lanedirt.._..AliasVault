@@ -189,10 +189,12 @@ export class ItemRepository extends BaseRepository {
         const nameChanged = (item.Name ?? null) !== existing.Name;
         const itemTypeChanged = String(item.ItemType) !== String(existing.ItemType);
         const folderIdChanged = (item.FolderId ?? null) !== existing.FolderId;
-        const logoIdChanged = logoId !== null && logoId !== existing.LogoId;
+        // Logo is considered changed if: new logo differs from existing, OR logo was cleared (undefined/null in item.Logo while existing has one)
+        const logoIdChanged = logoId !== existing.LogoId;
 
         if (nameChanged || itemTypeChanged || folderIdChanged || logoIdChanged) {
-          this.client.executeUpdate(ItemQueries.UPDATE_ITEM, [
+          // Use UPDATE_ITEM_WITH_LOGO to allow explicit clearing of LogoId
+          this.client.executeUpdate(ItemQueries.UPDATE_ITEM_WITH_LOGO, [
             item.Name ?? null,
             item.ItemType,
             item.FolderId ?? null,
@@ -385,6 +387,21 @@ export class ItemRepository extends BaseRepository {
     }));
   }
 
+  /**
+   * Delete a specific field history record.
+   * @param historyId - The ID of the history record to delete
+   * @returns Number of rows affected
+   */
+  public async deleteFieldHistory(historyId: string): Promise<number> {
+    return this.withTransaction(async () => {
+      const currentDateTime = this.now();
+      return this.client.executeUpdate(FieldHistoryQueries.SOFT_DELETE, [
+        currentDateTime,
+        historyId
+      ]);
+    });
+  }
+
   // ===== Private Helper Methods =====
 
   /**
@@ -410,6 +427,7 @@ export class ItemRepository extends BaseRepository {
 
   /**
    * Insert field values for a new item.
+   * Also creates history records for fields with EnableHistory=true.
    */
   private insertFieldValues(
     itemId: string,
@@ -418,8 +436,9 @@ export class ItemRepository extends BaseRepository {
     currentDateTime: string
   ): void {
     for (const field of fields) {
-      // Skip empty fields
-      if (!field.Value || (typeof field.Value === 'string' && field.Value.trim() === '')) {
+      // Skip empty system fields, but always persist custom fields (even if empty)
+      const isEmpty = !field.Value || (typeof field.Value === 'string' && field.Value.trim() === '');
+      if (isEmpty && !field.IsCustomField) {
         continue;
       }
 
@@ -432,12 +451,14 @@ export class ItemRepository extends BaseRepository {
 
       // Handle multi-value fields
       const values = Array.isArray(field.Value) ? field.Value : [field.Value];
+      const filteredValues = values.filter(v => v && v.trim() !== '');
 
-      for (const value of values) {
-        if (!value || (typeof value === 'string' && value.trim() === '')) {
-          continue;
-        }
+      // For custom fields with no values, insert with empty string to preserve the field
+      const valuesToInsert = field.IsCustomField && filteredValues.length === 0
+        ? ['']
+        : filteredValues;
 
+      for (const value of valuesToInsert) {
         this.client.executeUpdate(FieldValueQueries.INSERT, [
           this.generateId(),
           itemId,
@@ -445,6 +466,24 @@ export class ItemRepository extends BaseRepository {
           field.IsCustomField ? null : field.FieldKey,
           value,
           field.DisplayOrder ?? 0,
+          currentDateTime,
+          currentDateTime,
+          0
+        ]);
+      }
+
+      // Create history record for fields with EnableHistory=true
+      if (field.EnableHistory && filteredValues.length > 0) {
+        const historyId = this.generateId();
+        const valueSnapshot = JSON.stringify(filteredValues);
+
+        this.client.executeUpdate(FieldHistoryQueries.INSERT, [
+          historyId,
+          itemId,
+          null,
+          field.FieldKey,
+          valueSnapshot,
+          currentDateTime,
           currentDateTime,
           currentDateTime,
           0
@@ -513,7 +552,9 @@ export class ItemRepository extends BaseRepository {
     // Update existing or insert new FieldValues
     if (item.Fields && item.Fields.length > 0) {
       for (const field of item.Fields) {
-        if (!field.Value || (typeof field.Value === 'string' && field.Value.trim() === '')) {
+        // Skip empty system fields, but always persist custom fields (even if empty)
+        const isEmpty = !field.Value || (typeof field.Value === 'string' && field.Value.trim() === '');
+        if (isEmpty && !field.IsCustomField) {
           continue;
         }
 
@@ -526,11 +567,14 @@ export class ItemRepository extends BaseRepository {
         const values = Array.isArray(field.Value) ? field.Value : [field.Value];
         const effectiveKey = field.FieldKey;
 
-        for (let i = 0; i < values.length; i++) {
-          const value = values[i];
-          if (!value || (typeof value === 'string' && value.trim() === '')) {
-            continue;
-          }
+        // For custom fields with no values, use empty string to preserve the field
+        const filteredValues = values.filter(v => v && (typeof v !== 'string' || v.trim() !== ''));
+        const valuesToProcess = field.IsCustomField && filteredValues.length === 0
+          ? ['']
+          : filteredValues;
+
+        for (let i = 0; i < valuesToProcess.length; i++) {
+          const value = valuesToProcess[i];
 
           const lookupKey = `${effectiveKey}:${i}`;
           const existing = existingByKey.get(lookupKey);
@@ -613,6 +657,11 @@ export class ItemRepository extends BaseRepository {
 
   /**
    * Track field history for fields with EnableHistory=true.
+   *
+   * This saves the NEW value to history on every change. Since each value is saved
+   * when it's set, we don't need to save the old value (it was already saved when
+   * it was first set). This ensures that during merge conflicts, no values are ever
+   * lost since history records sync independently via LWW and each has a unique ID.
    */
   private async trackFieldHistory(
     itemId: string,
@@ -646,12 +695,16 @@ export class ItemRepository extends BaseRepository {
       const oldValues = existingValuesMap[newField.FieldKey] || [];
       const newValues = Array.isArray(newField.Value) ? newField.Value : [newField.Value];
 
-      const valuesChanged = oldValues.length !== newValues.length ||
-        !oldValues.every((val, idx) => val === newValues[idx]);
+      // Filter out empty values for comparison
+      const filteredNewValues = newValues.filter(v => v && v.trim() !== '');
 
-      if (valuesChanged && oldValues.length > 0) {
+      const valuesChanged = oldValues.length !== filteredNewValues.length ||
+        !oldValues.every((val, idx) => val === filteredNewValues[idx]);
+
+      // Save new values to history when they change (ensures they survive merge conflicts)
+      if (valuesChanged && filteredNewValues.length > 0) {
         const historyId = this.generateId();
-        const valueSnapshot = JSON.stringify(oldValues);
+        const valueSnapshot = JSON.stringify(filteredNewValues);
 
         this.client.executeUpdate(FieldHistoryQueries.INSERT, [
           historyId,
@@ -806,6 +859,20 @@ export class ItemRepository extends BaseRepository {
     originalIds: string[],
     currentDateTime: string
   ): void {
+    // Track which original attachments are still present
+    const currentAttachmentIds = new Set(attachments.map(a => a.Id));
+
+    // Soft-delete any original attachments that are no longer in the list
+    for (const originalId of originalIds) {
+      if (!currentAttachmentIds.has(originalId)) {
+        this.client.executeUpdate(
+          `UPDATE Attachments SET IsDeleted = 1, UpdatedAt = ? WHERE Id = ?`,
+          [currentDateTime, originalId]
+        );
+      }
+    }
+
+    // Process current attachments
     for (const attachment of attachments) {
       const wasOriginal = originalIds.includes(attachment.Id);
 

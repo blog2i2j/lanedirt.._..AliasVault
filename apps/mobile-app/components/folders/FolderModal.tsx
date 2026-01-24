@@ -1,20 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Modal,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  KeyboardAvoidingView,
-  Platform,
-  TouchableWithoutFeedback,
-  Keyboard,
   ActivityIndicator,
 } from 'react-native';
 
-import { useColors, useColorScheme } from '@/hooks/useColorScheme';
+import { useColors } from '@/hooks/useColorScheme';
+import { ModalWrapper } from '@/components/common/ModalWrapper';
 
 interface IFolderModalProps {
   isOpen: boolean;
@@ -36,7 +32,6 @@ export const FolderModal: React.FC<IFolderModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const colors = useColors();
-  const colorScheme = useColorScheme();
   const [folderName, setFolderName] = useState(initialName);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,21 +67,27 @@ export const FolderModal: React.FC<IFolderModalProps> = ({
     }
   };
 
-  /**
-   * Handle close - only allow if not submitting
-   */
-  const handleClose = (): void => {
-    if (!isSubmitting) {
-      onClose();
-    }
-  };
-
   const styles = StyleSheet.create({
-    backdrop: {
-      alignItems: 'center',
-      backgroundColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.5)',
-      flex: 1,
-      justifyContent: 'center',
+    label: {
+      color: colors.textMuted,
+      fontSize: 14,
+      fontWeight: '500',
+    },
+    input: {
+      backgroundColor: colors.accentBackground,
+      borderColor: colors.accentBorder,
+      borderRadius: 8,
+      borderWidth: 1,
+      color: colors.text,
+      fontSize: 16,
+      marginTop: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    errorText: {
+      color: colors.destructive,
+      fontSize: 14,
+      marginTop: 8,
     },
     buttonRow: {
       flexDirection: 'row',
@@ -106,35 +107,6 @@ export const FolderModal: React.FC<IFolderModalProps> = ({
       fontSize: 16,
       fontWeight: '500',
     },
-    container: {
-      backgroundColor: colors.background,
-      borderRadius: 12,
-      marginHorizontal: 20,
-      maxWidth: 400,
-      padding: 20,
-      width: '90%',
-    },
-    errorText: {
-      color: colors.destructive,
-      fontSize: 14,
-      marginTop: 8,
-    },
-    input: {
-      backgroundColor: colors.accentBackground,
-      borderColor: colors.accentBorder,
-      borderRadius: 8,
-      borderWidth: 1,
-      color: colors.text,
-      fontSize: 16,
-      marginTop: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-    },
-    label: {
-      color: colors.textMuted,
-      fontSize: 14,
-      fontWeight: '500',
-    },
     saveButton: {
       alignItems: 'center',
       backgroundColor: colors.tint,
@@ -150,74 +122,56 @@ export const FolderModal: React.FC<IFolderModalProps> = ({
       fontSize: 16,
       fontWeight: '600',
     },
-    title: {
-      color: colors.text,
-      fontSize: 18,
-      fontWeight: '600',
-      marginBottom: 16,
-    },
   });
 
   return (
-    <Modal
-      visible={isOpen}
-      transparent
-      animationType="fade"
-      onRequestClose={handleClose}
+    <ModalWrapper
+      isOpen={isOpen}
+      onClose={onClose}
+      isSubmitting={isSubmitting}
+      title={mode === 'create' ? t('items.folders.createFolder') : t('items.folders.editFolder')}
+      keyboardAvoiding
+      showHeaderBorder={false}
+      showFooterBorder={false}
     >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.backdrop}
+      <Text style={styles.label}>{t('items.folders.folderName')}</Text>
+      <TextInput
+        style={styles.input}
+        value={folderName}
+        onChangeText={setFolderName}
+        placeholder={t('items.folders.folderNamePlaceholder')}
+        placeholderTextColor={colors.textMuted}
+        autoFocus
+        autoCapitalize="sentences"
+        editable={!isSubmitting}
+      />
+
+      {error && <Text style={styles.errorText}>{error}</Text>}
+
+      <View style={styles.buttonRow}>
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={onClose}
+          disabled={isSubmitting}
         >
-          <TouchableWithoutFeedback>
-            <View style={styles.container}>
-              <Text style={styles.title}>
-                {mode === 'create' ? t('items.folders.createFolder') : t('items.folders.editFolder')}
-              </Text>
+          <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
+        </TouchableOpacity>
 
-              <Text style={styles.label}>{t('items.folders.folderName')}</Text>
-              <TextInput
-                style={styles.input}
-                value={folderName}
-                onChangeText={setFolderName}
-                placeholder={t('items.folders.folderNamePlaceholder')}
-                placeholderTextColor={colors.textMuted}
-                autoFocus
-                autoCapitalize="sentences"
-                editable={!isSubmitting}
-              />
-
-              {error && <Text style={styles.errorText}>{error}</Text>}
-
-              <View style={styles.buttonRow}>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={handleClose}
-                  disabled={isSubmitting}
-                >
-                  <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.saveButton, isSubmitting && styles.saveButtonDisabled]}
-                  onPress={handleSubmit}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  ) : (
-                    <Text style={styles.saveButtonText}>
-                      {mode === 'create' ? t('common.add') : t('common.save')}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </TouchableWithoutFeedback>
-        </KeyboardAvoidingView>
-      </TouchableWithoutFeedback>
-    </Modal>
+        <TouchableOpacity
+          style={[styles.saveButton, isSubmitting && styles.saveButtonDisabled]}
+          onPress={handleSubmit}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <Text style={styles.saveButtonText}>
+              {mode === 'create' ? t('common.add') : t('common.save')}
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </ModalWrapper>
   );
 };
 

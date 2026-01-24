@@ -1,20 +1,20 @@
 /* eslint-disable max-len */
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View, Text, TouchableOpacity, Keyboard, Platform, Alert } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Keyboard, Platform } from 'react-native';
 import ContextMenu, { ContextMenuOnPressNativeEvent } from 'react-native-context-menu-view';
 import type { NativeSyntheticEvent } from 'react-native';
 import Toast from 'react-native-toast-message';
 
+import { ItemIcon } from '@/components/items/ItemIcon';
+import { useAuth } from '@/context/AuthContext';
+import { useDialog } from '@/context/DialogContext';
+import { useColors } from '@/hooks/useColorScheme';
 import { copyToClipboardWithExpiration } from '@/utils/ClipboardUtility';
 import type { Item } from '@/utils/dist/core/models/vault';
 import { getFieldValue, FieldKey } from '@/utils/dist/core/models/vault';
-
-import { useColors } from '@/hooks/useColorScheme';
-
-import { ItemIcon } from '@/components/items/ItemIcon';
-import { useAuth } from '@/context/AuthContext';
 
 type ItemCardProps = {
   item: Item;
@@ -28,6 +28,7 @@ export function ItemCard({ item, onItemDelete }: ItemCardProps): React.ReactNode
   const colors = useColors();
   const { t } = useTranslation();
   const { getClipboardClearTimeout } = useAuth();
+  const { showConfirm } = useDialog();
 
   /**
    * Get the display text for an item, showing username by default,
@@ -93,27 +94,16 @@ export function ItemCard({ item, onItemDelete }: ItemCardProps): React.ReactNode
         break;
       case t('items.contextMenu.delete'):
         Keyboard.dismiss();
-        Alert.alert(
+        showConfirm(
           t('items.deleteItem'),
           t('items.deleteConfirm'),
-          [
-            {
-              text: t('common.cancel'),
-              style: "cancel"
-            },
-            {
-              text: t('common.delete'),
-              style: "destructive",
-              /**
-               * Handles the delete item action.
-               */
-              onPress: async (): Promise<void> => {
-                if (onItemDelete) {
-                  await onItemDelete(item.Id);
-                }
-              }
+          t('common.delete'),
+          async () => {
+            if (onItemDelete) {
+              await onItemDelete(item.Id);
             }
-          ]
+          },
+          { confirmStyle: 'destructive' }
         );
         break;
       case t('items.contextMenu.copyUsername'):
@@ -278,57 +268,57 @@ export function ItemCard({ item, onItemDelete }: ItemCardProps): React.ReactNode
       onPress={handleContextMenuAction}
       previewBackgroundColor={colors.accentBackground}
     >
-      <TouchableOpacity
-        style={styles.credentialCard}
-        onPress={() => {
-          Keyboard.dismiss();
-          router.push(`/(tabs)/items/${item.Id}`);
-        }}
-        onLongPress={() => {
-          // Ignore long press to prevent context menu long press from triggering the item card press.
-        }}
-        activeOpacity={0.7}
-        testID="item-card"
-        accessibilityLabel={item.Name}
-      >
-        <View style={styles.itemContent}>
-          <ItemIcon item={item} style={styles.logo} />
-          <View style={styles.itemInfo}>
-            <View style={styles.serviceNameRow}>
-              <Text style={styles.serviceName}>
-                {getItemName(item)}
+        <TouchableOpacity
+          style={styles.credentialCard}
+          onPress={() => {
+            Keyboard.dismiss();
+            router.push(`/(tabs)/items/${item.Id}`);
+          }}
+          onLongPress={() => {
+            // Ignore long press to prevent context menu long press from triggering the item card press.
+          }}
+          activeOpacity={0.7}
+          testID="item-card"
+          accessibilityLabel={item.Name}
+        >
+          <View style={styles.itemContent}>
+            <ItemIcon item={item} style={styles.logo} />
+            <View style={styles.itemInfo}>
+              <View style={styles.serviceNameRow}>
+                <Text style={styles.serviceName}>
+                  {getItemName(item)}
+                </Text>
+                {item.HasPasskey && (
+                  <MaterialIcons
+                    name="vpn-key"
+                    size={14}
+                    color={colors.textMuted}
+                    style={styles.iconStyle}
+                  />
+                )}
+                {item.HasAttachment && (
+                  <MaterialIcons
+                    name="attach-file"
+                    size={14}
+                    color={colors.textMuted}
+                    style={styles.iconStyle}
+                  />
+                )}
+                {item.HasTotp && (
+                  <MaterialIcons
+                    name="pin"
+                    size={14}
+                    color={colors.textMuted}
+                    style={styles.iconStyle}
+                  />
+                )}
+              </View>
+              <Text style={styles.itemText}>
+                {getItemDisplayText(item)}
               </Text>
-              {item.HasPasskey && (
-                <MaterialIcons
-                  name="vpn-key"
-                  size={14}
-                  color={colors.textMuted}
-                  style={styles.iconStyle}
-                />
-              )}
-              {item.HasAttachment && (
-                <MaterialIcons
-                  name="attach-file"
-                  size={14}
-                  color={colors.textMuted}
-                  style={styles.iconStyle}
-                />
-              )}
-              {item.HasTotp && (
-                <MaterialIcons
-                  name="pin"
-                  size={14}
-                  color={colors.textMuted}
-                  style={styles.iconStyle}
-                />
-              )}
             </View>
-            <Text style={styles.itemText}>
-              {getItemDisplayText(item)}
-            </Text>
           </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
     </ContextMenu>
   );
 }

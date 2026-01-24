@@ -1,16 +1,15 @@
+import { Ionicons } from '@expo/vector-icons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as OTPAuth from 'otpauth';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, StyleSheet, Alert, TextInput, Modal, TouchableOpacity, ScrollView } from 'react-native';
-
-import type { TotpCode } from '@/utils/dist/core/models/vault';
-
-import { useColors, useColorScheme } from '@/hooks/useColorScheme';
+import { View, StyleSheet, TextInput, Modal, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 
 import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedView } from '@/components/themed/ThemedView';
-import { Ionicons } from '@expo/vector-icons';
+import { useDialog } from '@/context/DialogContext';
+import { useColors, useColorScheme } from '@/hooks/useColorScheme';
+import type { TotpCode } from '@/utils/dist/core/models/vault';
 
 type TotpFormData = {
   name: string;
@@ -21,6 +20,10 @@ type TotpEditorProps = {
   totpCodes: TotpCode[];
   onTotpCodesChange: (totpCodes: TotpCode[]) => void;
   originalTotpCodeIds: string[];
+  /** Called when the add button in the header is pressed */
+  onAddPress?: () => void;
+  /** Ref callback to expose the showAddForm function to parent */
+  showAddFormRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 /**
@@ -29,14 +32,37 @@ type TotpEditorProps = {
 export const TotpEditor: React.FC<TotpEditorProps> = ({
   totpCodes,
   onTotpCodesChange,
-  originalTotpCodeIds
+  originalTotpCodeIds,
+  showAddFormRef
 }) => {
   const { t } = useTranslation();
   const colors = useColors();
   const colorScheme = useColorScheme();
+  const { showConfirm } = useDialog();
   const [isAddFormVisible, setIsAddFormVisible] = useState(false);
   const [formData, setFormData] = useState<TotpFormData>({ name: '', secretKey: '' });
   const [formError, setFormError] = useState<string | null>(null);
+
+  /**
+   * Shows the add form
+   */
+  const showAddForm = (): void => {
+    setFormData({ name: '', secretKey: '' });
+    setFormError(null);
+    setIsAddFormVisible(true);
+  };
+
+  // Expose showAddForm to parent via ref
+  React.useEffect(() => {
+    if (showAddFormRef) {
+      showAddFormRef.current = showAddForm;
+    }
+    return () => {
+      if (showAddFormRef) {
+        showAddFormRef.current = null;
+      }
+    };
+  }, [showAddFormRef]);
 
   /**
    * Sanitizes the secret key by extracting it from a TOTP URI if needed
@@ -70,15 +96,6 @@ export const TotpEditor: React.FC<TotpEditorProps> = ({
     }
 
     return { secretKey, name: name || 'Authenticator' };
-  };
-
-  /**
-   * Shows the add form
-   */
-  const showAddForm = (): void => {
-    setFormData({ name: '', secretKey: '' });
-    setFormError(null);
-    setIsAddFormVisible(true);
   };
 
   /**
@@ -133,20 +150,12 @@ export const TotpEditor: React.FC<TotpEditorProps> = ({
    * Initiates the delete process for a TOTP code
    */
   const initiateTotpDelete = (totpCode: TotpCode): void => {
-    Alert.alert(
+    showConfirm(
       t('common.deleteItemConfirmTitle'),
       t('common.deleteItemConfirmDescription'),
-      [
-        {
-          text: t('common.cancel'),
-          style: 'cancel'
-        },
-        {
-          text: t('common.delete'),
-          style: 'destructive',
-          onPress: () => confirmDeleteTotpCode(totpCode)
-        }
-      ]
+      t('common.delete'),
+      () => confirmDeleteTotpCode(totpCode),
+      { confirmStyle: 'destructive' }
     );
   };
 
@@ -325,20 +334,19 @@ export const TotpEditor: React.FC<TotpEditorProps> = ({
 
   return (
     <View>
-      <View style={styles.header}>
-        {hasActiveTotpCodes && (
-          <TouchableOpacity
-            style={styles.addButtonCompact}
-            onPress={showAddForm}
-          >
-          <Ionicons name="add" size={24} color={colors.background} />
-        </TouchableOpacity>
-        )}
-      </View>
-
-      {!hasActiveTotpCodes && (
+      {/* Show inline add button only if parent is not handling it via showAddFormRef */}
+      {!showAddFormRef && !hasActiveTotpCodes && (
         <TouchableOpacity
           style={styles.addButton}
+          onPress={showAddForm}
+        >
+          <Ionicons name="add" size={24} color={colors.background} />
+        </TouchableOpacity>
+      )}
+
+      {!showAddFormRef && hasActiveTotpCodes && (
+        <TouchableOpacity
+          style={styles.addButtonCompact}
           onPress={showAddForm}
         >
           <Ionicons name="add" size={24} color={colors.background} />
@@ -375,7 +383,11 @@ export const TotpEditor: React.FC<TotpEditorProps> = ({
         animationType="fade"
         onRequestClose={hideAddForm}
       >
-        <View style={styles.modalContainer}>
+        <KeyboardAvoidingView
+          style={styles.modalContainer}
+          behavior="padding"
+          keyboardVerticalOffset={Platform.OS === 'android' ? 20 : 0}
+        >
           <TouchableOpacity
             style={styles.modalBackdrop}
             activeOpacity={1}
@@ -453,7 +465,7 @@ export const TotpEditor: React.FC<TotpEditorProps> = ({
                 </View>
               </ScrollView>
             </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

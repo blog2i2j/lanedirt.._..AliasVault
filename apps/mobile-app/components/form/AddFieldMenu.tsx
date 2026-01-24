@@ -1,7 +1,15 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, StyleSheet, Modal, TextInput, ScrollView } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Modal,
+  TextInput,
+  ScrollView,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+} from 'react-native';
 
 import type { FieldType, SystemFieldDefinition } from '@/utils/dist/core/models/vault';
 import { FieldCategories } from '@/utils/dist/core/models/vault';
@@ -10,6 +18,7 @@ import { useColors } from '@/hooks/useColorScheme';
 
 import { ThemedText } from '@/components/themed/ThemedText';
 import { RobustPressable } from '@/components/ui/RobustPressable';
+import { ModalWrapper } from '@/components/common/ModalWrapper';
 
 /**
  * Configuration for an optional section (not field-based).
@@ -147,6 +156,7 @@ export const AddFieldMenu: React.FC<AddFieldMenuProps> = ({
     customFieldModalButtons: {
       flexDirection: 'row',
       gap: 12,
+      marginTop: 16,
     },
     customFieldModalButton: {
       alignItems: 'center',
@@ -171,11 +181,6 @@ export const AddFieldMenu: React.FC<AddFieldMenuProps> = ({
     customFieldModalButtonTextSecondary: {
       color: colors.text,
     },
-    customFieldModalContent: {
-      backgroundColor: colors.background,
-      borderRadius: 12,
-      padding: 20,
-    },
     customFieldModalInput: {
       backgroundColor: colors.accentBackground,
       borderColor: colors.accentBorder,
@@ -192,12 +197,6 @@ export const AddFieldMenu: React.FC<AddFieldMenuProps> = ({
       fontSize: 14,
       fontWeight: '600',
       marginBottom: 8,
-    },
-    customFieldModalOverlay: {
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      flex: 1,
-      justifyContent: 'center',
-      padding: 20,
     },
     fieldTypeChip: {
       backgroundColor: colors.accentBackground,
@@ -224,14 +223,7 @@ export const AddFieldMenu: React.FC<AddFieldMenuProps> = ({
       paddingBottom: 16,
     },
     fieldTypeScrollView: {
-      marginBottom: 16,
-    },
-    customFieldModalTitle: {
-      color: colors.text,
-      fontSize: 18,
-      fontWeight: '700',
-      marginBottom: 16,
-      textAlign: 'center',
+      marginBottom: 0,
     },
     menuContainer: {
       backgroundColor: colors.background,
@@ -344,6 +336,79 @@ export const AddFieldMenu: React.FC<AddFieldMenuProps> = ({
     return options;
   }, [optionalSystemFields, visibleFieldKeys, optionalSections, t, handleAddSystemField, handleAddSection]);
 
+  const customFieldModalContent = (
+    <>
+      <ThemedText style={styles.customFieldModalLabel}>
+        {t('itemTypes.fieldLabel')}
+      </ThemedText>
+      <TextInput
+        style={styles.customFieldModalInput}
+        value={customFieldLabel}
+        onChangeText={setCustomFieldLabel}
+        placeholder={t('itemTypes.enterFieldName')}
+        placeholderTextColor={colors.textMuted}
+        autoFocus
+      />
+
+      <ThemedText style={styles.customFieldModalLabel}>
+        {t('itemTypes.fieldType')}
+      </ThemedText>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.fieldTypeScrollView}
+        contentContainerStyle={styles.fieldTypeContainer}
+      >
+        {FIELD_TYPE_OPTIONS.map(option => (
+          <TouchableOpacity
+            key={option.value}
+            style={[
+              styles.fieldTypeChip,
+              customFieldType === option.value && styles.fieldTypeChipSelected,
+            ]}
+            onPress={() => setCustomFieldType(option.value as FieldType)}
+            activeOpacity={0.7}
+          >
+            <ThemedText
+              style={[
+                styles.fieldTypeChipText,
+                customFieldType === option.value && styles.fieldTypeChipTextSelected,
+              ]}
+            >
+              {t(option.labelKey)}
+            </ThemedText>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      <View style={styles.customFieldModalButtons}>
+        <TouchableOpacity
+          style={[styles.customFieldModalButton, styles.customFieldModalButtonSecondary]}
+          onPress={handleCloseCustomFieldModal}
+          activeOpacity={0.7}
+        >
+          <ThemedText style={[styles.customFieldModalButtonText, styles.customFieldModalButtonTextSecondary]}>
+            {t('common.cancel')}
+          </ThemedText>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.customFieldModalButton,
+            styles.customFieldModalButtonPrimary,
+            !customFieldLabel.trim() && { opacity: 0.5 },
+          ]}
+          onPress={handleAddCustomField}
+          disabled={!customFieldLabel.trim()}
+          activeOpacity={0.7}
+        >
+          <ThemedText style={[styles.customFieldModalButtonText, styles.customFieldModalButtonTextPrimary]}>
+            {t('common.add')}
+          </ThemedText>
+        </TouchableOpacity>
+      </View>
+    </>
+  );
+
   return (
     <>
       <RobustPressable
@@ -356,136 +421,69 @@ export const AddFieldMenu: React.FC<AddFieldMenuProps> = ({
         </ThemedText>
       </RobustPressable>
 
-      {/* Main Menu Modal */}
+      {/* Main Menu Modal - Action sheet style, slides from bottom */}
       <Modal
         visible={isOpen}
         transparent
         animationType="slide"
         onRequestClose={() => setIsOpen(false)}
       >
-        <RobustPressable
-          style={styles.modalOverlay}
-          onPress={() => setIsOpen(false)}
-        >
-          <View style={styles.menuContainer}>
-            {menuOptions.map((option, index) => (
-              <RobustPressable
-                key={option.key}
-                style={[
-                  styles.menuOption,
-                  index === menuOptions.length - 1 && menuOptions.length > 0 && { borderBottomWidth: 1 },
-                ]}
-                onPress={option.action}
-              >
-                <MaterialIcons
-                  name={option.icon}
-                  size={24}
-                  color={colors.textMuted}
-                  style={styles.menuOptionIcon}
-                />
-                <ThemedText style={styles.menuOptionText}>{option.label}</ThemedText>
-              </RobustPressable>
-            ))}
-            {/* Custom field option - always available */}
-            <RobustPressable
-              style={[styles.menuOption, { borderBottomWidth: 0 }]}
-              onPress={handleOpenCustomFieldModal}
-            >
-              <MaterialIcons
-                name="add-circle-outline"
-                size={24}
-                color={colors.textMuted}
-                style={styles.menuOptionIcon}
-              />
-              <ThemedText style={styles.menuOptionText}>
-                {t('itemTypes.addCustomField')}
-              </ThemedText>
-            </RobustPressable>
-          </View>
-        </RobustPressable>
-      </Modal>
-
-      {/* Custom Field Modal */}
-      <Modal
-        visible={showCustomFieldModal}
-        transparent
-        animationType="fade"
-        onRequestClose={handleCloseCustomFieldModal}
-      >
-        <View style={styles.customFieldModalOverlay}>
-          <View style={styles.customFieldModalContent}>
-            <ThemedText style={styles.customFieldModalTitle}>
-              {t('itemTypes.addCustomField')}
-            </ThemedText>
-
-            <ThemedText style={styles.customFieldModalLabel}>
-              {t('itemTypes.fieldLabel')}
-            </ThemedText>
-            <TextInput
-              style={styles.customFieldModalInput}
-              value={customFieldLabel}
-              onChangeText={setCustomFieldLabel}
-              placeholder={t('itemTypes.enterFieldName')}
-              placeholderTextColor={colors.textMuted}
-              autoFocus
-            />
-
-            <ThemedText style={styles.customFieldModalLabel}>
-              {t('itemTypes.fieldType')}
-            </ThemedText>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.fieldTypeScrollView}
-              contentContainerStyle={styles.fieldTypeContainer}
-            >
-              {FIELD_TYPE_OPTIONS.map(option => (
-                <RobustPressable
-                  key={option.value}
-                  style={[
-                    styles.fieldTypeChip,
-                    customFieldType === option.value && styles.fieldTypeChipSelected,
-                  ]}
-                  onPress={() => setCustomFieldType(option.value as FieldType)}
-                >
-                  <ThemedText
+        <TouchableWithoutFeedback onPress={() => setIsOpen(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.menuContainer}>
+                {menuOptions.map((option, index) => (
+                  <TouchableOpacity
+                    key={option.key}
                     style={[
-                      styles.fieldTypeChipText,
-                      customFieldType === option.value && styles.fieldTypeChipTextSelected,
+                      styles.menuOption,
+                      index === menuOptions.length - 1 && menuOptions.length > 0 && { borderBottomWidth: 1 },
                     ]}
+                    onPress={option.action}
+                    activeOpacity={0.7}
                   >
-                    {t(option.labelKey)}
+                    <MaterialIcons
+                      name={option.icon}
+                      size={24}
+                      color={colors.textMuted}
+                      style={styles.menuOptionIcon}
+                    />
+                    <ThemedText style={styles.menuOptionText}>{option.label}</ThemedText>
+                  </TouchableOpacity>
+                ))}
+                {/* Custom field option - always available */}
+                <TouchableOpacity
+                  style={[styles.menuOption, { borderBottomWidth: 0 }]}
+                  onPress={handleOpenCustomFieldModal}
+                  activeOpacity={0.7}
+                >
+                  <MaterialIcons
+                    name="add-circle-outline"
+                    size={24}
+                    color={colors.textMuted}
+                    style={styles.menuOptionIcon}
+                  />
+                  <ThemedText style={styles.menuOptionText}>
+                    {t('itemTypes.addCustomField')}
                   </ThemedText>
-                </RobustPressable>
-              ))}
-            </ScrollView>
-
-            <View style={styles.customFieldModalButtons}>
-              <RobustPressable
-                style={[styles.customFieldModalButton, styles.customFieldModalButtonSecondary]}
-                onPress={handleCloseCustomFieldModal}
-              >
-                <ThemedText style={[styles.customFieldModalButtonText, styles.customFieldModalButtonTextSecondary]}>
-                  {t('common.cancel')}
-                </ThemedText>
-              </RobustPressable>
-              <RobustPressable
-                style={[
-                  styles.customFieldModalButton,
-                  styles.customFieldModalButtonPrimary,
-                  !customFieldLabel.trim() && { opacity: 0.5 },
-                ]}
-                onPress={handleAddCustomField}
-                disabled={!customFieldLabel.trim()}
-              >
-                <ThemedText style={[styles.customFieldModalButtonText, styles.customFieldModalButtonTextPrimary]}>
-                  {t('common.add')}
-                </ThemedText>
-              </RobustPressable>
-            </View>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
+
+      {/* Custom Field Modal - Uses ModalWrapper for centered dialog */}
+      <ModalWrapper
+        isOpen={showCustomFieldModal}
+        onClose={handleCloseCustomFieldModal}
+        title={t('itemTypes.addCustomField')}
+        keyboardAvoiding
+        showHeaderBorder={false}
+        showFooterBorder={false}
+      >
+        {customFieldModalContent}
+      </ModalWrapper>
     </>
   );
 };

@@ -42,6 +42,28 @@ check_tool() {
     fi
 }
 
+# Portable checksum function (works on macOS and Linux)
+# Includes Rust sources AND Cargo.toml/Cargo.lock to detect dependency changes
+# that can cause UniFFI checksum mismatches
+compute_source_checksum() {
+    local dir="$1"
+    if [ -d "$dir" ]; then
+        # Combine checksums of:
+        # 1. All .rs source files
+        # 2. Cargo.toml and Cargo.lock (dependency changes affect UniFFI checksums)
+        {
+            find "$dir" -name "*.rs" -type f -print0 2>/dev/null | \
+                sort -z | \
+                xargs -0 shasum -a 256 2>/dev/null
+            # Include Cargo files from parent directory (where Cargo.toml lives)
+            local cargo_dir="$(dirname "$dir")"
+            shasum -a 256 "$cargo_dir/Cargo.toml" "$cargo_dir/Cargo.lock" 2>/dev/null
+        } | shasum -a 256 | cut -d' ' -f1
+    else
+        echo "unknown"
+    fi
+}
+
 echo -e "${YELLOW}Checking prerequisites...${NC}"
 check_tool "rustc" "Visit https://rustup.rs"
 check_tool "cargo" "Visit https://rustup.rs"
@@ -319,9 +341,7 @@ build_ios() {
     # Incremental build check
     local checksum_file="$IOS_APP_DIST/.rust-core-checksum"
     local current_checksum=""
-    if [ -d "$SCRIPT_DIR/src" ]; then
-        current_checksum=$(find "$SCRIPT_DIR/src" -name "*.rs" -type f -exec md5 -q {} \; 2>/dev/null | md5 -q || echo "unknown")
-    fi
+    current_checksum=$(compute_source_checksum "$SCRIPT_DIR/src")
 
     if $INCREMENTAL && [ "$FORCE_BUILD" = false ] && [ -f "$checksum_file" ] && [ -f "$IOS_APP_DIST/lib/device/libaliasvault_core.a" ]; then
         local stored_checksum=$(cat "$checksum_file" 2>/dev/null || echo "")
@@ -448,9 +468,7 @@ EOF
 
     # Save checksum for incremental builds
     local current_checksum=""
-    if [ -d "$SCRIPT_DIR/src" ]; then
-        current_checksum=$(find "$SCRIPT_DIR/src" -name "*.rs" -type f -exec md5 -q {} \; 2>/dev/null | md5 -q || echo "unknown")
-    fi
+    current_checksum=$(compute_source_checksum "$SCRIPT_DIR/src")
     echo "$current_checksum" > "$IOS_APP_DIST/.rust-core-checksum"
 
     # Create README
@@ -494,6 +512,21 @@ build_android() {
     echo -e "${BLUE}Building for Android...${NC}"
 
     local start_time=$(date +%s)
+
+    # Incremental build check
+    local checksum_file="$ANDROID_APP_DIST/.rust-core-checksum"
+    local current_checksum=""
+    current_checksum=$(compute_source_checksum "$SCRIPT_DIR/src")
+
+    if $INCREMENTAL && [ "$FORCE_BUILD" = false ] && [ -f "$checksum_file" ] && [ -f "$ANDROID_APP_DIST/arm64-v8a/libaliasvault_core.so" ]; then
+        local stored_checksum=$(cat "$checksum_file" 2>/dev/null || echo "")
+        if [ "$current_checksum" = "$stored_checksum" ]; then
+            echo -e "${GREEN}Rust Core is up to date, skipping build${NC}"
+            ANDROID_BUILD_SKIPPED=true
+            return 0
+        fi
+    fi
+    ANDROID_BUILD_SKIPPED=false
 
     # Check for Android NDK
     if [ -z "${ANDROID_NDK_HOME:-}" ]; then
@@ -675,6 +708,11 @@ distribute_android() {
     else
         echo -e "${RED}Warning: Kotlin bindings not found at $ANDROID_DIR/kotlin/uniffi${NC}"
     fi
+
+    # Save checksum for incremental builds
+    local current_checksum=""
+    current_checksum=$(compute_source_checksum "$SCRIPT_DIR/src")
+    echo "$current_checksum" > "$ANDROID_APP_DIST/.rust-core-checksum"
 
     echo -e "${GREEN}Distributed to: $ANDROID_APP_DIST${NC}"
 }

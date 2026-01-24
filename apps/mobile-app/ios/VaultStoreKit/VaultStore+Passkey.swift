@@ -57,9 +57,21 @@ extension VaultStore {
     /**
      * Get Items that match an rpId but don't have a passkey yet.
      * Used for finding existing credentials that could have a passkey added to them.
+     * Uses the Rust credential matcher for consistent cross-platform matching logic.
      */
     public func getItemsWithoutPasskey(forRpId rpId: String, userName: String? = nil) throws -> [ItemWithCredentialInfoData] {
-        return try passkeyRepository.getItemsWithoutPasskey(forRpId: rpId, userName: userName)
+        // Get all items without passkeys
+        let allItems = try passkeyRepository.getAllItemsWithoutPasskey()
+
+        // Use Rust item matcher for intelligent filtering
+        var matchedItems = RustItemMatcher.filterItemsWithData(allItems, rpId: rpId)
+
+        // Apply optional username filter
+        if let userName = userName {
+            matchedItems = matchedItems.filter { $0.username == userName }
+        }
+
+        return matchedItems
     }
 
     // MARK: - Passkey Storage (Public API)

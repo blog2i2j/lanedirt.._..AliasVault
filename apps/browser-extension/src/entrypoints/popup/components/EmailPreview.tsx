@@ -74,6 +74,12 @@ export const EmailPreview: React.FC<EmailPreviewProps> = ({ email }) => {
      */
     const loadEmails = async (): Promise<void> => {
       try {
+        // Check if we are in offline mode
+        if (dbContext.isOffline) {
+          setLoading(false);
+          return;
+        }
+
         setError(null);
         const isPublic = await isPublicDomain(email);
         const isPrivate = await isPrivateDomain(email);
@@ -156,14 +162,32 @@ export const EmailPreview: React.FC<EmailPreviewProps> = ({ email }) => {
                   }
                   return prevEmails;
                 });
+
+                // Clear any previous error on successful load
+                setError(null);
               }
             } catch {
               // Try to parse as error response instead
               const apiErrorResponse = response as ApiErrorResponse;
+
+              /*
+               * Suppress errors while vault has unsynced changes (e.g., after item creation)
+               * The server may not know about newly created items/aliases yet
+               */
+              if (dbContext.shouldSuppressEmailErrors()) {
+                // Don't set error, keep loading state - will retry on next interval
+                return;
+              }
+
               setError(t('emails.apiErrors.' + apiErrorResponse?.code));
               return;
             }
           } catch {
+            // Suppress errors while vault has unsynced changes
+            if (dbContext.shouldSuppressEmailErrors()) {
+              return;
+            }
+
             setError(t('common.errors.unknownError'));
             return;
           }
@@ -184,6 +208,18 @@ export const EmailPreview: React.FC<EmailPreviewProps> = ({ email }) => {
   // Don't render anything if the domain is not supported
   if (!isSupportedDomain) {
     return null;
+  }
+
+  // Show offline message if in offline mode
+  if (dbContext.isOffline) {
+    return (
+      <div className="text-gray-500 dark:text-gray-400 mb-4">
+        <div className="flex items-center gap-2 mb-2">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t('common.recentEmails')}</h2>
+        </div>
+        <p className="text-sm">{t('emails.offlineMessage')}</p>
+      </div>
+    );
   }
 
   if (error) {

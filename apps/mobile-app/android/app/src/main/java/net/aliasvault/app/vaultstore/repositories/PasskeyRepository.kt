@@ -2,6 +2,7 @@ package net.aliasvault.app.vaultstore.repositories
 
 import android.database.Cursor
 import android.util.Log
+import net.aliasvault.app.autofill.utils.RustItemMatcher
 import net.aliasvault.app.utils.DateHelpers
 import net.aliasvault.app.vaultstore.VaultDatabase
 import net.aliasvault.app.vaultstore.models.FieldKey
@@ -490,26 +491,21 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
     }
 
     /**
-     * Get Items that match an rpId but don't have a passkey yet.
-     * Used for finding existing credentials that could have a passkey added to them.
+     * Get ALL Login items that don't have a passkey yet (no URL filtering).
+     * Used with RustCredentialMatcher for intelligent, cross-platform consistent filtering.
      *
-     * @param rpId The relying party identifier to match against the login URL.
-     * @param userName Optional username to filter by.
-     * @return List of ItemWithCredentialInfo objects representing Items without passkeys.
+     * @return List of ItemWithCredentialInfo objects with all URLs.
      */
-    fun getItemsWithoutPasskeyForRpId(
-        rpId: String,
-        userName: String? = null,
-    ): List<ItemWithCredentialInfo> {
+    fun getAllItemsWithoutPasskey(): List<ItemWithCredentialInfo> {
         val db = database.dbConnection ?: return emptyList()
 
         val query = """
             SELECT i.Id, i.Name, i.CreatedAt, i.UpdatedAt,
-                   fv_url.Value as Url,
+                   GROUP_CONCAT(DISTINCT fv_url.Value) as Urls,
                    fv_username.Value as Username,
                    fv_password.Value as Password
             FROM Items i
-            INNER JOIN FieldValues fv_url ON fv_url.ItemId = i.Id
+            LEFT JOIN FieldValues fv_url ON fv_url.ItemId = i.Id
                 AND fv_url.FieldKey = ?
                 AND fv_url.IsDeleted = 0
             LEFT JOIN FieldValues fv_username ON fv_username.ItemId = i.Id
@@ -521,17 +517,13 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
             WHERE i.IsDeleted = 0
                 AND i.DeletedAt IS NULL
                 AND i.ItemType = 'Login'
-                AND (LOWER(fv_url.Value) LIKE ? OR LOWER(fv_url.Value) LIKE ?)
                 AND NOT EXISTS (
                     SELECT 1 FROM Passkeys p
                     WHERE p.ItemId = i.Id AND p.IsDeleted = 0
                 )
+            GROUP BY i.Id
             ORDER BY i.UpdatedAt DESC
         """.trimIndent()
-
-        val rpIdLower = rpId.lowercase()
-        val urlPattern1 = "%$rpIdLower%"
-        val urlPattern2 = "%${rpIdLower.replace("www.", "")}%"
 
         val results = mutableListOf<ItemWithCredentialInfo>()
         val cursor = db.query(
@@ -540,8 +532,6 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
                 FieldKey.LOGIN_URL,
                 FieldKey.LOGIN_USERNAME,
                 FieldKey.LOGIN_PASSWORD,
-                urlPattern1,
-                urlPattern2,
             ),
         )
 
@@ -551,25 +541,22 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
                 val itemName = if (!it.isNull(1)) it.getString(1) else null
                 val itemCreatedAt = if (!it.isNull(2)) it.getString(2) else null
                 val itemUpdatedAt = if (!it.isNull(3)) it.getString(3) else null
-                val url = if (!it.isNull(4)) it.getString(4) else null
+                val urlsString = if (!it.isNull(4)) it.getString(4) else null
                 val itemUsername = if (!it.isNull(5)) it.getString(5) else null
                 val hasPassword = !it.isNull(6) && it.getString(6).isNotEmpty()
-
-                // Filter by username if provided
-                if (userName != null && itemUsername != userName) {
-                    continue
-                }
 
                 try {
                     val itemId = UUID.fromString(itemIdString)
                     val createdAt = DateHelpers.parseDateString(itemCreatedAt ?: "") ?: MIN_DATE
                     val updatedAt = DateHelpers.parseDateString(itemUpdatedAt ?: "") ?: MIN_DATE
+                    val urls = urlsString?.split(",")?.filter { it.isNotEmpty() } ?: emptyList()
 
                     results.add(
                         ItemWithCredentialInfo(
                             itemId = itemId,
                             serviceName = itemName,
-                            url = url,
+                            url = urls.firstOrNull(),
+                            urls = urls,
                             username = itemUsername,
                             hasPassword = hasPassword,
                             createdAt = createdAt,
@@ -583,6 +570,34 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
         }
 
         return results
+    }
+
+    /**
+     * Get Items that match an rpId but don't have a passkey yet.
+     * Uses the Rust credential matcher for consistent cross-platform matching logic.
+     *
+     * @param rpId The relying party identifier to match against.
+     * @param rpName The relying party name (used for title matching fallback).
+     * @param userName Optional username to filter by.
+     * @return List of ItemWithCredentialInfo objects representing Items without passkeys.
+     */
+    fun getItemsWithoutPasskeyForRpId(
+        rpId: String,
+        rpName: String? = null,
+        userName: String? = null,
+    ): List<ItemWithCredentialInfo> {
+        // Get all items without passkeys
+        val allItems = getAllItemsWithoutPasskey()
+
+        // Use Rust item matcher for intelligent filtering
+        var matchedItems = RustItemMatcher.filterItemsForPasskeyMerge(allItems, rpId, rpName)
+
+        // Apply optional username filter
+        if (userName != null) {
+            matchedItems = matchedItems.filter { it.username == userName }
+        }
+
+        return matchedItems
     }
 
     /**
@@ -835,7 +850,8 @@ data class PasskeyWithItem(
  *
  * @property itemId The UUID of the item.
  * @property serviceName The service name (Item.Name).
- * @property url The login URL.
+ * @property url The login URL (first URL for backwards compatibility).
+ * @property urls All login URLs associated with this item.
  * @property username The username from field values.
  * @property hasPassword Whether the item has a password.
  * @property createdAt When the item was created.
@@ -845,6 +861,7 @@ data class ItemWithCredentialInfo(
     val itemId: UUID,
     val serviceName: String?,
     val url: String?,
+    val urls: List<String> = url?.let { listOf(it) } ?: emptyList(),
     val username: String?,
     val hasPassword: Boolean,
     val createdAt: Date,

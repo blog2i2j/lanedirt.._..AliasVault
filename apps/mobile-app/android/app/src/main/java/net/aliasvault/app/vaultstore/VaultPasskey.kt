@@ -60,14 +60,16 @@ class VaultPasskey(
      * Used for finding existing credentials that could have a passkey added to them.
      *
      * @param rpId The relying party identifier to match against the login URL.
+     * @param rpName The relying party name (used for title matching fallback).
      * @param userName Optional username to filter by.
      * @return List of ItemWithCredentialInfo objects representing Items without passkeys.
      */
     fun getItemsWithoutPasskeyForRpId(
         rpId: String,
+        rpName: String? = null,
         userName: String? = null,
     ): List<ItemWithCredentialInfo> {
-        return passkeyRepository.getItemsWithoutPasskeyForRpId(rpId, userName)
+        return passkeyRepository.getItemsWithoutPasskeyForRpId(rpId, rpName, userName)
     }
 
     /**

@@ -15,7 +15,7 @@ mod stop_words;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-pub use domain::{extract_domain, extract_root_domain};
+pub use domain::{extract_domain, extract_domain_with_port, extract_root_domain, DomainWithPort};
 use domain::{domains_match, is_app_package_name};
 use stop_words::STOP_WORDS;
 
@@ -34,8 +34,10 @@ pub enum AutofillMatchingMode {
 #[serde(rename_all = "PascalCase")]
 pub struct Credential {
     pub id: String,
-    pub service_name: Option<String>,
-    pub service_url: Option<String>,
+    pub item_name: Option<String>,
+    /// List of URLs associated with this item (supports multi-value URL fields)
+    #[serde(default)]
+    pub item_urls: Vec<String>,
     #[serde(default)]
     pub username: Option<String>,
 }
@@ -103,10 +105,9 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
         let package_match_ids: Vec<String> = credentials
             .iter()
             .filter(|cred| {
-                cred.service_url
-                    .as_ref()
-                    .map(|url| !url.is_empty() && url == &current_url)
-                    .unwrap_or(false)
+                cred.item_urls
+                    .iter()
+                    .any(|url| !url.is_empty() && url == &current_url)
             })
             .map(|cred| cred.id.clone())
             .take(3)
@@ -123,13 +124,18 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
     }
 
     // ═══════════════════════════════════════════════════════════════════════════════
-    // PRIORITY 2: URL Domain Matching
+    // PRIORITY 2: URL Domain Matching (with port-aware priority)
     // Try to extract domain from current URL (skip if package name)
+    //
+    // Sub-priorities within URL matching:
+    //   Priority 1: Exact domain+port match (e.g., example.com:8080 == example.com:8080)
+    //   Priority 2: Exact domain match (ignoring port) (e.g., example.com:8080 == example.com)
+    //   Priority 3: Subdomain/root domain match (e.g., sub.example.com matches example.com)
     // ═══════════════════════════════════════════════════════════════════════════════
     if !is_package_name {
-        let current_domain = extract_domain(&current_url);
+        let current_domain_info = extract_domain_with_port(&current_url);
 
-        if !current_domain.is_empty() {
+        if !current_domain_info.domain.is_empty() {
             let mut filtered: Vec<CredentialWithPriority> = Vec::new();
 
             // Determine matching features based on mode
@@ -139,42 +145,83 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
                 AutofillMatchingMode::Default | AutofillMatchingMode::UrlSubdomain
             );
 
-            // Process credentials with service URLs
+            // Process credentials with item URLs (check all URLs for each credential)
             for cred in &credentials {
-                let service_url = match &cred.service_url {
-                    Some(url) if !url.is_empty() => url,
-                    _ => continue, // Handle these in Priority 3
-                };
-
-                let cred_domain = extract_domain(service_url);
-                if cred_domain.is_empty() {
+                // Skip credentials with no URLs - handle these in Priority 3
+                if cred.item_urls.is_empty() {
                     continue;
                 }
 
-                // Check for exact match (priority 1)
-                if enable_exact_match && current_domain == cred_domain {
-                    filtered.push(CredentialWithPriority {
-                        credential: cred.clone(),
-                        priority: 1,
-                    });
-                    continue;
+                // Track best match priority for this credential across all its URLs
+                let mut best_priority: Option<u8> = None;
+
+                for item_url in &cred.item_urls {
+                    if item_url.is_empty() {
+                        continue;
+                    }
+
+                    let cred_domain_info = extract_domain_with_port(item_url);
+                    if cred_domain_info.domain.is_empty() {
+                        continue;
+                    }
+
+                    // Check for exact domain+port match (priority 1 - highest)
+                    // Both must have same domain AND same port (or both no port)
+                    if enable_exact_match
+                        && current_domain_info.domain == cred_domain_info.domain
+                        && current_domain_info.port == cred_domain_info.port
+                    {
+                        best_priority = Some(1);
+                        break; // Can't do better than exact domain+port match
+                    }
+
+                    // Check for exact domain match, ignoring port (priority 2)
+                    if enable_exact_match
+                        && current_domain_info.domain == cred_domain_info.domain
+                        && best_priority.map_or(true, |p| p > 2)
+                    {
+                        best_priority = Some(2);
+                        // Don't break - might find exact domain+port match in another URL
+                    }
+
+                    // Check for subdomain/root domain match (priority 3)
+                    if enable_subdomain_match
+                        && domains_match(&current_domain_info.domain, &cred_domain_info.domain)
+                        && best_priority.is_none()
+                    {
+                        best_priority = Some(3);
+                        // Don't break - might find better match in another URL
+                    }
                 }
 
-                // Check for subdomain/partial match (priority 2)
-                if enable_subdomain_match && domains_match(&current_domain, &cred_domain) {
+                if let Some(priority) = best_priority {
                     filtered.push(CredentialWithPriority {
                         credential: cred.clone(),
-                        priority: 2,
+                        priority,
                     });
                 }
             }
 
             // EARLY RETURN if matches found
             if !filtered.is_empty() {
+                // Find the best (lowest) priority level we have
+                let best_priority = filtered.iter().map(|c| c.priority).min().unwrap_or(3);
+
+                // Only return credentials at the best priority level
+                // This ensures that:
+                // - If we have exact domain+port matches (1), we only show those
+                // - If we have exact domain matches (2) but no port matches, we only show those
+                // - If we only have subdomain matches (3), we show those
+                let filtered_by_priority: Vec<CredentialWithPriority> = filtered
+                    .into_iter()
+                    .filter(|c| c.priority == best_priority)
+                    .collect();
+
                 // Sort by priority, deduplicate by ID, take first 3
-                filtered.sort_by_key(|c| c.priority);
+                let mut sorted = filtered_by_priority;
+                sorted.sort_by_key(|c| c.priority);
                 let mut seen_ids: HashSet<String> = HashSet::new();
-                let unique_ids: Vec<String> = filtered
+                let unique_ids: Vec<String> = sorted
                     .into_iter()
                     .filter(|c| seen_ids.insert(c.credential.id.clone()))
                     .map(|c| c.credential.id)
@@ -188,9 +235,9 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
             }
 
             // ═══════════════════════════════════════════════════════════════════════════
-            // PRIORITY 3: Page Title / Service Name Fallback (Anti-Phishing Protection)
-            // No domain matches found - search in service names using page title
-            // CRITICAL: Only search credentials with NO service URL defined
+            // PRIORITY 3: Page Title / Item Name Fallback (Anti-Phishing Protection)
+            // No domain matches found - search in item names using page title
+            // CRITICAL: Only search credentials with NO URLs defined
             // ═══════════════════════════════════════════════════════════════════════════
             if !page_title.is_empty() {
                 let title_words = extract_words(&page_title);
@@ -199,14 +246,16 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
                     let name_match_ids: Vec<String> = credentials
                         .iter()
                         .filter(|cred| {
-                            // SECURITY: Skip credentials that have a URL defined
-                            if cred.service_url.as_ref().map(|u| !u.is_empty()).unwrap_or(false) {
+                            // SECURITY: Skip credentials that have URLs defined
+                            if !cred.item_urls.is_empty()
+                                && cred.item_urls.iter().any(|u| !u.is_empty())
+                            {
                                 return false;
                             }
 
-                            // Check page title match with service name
-                            if let Some(service_name) = &cred.service_name {
-                                let cred_name_words = extract_words(service_name);
+                            // Check page title match with item name
+                            if let Some(item_name) = &cred.item_name {
+                                let cred_name_words = extract_words(item_name);
 
                                 // Match only complete words, not substrings
                                 title_words.iter().any(|title_word| {
@@ -241,7 +290,7 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
     // ═══════════════════════════════════════════════════════════════════════════════
     // PRIORITY 4: Text Matching
     // Used when: 1) Package name didn't match in Priority 1, OR 2) URL extraction failed
-    // Performs word-based matching on service names
+    // Performs word-based matching on item names
     // ═══════════════════════════════════════════════════════════════════════════════
     let search_words = extract_words(&current_url);
 
@@ -249,13 +298,13 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
         let text_match_ids: Vec<String> = credentials
             .iter()
             .filter(|cred| {
-                if let Some(service_name) = &cred.service_name {
-                    let service_name_words = extract_words(service_name);
+                if let Some(item_name) = &cred.item_name {
+                    let item_name_words = extract_words(item_name);
 
-                    // Check if any search word matches any service name word exactly
+                    // Check if any search word matches any item name word exactly
                     search_words
                         .iter()
-                        .any(|search_word| service_name_words.contains(search_word))
+                        .any(|search_word| item_name_words.contains(search_word))
                 } else {
                     false
                 }

@@ -342,3 +342,29 @@ detekt {
         sarif.required.set(false)
     }
 }
+
+// Rust Core build task - ensures native libraries and Kotlin bindings are up to date
+// Uses checksum-based incremental builds to skip if sources haven't changed
+task buildRustCore(type: Exec) {
+    description = "Build Rust Core native libraries and Kotlin bindings"
+    group = "build"
+
+    workingDir = file("${rootProject.projectDir}/scripts")
+
+    // Set up environment for cargo
+    environment "PATH", "${System.getProperty('user.home')}/.cargo/bin:/usr/local/bin:/opt/homebrew/bin:${System.getenv('PATH')}"
+
+    // Determine build mode based on variant
+    def isRelease = gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }
+    def buildArgs = isRelease ? ['./build-rust-core.sh', '--release'] : ['./build-rust-core.sh', '--debug']
+
+    commandLine buildArgs
+
+    // Only log if there are actual changes
+    ignoreExitValue = false
+}
+
+// Make Rust Core build run before Kotlin compilation
+tasks.matching { it.name.startsWith('compile') && it.name.contains('Kotlin') }.configureEach {
+    dependsOn buildRustCore
+}

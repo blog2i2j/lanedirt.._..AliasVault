@@ -175,7 +175,9 @@ public sealed class ItemEdit
             var hasValue = !string.IsNullOrEmpty(field.Value) ||
                           (field.IsMultiValue && field.Values.Any(v => !string.IsNullOrEmpty(v)));
 
-            if (!hasValue)
+            // For system fields, skip if no value
+            // For custom fields, always persist (even if empty) - they're only deleted when explicitly removed
+            if (!hasValue && !field.IsCustomField)
             {
                 continue;
             }

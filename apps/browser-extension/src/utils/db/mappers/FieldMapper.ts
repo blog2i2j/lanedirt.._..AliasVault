@@ -116,7 +116,7 @@ export class FieldMapper {
         FieldType: systemField?.FieldType || FieldTypes.Text,
         IsHidden: systemField?.IsHidden ? 1 : 0,
         Value: row.Value,
-        DisplayOrder: row.DisplayOrder,
+        DisplayOrder: systemField?.DefaultDisplayOrder ?? row.DisplayOrder,
         IsCustomField: false,
         EnableHistory: systemField?.EnableHistory ?? false
       };
@@ -173,7 +173,7 @@ export class FieldMapper {
             Label: row.FieldKey, // Use FieldKey as label; UI layer translates via fieldLabels.*
             FieldType: systemField?.FieldType || FieldTypes.Text,
             IsHidden: systemField?.IsHidden ? 1 : 0,
-            DisplayOrder: row.DisplayOrder,
+            DisplayOrder: systemField?.DefaultDisplayOrder ?? row.DisplayOrder,
             IsCustomField: false,
             EnableHistory: systemField?.EnableHistory ?? false
           });

@@ -2,9 +2,10 @@ import type { Item, ItemField, TotpCode, Attachment, FieldHistory } from '@/util
 import { FieldKey, MAX_FIELD_HISTORY_RECORDS } from '@/utils/dist/core/models/vault';
 
 import { BaseRepository } from '../BaseRepository';
-import { ItemQueries, FieldValueQueries, FieldHistoryQueries } from '../queries/ItemQueries';
+import { ItemQueries, FieldValueQueries, FieldDefinitionQueries, FieldHistoryQueries } from '../queries/ItemQueries';
 import { FieldMapper, type FieldRow } from '../mappers/FieldMapper';
 import { ItemMapper, type ItemRow, type TagRow, type ItemWithDeletedAt } from '../mappers/ItemMapper';
+import type { LogoRepository } from './LogoRepository';
 
 /**
  * SQL query constants for Item-related tag operations.
@@ -43,6 +44,15 @@ const TagQueries = {
  * Handles fetching, creating, updating, and deleting items with their related data.
  */
 export class ItemRepository extends BaseRepository {
+  private logoRepository: LogoRepository | null = null;
+
+  /**
+   * Set the logo repository for logo handling operations.
+   * @param logoRepository - The logo repository instance
+   */
+  public setLogoRepository(logoRepository: LogoRepository): void {
+    this.logoRepository = logoRepository;
+  }
   /**
    * Fetch all active items (not deleted, not in trash) with their fields and tags.
    * @returns Array of Item objects
@@ -212,6 +222,21 @@ export class ItemRepository extends BaseRepository {
   }
 
   /**
+   * Delete a specific field history record.
+   * @param historyId - The ID of the history record to delete
+   * @returns Number of rows affected
+   */
+  public async deleteFieldHistory(historyId: string): Promise<number> {
+    return this.withTransaction(async () => {
+      const now = this.now();
+      return this.client.executeUpdate(FieldHistoryQueries.SOFT_DELETE, [
+        now,
+        historyId
+      ]);
+    });
+  }
+
+  /**
    * Move an item to trash (set DeletedAt timestamp).
    * @param itemId - The ID of the item to trash
    * @returns Number of rows affected
@@ -294,7 +319,7 @@ export class ItemRepository extends BaseRepository {
       ]);
 
       // 2. Insert FieldValues
-      await this.insertFieldValues(itemId, item.Fields, now);
+      await this.insertFieldValues(itemId, item.Fields, item.ItemType, now);
 
       // 3. Insert TOTP codes
       for (const totp of totpCodes) {
@@ -337,25 +362,32 @@ export class ItemRepository extends BaseRepository {
     return this.withTransaction(async () => {
       const now = this.now();
 
-      // 1. Update Item only if item-level fields changed
+      // 1. Handle Logo - resolve new logoId based on item.Logo
+      const logoId = await this.resolveLogoId(item, now);
+
+      // 2. Update Item only if item-level fields changed
       const existing = await this.client.executeQuery<{
         Name: string | null;
         ItemType: string | null;
         FolderId: string | null;
-      }>(`SELECT Name, ItemType, FolderId FROM Items WHERE Id = ?`, [item.Id]);
+        LogoId: string | null;
+      }>(`SELECT Name, ItemType, FolderId, LogoId FROM Items WHERE Id = ?`, [item.Id]);
 
       if (existing.length > 0) {
         const existingItem = existing[0];
         const nameChanged = item.Name !== existingItem.Name;
         const itemTypeChanged = String(item.ItemType) !== String(existingItem.ItemType);
         const folderIdChanged = (item.FolderId || null) !== existingItem.FolderId;
+        // Logo changed if: we have a new logo ID, OR we're clearing the logo (item.Logo is undefined and existing has logo)
+        const logoIdChanged = logoId !== existingItem.LogoId;
 
-        if (nameChanged || itemTypeChanged || folderIdChanged) {
-          await this.client.executeUpdate(ItemQueries.UPDATE_ITEM, [
+        if (nameChanged || itemTypeChanged || folderIdChanged || logoIdChanged) {
+          // Use UPDATE_ITEM_WITH_LOGO to allow explicit clearing of LogoId
+          await this.client.executeUpdate(ItemQueries.UPDATE_ITEM_WITH_LOGO, [
             item.Name,
             item.ItemType,
             item.FolderId || null,
-            null, // LogoId update handled separately if needed
+            logoId,
             now,
             item.Id
           ]);
@@ -366,7 +398,7 @@ export class ItemRepository extends BaseRepository {
       await this.trackFieldHistory(item.Id, item.Fields, now);
 
       // 3. Update FieldValues using preserve-and-track strategy
-      await this.updateFieldValues(item.Id, item.Fields, now);
+      await this.updateFieldValues(item.Id, item.Fields, item.ItemType, now);
 
       // 4. Handle TOTP codes
       await this.syncRelatedEntities(
@@ -396,21 +428,39 @@ export class ItemRepository extends BaseRepository {
 
   /**
    * Insert field values for an item.
+   * Also creates history records for fields with EnableHistory=true.
    */
-  private async insertFieldValues(itemId: string, fields: ItemField[], now: string): Promise<void> {
+  private async insertFieldValues(itemId: string, fields: ItemField[], itemType: string, now: string): Promise<void> {
     for (let i = 0; i < fields.length; i++) {
       const field = fields[i];
       const values = Array.isArray(field.Value) ? field.Value : [field.Value];
+      const filteredValues = values.filter(v => v !== undefined && v !== null && v !== '');
 
-      for (let j = 0; j < values.length; j++) {
-        const value = values[j];
-        if (value === undefined || value === null || value === '') continue;
+      // Skip empty system fields, but always persist custom fields (even if empty)
+      if (filteredValues.length === 0 && !field.IsCustomField) {
+        continue;
+      }
+
+      // For custom fields with no values, use empty string to preserve the field
+      const valuesToInsert = field.IsCustomField && filteredValues.length === 0
+        ? ['']
+        : filteredValues;
+
+      let fieldDefinitionId: string | null = null;
+
+      // For custom fields, create or get FieldDefinition first
+      if (field.IsCustomField) {
+        fieldDefinitionId = await this.ensureFieldDefinition(field, itemType, now);
+      }
+
+      for (let j = 0; j < valuesToInsert.length; j++) {
+        const value = valuesToInsert[j];
 
         await this.client.executeUpdate(FieldValueQueries.INSERT, [
           this.generateId(),
           itemId,
-          field.IsCustomField ? field.FieldKey : null, // FieldDefinitionId for custom
-          field.IsCustomField ? null : field.FieldKey, // FieldKey for system
+          fieldDefinitionId, // FieldDefinitionId for custom, null for system
+          field.IsCustomField ? null : field.FieldKey, // FieldKey for system, null for custom
           value,
           (i * 100) + j, // Weight for ordering
           now,
@@ -418,14 +468,113 @@ export class ItemRepository extends BaseRepository {
           0
         ]);
       }
+
+      // Create history record for fields with EnableHistory=true
+      if (field.EnableHistory && filteredValues.length > 0) {
+        // Check if FieldHistories table exists
+        if (await this.tableExists('FieldHistories')) {
+          const historyId = this.generateId();
+          const valueSnapshot = JSON.stringify(filteredValues);
+
+          await this.client.executeUpdate(FieldHistoryQueries.INSERT, [
+            historyId,
+            itemId,
+            null,
+            field.FieldKey,
+            valueSnapshot,
+            now,
+            now,
+            now,
+            0
+          ]);
+        }
+      }
     }
+  }
+
+  /**
+   * Ensure a field definition exists for a custom field.
+   * Creates the definition if it doesn't exist.
+   * @returns The field definition ID (which is the field's FieldKey/tempId)
+   */
+  private async ensureFieldDefinition(
+    field: ItemField,
+    itemType: string,
+    currentDateTime: string
+  ): Promise<string> {
+    const existingDef = await this.client.executeQuery<{ Id: string }>(
+      FieldDefinitionQueries.EXISTS,
+      [field.FieldKey]
+    );
+
+    if (existingDef.length === 0) {
+      await this.client.executeUpdate(FieldDefinitionQueries.INSERT, [
+        field.FieldKey,
+        field.FieldType,
+        field.Label,
+        0, // IsMultiValue
+        field.IsHidden ? 1 : 0,
+        0, // EnableHistory
+        field.DisplayOrder ?? 0,
+        itemType,
+        currentDateTime,
+        currentDateTime,
+        0
+      ]);
+    }
+
+    return field.FieldKey;
+  }
+
+  /**
+   * Ensure a field definition exists and is up-to-date.
+   * Creates the definition if it doesn't exist, or updates it if it does.
+   * @returns The field definition ID (which is the field's FieldKey/tempId)
+   */
+  private async ensureOrUpdateFieldDefinition(
+    field: ItemField,
+    itemType: string,
+    currentDateTime: string
+  ): Promise<string> {
+    const existingDef = await this.client.executeQuery<{ Id: string }>(
+      FieldDefinitionQueries.EXISTS_ACTIVE,
+      [field.FieldKey]
+    );
+
+    if (existingDef.length === 0) {
+      await this.client.executeUpdate(FieldDefinitionQueries.INSERT, [
+        field.FieldKey,
+        field.FieldType,
+        field.Label,
+        0, // IsMultiValue
+        field.IsHidden ? 1 : 0,
+        0, // EnableHistory
+        field.DisplayOrder ?? 0,
+        itemType,
+        currentDateTime,
+        currentDateTime,
+        0
+      ]);
+    } else {
+      // Update existing field definition (label, type, etc. may have changed)
+      await this.client.executeUpdate(FieldDefinitionQueries.UPDATE, [
+        field.Label,
+        field.FieldType,
+        field.IsHidden ? 1 : 0,
+        field.DisplayOrder ?? 0,
+        currentDateTime,
+        field.FieldKey
+      ]);
+    }
+
+    return field.FieldKey;
   }
 
   /**
    * Update field values using preserve-and-track strategy.
    * Preserves existing field value IDs when possible for stable merge behavior.
    */
-  private async updateFieldValues(itemId: string, fields: ItemField[], now: string): Promise<void> {
+  private async updateFieldValues(itemId: string, fields: ItemField[], itemType: string, now: string): Promise<void> {
     // 1. Get existing field values
     const existingFields = await this.client.executeQuery<{
       Id: string;
@@ -453,9 +602,26 @@ export class ItemRepository extends BaseRepository {
       const values = Array.isArray(field.Value) ? field.Value : [field.Value];
       const existingForKey = existingByKey.get(field.FieldKey) || [];
 
-      for (let j = 0; j < values.length; j++) {
-        const value = values[j];
-        if (value === undefined || value === null || value === '') continue;
+      // Skip empty system fields, but always persist custom fields (even if empty)
+      const filteredValues = values.filter(v => v !== undefined && v !== null && v !== '');
+      if (filteredValues.length === 0 && !field.IsCustomField) {
+        continue;
+      }
+
+      // For custom fields with no values, use empty string to preserve the field
+      const valuesToProcess = field.IsCustomField && filteredValues.length === 0
+        ? ['']
+        : filteredValues;
+
+      let fieldDefinitionId: string | null = null;
+
+      // For custom fields, ensure FieldDefinition exists and is up-to-date
+      if (field.IsCustomField) {
+        fieldDefinitionId = await this.ensureOrUpdateFieldDefinition(field, itemType, now);
+      }
+
+      for (let j = 0; j < valuesToProcess.length; j++) {
+        const value = valuesToProcess[j];
 
         const existingEntry = existingForKey[j];
 
@@ -475,8 +641,8 @@ export class ItemRepository extends BaseRepository {
           await this.client.executeUpdate(FieldValueQueries.INSERT, [
             this.generateId(),
             itemId,
-            field.IsCustomField ? field.FieldKey : null,
-            field.IsCustomField ? null : field.FieldKey,
+            fieldDefinitionId, // FieldDefinitionId for custom, null for system
+            field.IsCustomField ? null : field.FieldKey, // FieldKey for system, null for custom
             value,
             (i * 100) + j,
             now,
@@ -530,6 +696,11 @@ export class ItemRepository extends BaseRepository {
   /**
    * Track field history for fields with EnableHistory=true.
    * Compares old values with new values and creates history records.
+   *
+   * This saves the NEW value to history on every change. Since each value is saved
+   * when it's set, we don't need to save the old value (it was already saved when
+   * it was first set). This ensures that during merge conflicts, no values are ever
+   * lost since history records sync independently via LWW and each has a unique ID.
    */
   private async trackFieldHistory(
     itemId: string,
@@ -568,12 +739,16 @@ export class ItemRepository extends BaseRepository {
       const oldValues = existingValuesMap[newField.FieldKey] || [];
       const newValues = Array.isArray(newField.Value) ? newField.Value : [newField.Value];
 
-      const valuesChanged = oldValues.length !== newValues.length ||
-        !oldValues.every((val, idx) => val === newValues[idx]);
+      // Filter out empty values for comparison
+      const filteredNewValues = newValues.filter(v => v && v.trim() !== '');
 
-      if (valuesChanged && oldValues.length > 0) {
+      const valuesChanged = oldValues.length !== filteredNewValues.length ||
+        !oldValues.every((val, idx) => val === filteredNewValues[idx]);
+
+      // Save new values to history when they change (ensures they survive merge conflicts)
+      if (valuesChanged && filteredNewValues.length > 0) {
         const historyId = this.generateId();
-        const valueSnapshot = JSON.stringify(oldValues);
+        const valueSnapshot = JSON.stringify(filteredNewValues);
 
         await this.client.executeUpdate(FieldHistoryQueries.INSERT, [
           historyId,
@@ -617,5 +792,39 @@ export class ItemRepository extends BaseRepository {
         );
       }
     }
+  }
+
+  /**
+   * Resolve the logo ID for an item (create new or reuse existing).
+   * If item.Logo is undefined, returns null to clear any existing logo.
+   * @param item - The item to resolve logo for
+   * @param currentDateTime - The current timestamp
+   * @returns The logo ID, or null if no logo
+   */
+  private async resolveLogoId(item: Item, currentDateTime: string): Promise<string | null> {
+    // If no logo repository is set, we can't handle logos
+    if (!this.logoRepository) {
+      return null;
+    }
+
+    // Get URL field for source extraction
+    const urlField = item.Fields?.find(f => f.FieldKey === 'login.url');
+    const urlValue = urlField?.Value;
+    const urlString = Array.isArray(urlValue) ? urlValue[0] : urlValue;
+    const source = this.logoRepository.extractSourceFromUrl(urlString);
+
+    // If item has Logo data, create or reuse a logo entry
+    if (item.Logo) {
+      const logoData = this.logoRepository.convertLogoToUint8Array(item.Logo);
+      if (logoData) {
+        return this.logoRepository.getOrCreate(source, logoData, currentDateTime);
+      }
+    } else if (source !== 'unknown') {
+      // No logo data provided, but we have a valid URL - try to find existing logo for this source
+      return this.logoRepository.getIdForSource(source);
+    }
+
+    // No logo data and no valid URL - return null to clear any existing logo
+    return null;
   }
 }

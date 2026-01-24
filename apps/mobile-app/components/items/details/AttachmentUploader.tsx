@@ -3,14 +3,12 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-
-import type { Attachment } from '@/utils/dist/core/models/vault';
-
-import { useColors } from '@/hooks/useColorScheme';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 
 import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedView } from '@/components/themed/ThemedView';
+import { useColors } from '@/hooks/useColorScheme';
+import type { Attachment } from '@/utils/dist/core/models/vault';
 
 type AttachmentUploaderProps = {
   attachments: Attachment[];
@@ -19,6 +17,8 @@ type AttachmentUploaderProps = {
 
 /**
  * This component allows uploading and managing attachments for a credential.
+ * Deletion is pending until the item is saved - attachments are removed from the list
+ * immediately but only persisted when the parent form saves.
  */
 export const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
   attachments,
@@ -112,44 +112,12 @@ export const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
   };
 
   /**
-   * Deletes an attachment.
+   * Deletes an attachment immediately from the list (pending save).
+   * The actual database deletion happens when the parent item is saved.
    */
   const deleteAttachment = (attachmentToDelete: Attachment): void => {
-    Alert.alert(
-      'Delete Attachment',
-      `Are you sure you want to delete ${attachmentToDelete.Filename}?`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          /**
-           * Deletes the attachment.
-           */
-          onPress: (): void => {
-            try {
-              const updatedAttachments = [...attachments];
-
-              // Remove the attachment from the list
-              const index = updatedAttachments.findIndex(a => a.Id === attachmentToDelete.Id);
-              if (index !== -1) {
-                updatedAttachments.splice(index, 1);
-              }
-
-              onAttachmentsChange(updatedAttachments);
-              setStatusMessage('');
-            } catch (error) {
-              console.error('Error deleting attachment:', error);
-              setStatusMessage('Error deleting attachment.');
-              setTimeout(() => setStatusMessage(''), 3000);
-            }
-          },
-        },
-      ]
-    );
+    const updatedAttachments = attachments.filter(a => a.Id !== attachmentToDelete.Id);
+    onAttachmentsChange(updatedAttachments);
   };
 
   const activeAttachments = attachments.filter(a => !a.IsDeleted);

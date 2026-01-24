@@ -301,10 +301,9 @@ extension VaultStore {
             )
             try storeVaultMetadata(metadata)
 
-            // Re-unlock if was unlocked
-            if isVaultUnlocked {
-                try unlockVault()
-            }
+            // Clear dirty flag - we just downloaded fresh from server, no local changes
+            setIsDirty(false)
+
 
             setIsSyncing(false)
             return VaultSyncResult(
@@ -514,7 +513,7 @@ extension VaultStore {
                 wasOffline: true,
                 error: error.message
             )
-        case .sessionExpired, .authenticationFailed:
+        case .sessionExpired, .authenticationFailed, .passwordChanged:
             return VaultSyncResult(
                 success: false,
                 action: .error,

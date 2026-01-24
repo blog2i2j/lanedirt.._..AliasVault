@@ -58,9 +58,19 @@ public struct Item: Codable, Hashable, Equatable {
         return fields.first { $0.fieldKey == fieldKey }?.value
     }
 
+    /// Get all values for a field by its key (for multi-value fields like URLs).
+    public func getFieldValues(_ fieldKey: String) -> [String] {
+        return fields.filter { $0.fieldKey == fieldKey }.map { $0.value }
+    }
+
     /// Get the URL field value (login.url).
     public var url: String? {
         return getFieldValue(FieldKey.loginUrl)
+    }
+
+    /// Get all URL field values (login.url) for multi-URL support.
+    public var urls: [String] {
+        return getFieldValues(FieldKey.loginUrl)
     }
 
     /// Get the username field value (login.username).

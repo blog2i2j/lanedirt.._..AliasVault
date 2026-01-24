@@ -29,7 +29,7 @@ import useServiceDetection from '@/entrypoints/popup/hooks/useServiceDetection';
 import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
 import { SKIP_FORM_RESTORE_KEY } from '@/utils/Constants';
-import type { Item, ItemField, ItemType, FieldType, Attachment, TotpCode } from '@/utils/dist/core/models/vault';
+import type { Item, ItemField, ItemType, FieldType, Attachment, TotpCode, PasswordSettings } from '@/utils/dist/core/models/vault';
 import { FieldCategories, FieldTypes, ItemTypes, getSystemFieldsForItemType, getOptionalFieldsForItemType, isFieldShownByDefault, getSystemField, fieldAppliesToType } from '@/utils/dist/core/models/vault';
 import { FaviconService } from '@/utils/FaviconService';
 
@@ -71,6 +71,7 @@ type PersistedFormData = {
   showAttachments: boolean;
   manuallyAddedFields: string[];
   isLoginEmailInEmailMode?: boolean;
+  passwordSettings?: PasswordSettings;
 };
 
 /**
@@ -152,6 +153,9 @@ const ItemAddEdit: React.FC = () => {
   // Track email field mode for Login type (true = free text "Email", false = domain chooser "Alias")
   const [isLoginEmailInEmailMode, setIsLoginEmailInEmailMode] = useState(true);
 
+  // Track password settings for persistence (so slider position and options are remembered)
+  const [passwordSettings, setPasswordSettings] = useState<PasswordSettings | undefined>(undefined);
+
   // Track whether to skip form restoration (set during initialization)
   const [skipFormRestore] = useState(false);
 
@@ -184,6 +188,9 @@ const ItemAddEdit: React.FC = () => {
     if (data.isLoginEmailInEmailMode !== undefined) {
       setIsLoginEmailInEmailMode(data.isLoginEmailInEmailMode);
     }
+    if (data.passwordSettings !== undefined) {
+      setPasswordSettings(data.passwordSettings);
+    }
   }, []);
 
   /**
@@ -202,6 +209,7 @@ const ItemAddEdit: React.FC = () => {
       showAttachments,
       manuallyAddedFields: Array.from(manuallyAddedFields),
       isLoginEmailInEmailMode,
+      passwordSettings,
     },
     onRestore: handleFormRestore,
     skipRestore: skipFormRestore,
@@ -349,6 +357,12 @@ const ItemAddEdit: React.FC = () => {
         };
 
         setItem(newItem);
+
+        /*
+         * Initialize email field mode based on item type
+         * Login type: email mode (free text), Alias type: alias mode (domain chooser)
+         */
+        setIsLoginEmailInEmailMode(effectiveType === ItemTypes.Login);
 
         // Set the detected URL in field values if we have one
         if (serviceUrl) {
@@ -604,23 +618,20 @@ const ItemAddEdit: React.FC = () => {
         }
       });
 
-      // Add custom fields
+      // Add custom fields - always persist even if empty (only deleted when explicitly removed)
       customFields.forEach(customField => {
-        const value = fieldValues[customField.tempId];
+        const value = fieldValues[customField.tempId] || '';
 
-        // Only include fields with non-empty values
-        if (value && (Array.isArray(value) ? value.length > 0 : value.trim() !== '')) {
-          fields.push({
-            FieldKey: customField.tempId,
-            Label: customField.label,
-            FieldType: customField.fieldType,
-            Value: value,
-            IsHidden: customField.isHidden,
-            DisplayOrder: customField.displayOrder,
-            IsCustomField: true,
-            EnableHistory: false // Custom fields don't have history enabled by default
-          });
-        }
+        fields.push({
+          FieldKey: customField.tempId,
+          Label: customField.label,
+          FieldType: customField.fieldType,
+          Value: value,
+          IsHidden: customField.isHidden,
+          DisplayOrder: customField.displayOrder,
+          IsCustomField: true,
+          EnableHistory: false // Custom fields don't have history enabled by default
+        });
       });
 
       let updatedItem: Item = {
@@ -815,6 +826,12 @@ const ItemAddEdit: React.FC = () => {
 
     // Reset alias generated flag, so alias fields will be filled (again) if they are shown by the new type
     aliasGeneratedRef.current = false;
+
+    /*
+     * Update email field mode based on new item type
+     * Login type: email mode (free text), Alias type: alias mode (domain chooser)
+     */
+    setIsLoginEmailInEmailMode(newType === ItemTypes.Login);
 
     setItem({
       ...item,
@@ -1026,6 +1043,8 @@ const ItemAddEdit: React.FC = () => {
             onChange={(val) => handleFieldChange(fieldKey, val)}
             showPassword={showPassword}
             onShowPasswordChange={setShowPassword}
+            initialSettings={passwordSettings}
+            onSettingsChange={setPasswordSettings}
           />
         );
 
@@ -1103,7 +1122,7 @@ const ItemAddEdit: React.FC = () => {
         );
     }
 
-  }, [fieldValues, handleFieldChange, showPassword, t, handleGenerateAliasEmail, aliasFieldsShownByDefault, generateRandomUsername, isLoginEmailInEmailMode]);
+  }, [fieldValues, handleFieldChange, showPassword, t, handleGenerateAliasEmail, aliasFieldsShownByDefault, generateRandomUsername, isLoginEmailInEmailMode, passwordSettings]);
 
   /**
    * Handle form submission via Enter key.
@@ -1281,29 +1300,6 @@ const ItemAddEdit: React.FC = () => {
         );
       })}
 
-      {/* Custom Fields Section */}
-      {customFields.length > 0 && (
-        <FormSection title={t('common.customFields')}>
-          {customFields.map(field => (
-            <div key={field.tempId}>
-              <EditableFieldLabel
-                htmlFor={field.tempId}
-                label={field.label}
-                onLabelChange={(newLabel) => handleUpdateCustomFieldLabel(field.tempId, newLabel)}
-                onDelete={() => handleDeleteCustomField(field.tempId)}
-              />
-              {renderFieldInput(
-                field.tempId,
-                '',
-                field.fieldType,
-                field.isHidden,
-                false
-              )}
-            </div>
-          ))}
-        </FormSection>
-      )}
-
       {/* Notes Section */}
       {notesField && visibleFieldKeys.has('notes.content') && (
         <FormSection
@@ -1331,6 +1327,29 @@ const ItemAddEdit: React.FC = () => {
             notesField.IsHidden,
             notesField.IsMultiValue
           )}
+        </FormSection>
+      )}
+
+      {/* Custom Fields Section */}
+      {customFields.length > 0 && (
+        <FormSection title={t('common.customFields')}>
+          {customFields.map(field => (
+            <div key={field.tempId}>
+              <EditableFieldLabel
+                htmlFor={field.tempId}
+                label={field.label}
+                onLabelChange={(newLabel) => handleUpdateCustomFieldLabel(field.tempId, newLabel)}
+                onDelete={() => handleDeleteCustomField(field.tempId)}
+              />
+              {renderFieldInput(
+                field.tempId,
+                '',
+                field.fieldType,
+                field.isHidden,
+                false
+              )}
+            </div>
+          ))}
         </FormSection>
       )}
 

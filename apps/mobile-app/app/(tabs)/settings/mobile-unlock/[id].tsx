@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState, useEffect } from 'react';
-import { View, Alert, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { VaultUnlockHelper } from '@/utils/VaultUnlockHelper';
@@ -14,6 +14,7 @@ import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedScrollView } from '@/components/themed/ThemedScrollView';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { UsernameDisplay } from '@/components/ui/UsernameDisplay';
+import { useDialog } from '@/context/DialogContext';
 import { useWebApi } from '@/context/WebApiContext';
 import NativeVaultManager from '@/specs/NativeVaultManager';
 
@@ -23,6 +24,7 @@ import NativeVaultManager from '@/specs/NativeVaultManager';
 export default function MobileUnlockConfirmScreen() : React.ReactNode {
   const colors = useColors();
   const { t } = useTranslation();
+  const { showAlert } = useDialog();
   const webApi = useWebApi();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams();
@@ -35,19 +37,7 @@ export default function MobileUnlockConfirmScreen() : React.ReactNode {
    */
   useEffect(() => {
     if (!id) {
-      Alert.alert(
-        t('common.error'),
-        t('common.errors.unknownErrorTryAgain'),
-        [
-          {
-            text: t('common.ok'),
-            /**
-             * Navigate back to settings.
-             */
-            onPress: (): void => router.back(),
-          },
-        ]
-      );
+      showAlert(t('common.error'), t('common.errors.unknownErrorTryAgain'), () => router.back());
       return;
     }
 
@@ -60,19 +50,7 @@ export default function MobileUnlockConfirmScreen() : React.ReactNode {
         const isVersionSupported = await NativeVaultManager.isServerVersionGreaterThanOrEqualTo('0.25.0');
 
         if (!isVersionSupported) {
-          Alert.alert(
-            t('common.error'),
-            t('common.errors.serverVersionTooOld'),
-            [
-              {
-                text: t('common.ok'),
-                /**
-                 * Navigate back to settings.
-                 */
-                onPress: (): void => router.back(),
-              },
-            ]
-          );
+          showAlert(t('common.error'), t('common.errors.serverVersionTooOld'), () => router.back());
           return;
         }
 
@@ -92,24 +70,12 @@ export default function MobileUnlockConfirmScreen() : React.ReactNode {
           errorMsg = t('settings.qrScanner.mobileLogin.requestExpired');
         }
 
-        Alert.alert(
-          t('common.error'),
-          errorMsg,
-          [
-            {
-              text: t('common.ok'),
-              /**
-               * Navigate back to settings.
-               */
-              onPress: (): void => router.back(),
-            },
-          ]
-        );
+        showAlert(t('common.error'), errorMsg, () => router.back());
       }
     };
 
     validateRequest();
-  }, [id, webApi, t]);
+  }, [id, webApi, showAlert, t]);
 
   /**
    * Handle mobile login QR code.
@@ -191,10 +157,7 @@ export default function MobileUnlockConfirmScreen() : React.ReactNode {
       await handleMobileLogin(id as string);
     } catch (error) {
       console.error('Authentication or QR code processing error:', error);
-      Alert.alert(
-        t('common.error'),
-        error instanceof Error ? error.message : t('common.errors.unknownError')
-      );
+      showAlert(t('common.error'), error instanceof Error ? error.message : t('common.errors.unknownError'));
     } finally {
       setIsProcessing(false);
     }

@@ -19,6 +19,7 @@ import { AppProvider } from '@/context/AppContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { ClipboardCountdownProvider } from '@/context/ClipboardCountdownContext';
 import { DbProvider } from '@/context/DbContext';
+import { DialogProvider } from '@/context/DialogContext';
 import { NavigationProvider, useNavigation } from '@/context/NavigationContext';
 import { WebApiProvider } from '@/context/WebApiContext';
 import { initI18n } from '@/i18n';
@@ -177,9 +178,11 @@ export default function RootLayout() : React.ReactNode {
           <WebApiProvider>
             <AppProvider>
               <ClipboardCountdownProvider>
-                <GestureHandlerRootView>
-                  <RootLayoutNav />
-                </GestureHandlerRootView>
+                <DialogProvider>
+                  <GestureHandlerRootView>
+                    <RootLayoutNav />
+                  </GestureHandlerRootView>
+                </DialogProvider>
               </ClipboardCountdownProvider>
             </AppProvider>
           </WebApiProvider>

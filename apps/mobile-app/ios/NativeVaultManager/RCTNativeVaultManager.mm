@@ -243,6 +243,10 @@
     [vaultManager markVaultClean:(NSInteger)mutationSeqAtStart newServerRevision:(NSInteger)newServerRevision resolver:resolve rejecter:reject];
 }
 
+- (void)resetSyncStateForFreshDownload:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager resetSyncStateForFreshDownload:resolve rejecter:reject];
+}
+
 // MARK: - PIN Unlock
 
 - (void)isPinEnabled:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {

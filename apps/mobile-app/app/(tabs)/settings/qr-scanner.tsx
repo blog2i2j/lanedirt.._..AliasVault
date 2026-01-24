@@ -1,6 +1,6 @@
 import { Href, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useCallback, useRef } from 'react';
-import { View, StyleSheet, Platform, Alert } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 
 import { useColors } from '@/hooks/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -8,6 +8,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import LoadingIndicator from '@/components/LoadingIndicator';
 import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedText } from '@/components/themed/ThemedText';
+import { useDialog } from '@/context/DialogContext';
 import NativeVaultManager from '@/specs/NativeVaultManager';
 
 // QR Code type prefixes
@@ -53,6 +54,7 @@ function parseQRCode(data: string): ScannedQRCode {
 export default function QRScannerScreen() : React.ReactNode {
   const colors = useColors();
   const { t } = useTranslation();
+  const { showAlert } = useDialog();
   const { url } = useLocalSearchParams<{ url?: string }>();
   const hasProcessedUrl = useRef(false);
   const processedUrls = useRef(new Set<string>());
@@ -109,16 +111,9 @@ export default function QRScannerScreen() : React.ReactNode {
       }
     } catch (error) {
       console.error('QR scan error:', error);
-      Alert.alert(
-        t('common.error'),
-        'Failed to scan QR code',
-        [{ text: t('common.ok'), /**
-         * Navigate back.
-         */
-          onPress: (): void => router.back() }]
-      );
+      showAlert(t('common.error'), 'Failed to scan QR code', () => router.back());
     }
-  }, [handleQRCodeScanned, t]);
+  }, [handleQRCodeScanned, showAlert, t]);
 
   /**
    * Reset hasProcessedUrl when URL changes to allow processing new URLs.

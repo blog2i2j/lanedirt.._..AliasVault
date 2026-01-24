@@ -57,6 +57,14 @@ const EmailDetails: React.FC = (): React.ReactElement => {
           return;
         }
 
+        // Check if we are in offline mode
+        if (dbContext.isOffline) {
+          setError(t('emails.offlineMessage'));
+          setIsLoading(false);
+          setIsInitialLoading(false);
+          return;
+        }
+
         const response = await webApi.get<Email>(`Email/${id}`);
 
         // Decrypt email locally using public/private key pairs
@@ -72,7 +80,7 @@ const EmailDetails: React.FC = (): React.ReactElement => {
     };
 
     loadEmail();
-  }, [id, dbContext?.sqliteClient, webApi, setIsLoading, setIsInitialLoading]);
+  }, [id, dbContext?.sqliteClient, dbContext.isOffline, t, webApi, setIsLoading, setIsInitialLoading]);
 
   /**
    * Handle deleting an email.

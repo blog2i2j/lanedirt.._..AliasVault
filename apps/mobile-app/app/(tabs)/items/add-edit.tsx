@@ -1,17 +1,17 @@
 import { Buffer } from 'buffer';
 
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { usePreventRemove } from '@react-navigation/native';
+import { usePreventRemove, NavigationAction } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View, Alert, Keyboard, Platform, ScrollView, KeyboardAvoidingView, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Keyboard, Platform, ScrollView, KeyboardAvoidingView, TouchableOpacity } from 'react-native';
 import Toast from 'react-native-toast-message';
 
 import type { Folder } from '@/utils/db/repositories/FolderRepository';
 import { CreateIdentityGenerator, CreateUsernameEmailGenerator, Gender, Identity, IdentityHelperUtils, convertAgeRangeToBirthdateOptions } from '@/utils/dist/core/identity-generator';
-import type { Attachment, Item, ItemField, TotpCode, ItemType, FieldType } from '@/utils/dist/core/models/vault';
+import type { Attachment, Item, ItemField, TotpCode, ItemType, FieldType, PasswordSettings } from '@/utils/dist/core/models/vault';
 import { ItemTypes, getSystemFieldsForItemType, getOptionalFieldsForItemType, isFieldShownByDefault, getSystemField, fieldAppliesToType, FieldCategories, FieldTypes } from '@/utils/dist/core/models/vault';
 import type { FaviconExtractModel } from '@/utils/dist/core/models/webapi';
 import { CreatePasswordGenerator, PasswordGenerator } from '@/utils/dist/core/password-generator';
@@ -21,13 +21,16 @@ import { extractServiceNameFromUrl } from '@/utils/UrlUtility';
 import { useColors } from '@/hooks/useColorScheme';
 import { useVaultMutate } from '@/hooks/useVaultMutate';
 
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { AddFieldMenu, type OptionalSection } from '@/components/form/AddFieldMenu';
 import { AdvancedPasswordField } from '@/components/form/AdvancedPasswordField';
+import { EditableFieldLabel } from '@/components/form/EditableFieldLabel';
 import { EmailDomainField } from '@/components/form/EmailDomainField';
 import { FormField } from '@/components/form/FormField';
 import { FormSection } from '@/components/form/FormSection';
 import { HiddenField } from '@/components/form/HiddenField';
 import { ItemNameField, ItemNameFieldRef } from '@/components/form/ItemNameField';
+import { MultiValueField } from '@/components/form/MultiValueField';
 import { AttachmentUploader } from '@/components/items/details/AttachmentUploader';
 import { TotpEditor } from '@/components/items/details/TotpEditor';
 import { ItemTypeSelector } from '@/components/items/ItemTypeSelector';
@@ -83,9 +86,14 @@ export default function AddEditItemScreen(): React.ReactNode {
   const [originalAttachmentIds, setOriginalAttachmentIds] = useState<string[]>([]);
   const [totpCodes, setTotpCodes] = useState<TotpCode[]>([]);
   const [originalTotpCodeIds, setOriginalTotpCodeIds] = useState<string[]>([]);
+  const totpShowAddFormRef = useRef<(() => void) | null>(null);
   const [passkeyIds, setPasskeyIds] = useState<string[]>([]);
   const [passkeyIdsMarkedForDeletion, setPasskeyIdsMarkedForDeletion] = useState<string[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  // Store the pending navigation action when usePreventRemove triggers
+  const [pendingNavigationAction, setPendingNavigationAction] = useState<NavigationAction | null>(null);
 
   // Item state
   const [item, setItem] = useState<Item | null>(null);
@@ -118,6 +126,9 @@ export default function AddEditItemScreen(): React.ReactNode {
     password: string | null;
     email: string | null;
   }>({ username: null, password: null, email: null });
+
+  // Password settings state (loaded immediately to prevent flicker)
+  const [passwordSettings, setPasswordSettings] = useState<PasswordSettings | undefined>(undefined);
 
   /**
    * If we received an ID, we're in edit mode.
@@ -378,37 +389,17 @@ export default function AddEditItemScreen(): React.ReactNode {
 
   /**
    * Prevent accidental dismissal when there are unsaved changes.
+   * Shows custom dialog on Android, stores pending action for later execution.
    */
   usePreventRemove(hasUnsavedChanges, ({ data }): void => {
-    Alert.alert(
-      t('items.unsavedChanges.title'),
-      t('items.unsavedChanges.message'),
-      [
-        {
-          text: t('common.cancel'),
-          style: 'cancel',
-          /**
-           * Do nothing
-           */
-          onPress: (): void => {}
-        },
-        {
-          text: t('items.unsavedChanges.discard'),
-          style: 'destructive',
-          /**
-           * Discard unsaved changes and navigate back
-           */
-          onPress: (): void => {
-            setHasUnsavedChanges(false);
-            navigation.dispatch(data.action);
-          },
-        },
-      ]
-    );
+    // Store the pending navigation action and show the discard confirm dialog
+    setPendingNavigationAction(data.action);
+    setShowDiscardConfirm(true);
   });
 
   /**
    * Load an existing item from the database in edit mode.
+   * Note: passwordSettings should already be loaded before this is called.
    */
   const loadExistingItem = useCallback(async (): Promise<void> => {
     try {
@@ -497,8 +488,23 @@ export default function AddEditItemScreen(): React.ReactNode {
       }
 
       if (isEditMode) {
+        // Load password settings BEFORE loading item so it's available when components render
+        try {
+          const settings = await dbContext.sqliteClient!.getPasswordSettings();
+          setPasswordSettings(settings);
+        } catch (err) {
+          console.error('Error loading password settings:', err);
+        }
+        // Now load the item - passwordSettings is already set
         loadExistingItem();
       } else {
+        // Create mode - load password settings for new items too
+        try {
+          const settings = await dbContext.sqliteClient!.getPasswordSettings();
+          setPasswordSettings(settings);
+        } catch (err) {
+          console.error('Error loading password settings:', err);
+        }
         // Create mode - initialize new item
         let serviceName = '';
         let decodedItemUrl = '';
@@ -684,6 +690,16 @@ export default function AddEditItemScreen(): React.ReactNode {
   }, []);
 
   /**
+   * Update custom field label handler.
+   */
+  const handleUpdateCustomFieldLabel = useCallback((tempId: string, newLabel: string) => {
+    setCustomFields(prev => prev.map(f =>
+      f.tempId === tempId ? { ...f, label: newLabel } : f
+    ));
+    setHasUnsavedChanges(true);
+  }, []);
+
+  /**
    * Optional sections for AddFieldMenu.
    */
   const optionalSections = useMemo((): OptionalSection[] => {
@@ -744,22 +760,20 @@ export default function AddEditItemScreen(): React.ReactNode {
       }
     });
 
-    // Add custom fields
+    // Add custom fields - always persist even if empty (only deleted when explicitly removed)
     customFields.forEach(customField => {
-      const value = fieldValues[customField.tempId];
+      const value = fieldValues[customField.tempId] || '';
 
-      if (value && (Array.isArray(value) ? value.length > 0 : value.toString().trim() !== '')) {
-        fields.push({
-          FieldKey: customField.tempId,
-          Label: customField.label,
-          FieldType: customField.fieldType,
-          Value: value,
-          IsHidden: customField.isHidden,
-          DisplayOrder: customField.displayOrder,
-          IsCustomField: true,
-          EnableHistory: false
-        });
-      }
+      fields.push({
+        FieldKey: customField.tempId,
+        Label: customField.label,
+        FieldType: customField.fieldType,
+        Value: value,
+        IsHidden: customField.isHidden,
+        DisplayOrder: customField.displayOrder,
+        IsCustomField: true,
+        EnableHistory: false
+      });
     });
 
     // Normalize birthdate if present
@@ -782,25 +796,36 @@ export default function AddEditItemScreen(): React.ReactNode {
     const urlString = Array.isArray(urlValue) ? urlValue[0] : urlValue;
     const shouldFetchFavicon = urlString && urlString !== 'https://' && urlString !== 'http://';
 
-    if (shouldFetchFavicon) {
-      // Only show loading indicator when fetching favicon
-      setIsSaving(true);
-      setSaveStatus(t('vault.savingChangesToVault'));
+    if (shouldFetchFavicon && dbContext.sqliteClient) {
+      // Extract source domain for deduplication check
+      const source = dbContext.sqliteClient.logos.extractSourceFromUrl(urlString);
 
-      try {
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Favicon extraction timed out')), 5000)
-        );
+      // Only fetch favicon if no logo exists for this source (deduplication)
+      const hasExistingLogo = source !== 'unknown' && await dbContext.sqliteClient.logos.hasLogoForSource(source);
 
-        const faviconPromise = webApi.get<FaviconExtractModel>('Favicon/Extract?url=' + urlString);
-        const faviconResponse = await Promise.race([faviconPromise, timeoutPromise]) as FaviconExtractModel;
-        if (faviconResponse?.image) {
-          const decodedImage = Uint8Array.from(Buffer.from(faviconResponse.image as string, 'base64'));
-          itemToSave.Logo = decodedImage;
+      if (!hasExistingLogo) {
+        // Only show loading indicator when fetching favicon
+        setIsSaving(true);
+        setSaveStatus(t('vault.savingChangesToVault'));
+
+        try {
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Favicon extraction timed out')), 5000)
+          );
+
+          const faviconPromise = webApi.get<FaviconExtractModel>('Favicon/Extract?url=' + encodeURIComponent(urlString));
+          const faviconResponse = await Promise.race([faviconPromise, timeoutPromise]) as FaviconExtractModel;
+          if (faviconResponse?.image) {
+            const decodedImage = Uint8Array.from(Buffer.from(faviconResponse.image as string, 'base64'));
+            itemToSave.Logo = decodedImage;
+          }
+        } catch {
+          // Favicon extraction failed or timed out - not critical, continue with save
         }
-      } catch {
-        // Favicon extraction failed or timed out - not critical, continue with save
       }
+    } else if (!shouldFetchFavicon) {
+      // URL is empty or just a placeholder - clear any existing logo
+      itemToSave.Logo = undefined;
     }
 
     /*
@@ -868,80 +893,115 @@ export default function AddEditItemScreen(): React.ReactNode {
   /**
    * Handle the delete button press.
    */
-  const handleDelete = async (): Promise<void> => {
+  const handleDelete = (): void => {
     if (!id) {
       return;
     }
 
     Keyboard.dismiss();
-
-    Alert.alert(
-      t('items.deleteItem'),
-      t('items.deleteConfirm'),
-      [
-        {
-          text: t('common.cancel'),
-          style: "cancel"
-        },
-        {
-          text: t('common.delete'),
-          style: "destructive",
-          /**
-           * Delete the item
-           */
-          onPress: async (): Promise<void> => {
-            await executeVaultMutation(async () => {
-              await dbContext.sqliteClient!.items.trash(id);
-            });
-
-            emitter.emit('credentialChanged', id);
-
-            setTimeout(() => {
-              Toast.show({
-                type: 'success',
-                text1: t('items.toasts.itemDeleted'),
-                position: 'bottom'
-              });
-            }, 200);
-
-            router.back();
-            router.back();
-          }
-        }
-      ]
-    );
+    setShowDeleteConfirm(true);
   };
+
+  /**
+   * Confirm and execute item deletion.
+   */
+  const confirmDelete = useCallback(async (): Promise<void> => {
+    if (!id) {
+      return;
+    }
+
+    await executeVaultMutation(async () => {
+      await dbContext.sqliteClient!.items.trash(id);
+    });
+
+    emitter.emit('credentialChanged', id);
+
+    setTimeout(() => {
+      Toast.show({
+        type: 'success',
+        text1: t('items.toasts.itemDeleted'),
+        position: 'bottom'
+      });
+    }, 200);
+
+    setShowDeleteConfirm(false);
+    router.back();
+    router.back();
+  }, [id, executeVaultMutation, dbContext.sqliteClient, t, router]);
 
   /**
    * Handle cancel button press.
    */
   const handleCancel = useCallback((): void => {
     if (hasUnsavedChanges) {
-      Alert.alert(
-        t('items.unsavedChanges.title'),
-        t('items.unsavedChanges.message'),
-        [
-          {
-            text: t('common.cancel'),
-            style: 'cancel',
-          },
-          {
-            text: t('items.unsavedChanges.discard'),
-            style: 'destructive',
-            /**
-             * Discard unsaved changes and navigate back
-             */
-            onPress: (): void => {
-              setHasUnsavedChanges(false);
-              router.back();
-            },
-          },
-        ]
-      );
+      setShowDiscardConfirm(true);
     } else {
       router.back();
     }
-  }, [hasUnsavedChanges, router, t]);
+  }, [hasUnsavedChanges, router]);
+
+  /**
+   * Confirm discard and navigate back.
+   */
+  const confirmDiscard = useCallback((): void => {
+    setHasUnsavedChanges(false);
+    setShowDiscardConfirm(false);
+
+    // If we have a pending navigation action (from usePreventRemove), dispatch it
+    if (pendingNavigationAction) {
+      navigation.dispatch(pendingNavigationAction);
+      setPendingNavigationAction(null);
+    } else {
+      // Otherwise just go back (from cancel button press)
+      router.back();
+    }
+  }, [router, navigation, pendingNavigationAction]);
+
+  /**
+   * Hide delete confirmation dialog.
+   */
+  const hideDeleteConfirm = useCallback((): void => {
+    setShowDeleteConfirm(false);
+  }, []);
+
+  /**
+   * Hide discard confirmation dialog.
+   */
+  const hideDiscardConfirm = useCallback((): void => {
+    setShowDiscardConfirm(false);
+  }, []);
+
+  /**
+   * Buttons for delete confirmation dialog.
+   */
+  const deleteConfirmButtons = useMemo(() => [
+    {
+      text: t('common.cancel'),
+      style: 'cancel' as const,
+      onPress: hideDeleteConfirm,
+    },
+    {
+      text: t('common.delete'),
+      style: 'destructive' as const,
+      onPress: confirmDelete,
+    },
+  ], [t, hideDeleteConfirm, confirmDelete]);
+
+  /**
+   * Buttons for discard confirmation dialog.
+   */
+  const discardConfirmButtons = useMemo(() => [
+    {
+      text: t('common.cancel'),
+      style: 'cancel' as const,
+      onPress: hideDiscardConfirm,
+    },
+    {
+      text: t('items.unsavedChanges.discard'),
+      style: 'destructive' as const,
+      onPress: confirmDiscard,
+    },
+  ], [t, hideDiscardConfirm, confirmDiscard]);
 
   /**
    * Get the top padding for the container.
@@ -991,12 +1051,26 @@ export default function AddEditItemScreen(): React.ReactNode {
     label: string,
     fieldType: FieldType,
     isHidden: boolean,
-    _isMultiValue: boolean,
+    isMultiValue: boolean,
     onRemove?: () => void
   ): React.ReactNode => {
     const value = fieldValues[fieldKey] || '';
-    const stringValue = Array.isArray(value) ? value[0] || '' : value;
     const testID = getFieldTestId(fieldKey);
+
+    // Handle multi-value fields (like URL)
+    if (isMultiValue) {
+      const values = Array.isArray(value) && value.length > 0 ? value : (value ? [value as string] : ['']);
+      return (
+        <MultiValueField
+          label={label}
+          values={values}
+          onValuesChange={(newValues) => handleFieldChange(fieldKey, newValues)}
+          testID={testID}
+        />
+      );
+    }
+
+    const stringValue = Array.isArray(value) ? value[0] || '' : value;
 
     switch (fieldType) {
       case FieldTypes.Password:
@@ -1010,6 +1084,7 @@ export default function AddEditItemScreen(): React.ReactNode {
             isNewCredential={!isEditMode}
             onRemove={onRemove}
             testID={testID}
+            initialSettings={passwordSettings}
           />
         );
 
@@ -1025,7 +1100,9 @@ export default function AddEditItemScreen(): React.ReactNode {
           />
         );
 
-      case FieldTypes.Email:
+      case FieldTypes.Email: {
+        // Default to email mode (free text) for Login items, alias mode (domain chooser) for Alias items
+        const defaultEmailMode = item?.ItemType === ItemTypes.Login;
         return (
           <EmailDomainField
             value={stringValue}
@@ -1033,8 +1110,10 @@ export default function AddEditItemScreen(): React.ReactNode {
             label={label}
             onRemove={onRemove}
             testID={testID}
+            defaultEmailMode={defaultEmailMode}
           />
         );
+      }
 
       case FieldTypes.TextArea:
         return (
@@ -1084,7 +1163,7 @@ export default function AddEditItemScreen(): React.ReactNode {
           />
         );
     }
-  }, [fieldValues, handleFieldChange, isPasswordVisible, isEditMode, aliasFieldsShownByDefault, generateRandomUsername, t, getFieldTestId]);
+  }, [fieldValues, handleFieldChange, isPasswordVisible, isEditMode, aliasFieldsShownByDefault, generateRandomUsername, t, getFieldTestId, item?.ItemType, passwordSettings]);
 
   const styles = StyleSheet.create({
     container: {
@@ -1268,7 +1347,7 @@ export default function AddEditItemScreen(): React.ReactNode {
             />
 
             {/* Item Name and Primary Fields Section */}
-            <FormSection title={t('items.service')}>
+            <FormSection>
               <ItemNameField
                 ref={itemNameRef}
                 value={item.Name ?? ''}
@@ -1452,24 +1531,6 @@ export default function AddEditItemScreen(): React.ReactNode {
               );
             })}
 
-            {/* Custom Fields Section */}
-            {customFields.length > 0 && (
-              <FormSection title={t('itemTypes.customFields')}>
-                {customFields.map(field => (
-                  <View key={field.tempId}>
-                    {renderFieldInput(
-                      field.tempId,
-                      field.label,
-                      field.fieldType,
-                      field.isHidden,
-                      false,
-                      () => handleDeleteCustomField(field.tempId)
-                    )}
-                  </View>
-                ))}
-              </FormSection>
-            )}
-
             {/* Notes Section */}
             {notesField && visibleFieldKeys.has('notes.content') && (
               <FormSection
@@ -1495,13 +1556,43 @@ export default function AddEditItemScreen(): React.ReactNode {
               </FormSection>
             )}
 
+            {/* Custom Fields Section */}
+            {customFields.length > 0 && (
+              <FormSection title={t('itemTypes.customFields')}>
+                {customFields.map(field => (
+                  <View key={field.tempId}>
+                    <EditableFieldLabel
+                      label={field.label}
+                      onLabelChange={(newLabel) => handleUpdateCustomFieldLabel(field.tempId, newLabel)}
+                      onDelete={() => handleDeleteCustomField(field.tempId)}
+                    />
+                    {renderFieldInput(
+                      field.tempId,
+                      '', // Label is shown by EditableFieldLabel
+                      field.fieldType,
+                      field.isHidden,
+                      false
+                    )}
+                  </View>
+                ))}
+              </FormSection>
+            )}
+
             {/* 2FA TOTP Section - only for types with login fields */}
             {show2FA && hasLoginFields && (
-              <FormSection title={t('common.twoFactorAuthentication')}>
+              <FormSection
+                title={t('common.twoFactorAuthentication')}
+                actions={
+                  <RobustPressable onPress={() => totpShowAddFormRef.current?.()} style={{ padding: 4 }}>
+                    <MaterialIcons name="add" size={20} color={colors.primary} />
+                  </RobustPressable>
+                }
+              >
                 <TotpEditor
                   totpCodes={totpCodes}
                   onTotpCodesChange={setTotpCodes}
                   originalTotpCodeIds={originalTotpCodeIds}
+                  showAddFormRef={totpShowAddFormRef}
                 />
               </FormSection>
             )}
@@ -1543,6 +1634,22 @@ export default function AddEditItemScreen(): React.ReactNode {
         </KeyboardAvoidingView>
       </ThemedContainer>
       <AliasVaultToast />
+
+      <ConfirmDialog
+        isVisible={showDeleteConfirm}
+        title={t('items.deleteItem')}
+        message={t('items.deleteConfirm')}
+        buttons={deleteConfirmButtons}
+        onClose={hideDeleteConfirm}
+      />
+
+      <ConfirmDialog
+        isVisible={showDiscardConfirm}
+        title={t('items.unsavedChanges.title')}
+        message={t('items.unsavedChanges.message')}
+        buttons={discardConfirmButtons}
+        onClose={hideDiscardConfirm}
+      />
     </>
   );
 }

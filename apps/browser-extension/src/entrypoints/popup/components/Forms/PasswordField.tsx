@@ -16,6 +16,10 @@ interface IPasswordFieldProps {
   error?: string;
   showPassword?: boolean;
   onShowPasswordChange?: (show: boolean) => void;
+  /** Initial password settings to use (e.g., from persisted form state) */
+  initialSettings?: PasswordSettings;
+  /** Callback when password settings change */
+  onSettingsChange?: (settings: PasswordSettings) => void;
 }
 
 /**
@@ -29,7 +33,9 @@ const PasswordField: React.FC<IPasswordFieldProps> = ({
   placeholder,
   error,
   showPassword: controlledShowPassword,
-  onShowPasswordChange
+  onShowPasswordChange,
+  initialSettings,
+  onSettingsChange
 }) => {
   const { t } = useTranslation();
   const dbContext = useDb();
@@ -56,12 +62,18 @@ const PasswordField: React.FC<IPasswordFieldProps> = ({
   useEffect(() => {
     /**
      * Load password settings from the database.
+     * If initialSettings is provided (e.g., from persisted form state), use it instead of the database default.
      */
     const loadSettings = async (): Promise<void> => {
       try {
         if (dbContext.sqliteClient) {
-          const settings = dbContext.sqliteClient.settings.getPasswordSettings();
-          setCurrentSettings(settings);
+          // Use initialSettings if provided, otherwise use database settings
+          if (initialSettings !== undefined) {
+            setCurrentSettings(initialSettings);
+          } else {
+            const settings = dbContext.sqliteClient.settings.getPasswordSettings();
+            setCurrentSettings(settings);
+          }
           setIsLoaded(true);
         }
       } catch (error) {
@@ -69,7 +81,7 @@ const PasswordField: React.FC<IPasswordFieldProps> = ({
       }
     };
     void loadSettings();
-  }, [dbContext.sqliteClient]);
+  }, [dbContext.sqliteClient, initialSettings]);
 
   const generatePassword = useCallback((settings: PasswordSettings) => {
     try {
@@ -90,9 +102,12 @@ const PasswordField: React.FC<IPasswordFieldProps> = ({
     const newSettings = { ...currentSettings, Length: length };
     setCurrentSettings(newSettings);
 
+    // Notify parent of settings change for persistence
+    onSettingsChange?.(newSettings);
+
     // Always generate password when length changes
     generatePassword(newSettings);
-  }, [currentSettings, generatePassword]);
+  }, [currentSettings, generatePassword, onSettingsChange]);
 
   const handleRegeneratePassword = useCallback(() => {
     if (!currentSettings) {
@@ -108,7 +123,9 @@ const PasswordField: React.FC<IPasswordFieldProps> = ({
 
   const handleAdvancedSettingsChange = useCallback((newSettings: PasswordSettings) => {
     setCurrentSettings(newSettings);
-  }, []);
+    // Notify parent of settings change for persistence
+    onSettingsChange?.(newSettings);
+  }, [onSettingsChange]);
 
   const togglePasswordVisibility = useCallback(() => {
     setShowPassword(!showPassword);

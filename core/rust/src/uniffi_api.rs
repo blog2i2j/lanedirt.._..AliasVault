@@ -78,7 +78,7 @@ pub fn prune_vault_json(input_json: String) -> Result<String, VaultError> {
 /// * `input_json` - JSON string with format:
 ///   ```json
 ///   {
-///     "credentials": [{"Id": "...", "ServiceName": "...", "ServiceUrl": "..."}],
+///     "credentials": [{"Id": "...", "ItemName": "...", "ItemUrls": ["url1", "url2"]}],
 ///     "current_url": "https://github.com",
 ///     "page_title": "GitHub",
 ///     "matching_mode": "default"

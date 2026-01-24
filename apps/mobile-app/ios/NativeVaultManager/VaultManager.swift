@@ -15,7 +15,7 @@ import RustCoreFramework
  */
 @objc(VaultManager)
 public class VaultManager: NSObject {
-    private let vaultStore = VaultStore()
+    private let vaultStore = VaultStore.shared
     private let webApiService = WebApiService()
 
     override init() {
@@ -908,6 +908,13 @@ public class VaultManager: NSObject {
                        rejecter reject: @escaping RCTPromiseRejectBlock) {
         let cleared = vaultStore.markVaultClean(mutationSeqAtStart: mutationSeqAtStart, newServerRevision: newServerRevision)
         resolve(cleared)
+    }
+
+    @objc
+    func resetSyncStateForFreshDownload(_ resolve: @escaping RCTPromiseResolveBlock,
+                                        rejecter reject: @escaping RCTPromiseRejectBlock) {
+        vaultStore.setIsDirty(false)
+        resolve(nil)
     }
 
     // MARK: - SRP (Secure Remote Password) Operations

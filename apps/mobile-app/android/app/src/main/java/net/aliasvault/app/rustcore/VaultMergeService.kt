@@ -66,27 +66,64 @@ object VaultMergeService {
         tempDir: File,
     ): String {
         // Decrypt both vaults
+        // Vault format: base64(encrypted(base64(sqlite_bytes)))
+        // After AES decrypt we get base64(sqlite_bytes), need to decode again
         val localDecrypted = try {
-            VaultCrypto.decrypt(Base64.decode(localVaultBase64, Base64.DEFAULT), encryptionKey)
+            val decryptedBase64 = VaultCrypto.decrypt(Base64.decode(localVaultBase64, Base64.DEFAULT), encryptionKey)
+            Base64.decode(decryptedBase64, Base64.NO_WRAP)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to decrypt local vault", e)
             throw VaultMergeException.InvalidInput("Failed to decrypt local vault: ${e.message}")
         }
 
         val serverDecrypted = try {
-            VaultCrypto.decrypt(Base64.decode(serverVaultBase64, Base64.DEFAULT), encryptionKey)
+            val decryptedBase64 = VaultCrypto.decrypt(Base64.decode(serverVaultBase64, Base64.DEFAULT), encryptionKey)
+            Base64.decode(decryptedBase64, Base64.NO_WRAP)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to decrypt server vault", e)
             throw VaultMergeException.InvalidInput("Failed to decrypt server vault: ${e.message}")
         }
 
         // Create temporary database files
+        // Ensure the temp directory exists (may not on first app run or after cache clear)
+        if (!tempDir.exists()) {
+            tempDir.mkdirs()
+        }
+
+        // Verify directory exists and is writable
+        if (!tempDir.exists() || !tempDir.isDirectory) {
+            throw VaultMergeException.DatabaseError("Temp directory does not exist or is not a directory: ${tempDir.absolutePath}")
+        }
+        if (!tempDir.canWrite()) {
+            throw VaultMergeException.DatabaseError("Temp directory is not writable: ${tempDir.absolutePath}")
+        }
+
         val localDbFile = File(tempDir, "local_merge_temp.db")
         val serverDbFile = File(tempDir, "server_merge_temp.db")
 
         try {
-            localDbFile.writeBytes(localDecrypted)
-            serverDbFile.writeBytes(serverDecrypted)
+            // Write decrypted databases to temp files using FileOutputStream to ensure proper flushing
+            java.io.FileOutputStream(localDbFile).use { fos ->
+                fos.write(localDecrypted)
+                fos.fd.sync()
+            }
+
+            java.io.FileOutputStream(serverDbFile).use { fos ->
+                fos.write(serverDecrypted)
+                fos.fd.sync()
+            }
+
+            // Verify files were written
+            if (!localDbFile.exists() || localDbFile.length() == 0L) {
+                throw VaultMergeException.DatabaseError(
+                    "Failed to write local temp db: exists=${localDbFile.exists()}, len=${localDbFile.length()}",
+                )
+            }
+            if (!serverDbFile.exists() || serverDbFile.length() == 0L) {
+                throw VaultMergeException.DatabaseError(
+                    "Failed to write server temp db: exists=${serverDbFile.exists()}, len=${serverDbFile.length()}",
+                )
+            }
 
             val localDb = SQLiteDatabase.openDatabase(localDbFile.absolutePath, null, SQLiteDatabase.OPEN_READWRITE)
             val serverDb = SQLiteDatabase.openDatabase(serverDbFile.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
@@ -136,8 +173,10 @@ object VaultMergeService {
                 serverDb.close()
 
                 // Encrypt and return
+                // Output format must match input: base64(encrypted(base64(sqlite_bytes)))
                 val mergedData = localDbFile.readBytes()
-                val encrypted = VaultCrypto.encrypt(mergedData, encryptionKey)
+                val mergedBase64 = Base64.encodeToString(mergedData, Base64.NO_WRAP)
+                val encrypted = VaultCrypto.encrypt(mergedBase64.toByteArray(Charsets.UTF_8), encryptionKey)
                 return Base64.encodeToString(encrypted, Base64.DEFAULT)
             } finally {
                 if (localDb.isOpen) localDb.close()
@@ -160,13 +199,20 @@ object VaultMergeService {
         encryptionKey: ByteArray,
         tempDir: File,
     ): Pair<String, Int> {
+        // Vault format: base64(encrypted(base64(sqlite_bytes)))
+        // After AES decrypt we get base64(sqlite_bytes), need to decode again
         val decrypted = try {
-            VaultCrypto.decrypt(Base64.decode(vaultBase64, Base64.DEFAULT), encryptionKey)
+            val decryptedBase64 = VaultCrypto.decrypt(Base64.decode(vaultBase64, Base64.DEFAULT), encryptionKey)
+            Base64.decode(decryptedBase64, Base64.NO_WRAP)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to decrypt vault for pruning", e)
             throw VaultMergeException.InvalidInput("Failed to decrypt vault: ${e.message}")
         }
 
+        // Ensure the temp directory exists (may not on first app run or after cache clear)
+        if (!tempDir.exists()) {
+            tempDir.mkdirs()
+        }
         val dbFile = File(tempDir, "prune_temp.db")
 
         try {
@@ -215,8 +261,10 @@ object VaultMergeService {
                 db.close()
 
                 // Encrypt and return
+                // Output format must match input: base64(encrypted(base64(sqlite_bytes)))
                 val prunedData = dbFile.readBytes()
-                val encrypted = VaultCrypto.encrypt(prunedData, encryptionKey)
+                val prunedBase64 = Base64.encodeToString(prunedData, Base64.NO_WRAP)
+                val encrypted = VaultCrypto.encrypt(prunedBase64.toByteArray(Charsets.UTF_8), encryptionKey)
                 return Pair(Base64.encodeToString(encrypted, Base64.DEFAULT), statements.size)
             } finally {
                 if (db.isOpen) db.close()

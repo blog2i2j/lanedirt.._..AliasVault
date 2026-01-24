@@ -133,6 +133,10 @@ else
             // Try to unlock with WebAuthn if enabled and not explicitly skipped
             if (ShowWebAuthnButton && !SkipWebAuthn)
             {
+                // Add delay to ensure the AliasVault browser extension interceptor doesn't filter
+                // this as an "automatic request". The extension blocks WebAuthn requests within
+                // 1 second of page load to prevent interference with sites that auto-trigger passkeys.
+                await Task.Delay(1100);
                 await UnlockWithWebAuthn();
             }
 

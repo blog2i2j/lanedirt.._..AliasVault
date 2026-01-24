@@ -6,6 +6,11 @@ let wasmModule = null;
 let isInitialized = false;
 let initPromise = null;
 
+// Get cache buster from global variable set by index.html
+const cacheBuster = window.__CACHE_BUSTER__ || 'dev';
+const wasmUrl = `/wasm/aliasvault_core_bg.wasm?v=${cacheBuster}`;
+const wasmJsUrl = `/wasm/aliasvault_core.js?v=${cacheBuster}`;
+
 /**
  * Fetch with retry for more robust WASM loading.
  * @param {string} url - URL to fetch.
@@ -50,12 +55,12 @@ async function initRustCore() {
 
     initPromise = (async () => {
         try {
-            // Fetch the WASM binary with retry
-            const wasmResponse = await fetchWithRetry('/wasm/aliasvault_core_bg.wasm');
+            // Fetch the WASM binary with retry (uses same URL as preload hint for cache hit)
+            const wasmResponse = await fetchWithRetry(wasmUrl);
             const wasmBytes = await wasmResponse.arrayBuffer();
 
-            // Dynamically import the ES module
-            const module = await import('/wasm/aliasvault_core.js');
+            // Dynamically import the ES module (uses same URL as modulepreload hint)
+            const module = await import(wasmJsUrl);
 
             // Initialize the WASM module with the binary bytes
             await module.default(wasmBytes);

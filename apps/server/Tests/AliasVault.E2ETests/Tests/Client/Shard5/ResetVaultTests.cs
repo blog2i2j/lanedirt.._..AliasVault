@@ -35,8 +35,10 @@ public class ResetVaultTests : ClientPlaywrightTest
             ApiTimeProvider.AdvanceBy(TimeSpan.FromSeconds(1));
 
             var randomServiceName = $"Item service {i}";
+            var randomEmail = $"email-{i}@example.tld";
             await CreateItemEntry(new Dictionary<string, string>
             {
+                { "email", randomEmail },
                 { "service-name", randomServiceName },
             });
 
@@ -77,8 +79,10 @@ public class ResetVaultTests : ClientPlaywrightTest
 
         // Create a new item entry.
         var serviceName = "Item service after reset";
+        var email = $"email-x@example.tld";
         await CreateItemEntry(new Dictionary<string, string>
         {
+            { "email", email },
             { "service-name", serviceName },
         });
 

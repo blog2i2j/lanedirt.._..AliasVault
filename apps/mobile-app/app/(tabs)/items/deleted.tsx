@@ -68,7 +68,7 @@ export default function RecentlyDeletedScreen(): React.ReactNode {
       Toast.show({
         type: 'error',
         text1: t('items.errorLoadingItems'),
-        text2: err instanceof Error ? err.message : 'Unknown error',
+        text2: t('common.errors.unknownError'),
       });
     } finally {
       setIsLoadingItems(false);

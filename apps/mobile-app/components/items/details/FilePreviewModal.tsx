@@ -9,8 +9,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Dimensions,
-  Alert
+  Dimensions
 } from 'react-native';
 import ImageViewer from 'react-native-image-zoom-viewer';
 
@@ -18,6 +17,7 @@ import { useColors } from '@/hooks/useColorScheme';
 
 import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedView } from '@/components/themed/ThemedView';
+import { useDialog } from '@/context/DialogContext';
 
 type FilePreviewModalProps = {
   visible: boolean;
@@ -47,6 +47,7 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
   const [fileSize, setFileSize] = useState<string>('');
   const colors = useColors();
   const { t } = useTranslation();
+  const { showAlert } = useDialog();
 
   const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
   const textExtensions = ['txt', 'md', 'json', 'csv', 'log', 'xml', 'js', 'ts', 'tsx', 'jsx', 'html', 'css'];
@@ -85,12 +86,12 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
       setFileContent(content);
     } catch (error) {
       console.error('Error reading text file:', error);
-      Alert.alert('Error', 'Could not read file content');
+      showAlert('Error', 'Could not read file content');
       setFileContent('Error loading file content');
     } finally {
       setLoading(false);
     }
-  }, [filePath]);
+  }, [filePath, showAlert]);
 
   useEffect(() => {
     if (visible) {
@@ -114,14 +115,11 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
           dialogTitle: `Save ${fileName}`,
         });
       } else {
-        Alert.alert(
-          t('common.success'),
-          `${t('items.fileSavedTo')}: ${filePath}`
-        );
+        showAlert(t('common.success'), `${t('items.fileSavedTo')}: ${filePath}`);
       }
     } catch (error) {
       console.error('Error downloading file:', error);
-      Alert.alert('Error', 'Failed to download file');
+      showAlert('Error', 'Failed to download file');
     }
   };
 

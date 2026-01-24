@@ -13,6 +13,7 @@ using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Threading.Tasks;
 using AliasClientDb;
 using AliasClientDb.Models;
@@ -226,6 +227,9 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
             totpCode.UpdatedAt = currentDateTime;
         }
 
+        // Create history records for fields with EnableHistory=true
+        await CreateInitialFieldHistoryAsync(context, item, currentDateTime);
+
         context.Items.Add(item);
 
         // Save the database to the server if saveToDb is true.
@@ -293,6 +297,9 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
         {
             ClearInapplicableData(context, existingItem, item.ItemType, updateDateTime);
         }
+
+        // Track history for fields with EnableHistory=true before updating
+        await TrackFieldHistoryAsync(context, existingItem, item, updateDateTime);
 
         // Update field values
         UpdateFieldValues(context, existingItem, item, updateDateTime);
@@ -390,15 +397,15 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
             Email = GetFieldValue(x, FieldKey.LoginEmail),
             CardNumber = GetFieldValue(x, FieldKey.CardNumber),
             CreatedAt = x.CreatedAt,
-            HasPasskey = x.Passkeys != null && x.Passkeys.Any(),
+            HasPasskey = x.Passkeys != null && x.Passkeys.Any(p => !p.IsDeleted),
             HasAlias = !string.IsNullOrWhiteSpace(GetFieldValue(x, FieldKey.AliasFirstName)) ||
                        !string.IsNullOrWhiteSpace(GetFieldValue(x, FieldKey.AliasLastName)) ||
                        !string.IsNullOrWhiteSpace(GetFieldValue(x, FieldKey.AliasGender)) ||
                        !string.IsNullOrWhiteSpace(GetFieldValue(x, FieldKey.AliasBirthdate)),
             HasUsernameOrPassword = !string.IsNullOrWhiteSpace(GetFieldValue(x, FieldKey.LoginUsername)) ||
                                     !string.IsNullOrWhiteSpace(GetFieldValue(x, FieldKey.LoginPassword)),
-            HasAttachment = x.Attachments != null && x.Attachments.Any(),
-            HasTotp = x.TotpCodes != null && x.TotpCodes.Any(),
+            HasAttachment = x.Attachments != null && x.Attachments.Any(a => !a.IsDeleted),
+            HasTotp = x.TotpCodes != null && x.TotpCodes.Any(t => !t.IsDeleted),
             FolderId = x.FolderId,
             FolderName = x.Folder?.Name,
         }).ToList();
@@ -578,6 +585,17 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
             totp.UpdatedAt = deleteDateTime;
         }
 
+        // Also delete field histories (queried separately since no navigation property)
+        var fieldHistories = await context.FieldHistories
+            .Where(fh => fh.ItemId == id && !fh.IsDeleted)
+            .ToListAsync();
+
+        foreach (var history in fieldHistories)
+        {
+            history.IsDeleted = true;
+            history.UpdatedAt = deleteDateTime;
+        }
+
         return await dbService.SaveDatabaseAsync();
     }
 
@@ -627,6 +645,17 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
         {
             totp.IsDeleted = true;
             totp.UpdatedAt = deleteDateTime;
+        }
+
+        // Also delete field histories (queried separately since no navigation property)
+        var fieldHistories = await context.FieldHistories
+            .Where(fh => fh.ItemId == id && !fh.IsDeleted)
+            .ToListAsync();
+
+        foreach (var history in fieldHistories)
+        {
+            history.IsDeleted = true;
+            history.UpdatedAt = deleteDateTime;
         }
 
         // Save locally and sync to server in background
@@ -679,6 +708,92 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Get field history for a specific item and field.
+    /// </summary>
+    /// <param name="itemId">The item ID.</param>
+    /// <param name="fieldKey">The field key.</param>
+    /// <returns>List of field history records.</returns>
+    public async Task<List<FieldHistory>> GetFieldHistoryAsync(Guid itemId, string fieldKey)
+    {
+        var context = await dbService.GetDbContextAsync();
+
+        return await context.FieldHistories
+            .Where(fh => fh.ItemId == itemId && fh.FieldKey == fieldKey && !fh.IsDeleted)
+            .OrderByDescending(fh => fh.ChangedAt)
+            .Take(10)
+            .ToListAsync();
+    }
+
+    /// <summary>
+    /// Get field history count for a specific item and field.
+    /// Returns the count only if history is meaningful (more than 1 record,
+    /// or 1 record with value different from current).
+    /// </summary>
+    /// <param name="itemId">The item ID.</param>
+    /// <param name="fieldKey">The field key.</param>
+    /// <param name="currentValue">The current field value to compare against.</param>
+    /// <returns>Number of history records if meaningful, 0 otherwise.</returns>
+    public async Task<int> GetFieldHistoryCountAsync(Guid itemId, string fieldKey, string? currentValue = null)
+    {
+        var context = await dbService.GetDbContextAsync();
+
+        var historyRecords = await context.FieldHistories
+            .Where(fh => fh.ItemId == itemId && fh.FieldKey == fieldKey && !fh.IsDeleted)
+            .OrderByDescending(fh => fh.ChangedAt)
+            .Take(2) // Only need to check first 2 records
+            .ToListAsync();
+
+        var count = historyRecords.Count;
+
+        if (count > 1)
+        {
+            // More than 1 history record - always show icon
+            return await context.FieldHistories
+                .Where(fh => fh.ItemId == itemId && fh.FieldKey == fieldKey && !fh.IsDeleted)
+                .CountAsync();
+        }
+
+        if (count == 1 && currentValue != null)
+        {
+            // Single history record - check if value differs from current
+            var historyValue = historyRecords[0].ValueSnapshot;
+            var currentValueJson = JsonSerializer.Serialize(new[] { currentValue }.Where(v => !string.IsNullOrWhiteSpace(v)));
+
+            // Only show icon if history value differs from current value
+            if (currentValueJson != historyValue)
+            {
+                return 1;
+            }
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// Delete a specific field history record.
+    /// </summary>
+    /// <param name="historyId">The ID of the history record to delete.</param>
+    /// <returns>True if deleted, false otherwise.</returns>
+    public async Task<bool> DeleteFieldHistoryAsync(Guid historyId)
+    {
+        var context = await dbService.GetDbContextAsync();
+
+        var history = await context.FieldHistories
+            .FirstOrDefaultAsync(fh => fh.Id == historyId && !fh.IsDeleted);
+
+        if (history == null)
+        {
+            return false;
+        }
+
+        history.IsDeleted = true;
+        history.UpdatedAt = DateTime.UtcNow;
+
+        await context.SaveChangesAsync();
+        return true;
     }
 
     /// <summary>
@@ -1163,6 +1278,8 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
 
     /// <summary>
     /// Extract favicon from service URL if available. If successful, links the item to the logo.
+    /// Checks for existing logo first to avoid unnecessary API calls (deduplication).
+    /// If URL is empty or just the placeholder, clears any existing logo from the item.
     /// </summary>
     /// <param name="item">The Item to extract the favicon for.</param>
     /// <returns>Task.</returns>
@@ -1172,46 +1289,55 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
         var url = GetFieldValue(item, FieldKey.LoginUrl);
         if (url != null && !string.IsNullOrEmpty(url) && url != DefaultServiceUrl)
         {
-            // Request favicon from service URL via WebApi
             try
             {
-                var apiReturn = await httpClient.GetFromJsonAsync<FaviconExtractModel>($"v1/Favicon/Extract?url={url}");
+                // Extract and normalize domain for deduplication
+                var domain = new Uri(url).Host.ToLowerInvariant();
+                if (domain.StartsWith("www."))
+                {
+                    domain = domain[4..];
+                }
+
+                var context = await dbService.GetDbContextAsync();
+
+                // Check if logo already exists for this source (deduplication)
+                var existingLogo = await context.Logos.FirstOrDefaultAsync(l => l.Source == domain);
+
+                if (existingLogo != null)
+                {
+                    // Reuse existing logo - no need to fetch
+                    item.LogoId = existingLogo.Id;
+                    return;
+                }
+
+                // No existing logo - fetch from API
+                var apiReturn = await httpClient.GetFromJsonAsync<FaviconExtractModel>($"v1/Favicon/Extract?url={Uri.EscapeDataString(url)}");
                 if (apiReturn?.Image is not null)
                 {
-                    // For now, we store the favicon directly on the item's logo
-                    // In the future, we should use the Logo deduplication table
-                    var context = await dbService.GetDbContextAsync();
-
-                    // Try to find existing logo by source
-                    var domain = new Uri(url).Host;
-                    var existingLogo = await context.Logos.FirstOrDefaultAsync(l => l.Source == domain);
-
-                    if (existingLogo != null)
+                    // Create new logo
+                    var newLogo = new Logo
                     {
-                        item.LogoId = existingLogo.Id;
-                    }
-                    else
-                    {
-                        // Create new logo
-                        var newLogo = new Logo
-                        {
-                            Id = Guid.NewGuid(),
-                            Source = domain,
-                            FileData = apiReturn.Image,
-                            MimeType = "image/png",
-                            FetchedAt = DateTime.UtcNow,
-                            CreatedAt = DateTime.UtcNow,
-                            UpdatedAt = DateTime.UtcNow,
-                        };
-                        context.Logos.Add(newLogo);
-                        item.LogoId = newLogo.Id;
-                    }
+                        Id = Guid.NewGuid(),
+                        Source = domain,
+                        FileData = apiReturn.Image,
+                        MimeType = "image/png",
+                        FetchedAt = DateTime.UtcNow,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
+                    };
+                    context.Logos.Add(newLogo);
+                    item.LogoId = newLogo.Id;
                 }
             }
             catch
             {
                 // Ignore favicon extraction errors
             }
+        }
+        else
+        {
+            // URL is empty or just the placeholder - clear any existing logo
+            item.LogoId = null;
         }
     }
 
@@ -1238,5 +1364,163 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
 
         // Return the mapped language, or fall back to "en" if no match found
         return mappedLanguage ?? "en";
+    }
+
+    /// <summary>
+    /// Track field history for fields with EnableHistory=true.
+    /// Compares old values with new values and creates history records.
+    ///
+    /// This saves the NEW value to history on every change. Since each value is saved
+    /// when it's set, we don't need to save the old value (it was already saved when
+    /// it was first set). This ensures that during merge conflicts, no values are ever
+    /// lost since history records sync independently via LWW and each has a unique ID.
+    /// </summary>
+    /// <param name="context">The database context.</param>
+    /// <param name="existingItem">The existing item in the database.</param>
+    /// <param name="newItem">The new item with updated field values.</param>
+    /// <param name="updateDateTime">The timestamp for updates.</param>
+    /// <returns>Task.</returns>
+#pragma warning disable SA1204 // Static members should appear before non-static members
+    private static async Task TrackFieldHistoryAsync(AliasClientDbContext context, Item existingItem, Item newItem, DateTime updateDateTime)
+#pragma warning restore SA1204
+    {
+        // Maximum number of history records to keep per field
+        const int MaxFieldHistoryRecords = 10;
+
+        // Get the existing tracked field values from the existingItem (loaded with Include)
+        var existingFields = existingItem.FieldValues.Where(fv => !fv.IsDeleted).ToList();
+
+        // Group existing fields by key to support multi-value fields
+        var existingByFieldKey = existingFields
+            .Where(f => f.FieldKey != null)
+            .GroupBy(f => f.FieldKey!)
+            .ToDictionary(g => g.Key, g => g.OrderBy(f => f.Weight).Select(f => f.Value ?? string.Empty).ToList());
+
+        // Group new fields by key to handle multi-value fields
+        var newFieldsByKey = newItem.FieldValues
+            .Where(fv => !fv.IsDeleted && fv.FieldKey != null)
+            .GroupBy(f => f.FieldKey!)
+            .ToDictionary(g => g.Key, g => g.OrderBy(f => f.Weight).Select(f => f.Value ?? string.Empty).ToList());
+
+        foreach (var (fieldKey, newValues) in newFieldsByKey)
+        {
+            // Check if history tracking is enabled for this field
+            var fieldDef = SystemFieldRegistry.GetSystemField(fieldKey);
+            if (fieldDef == null || !fieldDef.EnableHistory)
+            {
+                continue;
+            }
+
+            var oldValues = existingByFieldKey.TryGetValue(fieldKey, out var values) ? values : new List<string>();
+
+            // Filter out empty values for comparison
+            var filteredNewValues = newValues.Where(v => !string.IsNullOrWhiteSpace(v)).ToList();
+
+            // Check if values have changed
+            var valuesChanged = oldValues.Count != filteredNewValues.Count ||
+                !oldValues.SequenceEqual(filteredNewValues);
+
+            // Save new values to history when they change (ensures they survive merge conflicts)
+            if (valuesChanged && filteredNewValues.Count > 0)
+            {
+                var valueSnapshot = System.Text.Json.JsonSerializer.Serialize(filteredNewValues);
+                var historyRecord = new FieldHistory
+                {
+                    Id = Guid.NewGuid(),
+                    ItemId = existingItem.Id,
+                    FieldKey = fieldKey,
+                    FieldDefinitionId = null,
+                    ValueSnapshot = valueSnapshot,
+                    ChangedAt = updateDateTime,
+                    CreatedAt = updateDateTime,
+                    UpdatedAt = updateDateTime,
+                    IsDeleted = false,
+                };
+                context.FieldHistories.Add(historyRecord);
+
+                // Prune old history records to keep only the most recent
+                await PruneFieldHistoryAsync(context, existingItem.Id, fieldKey, MaxFieldHistoryRecords, updateDateTime);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Create initial field history records for fields with EnableHistory=true when creating a new item.
+    /// This ensures the initial value is captured in history for merge conflict resolution.
+    /// </summary>
+    /// <param name="context">The database context.</param>
+    /// <param name="item">The new item being created.</param>
+    /// <param name="createDateTime">The timestamp for creation.</param>
+    /// <returns>Task.</returns>
+    private static Task CreateInitialFieldHistoryAsync(AliasClientDbContext context, Item item, DateTime createDateTime)
+    {
+        // Group field values by key to handle multi-value fields
+        var fieldsByKey = item.FieldValues
+            .Where(fv => !fv.IsDeleted && fv.FieldKey != null)
+            .GroupBy(f => f.FieldKey!)
+            .ToDictionary(g => g.Key, g => g.OrderBy(f => f.Weight).Select(f => f.Value ?? string.Empty).ToList());
+
+        foreach (var (fieldKey, values) in fieldsByKey)
+        {
+            // Check if history tracking is enabled for this field
+            var fieldDef = SystemFieldRegistry.GetSystemField(fieldKey);
+            if (fieldDef == null || !fieldDef.EnableHistory)
+            {
+                continue;
+            }
+
+            // Filter out empty values
+            var filteredValues = values.Where(v => !string.IsNullOrWhiteSpace(v)).ToList();
+
+            if (filteredValues.Count > 0)
+            {
+                var valueSnapshot = System.Text.Json.JsonSerializer.Serialize(filteredValues);
+                var historyRecord = new FieldHistory
+                {
+                    Id = Guid.NewGuid(),
+                    ItemId = item.Id,
+                    FieldKey = fieldKey,
+                    FieldDefinitionId = null,
+                    ValueSnapshot = valueSnapshot,
+                    ChangedAt = createDateTime,
+                    CreatedAt = createDateTime,
+                    UpdatedAt = createDateTime,
+                    IsDeleted = false,
+                };
+                context.FieldHistories.Add(historyRecord);
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Prune old field history records.
+    /// Keeps only the most recent MaxFieldHistoryRecords records.
+    /// </summary>
+    /// <param name="context">The database context.</param>
+    /// <param name="itemId">The item ID.</param>
+    /// <param name="fieldKey">The field key.</param>
+    /// <param name="maxRecords">Maximum number of records to keep.</param>
+    /// <param name="updateDateTime">The timestamp for updates.</param>
+    /// <returns>Task.</returns>
+    private static async Task PruneFieldHistoryAsync(AliasClientDbContext context, Guid itemId, string fieldKey, int maxRecords, DateTime updateDateTime)
+    {
+        // Get all history records for this field, ordered by ChangedAt descending
+        var historyRecords = await context.FieldHistories
+            .Where(fh => fh.ItemId == itemId && fh.FieldKey == fieldKey && !fh.IsDeleted)
+            .OrderByDescending(fh => fh.ChangedAt)
+            .ToListAsync();
+
+        // If we have more than maxRecords, soft-delete the old ones
+        if (historyRecords.Count > maxRecords)
+        {
+            var recordsToDelete = historyRecords.Skip(maxRecords);
+            foreach (var record in recordsToDelete)
+            {
+                record.IsDeleted = true;
+                record.UpdatedAt = updateDateTime;
+            }
+        }
     }
 }

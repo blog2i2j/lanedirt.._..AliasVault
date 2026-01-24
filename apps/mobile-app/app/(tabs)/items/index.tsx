@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, StyleSheet, Text, Platform, Animated, TextInput, TouchableOpacity, View, RefreshControl } from 'react-native';
+import { StyleSheet, Text, Platform, Animated, TextInput, TouchableOpacity, View, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 
@@ -20,6 +20,7 @@ import { useVaultMutate } from '@/hooks/useVaultMutate';
 import { useVaultSync } from '@/hooks/useVaultSync';
 
 import Logo from '@/assets/images/logo.svg';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { FolderModal } from '@/components/folders/FolderModal';
 import { FolderPill, type FolderWithCount } from '@/components/folders/FolderPill';
 import { ItemCard } from '@/components/items/ItemCard';
@@ -92,6 +93,16 @@ export default function ItemsScreen(): React.ReactNode {
 
   // Recently deleted count state
   const [recentlyDeletedCount, setRecentlyDeletedCount] = useState(0);
+
+  // Alert dialog state
+  const [alertConfig, setAlertConfig] = useState<{ title: string; message: string } | null>(null);
+
+  /**
+   * Hide the alert dialog.
+   */
+  const hideAlert = useCallback((): void => {
+    setAlertConfig(null);
+  }, []);
 
   const authContext = useApp();
   const dbContext = useDb();
@@ -219,10 +230,11 @@ export default function ItemsScreen(): React.ReactNode {
       setRecentlyDeletedCount(deletedCount);
       setIsLoadingItems(false);
     } catch (err) {
+      console.error('Error loading items:', err);
       Toast.show({
         type: 'error',
         text1: t('items.errorLoadingItems'),
-        text2: err instanceof Error ? err.message : 'Unknown error',
+        text2: t('common.errors.unknownError'),
       });
       setIsLoadingItems(false);
     }
@@ -304,11 +316,8 @@ export default function ItemsScreen(): React.ReactNode {
           setRefreshing(false);
           setIsLoadingItems(false);
 
-          Alert.alert(
-            t('common.error'),
-            error,
-            [{ text: t('common.ok'), style: 'default' }]
-          );
+          // Show generic error message to user, detailed error is logged above
+          setAlertConfig({ title: t('common.error'), message: t('common.errors.unknownError') });
         },
         /**
          * On upgrade required.
@@ -326,7 +335,7 @@ export default function ItemsScreen(): React.ReactNode {
         Toast.show({
           type: 'error',
           text1: t('items.vaultSyncFailed'),
-          text2: err instanceof Error ? err.message : 'Unknown error',
+          text2: t('common.errors.unknownError'),
         });
       }
     }
@@ -350,13 +359,18 @@ export default function ItemsScreen(): React.ReactNode {
       headerTitle: (): React.ReactNode => {
         if (Platform.OS === 'android') {
           return (
-            <AndroidHeader title={t('items.title')} />
+            <AndroidHeader
+              title={getFilterTitle()}
+              subtitle={`(${filteredItems.length})`}
+              onTitlePress={() => setShowFilterMenu(prev => !prev)}
+              isDropdownOpen={showFilterMenu}
+            />
           );
         }
         return <Text>{t('items.title')}</Text>;
       },
     });
-  }, [navigation, t]);
+  }, [navigation, t, getFilterTitle, filteredItems.length, showFilterMenu]);
 
   /**
    * Delete an item (move to trash).
@@ -447,6 +461,31 @@ export default function ItemsScreen(): React.ReactNode {
       marginBottom: 8,
       overflow: 'hidden',
     },
+    filterMenuOverlay: {
+      backgroundColor: colors.accentBackground,
+      borderColor: colors.accentBorder,
+      borderRadius: 8,
+      borderWidth: 1,
+      elevation: 8,
+      left: 14,
+      overflow: 'hidden',
+      position: 'absolute',
+      right: 14,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      top: 8,
+      zIndex: 1001,
+    },
+    filterMenuBackdrop: {
+      bottom: 0,
+      left: 0,
+      position: 'absolute',
+      right: 0,
+      top: 0,
+      zIndex: 1000,
+    },
     filterMenuItem: {
       paddingHorizontal: 16,
       paddingVertical: 12,
@@ -491,6 +530,7 @@ export default function ItemsScreen(): React.ReactNode {
       flexWrap: 'wrap',
       gap: 8,
       marginBottom: 12,
+      marginTop: 6,
     },
     newFolderButton: {
       alignItems: 'center',
@@ -540,12 +580,58 @@ export default function ItemsScreen(): React.ReactNode {
       fontSize: 20,
     },
     // Empty state styles
+    emptyContainer: {
+      alignItems: 'center',
+      marginTop: 24,
+    },
     emptyText: {
       color: colors.textMuted,
       fontSize: 16,
-      marginTop: 24,
       opacity: 0.7,
       textAlign: 'center',
+    },
+    clearButtonsContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      justifyContent: 'center',
+      marginTop: 16,
+    },
+    clearSearchButton: {
+      alignItems: 'center',
+      backgroundColor: colors.accentBackground,
+      borderRadius: 8,
+      flexDirection: 'row',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    clearSearchButtonText: {
+      color: colors.text,
+      fontSize: 14,
+    },
+    clearFilterButton: {
+      alignItems: 'center',
+      backgroundColor: colors.primary + '20',
+      borderRadius: 8,
+      flexDirection: 'row',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    clearFilterButtonText: {
+      color: colors.primary,
+      fontSize: 14,
+    },
+    // Footer clear buttons styles (at bottom of list)
+    footerClearContainer: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      justifyContent: 'center',
+      marginTop: 16,
+      paddingTop: 16,
     },
     // FAB styles
     fab: {
@@ -700,6 +786,140 @@ export default function ItemsScreen(): React.ReactNode {
   };
 
   /**
+   * Render the Android filter menu as an absolute overlay.
+   */
+  const renderAndroidFilterOverlay = (): React.ReactNode => {
+    if (Platform.OS !== 'android' || !showFilterMenu) {
+      return null;
+    }
+
+    return (
+      <>
+        {/* Backdrop to close menu when tapping outside */}
+        <TouchableOpacity
+          style={styles.filterMenuBackdrop}
+          activeOpacity={1}
+          onPress={() => setShowFilterMenu(false)}
+        />
+        {/* Menu content */}
+        <ThemedView style={styles.filterMenuOverlay}>
+          {/* All items filter */}
+          <TouchableOpacity
+            style={[
+              styles.filterMenuItem,
+              filterType === 'all' && styles.filterMenuItemActive
+            ]}
+            onPress={() => {
+              setFilterType('all');
+              setShowFilterMenu(false);
+            }}
+          >
+            <ThemedText style={[
+              styles.filterMenuItemText,
+              filterType === 'all' && styles.filterMenuItemTextActive
+            ]}>
+              {t('items.filters.all')}
+            </ThemedText>
+          </TouchableOpacity>
+
+          <ThemedView style={styles.filterMenuSeparator} />
+
+          {/* Item type filters */}
+          {ITEM_TYPE_OPTIONS.map((option) => (
+            <TouchableOpacity
+              key={option.type}
+              style={[
+                styles.filterMenuItem,
+                styles.filterMenuItemWithIcon,
+                filterType === option.type && styles.filterMenuItemActive
+              ]}
+              onPress={() => {
+                setFilterType(option.type);
+                setShowFilterMenu(false);
+              }}
+            >
+              <MaterialIcons
+                name={option.iconName}
+                size={18}
+                color={filterType === option.type ? colors.primary : colors.textMuted}
+                style={styles.filterMenuItemIcon}
+              />
+              <ThemedText style={[
+                styles.filterMenuItemText,
+                filterType === option.type && styles.filterMenuItemTextActive
+              ]}>
+                {t(option.titleKey)}
+              </ThemedText>
+            </TouchableOpacity>
+          ))}
+
+          <ThemedView style={styles.filterMenuSeparator} />
+
+          {/* Passkeys filter */}
+          <TouchableOpacity
+            style={[
+              styles.filterMenuItem,
+              filterType === 'passkeys' && styles.filterMenuItemActive
+            ]}
+            onPress={() => {
+              setFilterType('passkeys');
+              setShowFilterMenu(false);
+            }}
+          >
+            <ThemedText style={[
+              styles.filterMenuItemText,
+              filterType === 'passkeys' && styles.filterMenuItemTextActive
+            ]}>
+              {t('items.filters.passkeys')}
+            </ThemedText>
+          </TouchableOpacity>
+
+          {/* Attachments filter */}
+          <TouchableOpacity
+            style={[
+              styles.filterMenuItem,
+              filterType === 'attachments' && styles.filterMenuItemActive
+            ]}
+            onPress={() => {
+              setFilterType('attachments');
+              setShowFilterMenu(false);
+            }}
+          >
+            <ThemedText style={[
+              styles.filterMenuItemText,
+              filterType === 'attachments' && styles.filterMenuItemTextActive
+            ]}>
+              {t('common.attachments')}
+            </ThemedText>
+          </TouchableOpacity>
+
+          <ThemedView style={styles.filterMenuSeparator} />
+
+          {/* Recently deleted */}
+          <TouchableOpacity
+            style={styles.filterMenuItem}
+            onPress={() => {
+              setShowFilterMenu(false);
+              router.push('/(tabs)/items/deleted');
+            }}
+          >
+            <View style={styles.filterMenuItemWithBadge}>
+              <ThemedText style={styles.filterMenuItemText}>
+                {t('items.recentlyDeleted.title')}
+              </ThemedText>
+              {recentlyDeletedCount > 0 && (
+                <ThemedText style={styles.filterMenuItemBadge}>
+                  {recentlyDeletedCount}
+                </ThemedText>
+              )}
+            </View>
+          </TouchableOpacity>
+        </ThemedView>
+      </>
+    );
+  };
+
+  /**
    * Render the list header with filter button, folders, and search.
    */
   const renderListHeader = (): React.ReactNode => {
@@ -726,8 +946,8 @@ export default function ItemsScreen(): React.ReactNode {
           </TouchableOpacity>
         )}
 
-        {/* Filter menu */}
-        {renderFilterMenu()}
+        {/* Filter menu (iOS only - Android uses absolute overlay) */}
+        {Platform.OS === 'ios' && renderFilterMenu()}
 
         {/* Folder pills */}
         {foldersWithCounts.length > 0 && (
@@ -805,20 +1025,95 @@ export default function ItemsScreen(): React.ReactNode {
       return null;
     }
 
+    /**
+     * Determine the appropriate message based on search and filter state.
+     */
+    const getMessage = (): string => {
+      // Both search and filter active
+      if (searchQuery && filterType !== 'all') {
+        return t('items.noMatchingItemsWithFilter', { filter: getFilterTitle(), search: searchQuery });
+      }
+      // Only search active
+      if (searchQuery) {
+        return t('items.noMatchingItemsSearch', { search: searchQuery });
+      }
+      // Only filter active (no search)
+      if (filterType === 'passkeys') {
+        return t('items.noPasskeysFound');
+      }
+      if (filterType === 'attachments') {
+        return t('items.noAttachmentsFound');
+      }
+      if (isItemTypeFilter(filterType)) {
+        return t('items.noItemsOfTypeFound', { type: getFilterTitle() });
+      }
+      // No search, no filter - truly empty vault
+      return t('items.noItemsFound');
+    };
+
+    const showClearButtons = searchQuery || filterType !== 'all';
+
     return (
-      <View>
-        <Text style={styles.emptyText}>
-          {searchQuery
-            ? t('items.noMatchingItems')
-            : filterType === 'passkeys'
-              ? t('items.noPasskeysFound')
-              : filterType === 'attachments'
-                ? t('items.noAttachmentsFound')
-                : isItemTypeFilter(filterType)
-                  ? t('items.noItemsOfTypeFound', { type: getFilterTitle() })
-                  : t('items.noItemsFound')
-          }
-        </Text>
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>{getMessage()}</Text>
+
+        {/* Clear search/filter buttons */}
+        {showClearButtons && (
+          <View style={styles.clearButtonsContainer}>
+            {searchQuery && (
+              <TouchableOpacity
+                style={styles.clearSearchButton}
+                onPress={() => setSearchQuery('')}
+              >
+                <MaterialIcons name="close" size={16} color={colors.text} />
+                <Text style={styles.clearSearchButtonText}>{t('items.clearSearch')}</Text>
+              </TouchableOpacity>
+            )}
+            {filterType !== 'all' && (
+              <TouchableOpacity
+                style={styles.clearFilterButton}
+                onPress={() => setFilterType('all')}
+              >
+                <MaterialIcons name="close" size={16} color={colors.primary} />
+                <Text style={styles.clearFilterButtonText}>{t('items.clearFilter')}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  /**
+   * Render list footer with clear filter/search buttons.
+   * Only shown when there are items and a filter or search is active.
+   */
+  const renderListFooter = (): React.ReactNode => {
+    // Don't show footer if loading, no items, or no active filter/search
+    if (isLoadingItems || filteredItems.length === 0 || (filterType === 'all' && !searchQuery)) {
+      return null;
+    }
+
+    return (
+      <View style={styles.footerClearContainer}>
+        {searchQuery && (
+          <TouchableOpacity
+            style={styles.clearSearchButton}
+            onPress={() => setSearchQuery('')}
+          >
+            <MaterialIcons name="close" size={16} color={colors.text} />
+            <Text style={styles.clearSearchButtonText}>{t('items.clearSearch')}</Text>
+          </TouchableOpacity>
+        )}
+        {filterType !== 'all' && (
+          <TouchableOpacity
+            style={styles.clearFilterButton}
+            onPress={() => setFilterType('all')}
+          >
+            <MaterialIcons name="close" size={16} color={colors.primary} />
+            <Text style={styles.clearFilterButtonText}>{t('items.clearFilter')}</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   };
@@ -826,7 +1121,7 @@ export default function ItemsScreen(): React.ReactNode {
   return (
     <ThemedContainer style={styles.container} testID="items-screen">
       <CollapsibleHeader
-        title={t('items.title')}
+        title={getFilterTitle()}
         scrollY={scrollY}
         showNavigationHeader={true}
         alwaysVisible={true}
@@ -872,8 +1167,12 @@ export default function ItemsScreen(): React.ReactNode {
             )
           }
           ListEmptyComponent={renderEmptyComponent() as React.ReactElement}
+          ListFooterComponent={renderListFooter() as React.ReactElement}
         />
       </ThemedView>
+
+      {/* Android filter menu overlay */}
+      {renderAndroidFilterOverlay()}
 
       {/* Create folder modal */}
       <FolderModal
@@ -881,6 +1180,15 @@ export default function ItemsScreen(): React.ReactNode {
         onClose={() => setShowFolderModal(false)}
         onSave={handleCreateFolder}
         mode="create"
+      />
+
+      {/* Alert dialog */}
+      <ConfirmDialog
+        isVisible={alertConfig !== null}
+        title={alertConfig?.title ?? ''}
+        message={alertConfig?.message ?? ''}
+        buttons={[{ text: t('common.ok'), style: 'default', onPress: hideAlert }]}
+        onClose={hideAlert}
       />
     </ThemedContainer>
   );

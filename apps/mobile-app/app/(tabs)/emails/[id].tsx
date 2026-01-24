@@ -5,7 +5,7 @@ import * as FileSystem from 'expo-file-system';
 import { useLocalSearchParams, useRouter, useNavigation, Stack } from 'expo-router';
 import React, { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View, ActivityIndicator, Alert, Share, useColorScheme, Linking, Text, TextInput, Platform } from 'react-native';
+import { StyleSheet, View, ActivityIndicator, Share, useColorScheme, Linking, Text, TextInput, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import type { Item } from '@/utils/dist/core/models/vault';
@@ -15,6 +15,7 @@ import emitter from '@/utils/EventEmitter';
 
 import { useColors } from '@/hooks/useColorScheme';
 
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { ThemedView } from '@/components/themed/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
@@ -41,6 +42,7 @@ export default function EmailDetailsScreen() : React.ReactNode {
   const [isHtmlView, setHtmlView] = useState(true);
   const isDarkMode = useColorScheme() === 'dark';
   const [associatedItem, setAssociatedItem] = useState<Item | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   /**
    * Load the email.
@@ -51,6 +53,13 @@ export default function EmailDetailsScreen() : React.ReactNode {
       setError(null);
 
       if (!dbContext?.sqliteClient || !id) {
+        return;
+      }
+
+      // Check if we are in offline mode
+      if (dbContext.isOffline) {
+        setError(t('emails.offlineMessage'));
+        setIsLoading(false);
         return;
       }
 
@@ -75,11 +84,20 @@ export default function EmailDetailsScreen() : React.ReactNode {
         setHtmlView(false);
       }
     } catch (err) {
+      /*
+       * Suppress errors while vault has unsynced changes
+       * Network errors during sync can trigger false positives
+       */
+      if (dbContext.shouldSuppressEmailErrors()) {
+        setIsLoading(false);
+        return;
+      }
+
       setError(err instanceof Error ? err.message : t('common.error'));
     } finally {
       setIsLoading(false);
     }
-  }, [dbContext.sqliteClient, id, webApi, t]);
+  }, [dbContext, id, webApi, t]);
 
   useEffect(() => {
     loadEmail();
@@ -88,39 +106,35 @@ export default function EmailDetailsScreen() : React.ReactNode {
   /**
    * Handle the delete button press.
    */
-  const handleDelete = useCallback(async () : Promise<void> => {
-    Alert.alert(
-      t('emails.deleteEmail'),
-      t('emails.deleteEmailConfirm'),
-      [
-        {
-          text: t('common.cancel'),
-          style: 'cancel',
-        },
-        {
-          text: t('common.delete'),
-          style: 'destructive',
-          /**
-           * Handle the delete button press.
-           */
-          onPress: async () : Promise<void> => {
-            try {
-              // Delete the email from the server.
-              await webApi.delete(`Email/${id}`);
+  const handleDelete = useCallback(() : void => {
+    setShowDeleteConfirm(true);
+  }, []);
 
-              // Refresh the emails list in the index screen.
-              emitter.emit('refreshEmails');
+  /**
+   * Confirm and execute email deletion.
+   */
+  const confirmDelete = useCallback(async () : Promise<void> => {
+    try {
+      // Delete the email from the server.
+      await webApi.delete(`Email/${id}`);
 
-              // Go back to the emails list screen.
-              router.back();
-            } catch (err) {
-              setError(err instanceof Error ? err.message : t('common.errors.unknownError'));
-            }
-          },
-        },
-      ]
-    );
+      // Refresh the emails list in the index screen.
+      emitter.emit('refreshEmails');
+
+      // Go back to the emails list screen.
+      router.back();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('common.errors.unknownError'));
+    }
+    setShowDeleteConfirm(false);
   }, [id, router, webApi, t]);
+
+  /**
+   * Hide delete confirmation dialog.
+   */
+  const hideDeleteConfirm = useCallback((): void => {
+    setShowDeleteConfirm(false);
+  }, []);
 
   /**
    * Handle the download attachment button press.
@@ -500,27 +514,48 @@ export default function EmailDetailsScreen() : React.ReactNode {
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: t('emails.emailDetails') }} />
-      {metadataView}
-      {emailView}
-      {email.attachments && email.attachments.length > 0 && (
-        <View style={styles.attachments}>
-          <ThemedText style={styles.attachmentsTitle}>{t('emails.attachments')}</ThemedText>
-          {email.attachments.map((attachment) => (
-            <RobustPressable
-              key={attachment.id}
-              style={styles.attachment}
-              onPress={() => handleDownloadAttachment(attachment)}
-            >
-              <Ionicons name="attach" size={20} color="#666" />
-              <ThemedText style={styles.attachmentName}>
-                {attachment.filename} ({Math.ceil(attachment.filesize / 1024)} {t('emails.sizeKB')})
-              </ThemedText>
-            </RobustPressable>
-          ))}
-        </View>
-      )}
-    </ThemedView>
+    <>
+      <ThemedView style={styles.container}>
+        <Stack.Screen options={{ title: t('emails.emailDetails') }} />
+        {metadataView}
+        {emailView}
+        {email.attachments && email.attachments.length > 0 && (
+          <View style={styles.attachments}>
+            <ThemedText style={styles.attachmentsTitle}>{t('emails.attachments')}</ThemedText>
+            {email.attachments.map((attachment) => (
+              <RobustPressable
+                key={attachment.id}
+                style={styles.attachment}
+                onPress={() => handleDownloadAttachment(attachment)}
+              >
+                <Ionicons name="attach" size={20} color="#666" />
+                <ThemedText style={styles.attachmentName}>
+                  {attachment.filename} ({Math.ceil(attachment.filesize / 1024)} {t('emails.sizeKB')})
+                </ThemedText>
+              </RobustPressable>
+            ))}
+          </View>
+        )}
+      </ThemedView>
+
+      <ConfirmDialog
+        isVisible={showDeleteConfirm}
+        title={t('emails.deleteEmail')}
+        message={t('emails.deleteEmailConfirm')}
+        buttons={[
+          {
+            text: t('common.cancel'),
+            style: 'cancel',
+            onPress: hideDeleteConfirm,
+          },
+          {
+            text: t('common.delete'),
+            style: 'destructive',
+            onPress: confirmDelete,
+          },
+        ]}
+        onClose={hideDeleteConfirm}
+      />
+    </>
   );
 }

@@ -354,6 +354,7 @@ declare function hasField(item: Item, fieldKey: string): boolean;
 declare function groupFields(item: Item, grouper: (field: ItemField) => string): Record<string, ItemField[]>;
 /**
  * Group fields by standard categories (Login, Alias, Card, Notes, Custom)
+ * Fields within each category are sorted by DisplayOrder.
  */
 declare function groupFieldsByCategory(item: Item): Record<string, ItemField[]>;
 /**

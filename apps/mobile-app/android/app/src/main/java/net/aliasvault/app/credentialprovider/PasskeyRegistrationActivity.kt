@@ -221,9 +221,11 @@ class PasskeyRegistrationActivity : FragmentActivity() {
                 )
 
                 // Get existing Items without passkeys (can have passkey merged into them)
+                // Note: Don't filter by userName here - we want to show all matching items
+                // regardless of username so user can choose which item to merge into
                 viewModel.existingItemsWithoutPasskey = vaultStore.getItemsWithoutPasskeyForRpId(
                     rpId = viewModel.rpId,
-                    userName = viewModel.userName,
+                    rpName = viewModel.rpName,
                 )
             }
 

@@ -4,7 +4,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, View, TextInput, Alert, KeyboardAvoidingView, Platform, ScrollView, Dimensions, Text, Pressable } from 'react-native';
+import { StyleSheet, View, TextInput, KeyboardAvoidingView, Platform, ScrollView, Dimensions, Text, Pressable } from 'react-native';
 
 import EncryptionUtility from '@/utils/EncryptionUtility';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
@@ -14,6 +14,7 @@ import { useLogout } from '@/hooks/useLogout';
 import { useTranslation } from '@/hooks/useTranslation';
 
 import Logo from '@/assets/images/logo.svg';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import LoadingIndicator from '@/components/LoadingIndicator';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { Avatar } from '@/components/ui/Avatar';
@@ -42,6 +43,9 @@ export default function UnlockScreen() : React.ReactNode {
 
   // Error state for password unlock
   const [error, setError] = useState<string | null>(null);
+
+  // Alert dialog state
+  const [alertConfig, setAlertConfig] = useState<{ title: string; message: string } | null>(null);
 
   /**
    * Check if the key derivation parameters are stored in native storage.
@@ -85,13 +89,26 @@ export default function UnlockScreen() : React.ReactNode {
   /**
    * Handle the unlock.
    */
+  /**
+   * Show an alert dialog.
+   */
+  const showAlert = useCallback((title: string, message: string): void => {
+    setAlertConfig({ title, message });
+  }, []);
+
+  /**
+   * Hide the alert dialog.
+   */
+  const hideAlert = useCallback((): void => {
+    setAlertConfig(null);
+  }, []);
+
+  /**
+   * Handle the unlock.
+   */
   const handleUnlock = async () : Promise<void> => {
     if (!password) {
-      Alert.alert(
-        t('common.error'),
-        t('auth.errors.enterPassword'),
-        [{ text: t('common.ok'), style: 'default' }]
-      );
+      showAlert(t('common.error'), t('auth.errors.enterPassword'));
       return;
     }
 
@@ -134,25 +151,17 @@ export default function UnlockScreen() : React.ReactNode {
          */
         router.replace('/reinitialize');
       } else {
-        Alert.alert(
-          t('common.error'),
-          t('auth.errors.incorrectPassword'),
-          [{ text: t('common.ok'), style: 'default' }]
-        );
+        showAlert(t('common.error'), t('auth.errors.incorrectPassword'));
       }
-    } catch (error) {
-      if (error instanceof VaultVersionIncompatibleError) {
+    } catch (err) {
+      if (err instanceof VaultVersionIncompatibleError) {
         // Vault version incompatible - force logout without confirmation
         await logoutForced();
         return;
       }
 
-      console.error('Unlock error:', error);
-      Alert.alert(
-        t('common.error'),
-        t('auth.errors.incorrectPassword'),
-        [{ text: t('common.ok'), style: 'default' }]
-      );
+      console.error('Unlock error:', err);
+      showAlert(t('common.error'), t('auth.errors.incorrectPassword'));
     } finally {
       setIsLoading(false);
     }
@@ -414,6 +423,14 @@ export default function UnlockScreen() : React.ReactNode {
           </View>
         </ScrollView>
       )}
+
+      <ConfirmDialog
+        isVisible={alertConfig !== null}
+        title={alertConfig?.title ?? ''}
+        message={alertConfig?.message ?? ''}
+        buttons={[{ text: t('common.ok'), style: 'default', onPress: hideAlert }]}
+        onClose={hideAlert}
+      />
     </KeyboardAvoidingView>
   );
 }

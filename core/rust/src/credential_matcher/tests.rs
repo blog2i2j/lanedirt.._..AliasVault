@@ -3,15 +3,29 @@
 use super::*;
 
 /// Helper function to create test credentials with standardized structure.
-fn create_test_credential(service_name: &str, service_url: &str, username: &str) -> Credential {
+fn create_test_credential(item_name: &str, item_url: &str, username: &str) -> Credential {
     Credential {
         id: uuid_v4(),
-        service_name: Some(service_name.to_string()),
-        service_url: if service_url.is_empty() {
+        item_name: Some(item_name.to_string()),
+        item_urls: if item_url.is_empty() {
+            vec![]
+        } else {
+            vec![item_url.to_string()]
+        },
+        username: if username.is_empty() {
             None
         } else {
-            Some(service_url.to_string())
+            Some(username.to_string())
         },
+    }
+}
+
+/// Helper function to create test credentials with multiple URLs.
+fn create_test_credential_multi_url(item_name: &str, item_urls: Vec<&str>, username: &str) -> Credential {
+    Credential {
+        id: uuid_v4(),
+        item_name: Some(item_name.to_string()),
+        item_urls: item_urls.into_iter().map(String::from).collect(),
         username: if username.is_empty() {
             None
         } else {
@@ -75,7 +89,7 @@ fn test_exact_url_match() {
     let matches = filter(credentials, "www.coolblue.nl", "");
 
     assert_eq!(matches.len(), 1);
-    assert_eq!(matches[0].service_name.as_deref(), Some("Coolblue"));
+    assert_eq!(matches[0].item_name.as_deref(), Some("Coolblue"));
 }
 
 /// [#2] - Base URL with path match
@@ -85,7 +99,7 @@ fn test_base_url_with_path_match() {
     let matches = filter(credentials, "https://gmail.com/signin", "");
 
     assert_eq!(matches.len(), 1);
-    assert_eq!(matches[0].service_name.as_deref(), Some("Gmail"));
+    assert_eq!(matches[0].item_name.as_deref(), Some("Gmail"));
 }
 
 /// [#3] - Root domain with subdomain match
@@ -95,7 +109,7 @@ fn test_root_domain_with_subdomain_match() {
     let matches = filter(credentials, "https://mail.google.com", "");
 
     assert_eq!(matches.len(), 1);
-    assert_eq!(matches[0].service_name.as_deref(), Some("Google"));
+    assert_eq!(matches[0].item_name.as_deref(), Some("Google"));
 }
 
 /// [#4] - No matches for non-existent domain
@@ -114,7 +128,7 @@ fn test_partial_url_matches_full_url() {
     let matches = filter(credentials, "https://www.dumpert.nl", "");
 
     assert_eq!(matches.len(), 1);
-    assert_eq!(matches[0].service_name.as_deref(), Some("Dumpert"));
+    assert_eq!(matches[0].item_name.as_deref(), Some("Dumpert"));
 }
 
 /// [#6] - Full URL stored matches partial URL search
@@ -124,7 +138,7 @@ fn test_full_url_matches_partial_url() {
     let matches = filter(credentials, "coolblue.nl", "");
 
     assert_eq!(matches.len(), 1);
-    assert_eq!(matches[0].service_name.as_deref(), Some("Coolblue"));
+    assert_eq!(matches[0].item_name.as_deref(), Some("Coolblue"));
 }
 
 /// [#7] - Protocol variations (http/https/none) match
@@ -139,9 +153,9 @@ fn test_protocol_variations() {
     assert_eq!(https_matches.len(), 1);
     assert_eq!(http_matches.len(), 1);
     assert_eq!(no_protocol_matches.len(), 1);
-    assert_eq!(https_matches[0].service_name.as_deref(), Some("GitHub"));
-    assert_eq!(http_matches[0].service_name.as_deref(), Some("GitHub"));
-    assert_eq!(no_protocol_matches[0].service_name.as_deref(), Some("GitHub"));
+    assert_eq!(https_matches[0].item_name.as_deref(), Some("GitHub"));
+    assert_eq!(http_matches[0].item_name.as_deref(), Some("GitHub"));
+    assert_eq!(no_protocol_matches[0].item_name.as_deref(), Some("GitHub"));
 }
 
 /// [#8] - WWW prefix variations match
@@ -154,8 +168,8 @@ fn test_www_variations() {
 
     assert_eq!(with_www.len(), 1);
     assert_eq!(without_www.len(), 1);
-    assert_eq!(with_www[0].service_name.as_deref(), Some("Dumpert"));
-    assert_eq!(without_www[0].service_name.as_deref(), Some("Dumpert"));
+    assert_eq!(with_www[0].item_name.as_deref(), Some("Dumpert"));
+    assert_eq!(without_www[0].item_name.as_deref(), Some("Dumpert"));
 }
 
 /// [#9] - Subdomain matching
@@ -168,11 +182,11 @@ fn test_subdomain_matching() {
     let no_subdomain = filter(credentials, "https://example.com", "");
 
     assert_eq!(app_subdomain.len(), 1);
-    assert_eq!(app_subdomain[0].service_name.as_deref(), Some("Subdomain Example"));
+    assert_eq!(app_subdomain[0].item_name.as_deref(), Some("Subdomain Example"));
     assert_eq!(www_subdomain.len(), 1);
-    assert_eq!(www_subdomain[0].service_name.as_deref(), Some("Subdomain Example"));
+    assert_eq!(www_subdomain[0].item_name.as_deref(), Some("Subdomain Example"));
     assert_eq!(no_subdomain.len(), 1);
-    assert_eq!(no_subdomain[0].service_name.as_deref(), Some("Subdomain Example"));
+    assert_eq!(no_subdomain[0].item_name.as_deref(), Some("Subdomain Example"));
 }
 
 /// [#10] - Paths and query strings ignored
@@ -185,11 +199,11 @@ fn test_paths_and_query_strings_ignored() {
     let with_fragment = filter(credentials, "https://gmail.com#inbox", "");
 
     assert_eq!(with_path.len(), 1);
-    assert_eq!(with_path[0].service_name.as_deref(), Some("GitHub"));
+    assert_eq!(with_path[0].item_name.as_deref(), Some("GitHub"));
     assert_eq!(with_query.len(), 1);
-    assert_eq!(with_query[0].service_name.as_deref(), Some("Stack Overflow"));
+    assert_eq!(with_query[0].item_name.as_deref(), Some("Stack Overflow"));
     assert_eq!(with_fragment.len(), 1);
-    assert_eq!(with_fragment[0].service_name.as_deref(), Some("Gmail"));
+    assert_eq!(with_fragment[0].item_name.as_deref(), Some("Gmail"));
 }
 
 /// [#11] - Complex URL variations
@@ -199,7 +213,7 @@ fn test_complex_url_variations() {
     let matches = filter(credentials, "https://www.coolblue.nl/product/12345?ref=google", "");
 
     assert_eq!(matches.len(), 1);
-    assert_eq!(matches[0].service_name.as_deref(), Some("Coolblue"));
+    assert_eq!(matches[0].item_name.as_deref(), Some("Coolblue"));
 }
 
 /// [#12] - Priority ordering
@@ -209,7 +223,7 @@ fn test_priority_ordering() {
     let matches = filter(credentials, "coolblue.nl", "");
 
     assert_eq!(matches.len(), 1);
-    assert_eq!(matches[0].service_name.as_deref(), Some("Coolblue"));
+    assert_eq!(matches[0].item_name.as_deref(), Some("Coolblue"));
 }
 
 /// [#13] - Title-only matching
@@ -219,7 +233,7 @@ fn test_title_only_matching() {
     let matches = filter(credentials, "https://nomatch.com", "newyorktimes");
 
     assert_eq!(matches.len(), 1);
-    assert_eq!(matches[0].service_name.as_deref(), Some("Title Only newyorktimes"));
+    assert_eq!(matches[0].item_name.as_deref(), Some("Title Only newyorktimes"));
 }
 
 /// [#14] - Domain name part matching
@@ -239,7 +253,7 @@ fn test_package_name_matching() {
     let matches = filter(credentials, "com.coolblue.app", "");
 
     assert_eq!(matches.len(), 1);
-    assert_eq!(matches[0].service_name.as_deref(), Some("Coolblue App"));
+    assert_eq!(matches[0].item_name.as_deref(), Some("Coolblue App"));
 }
 
 /// [#16] - Invalid URL handling
@@ -279,7 +293,7 @@ fn test_separators_and_punctuation_stripped() {
 
     // Should match "Reddit" even though it's followed by a comma and description
     assert_eq!(matches.len(), 1);
-    assert_eq!(matches[0].service_name.as_deref(), Some("Reddit"));
+    assert_eq!(matches[0].item_name.as_deref(), Some("Reddit"));
 }
 
 /// [#20] - Test reversed domain (app package name) doesn't match on TLD
@@ -294,7 +308,7 @@ fn test_reversed_domain_no_tld_match() {
 
     // Should only match Marktplaats, not Dumpert (even though both have "nl")
     assert_eq!(matches.len(), 1);
-    assert_eq!(matches[0].service_name.as_deref(), Some("Marktplaats.nl"));
+    assert_eq!(matches[0].item_name.as_deref(), Some("Marktplaats.nl"));
 }
 
 /// [#21] - Test app package names are properly detected and handled
@@ -310,17 +324,17 @@ fn test_app_package_names_handling() {
     // Test com.google.android package matches
     let google_matches = filter(credentials.clone(), "com.google.android.googlequicksearchbox", "");
     assert_eq!(google_matches.len(), 1);
-    assert_eq!(google_matches[0].service_name.as_deref(), Some("Google App"));
+    assert_eq!(google_matches[0].item_name.as_deref(), Some("Google App"));
 
     // Test com.facebook package matches
     let facebook_matches = filter(credentials.clone(), "com.facebook.katana", "");
     assert_eq!(facebook_matches.len(), 1);
-    assert_eq!(facebook_matches[0].service_name.as_deref(), Some("Facebook"));
+    assert_eq!(facebook_matches[0].item_name.as_deref(), Some("Facebook"));
 
     // Test that web domain doesn't match package name
     let web_matches = filter(credentials, "https://example.com", "");
     assert_eq!(web_matches.len(), 1);
-    assert_eq!(web_matches[0].service_name.as_deref(), Some("Generic Site"));
+    assert_eq!(web_matches[0].item_name.as_deref(), Some("Generic Site"));
 }
 
 /// [#22] - Test multi-part TLDs like .com.au don't match incorrectly
@@ -336,17 +350,17 @@ fn test_multi_part_tlds() {
     // Test that blabla.blabla.com.au doesn't match other .com.au sites
     let blabla_matches = filter(credentials.clone(), "https://blabla.blabla.com.au", "");
     assert_eq!(blabla_matches.len(), 1);
-    assert_eq!(blabla_matches[0].service_name.as_deref(), Some("BlaBla AU"));
+    assert_eq!(blabla_matches[0].item_name.as_deref(), Some("BlaBla AU"));
 
     // Test that example.com.au doesn't match blabla.blabla.com.au
     let example_matches = filter(credentials.clone(), "https://example.com.au", "");
     assert_eq!(example_matches.len(), 1);
-    assert_eq!(example_matches[0].service_name.as_deref(), Some("Example Site AU"));
+    assert_eq!(example_matches[0].item_name.as_deref(), Some("Example Site AU"));
 
     // Test that .co.uk domains work correctly too
     let uk_matches = filter(credentials, "https://example.co.uk", "");
     assert_eq!(uk_matches.len(), 1);
-    assert_eq!(uk_matches[0].service_name.as_deref(), Some("UK Site"));
+    assert_eq!(uk_matches[0].item_name.as_deref(), Some("UK Site"));
 }
 
 /// Test JSON serialization/deserialization
@@ -367,7 +381,7 @@ fn test_json_roundtrip() {
     assert_eq!(output.matched_ids.len(), 1);
     // Look up the credential by ID to verify it's GitHub
     let matched = credentials.iter().find(|c| c.id == output.matched_ids[0]).unwrap();
-    assert_eq!(matched.service_name.as_deref(), Some("GitHub"));
+    assert_eq!(matched.item_name.as_deref(), Some("GitHub"));
 }
 
 /// Test empty URL returns empty results
@@ -412,23 +426,302 @@ fn test_e2e_scenario_url_only_matching() {
 
     // Test 2: example.com should only match Example Site (and possibly subdomain due to root domain matching)
     let example_matches = filter(credentials.clone(), "https://example.com/login", "E2E Test Form");
-    println!("example.com matches: {:?}", example_matches.iter().map(|c| c.service_name.as_deref()).collect::<Vec<_>>());
+    println!("example.com matches: {:?}", example_matches.iter().map(|c| c.item_name.as_deref()).collect::<Vec<_>>());
     assert!(example_matches.len() >= 1, "example.com should match at least one credential");
-    assert!(example_matches.iter().any(|c| c.service_name.as_deref() == Some("Example Site")),
+    assert!(example_matches.iter().any(|c| c.item_name.as_deref() == Some("Example Site")),
         "example.com should match Example Site");
-    assert!(!example_matches.iter().any(|c| c.service_name.as_deref() == Some("Another Site")),
+    assert!(!example_matches.iter().any(|c| c.item_name.as_deref() == Some("Another Site")),
         "example.com should NOT match Another Site");
 
     // Test 3: another-example.com should only match Another Site
     let another_matches = filter(credentials.clone(), "https://another-example.com/signin", "E2E Test Form");
     assert_eq!(another_matches.len(), 1, "another-example.com should match exactly one credential");
-    assert_eq!(another_matches[0].service_name.as_deref(), Some("Another Site"));
+    assert_eq!(another_matches[0].item_name.as_deref(), Some("Another Site"));
 
     // Test 4: test.example.com subdomain should match Example Subdomain
     let subdomain_matches = filter(credentials, "https://test.example.com/auth", "E2E Test Form");
     assert!(subdomain_matches.len() >= 1, "test.example.com should match at least one credential");
-    assert!(subdomain_matches.iter().any(|c| c.service_name.as_deref() == Some("Example Subdomain")),
+    assert!(subdomain_matches.iter().any(|c| c.item_name.as_deref() == Some("Example Subdomain")),
         "test.example.com should match Example Subdomain");
-    assert!(!subdomain_matches.iter().any(|c| c.service_name.as_deref() == Some("Another Site")),
+    assert!(!subdomain_matches.iter().any(|c| c.item_name.as_deref() == Some("Another Site")),
         "test.example.com should NOT match Another Site");
+}
+
+/// [#24] - Multi-URL support: credentials with multiple URLs should match any of them
+#[test]
+fn test_multi_url_matching() {
+    let credentials = vec![
+        create_test_credential_multi_url(
+            "Vodafone",
+            vec!["https://www.vodafone.com", "https://my.vodafone.de", "https://www.vodafone.nl"],
+            "user@vodafone.com"
+        ),
+        create_test_credential("Other Site", "https://example.com", "user@example.com"),
+    ];
+
+    // Test 1: First URL should match
+    let first_url_matches = filter(credentials.clone(), "https://www.vodafone.com/account", "");
+    assert_eq!(first_url_matches.len(), 1);
+    assert_eq!(first_url_matches[0].item_name.as_deref(), Some("Vodafone"));
+
+    // Test 2: Second URL should match
+    let second_url_matches = filter(credentials.clone(), "https://my.vodafone.de/login", "");
+    assert_eq!(second_url_matches.len(), 1);
+    assert_eq!(second_url_matches[0].item_name.as_deref(), Some("Vodafone"));
+
+    // Test 3: Third URL should match (this was the original bug!)
+    let third_url_matches = filter(credentials.clone(), "https://www.vodafone.nl/inloggen", "");
+    assert_eq!(third_url_matches.len(), 1, "Third URL should match");
+    assert_eq!(third_url_matches[0].item_name.as_deref(), Some("Vodafone"));
+
+    // Test 4: Subdomain of any URL should match
+    let subdomain_matches = filter(credentials.clone(), "https://portal.vodafone.nl", "");
+    assert_eq!(subdomain_matches.len(), 1);
+    assert_eq!(subdomain_matches[0].item_name.as_deref(), Some("Vodafone"));
+
+    // Test 5: Unrelated domain should not match
+    let unrelated_matches = filter(credentials, "https://vodafone.be", "");
+    assert_eq!(unrelated_matches.len(), 0);
+}
+
+/// [#25] - Multi-URL with exact match priority: exact match on any URL beats subdomain match
+#[test]
+fn test_multi_url_exact_match_priority() {
+    let credentials = vec![
+        create_test_credential_multi_url(
+            "Site with subdomain first",
+            vec!["https://app.example.com", "https://example.org"],
+            "user@example.com"
+        ),
+    ];
+
+    // Searching example.org should be exact match (priority 1), not subdomain match
+    let input = CredentialMatcherInput {
+        credentials: credentials.clone(),
+        current_url: "https://example.org".to_string(),
+        page_title: String::new(),
+        matching_mode: AutofillMatchingMode::Default,
+    };
+    let output = filter_credentials(input);
+
+    assert_eq!(output.matched_ids.len(), 1);
+    assert_eq!(output.matched_priority, 2); // Priority 2 = URL domain matching
+}
+
+/// [#26] - Multi-URL app package matching
+#[test]
+fn test_multi_url_app_package_matching() {
+    let credentials = vec![
+        create_test_credential_multi_url(
+            "Coolblue",
+            vec!["https://www.coolblue.nl", "com.coolblue.app", "nl.coolblue.ios"],
+            "user@coolblue.nl"
+        ),
+    ];
+
+    // Web URL should match
+    let web_matches = filter(credentials.clone(), "https://coolblue.nl", "");
+    assert_eq!(web_matches.len(), 1);
+    assert_eq!(web_matches[0].item_name.as_deref(), Some("Coolblue"));
+
+    // Android package should match
+    let android_matches = filter(credentials.clone(), "com.coolblue.app", "");
+    assert_eq!(android_matches.len(), 1);
+    assert_eq!(android_matches[0].item_name.as_deref(), Some("Coolblue"));
+
+    // iOS package should match
+    let ios_matches = filter(credentials, "nl.coolblue.ios", "");
+    assert_eq!(ios_matches.len(), 1);
+    assert_eq!(ios_matches[0].item_name.as_deref(), Some("Coolblue"));
+}
+
+/// [#27] - URLs with port numbers should match correctly
+#[test]
+fn test_url_with_port_matching() {
+    let credentials = vec![
+        create_test_credential("Local Dev", "https://dev.local:3000", "dev@local.com"),
+        create_test_credential("Staging Server", "https://staging.example.com:8080", "user@staging.com"),
+        create_test_credential("Production", "https://example.com", "user@example.com"),
+    ];
+
+    // URL with port should match credential with same URL+port
+    let local_matches = filter(credentials.clone(), "https://dev.local:3000/login", "");
+    assert_eq!(local_matches.len(), 1);
+    assert_eq!(local_matches[0].item_name.as_deref(), Some("Local Dev"));
+
+    // URL with different port should still match domain (subdomain matching)
+    let staging_matches = filter(credentials.clone(), "https://staging.example.com:8080/dashboard", "");
+    assert_eq!(staging_matches.len(), 1);
+    assert_eq!(staging_matches[0].item_name.as_deref(), Some("Staging Server"));
+
+    // Production URL should match production credential
+    let prod_matches = filter(credentials, "https://example.com/app", "");
+    assert_eq!(prod_matches.len(), 1);
+    assert_eq!(prod_matches[0].item_name.as_deref(), Some("Production"));
+}
+
+/// [#28] - Exact match exclusivity: when exact URL match exists, subdomain matches should be excluded
+#[test]
+fn test_exact_match_excludes_subdomain_matches() {
+    let credentials = vec![
+        create_test_credential("Exact Match Site", "https://blabla.asd.com", "user@blabla.com"),
+        create_test_credential("Root Domain", "https://asd.com", "user@asd.com"),
+        create_test_credential("Other Subdomain", "https://bloe.asd.com", "user@bloe.com"),
+    ];
+
+    // When visiting blabla.asd.com, only the exact match should be shown
+    // NOT the root domain (asd.com) or other subdomains (bloe.asd.com)
+    let matches = filter(credentials.clone(), "https://blabla.asd.com/page", "");
+    assert_eq!(matches.len(), 1, "Should only return the exact match, not subdomain matches");
+    assert_eq!(matches[0].item_name.as_deref(), Some("Exact Match Site"));
+
+    // When visiting asd.com (root), only root domain credential should match
+    let root_matches = filter(credentials.clone(), "https://asd.com/login", "");
+    assert_eq!(root_matches.len(), 1, "Root domain should only match exact root credential");
+    assert_eq!(root_matches[0].item_name.as_deref(), Some("Root Domain"));
+
+    // When visiting bloe.asd.com, only that subdomain should match
+    let bloe_matches = filter(credentials, "https://bloe.asd.com/app", "");
+    assert_eq!(bloe_matches.len(), 1, "Subdomain should only match exact subdomain credential");
+    assert_eq!(bloe_matches[0].item_name.as_deref(), Some("Other Subdomain"));
+}
+
+/// [#29] - Port-aware matching: exact domain+port beats exact domain beats subdomain
+#[test]
+fn test_port_aware_matching_priority() {
+    // Scenario: Self-hosted user with multiple services on same domain but different ports
+    let credentials = vec![
+        create_test_credential("Service A (Port 8080)", "https://myserver.local:8080", "admin@servicea.com"),
+        create_test_credential("Service B (Port 9000)", "https://myserver.local:9000", "admin@serviceb.com"),
+        create_test_credential("Service C (No Port)", "https://myserver.local", "admin@servicec.com"),
+    ];
+
+    // When visiting myserver.local:8080, ONLY the port 8080 credential should match
+    let port_8080_matches = filter(credentials.clone(), "https://myserver.local:8080/dashboard", "");
+    assert_eq!(port_8080_matches.len(), 1, "Should only return exact domain+port match");
+    assert_eq!(port_8080_matches[0].item_name.as_deref(), Some("Service A (Port 8080)"));
+
+    // When visiting myserver.local:9000, ONLY the port 9000 credential should match
+    let port_9000_matches = filter(credentials.clone(), "https://myserver.local:9000/api", "");
+    assert_eq!(port_9000_matches.len(), 1, "Should only return exact domain+port match");
+    assert_eq!(port_9000_matches[0].item_name.as_deref(), Some("Service B (Port 9000)"));
+
+    // When visiting myserver.local (no port), ONLY the no-port credential should match
+    let no_port_matches = filter(credentials.clone(), "https://myserver.local/home", "");
+    assert_eq!(no_port_matches.len(), 1, "Should only return exact domain match (no port)");
+    assert_eq!(no_port_matches[0].item_name.as_deref(), Some("Service C (No Port)"));
+
+    // When visiting myserver.local:5000 (port not matching any credential),
+    // all credentials with exact domain match (priority 2) should be returned (up to 3)
+    // This is expected behavior - when no exact port match exists, we show all domain matches
+    let diff_port_matches = filter(credentials, "https://myserver.local:5000/new", "");
+    assert_eq!(diff_port_matches.len(), 3, "Should return all domain matches when no exact port match");
+}
+
+/// [#30] - Port numbers in URL should still allow exact matching with subdomain fallback
+#[test]
+fn test_port_url_exact_match_exclusivity() {
+    let credentials = vec![
+        create_test_credential("Exact Port Site", "https://blabla.asd.com:1234", "user@blabla.com"),
+        create_test_credential("Root Domain", "https://asd.com", "user@asd.com"),
+        create_test_credential("Other Subdomain", "https://bloe.asd.com", "user@bloe.com"),
+    ];
+
+    // When visiting blabla.asd.com:1234, only the exact domain+port match should be shown
+    let matches = filter(credentials.clone(), "https://blabla.asd.com:1234/page", "");
+    assert_eq!(matches.len(), 1, "Should only return the exact domain+port match");
+    assert_eq!(matches[0].item_name.as_deref(), Some("Exact Port Site"));
+
+    // When visiting blabla.asd.com (no port), should match via domain-only (priority 2)
+    // since we have a credential with same domain (but different port)
+    let no_port_matches = filter(credentials, "https://blabla.asd.com/page", "");
+    assert_eq!(no_port_matches.len(), 1, "Should match domain-only when port differs");
+    assert_eq!(no_port_matches[0].item_name.as_deref(), Some("Exact Port Site"));
+}
+
+/// [#31] - When no exact match exists, subdomain matching should still work
+#[test]
+fn test_subdomain_matching_without_exact() {
+    let credentials = vec![
+        create_test_credential("Root Domain Only", "https://example.com", "user@example.com"),
+    ];
+
+    // Visiting a subdomain should match the root domain credential (subdomain matching)
+    let subdomain_matches = filter(credentials.clone(), "https://app.example.com/login", "");
+    assert_eq!(subdomain_matches.len(), 1, "Subdomain should match root domain when no exact match exists");
+    assert_eq!(subdomain_matches[0].item_name.as_deref(), Some("Root Domain Only"));
+
+    // Visiting another subdomain should also match
+    let another_subdomain = filter(credentials, "https://api.example.com/v1", "");
+    assert_eq!(another_subdomain.len(), 1);
+    assert_eq!(another_subdomain[0].item_name.as_deref(), Some("Root Domain Only"));
+}
+
+/// [#32] - Multiple credentials with same domain but different ports
+#[test]
+fn test_multiple_same_domain_different_ports() {
+    let credentials = vec![
+        create_test_credential("Portainer", "https://server.home:9443", "admin@portainer"),
+        create_test_credential("Nextcloud", "https://server.home:8443", "admin@nextcloud"),
+        create_test_credential("Home Assistant", "https://server.home:8123", "admin@hass"),
+        create_test_credential("Main Site", "https://server.home", "admin@main"),
+    ];
+
+    // Each port should only match its specific credential
+    let portainer = filter(credentials.clone(), "https://server.home:9443", "");
+    assert_eq!(portainer.len(), 1);
+    assert_eq!(portainer[0].item_name.as_deref(), Some("Portainer"));
+
+    let nextcloud = filter(credentials.clone(), "https://server.home:8443", "");
+    assert_eq!(nextcloud.len(), 1);
+    assert_eq!(nextcloud[0].item_name.as_deref(), Some("Nextcloud"));
+
+    let hass = filter(credentials.clone(), "https://server.home:8123", "");
+    assert_eq!(hass.len(), 1);
+    assert_eq!(hass[0].item_name.as_deref(), Some("Home Assistant"));
+
+    let main = filter(credentials, "https://server.home", "");
+    assert_eq!(main.len(), 1);
+    assert_eq!(main[0].item_name.as_deref(), Some("Main Site"));
+}
+
+/// [#33] - User's exact scenario: URL with port should ONLY match exact URL, not items named after domain
+#[test]
+fn test_user_scenario_url_with_port_vs_named_items() {
+    // User has:
+    // 1. An item with exact URL https://blabla.asd.com:1234
+    // 2. Items named "asd.com" and "bloe.asd.com" (possibly with URLs to those domains)
+    let credentials = vec![
+        create_test_credential("blabla.asd.com service", "https://blabla.asd.com:1234", "user@blabla.com"),
+        create_test_credential("asd.com", "https://asd.com", "user@asd.com"),
+        create_test_credential("bloe.asd.com", "https://bloe.asd.com", "user@bloe.com"),
+    ];
+
+    // When visiting https://blabla.asd.com:1234, ONLY the exact match should be returned
+    let matches = filter(credentials.clone(), "https://blabla.asd.com:1234/some/path", "Some Page Title");
+
+    // This should return ONLY 1 credential - the exact domain+port match
+    assert_eq!(matches.len(), 1, "Should ONLY return the exact domain+port match, not subdomain matches");
+    assert_eq!(matches[0].item_name.as_deref(), Some("blabla.asd.com service"));
+
+    // Double-check: items with URLs should NOT be matched via title/name
+    // because we already have a URL match (which takes priority)
+}
+
+/// [#34] - Items WITHOUT URLs should NOT match when URL match exists
+#[test]
+fn test_items_without_urls_not_matched_when_url_match_exists() {
+    let credentials = vec![
+        create_test_credential("blabla service", "https://blabla.asd.com:1234", "user@blabla.com"),
+        // These items have NO URLs - they should NOT be matched via title when URL match exists
+        create_test_credential("asd", "", "user@asd.com"),
+        create_test_credential("blabla", "", "user@blabla.com"),
+    ];
+
+    // When visiting blabla.asd.com:1234, only the URL match should be returned
+    // The items named "asd" and "blabla" should NOT match even though page title might contain those words
+    let matches = filter(credentials.clone(), "https://blabla.asd.com:1234/login", "Welcome to blabla asd service");
+
+    assert_eq!(matches.len(), 1, "Should only return URL match, not title matches");
+    assert_eq!(matches[0].item_name.as_deref(), Some("blabla service"));
 }

@@ -3,7 +3,7 @@
 @inject DbService DbService
 @inject IStringLocalizerFactory LocalizerFactory
 
-<div class="ms-1 items-center flex">
+<div class="ms-1 items-center flex" id="vault-sync-indicator" data-syncing="@IsSyncing.ToString().ToLowerInvariant()">
     <SmallLoadingIndicator Title="@GetStatusTitle()" Spinning="@IsSyncing">
         @if (!IsSyncing)
         {
