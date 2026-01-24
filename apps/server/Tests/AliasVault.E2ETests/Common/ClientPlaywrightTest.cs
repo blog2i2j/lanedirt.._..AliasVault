@@ -235,6 +235,8 @@ public class ClientPlaywrightTest : PlaywrightTest
         // In that case we need to:
         // 1. Click "+ Email" button to add the email field (for Login type items)
         // 2. Switch from "Email" mode to "Alias" mode
+        // 3. Modify formValues to only contain the local part (prefix) of the email
+        // 4. Select the correct domain if it's not the default one
         if (formValues != null && formValues.TryGetValue("email", out var emailValue) && IsPrivateEmailDomain(emailValue))
         {
             // Click the "+ Email" button to add the email field section
@@ -251,6 +253,34 @@ public class ClientPlaywrightTest : PlaywrightTest
 
             // Wait for the alias mode to be active (the input should now show a domain suffix button)
             await Page.WaitForSelectorAsync("button:has-text('@')", new() { State = WaitForSelectorState.Visible, Timeout = 5000 });
+
+            // Wait for the email input to be populated with a generated value (the component generates a random prefix)
+            await Page.WaitForFunctionAsync(
+                "() => document.querySelector('input#email')?.value?.length > 0",
+                null,
+                new() { Timeout = 5000 });
+
+            // Extract the local part and domain from the email address
+            var parts = emailValue.Split('@');
+            var localPart = parts[0];
+            var domain = parts[1];
+
+            // Check if we need to select a different domain (click on domain button to show popup, then select)
+            var currentDomainButton = Page.Locator("button:has-text('@')").First;
+            var currentDomainText = await currentDomainButton.TextContentAsync();
+            if (currentDomainText != null && !currentDomainText.Contains(domain))
+            {
+                // Click to open domain popup
+                await currentDomainButton.ClickAsync();
+
+                // Wait for popup and select the correct domain
+                await Page.WaitForSelectorAsync($"button:has-text('{domain}')", new() { State = WaitForSelectorState.Visible, Timeout = 5000 });
+                await Page.Locator($"button:has-text('{domain}')").First.ClickAsync();
+            }
+
+            // Update formValues to only contain the local part (prefix) since the input in Alias mode
+            // only expects the prefix. If we pass the full email, the component will switch back to Email mode.
+            formValues["email"] = localPart;
         }
 
         // Fill all input fields with specified values and remaining empty fields with random data.
@@ -298,6 +328,37 @@ public class ClientPlaywrightTest : PlaywrightTest
 
         // Wait for the edit item page to load.
         await WaitForUrlAsync("items/**/edit", "Edit the existing item");
+
+        // If email field is specified with a private email domain, we need to handle Alias mode specially.
+        // When updating, if the item already has a private email, the email field will be in Alias mode.
+        // In Alias mode, the input only expects the local part (prefix), not the full email.
+        if (formValues != null && formValues.TryGetValue("email", out var emailValue) && IsPrivateEmailDomain(emailValue))
+        {
+            // Check if we're in Alias mode (domain suffix button is visible)
+            var domainButton = Page.Locator("button:has-text('@')");
+            if (await domainButton.CountAsync() > 0)
+            {
+                // Extract the local part and domain from the email address
+                var parts = emailValue.Split('@');
+                var localPart = parts[0];
+                var domain = parts[1];
+
+                // Check if we need to select a different domain
+                var currentDomainText = await domainButton.First.TextContentAsync();
+                if (currentDomainText != null && !currentDomainText.Contains(domain))
+                {
+                    // Click to open domain popup
+                    await domainButton.First.ClickAsync();
+
+                    // Wait for popup and select the correct domain
+                    await Page.WaitForSelectorAsync($"button:has-text('{domain}')", new() { State = WaitForSelectorState.Visible, Timeout = 5000 });
+                    await Page.Locator($"button:has-text('{domain}')").First.ClickAsync();
+                }
+
+                // Update formValues to only contain the local part (prefix)
+                formValues["email"] = localPart;
+            }
+        }
 
         // Fill all input fields with specified values and remaining empty fields with random data.
         await InputHelper.FillInputFields(formValues);

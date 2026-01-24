@@ -79,17 +79,18 @@ public class DbSyncTests : ClientPlaywrightTest
     [Order(2)]
     public async Task DbSyncClientMergeCredentialPropertiesTest()
     {
+        // Use unique prefix "PropTest" to avoid conflicts with other tests in this class
         var baselineVault = await CreateBaselineVault(async () =>
         {
-            await CreateItemEntry(new Dictionary<string, string> { { "service-name", "TestBaseline1" }, { "username", "user1" }, { "email", "email1@example.tld" } });
-            await CreateItemEntry(new Dictionary<string, string> { { "service-name", "TestBaseline2" }, { "username", "user2" }, { "email", "email2@example.tld" } });
-            await CreateItemEntry(new Dictionary<string, string> { { "service-name", "TestBaseline3" }, { "username", "user3" }, { "email", "email3@example.tld" } });
+            await CreateItemEntry(new Dictionary<string, string> { { "service-name", "PropTestBaseline1" }, { "username", "propuser1" }, { "email", "propemail1@example.tld" } });
+            await CreateItemEntry(new Dictionary<string, string> { { "service-name", "PropTestBaseline2" }, { "username", "propuser2" }, { "email", "propemail2@example.tld" } });
+            await CreateItemEntry(new Dictionary<string, string> { { "service-name", "PropTestBaseline3" }, { "username", "propuser3" }, { "email", "propemail3@example.tld" } });
         });
 
         // Client 1 updates the vault first.
         var client1Vault = await SimulateClient(baselineVault, async () =>
         {
-            await UpdateItemEntry("TestBaseline2", new Dictionary<string, string> { { "service-name", "TestBaseMutate2" }, { "username", "usermutate2" }, { "email", "emailmutate2@example.tld" } });
+            await UpdateItemEntry("PropTestBaseline2", new Dictionary<string, string> { { "service-name", "PropTestMutate2" }, { "username", "propmutate2" }, { "email", "propemailmutate2@example.tld" } });
         });
 
         // Then client 2 updates the same vault causing a conflict and requiring a client-side merge.
@@ -100,7 +101,7 @@ public class DbSyncTests : ClientPlaywrightTest
             ApiDbContext.Vaults.Add(client1Vault);
             await ApiDbContext.SaveChangesAsync();
 
-            await UpdateItemEntry("TestBaseline3", new Dictionary<string, string> { { "service-name", "TestBaseMutate3" }, { "username", "usermutate3" }, { "email", "emailmutate3@example.tld" } });
+            await UpdateItemEntry("PropTestBaseline3", new Dictionary<string, string> { { "service-name", "PropTestMutate3" }, { "username", "propmutate3" }, { "email", "propemailmutate3@example.tld" } });
         });
 
         // Then another client updates the client 1 vault again, which should also cause a conflict with the client 2 vault update.
@@ -112,14 +113,14 @@ public class DbSyncTests : ClientPlaywrightTest
             await ApiDbContext.SaveChangesAsync();
 
             // Update username to test that field-level merge works correctly.
-            await UpdateItemEntry("TestBaseMutate2", new Dictionary<string, string> { { "service-name", "TestBaseMutate23" }, { "username", "usermutate23" } });
+            await UpdateItemEntry("PropTestMutate2", new Dictionary<string, string> { { "service-name", "PropTestMutate23" }, { "username", "propmutate23" } });
         });
 
         // Assert that the two conflicting vaults have been merged and all mutated field values are found.
         Dictionary<string, List<string>> expectedStrings = new()
         {
-            { "TestBaseMutate23", new List<string> { "usermutate23", "emailmutate2@example.tld" } },
-            { "TestBaseMutate3", new List<string> { "usermutate3", "emailmutate3@example.tld" } },
+            { "PropTestMutate23", new List<string> { "propmutate23", "propemailmutate2@example.tld" } },
+            { "PropTestMutate3", new List<string> { "propmutate3", "propemailmutate3@example.tld" } },
         };
 
         foreach (var serviceName in expectedStrings)
