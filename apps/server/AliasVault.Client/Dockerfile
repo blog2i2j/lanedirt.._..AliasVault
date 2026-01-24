@@ -50,8 +50,6 @@ RUN dotnet workload install wasm-tools
 COPY apps/server /src
 
 # Copy built core libraries from core-builder stage
-# Note: The distribute scripts in core/ try to copy to ../../apps/ which doesn't exist
-# in the core-builder stage, so we manually copy from the dist/ directories here.
 COPY --from=core-builder /src/core/ /src-core/
 
 # Copy Rust WASM output to wwwroot/wasm/
