@@ -9,8 +9,8 @@
 "title" = "Nazwa";
 "unknown_error" = "Wystąpił nieznany błąd";
 
-"loading_items" = "Loading items...";
-"no_items_found" = "No items found";
+"loading_items" = "Ładowanie elementów...";
+"no_items_found" = "Nic nie znaleziono";
 "no_items_match" = "No existing items match your search";
 "create_new_item" = "Create New Item";
 "select_item" = "Select Item";
@@ -58,7 +58,7 @@
 
 /* Passkey merge with existing item */
 "passkey_add_to_existing" = "Or, add passkey to an existing item";
-"add_passkey" = "Add Passkey";
+"add_passkey" = "Dodaj klucz dostępu";
 "merge_passkey_explanation" = "This will add a passkey to your existing item. Your password and other data will be preserved.";
 
 /* PIN Unlock */
