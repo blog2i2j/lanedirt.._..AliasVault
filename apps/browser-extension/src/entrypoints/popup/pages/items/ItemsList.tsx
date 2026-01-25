@@ -657,32 +657,6 @@ const ItemsList: React.FC = () => {
               {t('items.welcomeDescription')}
             </p>
           </div>
-          {/* Show Recently Deleted even when vault is empty */}
-          {recentlyDeletedCount > 0 && (
-            <button
-              onClick={() => navigate('/items/deleted')}
-              className="w-full p-3 flex items-center justify-between text-left bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <svg
-                  className="w-5 h-5 text-gray-400"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                </svg>
-                <span className="text-gray-700 dark:text-gray-300">{t('recentlyDeleted.title')}</span>
-              </div>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                {recentlyDeletedCount}
-              </span>
-            </button>
-          )}
         </>
       ) : filteredItems.length === 0 && folders.length === 0 ? (
         <div className="text-gray-500 dark:text-gray-400 space-y-3 mb-10">
@@ -828,35 +802,6 @@ const ItemsList: React.FC = () => {
                 </button>
               )}
             </div>
-          )}
-
-          {/* Recently Deleted link (only show at root level when not searching and not filtering) */}
-          {!currentFolderId && !searchTerm && filterType === 'all' && (
-            <button
-              onClick={() => navigate('/items/deleted')}
-              className="w-full mt-4 p-3 flex items-center justify-between text-left bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <svg
-                  className="w-5 h-5 text-gray-400"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                </svg>
-                <span className="text-gray-700 dark:text-gray-300">{t('recentlyDeleted.title')}</span>
-              </div>
-              {recentlyDeletedCount > 0 && (
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {recentlyDeletedCount}
-                </span>
-              )}
-            </button>
           )}
         </>
       )}
