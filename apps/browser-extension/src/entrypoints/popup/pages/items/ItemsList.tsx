@@ -478,6 +478,12 @@ const ItemsList: React.FC = () => {
 
   const folders = getFoldersWithCounts();
 
+  /**
+   * Check if all items are in folders (no items at root level but items exist in folders).
+   * This is used to show a helpful message when the user has imported credentials that were all in folders.
+   */
+  const hasItemsInFoldersOnly = items.length > 0 && items.every((item: Item) => item.FolderId !== null);
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center p-8">
@@ -490,28 +496,35 @@ const ItemsList: React.FC = () => {
     <div>
       <div className="flex justify-between items-center gap-2 mb-4">
         <div className="relative min-w-0 flex-1 flex items-center gap-2">
-          <button
-            onClick={() => setShowFilterMenu(!showFilterMenu)}
-            className="flex items-center gap-1 text-gray-900 dark:text-white text-xl hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none min-w-0"
-          >
-            <h2 className="flex items-baseline gap-1.5 min-w-0 overflow-hidden">
-              <span className="truncate">{getFilterTitle()}</span>
-              <span className="text-sm text-gray-500 dark:text-gray-400 shrink-0">
-                ({filteredItems.length})
-              </span>
+          {/* When all items are in folders at root level, show simple title without dropdown */}
+          {hasItemsInFoldersOnly && !currentFolderId ? (
+            <h2 className="text-gray-900 dark:text-white text-xl min-w-0">
+              <span className="truncate">{t('items.title')}</span>
             </h2>
-            <svg
-              className="w-4 h-4 mt-1 shrink-0"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+          ) : (
+            <button
+              onClick={() => setShowFilterMenu(!showFilterMenu)}
+              className="flex items-center gap-1 text-gray-900 dark:text-white text-xl hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none min-w-0"
             >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
+              <h2 className="flex items-baseline gap-1.5 min-w-0 overflow-hidden">
+                <span className="truncate">{getFilterTitle()}</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400 shrink-0">
+                  ({filteredItems.length})
+                </span>
+              </h2>
+              <svg
+                className="w-4 h-4 mt-1 shrink-0"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+          )}
           {/* Edit and Delete buttons when inside a folder */}
           {currentFolderId && (
             <div className="flex items-center gap-1 shrink-0">
@@ -536,7 +549,7 @@ const ItemsList: React.FC = () => {
               </button>
             </div>
           )}
-          {showFilterMenu && (
+          {showFilterMenu && !(hasItemsInFoldersOnly && !currentFolderId) && (
             <>
               <div
                 className="fixed inset-0 z-10"
@@ -658,7 +671,7 @@ const ItemsList: React.FC = () => {
             </p>
           </div>
         </>
-      ) : filteredItems.length === 0 && folders.length === 0 ? (
+      ) : filteredItems.length === 0 && folders.length === 0 && !hasItemsInFoldersOnly ? (
         <div className="text-gray-500 dark:text-gray-400 space-y-3 mb-10">
           {/* Show filter/search-specific messages only when actively filtering or searching */}
           {(filterType !== 'all' || searchTerm) && (
@@ -720,6 +733,35 @@ const ItemsList: React.FC = () => {
             </p>
           )}
         </div>
+      ) : hasItemsInFoldersOnly && filteredItems.length === 0 && !currentFolderId && !searchTerm ? (
+        /* Show message when all items are in folders and we're at root level */
+        <>
+          {/* Folders as inline pills */}
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            {folders.map(folder => (
+              <FolderPill
+                key={folder.id}
+                folder={folder}
+                onClick={() => handleFolderClick(folder.id, folder.name)}
+              />
+            ))}
+            <button
+              onClick={handleAddFolder}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-full transition-colors focus:outline-none text-gray-500 dark:text-gray-400 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-gray-100 dark:hover:bg-gray-700/50"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+              </svg>
+              <svg className="w-3 h-3 -ml-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+          </div>
+          <div className="text-gray-500 dark:text-gray-400 text-sm">
+            <p>{t('items.allItemsInFolders')}</p>
+          </div>
+        </>
       ) : (
         <>
           {/* Folders as inline pills (only show at root level when not searching) */}
