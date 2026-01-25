@@ -161,10 +161,7 @@
                                     {
                                         <div class="text-center">
                                             <LoadingIndicator />
-                                            <p class="mt-4 text-gray-700 dark:text-gray-300">Extracting favicons... @(FaviconExtractionProgress)/@(TotalFaviconsToExtract)</p>
-                                            <div class="w-full bg-gray-200 rounded-full h-2.5 mt-4 dark:bg-gray-700">
-                                                <div class="bg-primary-600 h-2.5 rounded-full transition-all duration-300" style="width: @(GetFaviconProgressPercentage())%"></div>
-                                            </div>
+                                            <p class="mt-4 text-gray-700 dark:text-gray-300">Extracting favicons... @(FaviconExtractionProgress) / @(TotalFaviconsToExtract)</p>
                                             <div class="mt-4">
                                                 <Button OnClick="@CancelFaviconExtraction" Color="secondary">Cancel</Button>
                                             </div>
@@ -682,15 +679,6 @@
     private int GetProgressPercentage()
     {
         return (int)CurrentStep * 100 / (Enum.GetValues(typeof(ImportStep)).Length - 1);
-    }
-
-    private int GetFaviconProgressPercentage()
-    {
-        if (TotalFaviconsToExtract == 0) {
-            return 0;
-        }
-
-        return (FaviconExtractionProgress * 100) / TotalFaviconsToExtract;
     }
 
     private void CancelFaviconExtraction()
