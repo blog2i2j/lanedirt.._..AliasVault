@@ -75,7 +75,7 @@
     "settings": "Einstellungen",
     "recentEmails": "Neueste E-Mails",
     "credentials": "Zugangsdaten",
-    "customFields": "Custom",
+    "customFields": "Custom Fields",
     "twoFactorAuthentication": "Zwei-Faktor-Authentifizierung",
     "alias": "Alias",
     "notes": "Notizen",
@@ -105,8 +105,7 @@
       "vaultIsLocked": "Der Tresor ist gesperrt.",
       "passwordChanged": "Dein Passwort hat sich seit Deiner letzten Anmeldung geändert. Bitte melden Dich aus Sicherheitsgründen erneut an.",
       "syncConflictMaxRetries": "Could not sync vault after multiple attempts. Please try again later.",
-      "mergeFailed": "Failed to merge vault changes. Please try again.",
-      "legacyMergeRequired": "Vault merge required. Please login via the web app to merge the pending updates to your vault."
+      "mergeFailed": "Failed to merge vault changes. Please try again."
     },
     "apiErrors": {
       "UNKNOWN_ERROR": "Ein unbekannter Fehler ist aufgetreten. Bitte versuche es erneut.",
@@ -167,28 +166,6 @@
     "vaultUpgradeRequired": "Aktualisierung des Tresors erforderlich.",
     "dismissPopup": "Popup schliessen"
   },
-  "credentials": {
-    "changePasswordComplexity": "Komplexität des Passworts ändern",
-    "passwordLength": "Passwortlänge",
-    "includeLowercase": "Kleinbuchstaben (a-z)",
-    "includeUppercase": "Großbuchstaben (A-Z)",
-    "includeNumbers": "Ziffern (0-9)",
-    "includeSpecialChars": "Sonderzeichen (!@#$%^&*)",
-    "avoidAmbiguousChars": "Mehrdeutige Zeichen (1, l, I, 0, O, etc.) vermeiden",
-    "privateEmailTitle": "Private E-Mail-Adresse",
-    "privateEmailAliasVaultServer": "AliasVault-Server",
-    "privateEmailDescription": "Ende-zu-Ende verschlüsselt, vollständig privat.",
-    "publicEmailTitle": "Öffentliche Temp-E-Mail-Anbieter",
-    "publicEmailDescription": "Anonyme, aber beschränkte Privatsphäre. E-Mail-Inhalt ist für jeden lesbar, der die Adresse kennt.",
-    "generateRandomUsername": "Zufälligen Benutzernamen generieren",
-    "generateRandomPassword": "Zufälliges Passwort generieren",
-    "generateNewPreview": "Neue Vorschau erstellen",
-    "generateRandomAlias": "Zufälligen Alias generieren",
-    "validation": {
-      "required": "Dieses Feld ist ein Pflichtfeld"
-    },
-    "tags": "Schlagwörter"
-  },
   "items": {
     "title": "Items",
     "itemName": "Name",
@@ -212,6 +189,10 @@
     "noAttachmentsFound": "No items with attachments found",
     "noItemsOfTypeFound": "No {{type}} items found",
     "noMatchingItems": "No matching items found",
+    "noMatchingItemsSearch": "No items matching \"{{search}}\"",
+    "noMatchingItemsWithFilter": "No {{filter}} items matching \"{{search}}\"",
+    "clearSearch": "Clear search",
+    "clearFilter": "Clear filter",
     "emptyFolderHint": "This folder is empty. To move items to this folder, edit the item and tap the folder icon in the name field.",
     "deleteFolder": "Delete Folder",
     "deleteFolderKeepItems": "Delete folder only",
@@ -226,7 +207,27 @@
     "deleteItemConfirm": "Bist Du sicher, dass Du diesen Eintrag löschen möchtest?",
     "viewHistory": "View history",
     "history": "History",
-    "noHistoryAvailable": "No history available"
+    "noHistoryAvailable": "No history available",
+    "tags": "Schlagwörter",
+    "changePasswordComplexity": "Komplexität des Passworts ändern",
+    "passwordLength": "Passwortlänge",
+    "includeLowercase": "Kleinbuchstaben (a-z)",
+    "includeUppercase": "Großbuchstaben (A-Z)",
+    "includeNumbers": "Ziffern (0-9)",
+    "includeSpecialChars": "Sonderzeichen (!@#$%^&*)",
+    "avoidAmbiguousChars": "Mehrdeutige Zeichen (1, l, I, 0, O, etc.) vermeiden",
+    "privateEmailTitle": "Private E-Mail-Adresse",
+    "privateEmailAliasVaultServer": "AliasVault-Server",
+    "privateEmailDescription": "Ende-zu-Ende verschlüsselt, vollständig privat.",
+    "publicEmailTitle": "Öffentliche Temp-E-Mail-Anbieter",
+    "publicEmailDescription": "Anonyme, aber beschränkte Privatsphäre. E-Mail-Inhalt ist für jeden lesbar, der die Adresse kennt.",
+    "generateRandomUsername": "Zufälligen Benutzernamen generieren",
+    "generateRandomPassword": "Zufälliges Passwort generieren",
+    "generateNewPreview": "Neue Vorschau erstellen",
+    "generateRandomAlias": "Zufälligen Alias generieren",
+    "validation": {
+      "required": "Dieses Feld ist ein Pflichtfeld"
+    }
   },
   "itemTypes": {
     "selectType": "Add New Item",
@@ -305,6 +306,7 @@
     "emailNotFound": "E-Mail nicht gefunden",
     "noEmails": "Keine E-Mails gefunden",
     "noEmailsDescription": "Du hast bisher keine E-Mails an Deine privaten E-Mail-Adressen erhalten. Neue E-Mails werden hier angezeigt, sobald sie eintreffen.",
+    "offlineMessage": "You are offline. Please connect to the internet to load your emails.",
     "dateFormat": {
       "justNow": "gerade eben",
       "minutesAgo_single": "vor {{count}} Minute",
@@ -460,8 +462,8 @@
     "restore": "Restore",
     "deletePermanently": "Delete Permanently",
     "emptyAll": "Empty All",
-    "daysRemaining": "{{count}} day remaining",
-    "daysRemaining_plural": "{{count}} days remaining",
+    "daysRemaining_one": "{{count}} day remaining",
+    "daysRemaining_other": "{{count}} days remaining",
     "expiringSoon": "Expiring soon",
     "confirmDeleteTitle": "Delete Permanently?",
     "confirmDeleteMessage": "This item will be permanently deleted and cannot be recovered.",

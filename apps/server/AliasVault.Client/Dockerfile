@@ -51,7 +51,19 @@ COPY apps/server /src
 
 # Copy built core libraries from core-builder stage
 COPY --from=core-builder /src/core/ /src-core/
-RUN cp -r /src-core/apps/server/AliasVault.Client/wwwroot/js/dist/core/* /src/AliasVault.Client/wwwroot/js/dist/core/ 2>/dev/null || true
+
+# Copy Rust WASM output to wwwroot/wasm/
+RUN mkdir -p /src/AliasVault.Client/wwwroot/wasm && \
+    cp /src-core/rust/dist/wasm/aliasvault_core_bg.wasm /src/AliasVault.Client/wwwroot/wasm/ && \
+    cp /src-core/rust/dist/wasm/aliasvault_core.js /src/AliasVault.Client/wwwroot/wasm/
+
+# Copy TypeScript core packages (identity-generator, password-generator, vault) to wwwroot/js/dist/core/
+RUN mkdir -p /src/AliasVault.Client/wwwroot/js/dist/core/identity-generator && \
+    mkdir -p /src/AliasVault.Client/wwwroot/js/dist/core/password-generator && \
+    mkdir -p /src/AliasVault.Client/wwwroot/js/dist/core/vault && \
+    cp -r /src-core/typescript/identity-generator/dist/* /src/AliasVault.Client/wwwroot/js/dist/core/identity-generator/ && \
+    cp -r /src-core/typescript/password-generator/dist/* /src/AliasVault.Client/wwwroot/js/dist/core/password-generator/ && \
+    cp -r /src-core/vault/dist/* /src/AliasVault.Client/wwwroot/js/dist/core/vault/
 
 # Build the Client project
 WORKDIR "/src/AliasVault.Client"
