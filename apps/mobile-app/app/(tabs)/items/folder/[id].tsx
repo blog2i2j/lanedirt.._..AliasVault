@@ -9,8 +9,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 
 import type { Folder } from '@/utils/db/repositories/FolderRepository';
-import type { Item } from '@/utils/dist/core/models/vault';
-import { getFieldValue, FieldKey } from '@/utils/dist/core/models/vault';
+import type { Item, ItemType } from '@/utils/dist/core/models/vault';
+import { getFieldValue, FieldKey, ItemTypes } from '@/utils/dist/core/models/vault';
 import emitter from '@/utils/EventEmitter';
 import { VaultAuthenticationError } from '@/utils/types/errors/VaultAuthenticationError';
 
@@ -32,6 +32,37 @@ import { useDb } from '@/context/DbContext';
 import { useDialog } from '@/context/DialogContext';
 
 /**
+ * Filter types for the items list.
+ */
+type FilterType = 'all' | 'passkeys' | 'attachments' | ItemType;
+
+/**
+ * Check if a filter is an item type filter.
+ */
+const isItemTypeFilter = (filter: FilterType): filter is ItemType => {
+  return Object.values(ItemTypes).includes(filter as ItemType);
+};
+
+/**
+ * Item type filter option configuration.
+ */
+type ItemTypeOption = {
+  type: ItemType;
+  titleKey: string;
+  iconName: keyof typeof MaterialIcons.glyphMap;
+};
+
+/**
+ * Available item type filter options with icons.
+ */
+const ITEM_TYPE_OPTIONS: ItemTypeOption[] = [
+  { type: ItemTypes.Login, titleKey: 'itemTypes.login.title', iconName: 'key' },
+  { type: ItemTypes.Alias, titleKey: 'itemTypes.alias.title', iconName: 'person' },
+  { type: ItemTypes.CreditCard, titleKey: 'itemTypes.creditCard.title', iconName: 'credit-card' },
+  { type: ItemTypes.Note, titleKey: 'itemTypes.note.title', iconName: 'description' },
+];
+
+/**
  * Folder view screen - displays items within a specific folder.
  * Simplified view with search scoped to this folder only.
  */
@@ -47,12 +78,15 @@ export default function FolderViewScreen(): React.ReactNode {
 
   const [itemsList, setItemsList] = useState<Item[]>([]);
   const [folder, setFolder] = useState<Folder | null>(null);
-  const [isLoadingItems, setIsLoadingItems] = useMinDurationLoading(false, 200);
+  // No minimum loading delay for folder view since data is already in memory
+  const [isLoadingItems, setIsLoadingItems] = useState(false);
   const [refreshing, setRefreshing] = useMinDurationLoading(false, 200);
   const { executeVaultMutation } = useVaultMutate();
 
-  // Search state (scoped to this folder)
+  // Search and filter state (scoped to this folder)
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState<FilterType>('all');
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
 
   // Folder modals
   const [showEditFolderModal, setShowEditFolderModal] = useState(false);
@@ -66,16 +100,55 @@ export default function FolderViewScreen(): React.ReactNode {
   const isDatabaseAvailable = dbContext.dbAvailable;
 
   /**
-   * Filter items by search query (within this folder only).
+   * Get the title based on the active filter.
+   * Shows "Items" for 'all' filter since folder name is already in the navigation header.
+   */
+  const getFilterTitle = useCallback((): string => {
+    switch (filterType) {
+      case 'passkeys':
+        return t('items.filters.passkeys');
+      case 'attachments':
+        return t('common.attachments');
+      case 'all':
+        return t('items.title');
+      default:
+        if (isItemTypeFilter(filterType)) {
+          const itemTypeOption = ITEM_TYPE_OPTIONS.find(opt => opt.type === filterType);
+          if (itemTypeOption) {
+            return t(itemTypeOption.titleKey);
+          }
+        }
+        return t('items.title');
+    }
+  }, [filterType, t]);
+
+  /**
+   * Filter items by search query and type (within this folder only).
    */
   const filteredItems = useMemo(() => {
-    const searchLower = searchQuery.toLowerCase().trim();
-
-    if (!searchLower) {
-      return itemsList;
-    }
-
     return itemsList.filter(item => {
+      // Apply type filter
+      let passesTypeFilter = true;
+
+      if (filterType === 'passkeys') {
+        passesTypeFilter = item.HasPasskey === true;
+      } else if (filterType === 'attachments') {
+        passesTypeFilter = item.HasAttachment === true;
+      } else if (isItemTypeFilter(filterType)) {
+        passesTypeFilter = item.ItemType === filterType;
+      }
+
+      if (!passesTypeFilter) {
+        return false;
+      }
+
+      // Apply search filter
+      const searchLower = searchQuery.toLowerCase().trim();
+
+      if (!searchLower) {
+        return true;
+      }
+
       const searchableFields = [
         item.Name?.toLowerCase() || '',
         getFieldValue(item, FieldKey.LoginUsername)?.toLowerCase() || '',
@@ -90,7 +163,7 @@ export default function FolderViewScreen(): React.ReactNode {
         searchableFields.some(field => field.includes(word))
       );
     });
-  }, [itemsList, searchQuery]);
+  }, [itemsList, searchQuery, filterType]);
 
   /**
    * Load items in this folder and folder details.
@@ -368,13 +441,60 @@ export default function FolderViewScreen(): React.ReactNode {
       color: colors.textMuted,
       fontSize: 20,
     },
-    // Item count styles
-    itemCountContainer: {
-      marginBottom: 12,
+    // Filter button styles
+    filterButton: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      marginBottom: 16,
+      gap: 8,
     },
-    itemCountText: {
+    filterButtonText: {
+      color: colors.text,
+      fontSize: 22,
+      fontWeight: 'bold',
+      lineHeight: 28,
+    },
+    filterCount: {
       color: colors.textMuted,
+      fontSize: 16,
+      lineHeight: 22,
+    },
+    // Filter menu styles
+    filterMenu: {
+      backgroundColor: colors.accentBackground,
+      borderColor: colors.accentBorder,
+      borderRadius: 8,
+      borderWidth: 1,
+      marginBottom: 8,
+      overflow: 'hidden',
+    },
+    filterMenuItem: {
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+    },
+    filterMenuItemWithIcon: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 8,
+    },
+    filterMenuItemIcon: {
+      width: 18,
+    },
+    filterMenuItemActive: {
+      backgroundColor: colors.primary + '20',
+    },
+    filterMenuItemText: {
+      color: colors.text,
       fontSize: 14,
+    },
+    filterMenuItemTextActive: {
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    filterMenuSeparator: {
+      backgroundColor: colors.accentBorder,
+      height: 1,
+      marginVertical: 4,
     },
     // Empty state styles
     emptyText: {
@@ -420,11 +540,135 @@ export default function FolderViewScreen(): React.ReactNode {
   });
 
   /**
-   * Render the list header with search.
+   * Render the filter menu.
+   */
+  const renderFilterMenu = (): React.ReactNode => {
+    if (!showFilterMenu) {
+      return null;
+    }
+
+    return (
+      <ThemedView style={styles.filterMenu}>
+        {/* All items filter */}
+        <TouchableOpacity
+          style={[
+            styles.filterMenuItem,
+            filterType === 'all' && styles.filterMenuItemActive
+          ]}
+          onPress={() => {
+            setFilterType('all');
+            setShowFilterMenu(false);
+          }}
+        >
+          <ThemedText style={[
+            styles.filterMenuItemText,
+            filterType === 'all' && styles.filterMenuItemTextActive
+          ]}>
+            {t('items.filters.all')}
+          </ThemedText>
+        </TouchableOpacity>
+
+        <ThemedView style={styles.filterMenuSeparator} />
+
+        {/* Item type filters */}
+        {ITEM_TYPE_OPTIONS.map((option) => (
+          <TouchableOpacity
+            key={option.type}
+            style={[
+              styles.filterMenuItem,
+              styles.filterMenuItemWithIcon,
+              filterType === option.type && styles.filterMenuItemActive
+            ]}
+            onPress={() => {
+              setFilterType(option.type);
+              setShowFilterMenu(false);
+            }}
+          >
+            <MaterialIcons
+              name={option.iconName}
+              size={18}
+              color={filterType === option.type ? colors.primary : colors.textMuted}
+              style={styles.filterMenuItemIcon}
+            />
+            <ThemedText style={[
+              styles.filterMenuItemText,
+              filterType === option.type && styles.filterMenuItemTextActive
+            ]}>
+              {t(option.titleKey)}
+            </ThemedText>
+          </TouchableOpacity>
+        ))}
+
+        <ThemedView style={styles.filterMenuSeparator} />
+
+        {/* Passkeys filter */}
+        <TouchableOpacity
+          style={[
+            styles.filterMenuItem,
+            filterType === 'passkeys' && styles.filterMenuItemActive
+          ]}
+          onPress={() => {
+            setFilterType('passkeys');
+            setShowFilterMenu(false);
+          }}
+        >
+          <ThemedText style={[
+            styles.filterMenuItemText,
+            filterType === 'passkeys' && styles.filterMenuItemTextActive
+          ]}>
+            {t('items.filters.passkeys')}
+          </ThemedText>
+        </TouchableOpacity>
+
+        {/* Attachments filter */}
+        <TouchableOpacity
+          style={[
+            styles.filterMenuItem,
+            filterType === 'attachments' && styles.filterMenuItemActive
+          ]}
+          onPress={() => {
+            setFilterType('attachments');
+            setShowFilterMenu(false);
+          }}
+        >
+          <ThemedText style={[
+            styles.filterMenuItemText,
+            filterType === 'attachments' && styles.filterMenuItemTextActive
+          ]}>
+            {t('common.attachments')}
+          </ThemedText>
+        </TouchableOpacity>
+      </ThemedView>
+    );
+  };
+
+  /**
+   * Render the list header with filter and search.
    */
   const renderListHeader = (): React.ReactNode => {
     return (
       <ThemedView>
+        {/* Filter button */}
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => setShowFilterMenu(!showFilterMenu)}
+        >
+          <ThemedText style={styles.filterButtonText}>
+            {getFilterTitle()}
+          </ThemedText>
+          <ThemedText style={styles.filterCount}>
+            ({filteredItems.length})
+          </ThemedText>
+          <MaterialIcons
+            name={showFilterMenu ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+            size={24}
+            color={colors.text}
+          />
+        </TouchableOpacity>
+
+        {/* Filter menu */}
+        {renderFilterMenu()}
+
         {/* Search input */}
         <ThemedView style={styles.searchContainer}>
           <MaterialIcons

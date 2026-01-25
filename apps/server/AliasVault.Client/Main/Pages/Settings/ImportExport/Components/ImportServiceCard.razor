@@ -1,6 +1,7 @@
 @inject ILogger<ImportServiceCard> Logger
 @inject ItemService ItemService
 @inject DbService DbService
+@inject FolderService FolderService
 @inject NavigationManager NavigationManager
 @inject GlobalNotificationService GlobalNotificationService
 @inject HttpClient HttpClient
@@ -128,11 +129,19 @@
                             </div>
                             @if (ImportedCredentials.Count > 0)
                             {
-                                <div class="mb-4">
-                                    <label class="inline-flex items-center">
+                                <div class="mb-4 space-y-2">
+                                    <label class="flex items-center">
                                         <input type="checkbox" @bind="ExtractFavicons" class="form-checkbox h-4 w-4 text-primary-600 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700">
                                         <span class="ml-2 text-gray-700 dark:text-gray-300">Extract favicons for services with URLs</span>
                                     </label>
+                                    @if (DetectedFolderCount > 0)
+                                    {
+                                        <label class="flex items-center">
+                                            <input type="checkbox" @bind="ImportFolders" class="form-checkbox h-4 w-4 text-primary-600 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700">
+                                            <span class="ml-2 text-gray-700 dark:text-gray-300">@Localizer["ImportFoldersLabel"]</span>
+                                            <span class="ml-2 text-sm text-gray-500 dark:text-gray-400">(@string.Format(Localizer["FoldersDetected"], DetectedFolderCount))</span>
+                                        </label>
+                                    }
                                 </div>
                             }
                             <div class="flex justify-end mt-6 space-x-2">
@@ -152,10 +161,7 @@
                                     {
                                         <div class="text-center">
                                             <LoadingIndicator />
-                                            <p class="mt-4 text-gray-700 dark:text-gray-300">Extracting favicons... @(FaviconExtractionProgress)/@(TotalFaviconsToExtract)</p>
-                                            <div class="w-full bg-gray-200 rounded-full h-2.5 mt-4 dark:bg-gray-700">
-                                                <div class="bg-primary-600 h-2.5 rounded-full transition-all duration-300" style="width: @(GetFaviconProgressPercentage())%"></div>
-                                            </div>
+                                            <p class="mt-4 text-gray-700 dark:text-gray-300">Extracting favicons... @(FaviconExtractionProgress) / @(TotalFaviconsToExtract)</p>
                                             <div class="mt-4">
                                                 <Button OnClick="@CancelFaviconExtraction" Color="secondary">Cancel</Button>
                                             </div>
@@ -248,6 +254,9 @@
     private List<ImportedCredential> ImportedCredentials { get; set; } = new();
 
     private bool ExtractFavicons { get; set; } = true;
+    private bool ImportFolders { get; set; } = true;
+    private int DetectedFolderCount { get; set; } = 0;
+    private HashSet<string> DetectedFolderNames { get; set; } = new();
     private bool IsExtractingFavicons { get; set; }
     private int FaviconExtractionProgress { get; set; }
     private int TotalFaviconsToExtract { get; set; }
@@ -475,7 +484,14 @@
     /// </summary>
     private async Task ImportCredentialsToDatabase()
     {
-        var items = BaseImporter.ConvertToItem(ImportedCredentials);
+        // Build folder mapping if folder import is enabled
+        Dictionary<string, Guid>? folderNameToId = null;
+        if (ImportFolders && DetectedFolderCount > 0)
+        {
+            folderNameToId = await CreateOrGetFolders();
+        }
+
+        var items = BaseImporter.ConvertToItem(ImportedCredentials, folderNameToId);
         foreach (var item in items)
         {
             await ProcessSingleItem(item);
@@ -492,6 +508,35 @@
         {
             ImportError = "Error saving database.";
         }
+    }
+
+    /// <summary>
+    /// Creates folders that don't exist and returns a mapping of folder names to folder IDs.
+    /// </summary>
+    private async Task<Dictionary<string, Guid>> CreateOrGetFolders()
+    {
+        var folderNameToId = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+        var existingFolders = await FolderService.GetAllWithCountsAsync();
+
+        foreach (var folderName in DetectedFolderNames)
+        {
+            // Check if folder already exists (case-insensitive)
+            var existingFolder = existingFolders.FirstOrDefault(f =>
+                f.Name.Equals(folderName, StringComparison.OrdinalIgnoreCase));
+
+            if (existingFolder != null)
+            {
+                folderNameToId[folderName] = existingFolder.Id;
+            }
+            else
+            {
+                // Create new folder - CreateAsync returns the new folder ID directly
+                var newFolderId = await FolderService.CreateAsync(folderName);
+                folderNameToId[folderName] = newFolderId;
+            }
+        }
+
+        return folderNameToId;
     }
 
     /// <summary>
@@ -603,7 +648,7 @@
     }
 
     /// <summary>
-    /// Detects and removes duplicates from the import list.
+    /// Detects and removes duplicates from the import list, and also detects folders.
     /// </summary>
     private async Task DetectAndRemoveDuplicates()
     {
@@ -621,6 +666,10 @@
 
         // Remove duplicates from the import list
         ImportedCredentials = ImportedCredentials.Except(duplicates).ToList();
+
+        // Detect folders in the import
+        DetectedFolderNames = BaseImporter.CollectUniqueFolderNames(ImportedCredentials);
+        DetectedFolderCount = DetectedFolderNames.Count;
     }
 
     /// <summary>
@@ -630,15 +679,6 @@
     private int GetProgressPercentage()
     {
         return (int)CurrentStep * 100 / (Enum.GetValues(typeof(ImportStep)).Length - 1);
-    }
-
-    private int GetFaviconProgressPercentage()
-    {
-        if (TotalFaviconsToExtract == 0) {
-            return 0;
-        }
-
-        return (FaviconExtractionProgress * 100) / TotalFaviconsToExtract;
     }
 
     private void CancelFaviconExtraction()

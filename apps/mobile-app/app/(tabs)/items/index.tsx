@@ -167,6 +167,14 @@ export default function ItemsScreen(): React.ReactNode {
   }, [filterType, t]);
 
   /**
+   * Check if all items are in folders (no items at root level but items exist in folders).
+   * This is used to show a helpful message when the user has imported credentials that were all in folders.
+   */
+  const hasItemsInFoldersOnly = useMemo(() => {
+    return itemsList.length > 0 && itemsList.every((item: Item) => item.FolderId !== null);
+  }, [itemsList]);
+
+  /**
    * Filter items by folder, type, and search query.
    */
   const filteredItems = useMemo(() => {
@@ -251,6 +259,8 @@ export default function ItemsScreen(): React.ReactNode {
 
     const tabPressSub = emitter.addListener('tabPress', (routeName: string) => {
       if (routeName === 'items' && isTabFocused) {
+        // Reset search and scroll to top when tapping the tab again
+        setSearchQuery('');
         flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
       }
     });
@@ -358,6 +368,17 @@ export default function ItemsScreen(): React.ReactNode {
        */
       headerTitle: (): React.ReactNode => {
         if (Platform.OS === 'android') {
+          // When all items are in folders, show simple title without dropdown
+          if (hasItemsInFoldersOnly) {
+            return (
+              <AndroidHeader
+                title={t('items.title')}
+                subtitle=""
+                onTitlePress={undefined}
+                isDropdownOpen={false}
+              />
+            );
+          }
           return (
             <AndroidHeader
               title={getFilterTitle()}
@@ -370,7 +391,7 @@ export default function ItemsScreen(): React.ReactNode {
         return <Text>{t('items.title')}</Text>;
       },
     });
-  }, [navigation, t, getFilterTitle, filteredItems.length, showFilterMenu]);
+  }, [navigation, t, getFilterTitle, filteredItems.length, showFilterMenu, hasItemsInFoldersOnly]);
 
   /**
    * Delete an item (move to trash).
@@ -789,7 +810,7 @@ export default function ItemsScreen(): React.ReactNode {
    * Render the Android filter menu as an absolute overlay.
    */
   const renderAndroidFilterOverlay = (): React.ReactNode => {
-    if (Platform.OS !== 'android' || !showFilterMenu) {
+    if (Platform.OS !== 'android' || !showFilterMenu || hasItemsInFoldersOnly) {
       return null;
     }
 
@@ -927,60 +948,38 @@ export default function ItemsScreen(): React.ReactNode {
       <ThemedView>
         {/* Large header with logo (iOS only) */}
         {Platform.OS === 'ios' && (
-          <TouchableOpacity
-            style={styles.filterButton}
-            onPress={() => setShowFilterMenu(!showFilterMenu)}
-          >
-            <Logo width={40} height={40} />
-            <ThemedText style={styles.filterButtonText}>
-              {getFilterTitle()}
-            </ThemedText>
-            <ThemedText style={styles.filterCount}>
-              ({filteredItems.length})
-            </ThemedText>
-            <MaterialIcons
-              name={showFilterMenu ? "keyboard-arrow-up" : "keyboard-arrow-down"}
-              size={28}
-              color={colors.text}
-            />
-          </TouchableOpacity>
-        )}
-
-        {/* Filter menu (iOS only - Android uses absolute overlay) */}
-        {Platform.OS === 'ios' && renderFilterMenu()}
-
-        {/* Folder pills */}
-        {foldersWithCounts.length > 0 && (
-          <View style={styles.folderPillsContainer}>
-            {foldersWithCounts.map((folder) => (
-              <FolderPill
-                key={folder.id}
-                folder={folder}
-                onPress={() => handleFolderClick(folder.id)}
+          hasItemsInFoldersOnly ? (
+            /* When all items are in folders, show simple title without dropdown */
+            <View style={styles.filterButton}>
+              <Logo width={40} height={40} />
+              <ThemedText style={styles.filterButtonText}>
+                {t('items.title')}
+              </ThemedText>
+            </View>
+          ) : (
+            /* Normal filter dropdown when there are items at root */
+            <TouchableOpacity
+              style={styles.filterButton}
+              onPress={() => setShowFilterMenu(!showFilterMenu)}
+            >
+              <Logo width={40} height={40} />
+              <ThemedText style={styles.filterButtonText}>
+                {getFilterTitle()}
+              </ThemedText>
+              <ThemedText style={styles.filterCount}>
+                ({filteredItems.length})
+              </ThemedText>
+              <MaterialIcons
+                name={showFilterMenu ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+                size={28}
+                color={colors.text}
               />
-            ))}
-            <TouchableOpacity
-              style={styles.newFolderButton}
-              onPress={() => setShowFolderModal(true)}
-            >
-              <MaterialIcons name="create-new-folder" size={16} color={colors.textMuted} />
-              <Text style={styles.newFolderButtonText}>{t('items.folders.newFolder')}</Text>
             </TouchableOpacity>
-          </View>
+          )
         )}
 
-        {/* New folder button when no folders exist */}
-        {foldersWithCounts.length === 0 && !searchQuery && (
-          <View style={styles.folderPillsContainer}>
-            <TouchableOpacity
-              style={styles.newFolderButton}
-              onPress={() => setShowFolderModal(true)}
-            >
-              <MaterialIcons name="create-new-folder" size={16} color={colors.textMuted} />
-              <Text style={styles.newFolderButtonText}>{t('items.folders.newFolder')}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        {/* Filter menu (iOS only - Android uses absolute overlay, only when not all items in folders) */}
+        {Platform.OS === 'ios' && !hasItemsInFoldersOnly && renderFilterMenu()}
 
         {/* Search input */}
         <ThemedView style={styles.searchContainer}>
@@ -1013,6 +1012,26 @@ export default function ItemsScreen(): React.ReactNode {
             </TouchableOpacity>
           )}
         </ThemedView>
+
+        {/* Folder pills (shown below search when not searching) */}
+        {!searchQuery && (
+          <View style={styles.folderPillsContainer}>
+            {foldersWithCounts.map((folder) => (
+              <FolderPill
+                key={folder.id}
+                folder={folder}
+                onPress={() => handleFolderClick(folder.id)}
+              />
+            ))}
+            <TouchableOpacity
+              style={styles.newFolderButton}
+              onPress={() => setShowFolderModal(true)}
+            >
+              <MaterialIcons name="create-new-folder" size={16} color={colors.textMuted} />
+              <Text style={styles.newFolderButtonText}>{t('items.folders.newFolder')}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ThemedView>
     );
   };
@@ -1046,6 +1065,10 @@ export default function ItemsScreen(): React.ReactNode {
       }
       if (isItemTypeFilter(filterType)) {
         return t('items.noItemsOfTypeFound', { type: getFilterTitle() });
+      }
+      // All items are in folders - show helpful message
+      if (hasItemsInFoldersOnly) {
+        return t('items.allItemsInFolders');
       }
       // No search, no filter - truly empty vault
       return t('items.noItemsFound');

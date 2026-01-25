@@ -59,12 +59,29 @@ public class ImportTests : ClientPlaywrightTest
         await NavigateUsingBlazorRouter("items");
         await WaitForUrlAsync("items", "Find all of your items");
 
-        // Verify that expected items from the Bitwarden CSV are present.
+        // Verify root-level items (items without a folder) are present.
         var pageContent = await Page.TextContentAsync("body");
         Assert.Multiple(() =>
         {
-            Assert.That(pageContent, Does.Contain("TutaNota"), "TutaNota item not imported");
-            Assert.That(pageContent, Does.Contain("Aliasvault.net"), "Aliasvault.net item not imported");
+            Assert.That(pageContent, Does.Contain("Test"), "Test item not imported at root level");
+            Assert.That(pageContent, Does.Not.Contain("TutaNota"), "TutaNota should be in Business folder, not at root");
+            Assert.That(pageContent, Does.Not.Contain("Aliasvault.net"), "Aliasvault.net should be in Business folder, not at root");
+        });
+
+        // Verify the Business folder was created.
+        Assert.That(pageContent, Does.Contain("Business"), "Business folder not created");
+
+        // Navigate to the Business folder by clicking on it.
+        await Page.ClickAsync("text=Business");
+        await Page.WaitForSelectorAsync("text=Item for business folder");
+
+        // Verify items in the Business folder are present.
+        var folderPageContent = await Page.TextContentAsync("body");
+        Assert.Multiple(() =>
+        {
+            Assert.That(folderPageContent, Does.Contain("Item for business folder"), "Item for business folder not imported");
+            Assert.That(folderPageContent, Does.Contain("TutaNota"), "TutaNota item not imported in Business folder");
+            Assert.That(folderPageContent, Does.Contain("Aliasvault.net"), "Aliasvault.net item not imported in Business folder");
         });
     }
 }
