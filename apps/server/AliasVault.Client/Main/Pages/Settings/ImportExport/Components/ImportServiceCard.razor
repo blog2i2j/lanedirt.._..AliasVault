@@ -130,13 +130,13 @@
                             @if (ImportedCredentials.Count > 0)
                             {
                                 <div class="mb-4 space-y-2">
-                                    <label class="inline-flex items-center">
+                                    <label class="flex items-center">
                                         <input type="checkbox" @bind="ExtractFavicons" class="form-checkbox h-4 w-4 text-primary-600 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700">
                                         <span class="ml-2 text-gray-700 dark:text-gray-300">Extract favicons for services with URLs</span>
                                     </label>
                                     @if (DetectedFolderCount > 0)
                                     {
-                                        <label class="inline-flex items-center">
+                                        <label class="flex items-center">
                                             <input type="checkbox" @bind="ImportFolders" class="form-checkbox h-4 w-4 text-primary-600 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700">
                                             <span class="ml-2 text-gray-700 dark:text-gray-300">@Localizer["ImportFoldersLabel"]</span>
                                             <span class="ml-2 text-sm text-gray-500 dark:text-gray-400">(@string.Format(Localizer["FoldersDetected"], DetectedFolderCount))</span>
