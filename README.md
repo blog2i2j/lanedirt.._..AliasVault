@@ -6,6 +6,7 @@ AliasVault is a privacy-first password and email alias manager. Create unique id
 [![.NET E2E Tests (with Sharding)](https://github.com/aliasvault/aliasvault/actions/workflows/e2e-tests-browser-extension.yml/badge.svg)](https://github.com/aliasvault/aliasvault/actions/workflows/e2e-browser-extension.yml)
 [<img src="https://badges.crowdin.net/aliasvault/localized.svg">](https://crowdin.com/project/aliasvault)
 [<img alt="Discord" src="https://img.shields.io/discord/1309300619026235422?logo=discord&logoColor=%237289da&label=Discord&color=%237289da">](https://discord.gg/DsaXMTEtpF)
+[<img src="https://opencollective.com/aliasvault/tiers/badge.svg">](https://opencollective.com/aliasvault)
 
 <a href="https://app.aliasvault.net">Try the cloud version 🔥</a> | <a href="https://aliasvault.net?utm_source=gh-readme">Website </a> | <a href="https://docs.aliasvault.net?utm_source=gh-readme">Documentation </a> | <a href="#self-hosting">Self-host instructions</a>
 
