@@ -67,6 +67,19 @@ export type SystemFieldDefinition = {
  */
 export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
   /* =================== LOGIN FIELDS =================== */
+  'login.email': {
+    FieldKey: 'login.email',
+    FieldType: 'Email',
+    IsHidden: false,
+    IsMultiValue: false,
+    ApplicableToTypes: {
+      Login: { ShowByDefault: false },
+      Alias: { ShowByDefault: true }
+    },
+    EnableHistory: true,
+    Category: FieldCategories.Login,
+    DefaultDisplayOrder: 10
+  },
   'login.username': {
     FieldKey: 'login.username',
     FieldType: 'Text',
@@ -78,7 +91,7 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
     },
     EnableHistory: true,
     Category: FieldCategories.Login,
-    DefaultDisplayOrder: 10
+    DefaultDisplayOrder: 15
   },
   'login.password': {
     FieldKey: 'login.password',
@@ -92,19 +105,6 @@ export const SystemFieldRegistry: Record<string, SystemFieldDefinition> = {
     EnableHistory: true,
     Category: FieldCategories.Login,
     DefaultDisplayOrder: 20
-  },
-  'login.email': {
-    FieldKey: 'login.email',
-    FieldType: 'Email',
-    IsHidden: false,
-    IsMultiValue: false,
-    ApplicableToTypes: {
-      Login: { ShowByDefault: false },
-      Alias: { ShowByDefault: true }
-    },
-    EnableHistory: true,
-    Category: FieldCategories.Login,
-    DefaultDisplayOrder: 15
   },
   'login.url': {
     FieldKey: 'login.url',
