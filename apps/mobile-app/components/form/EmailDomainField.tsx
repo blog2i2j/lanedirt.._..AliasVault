@@ -7,7 +7,6 @@ import { useColors } from '@/hooks/useColorScheme';
 
 import { ThemedText } from '@/components/themed/ThemedText';
 import { useDb } from '@/context/DbContext';
-import { CreateIdentityGenerator, convertAgeRangeToBirthdateOptions } from '@/utils/dist/core/identity-generator';
 
 type EmailDomainFieldProps = {
   value: string;
@@ -21,6 +20,8 @@ type EmailDomainFieldProps = {
   testID?: string;
   /** Optional: default to email mode (free text) instead of alias mode (domain chooser). Defaults to false. */
   defaultEmailMode?: boolean;
+  /** Optional callback to generate an email alias. When provided, shows a regenerate button and is called when switching to alias mode. */
+  onGenerateAlias?: () => void;
 }
 
 // Hardcoded public email domains (same as in browser extension)
@@ -49,12 +50,13 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
   label,
   onRemove,
   testID,
-  defaultEmailMode = false
+  defaultEmailMode = false,
+  onGenerateAlias
 }) => {
   const { t } = useTranslation();
   const colors = useColors();
   const dbContext = useDb();
-  
+
   // Initialize mode immediately based on value (before domains load)
   // This prevents flicker by setting the correct mode right away
   const getInitialMode = useCallback((val: string): boolean => {
@@ -84,16 +86,16 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
     return PUBLIC_EMAIL_DOMAINS[0] || '';
   });
   const [isModalVisible, setIsModalVisible] = useState(false);
-  
+
   // Use refs to store domains - this prevents re-renders when they load
   const privateEmailDomainsRef = useRef<string[]>([]);
   const hiddenPrivateEmailDomainsRef = useRef<string[]>([]);
   const hasDomainsLoadedRef = useRef(false);
-  
+
   // State for domains (only used for UI display in modal, not for mode detection)
   const [privateEmailDomains, setPrivateEmailDomains] = useState<string[]>([]);
   const [hiddenPrivateEmailDomains, setHiddenPrivateEmailDomains] = useState<string[]>([]);
-  
+
   // Track value changes to avoid unnecessary re-initialization
   const lastValueRef = useRef<string>(value);
   const hasInitializedFromValue = useRef(false);
@@ -110,16 +112,16 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
         const metadata = await dbContext.getVaultMetadata();
         const privateDomains = metadata?.privateEmailDomains ?? [];
         const hiddenDomains = metadata?.hiddenPrivateEmailDomains ?? [];
-        
+
         // Update refs immediately (no re-render triggered)
         privateEmailDomainsRef.current = privateDomains;
         hiddenPrivateEmailDomainsRef.current = hiddenDomains;
         hasDomainsLoadedRef.current = true;
-        
+
         // Update state for modal display (triggers re-render, but only affects modal)
         setPrivateEmailDomains(privateDomains);
         setHiddenPrivateEmailDomains(hiddenDomains);
-        
+
         // Check if we need to update mode now that domains are loaded
         // Only update if value has an @ and we're in custom mode
         if (value && value.includes('@')) {
@@ -128,7 +130,7 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
             const isKnownDomain = PUBLIC_EMAIL_DOMAINS.includes(domain) ||
                                  privateDomains.includes(domain) ||
                                  hiddenDomains.includes(domain);
-            
+
             // Only update mode if domain is now recognized AND we're in custom mode
             // Use functional update to avoid stale closure and prevent unnecessary updates
             setIsCustomDomain(prev => {
@@ -174,7 +176,7 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
 
     if (value.includes('@')) {
       const [local, domain] = value.split('@');
-      
+
       // Only update if values actually changed (prevents unnecessary re-renders)
       if (local !== localPart) {
         setLocalPart(local);
@@ -182,18 +184,18 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
       if (domain !== selectedDomain) {
         setSelectedDomain(domain);
       }
-      
+
       // Check mode using refs (no re-render) - works even before domains load
       const isKnownDomain = PUBLIC_EMAIL_DOMAINS.includes(domain) ||
                            privateEmailDomainsRef.current.includes(domain) ||
                            hiddenPrivateEmailDomainsRef.current.includes(domain);
-      
+
       // Only update mode if it needs to change (prevents flicker)
       setIsCustomDomain(prev => {
         const newMode = !isKnownDomain;
         return newMode !== prev ? newMode : prev;
       });
-      
+
       hasInitializedFromValue.current = true;
     } else {
       if (value !== localPart) {
@@ -259,58 +261,42 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
     setIsModalVisible(false);
   }, [localPart, onChange]);
 
-  /**
-   * Generate a random email prefix using identity generator.
-   */
-  const generateRandomEmailPrefix = useCallback(async (): Promise<string> => {
-    try {
-      const identityLanguage = await dbContext.sqliteClient!.getEffectiveIdentityLanguage();
-      const identityGenerator = CreateIdentityGenerator(identityLanguage);
-
-      const genderPreference = await dbContext.sqliteClient!.getDefaultIdentityGender();
-      const ageRange = await dbContext.sqliteClient!.getDefaultIdentityAgeRange();
-      const birthdateOptions = convertAgeRangeToBirthdateOptions(ageRange);
-
-      const identity = identityGenerator.generateRandomIdentity(genderPreference, birthdateOptions);
-      return identity.emailPrefix;
-    } catch (error) {
-      console.error('Error generating random email prefix:', error);
-      // Fallback to a simple random string if generation fails
-      return `user${Math.random().toString(36).substring(2, 9)}`;
-    }
-  }, [dbContext]);
-
   // Toggle between custom domain and domain chooser
-  const toggleCustomDomain = useCallback(async () => {
+  const toggleCustomDomain = useCallback(() => {
     const newIsCustom = !isCustomDomain;
     setIsCustomDomain(newIsCustom);
 
     if (newIsCustom) {
-      // Switching to custom domain mode
-      // If we have a domain-based value, extract just the local part
-      if (value && value.includes('@')) {
-        const [local] = value.split('@');
-        onChange(local);
-        setLocalPart(local);
-      }
+      // Switching to custom domain mode (free text / normal email).
+      // Clear the value so the user starts fresh with a regular email address.
+      onChange('');
+      setLocalPart('');
     } else {
-      // Switching to domain chooser mode - generate a random email prefix
+      // Switching to domain chooser mode
+      setIsCustomDomain(false);
+
+      if (onGenerateAlias) {
+        // Delegate to the parent callback which sets the full email value (prefix@domain)
+        onGenerateAlias();
+        return;
+      }
+
+      // No generate callback - just switch modes and preserve current local part
       const defaultDomain = showPrivateDomains && privateEmailDomains[0]
         ? privateEmailDomains[0]
         : PUBLIC_EMAIL_DOMAINS[0];
       setSelectedDomain(defaultDomain);
 
-      // Generate a random email prefix instead of reusing the old one
-      const randomPrefix = await generateRandomEmailPrefix();
-      setLocalPart(randomPrefix);
-      onChange(`${randomPrefix}@${defaultDomain}`);
+      if (localPart && localPart.trim()) {
+        onChange(`${localPart}@${defaultDomain}`);
+      } else if (value && !value.includes('@')) {
+        onChange(`${value}@${defaultDomain}`);
+        setLocalPart(value);
+      }
     }
-  }, [isCustomDomain, value, showPrivateDomains, privateEmailDomains, onChange, generateRandomEmailPrefix]);
+  }, [isCustomDomain, value, localPart, showPrivateDomains, privateEmailDomains, onChange, onGenerateAlias]);
 
   const styles = StyleSheet.create({
-    container: {
-      marginBottom: 16,
-    },
     domainAt: {
       color: colors.textMuted,
       fontSize: 16,
@@ -327,6 +313,22 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
       flexDirection: 'row',
       justifyContent: 'center',
       paddingHorizontal: 12,
+      paddingVertical: 11,
+    },
+    domainButtonNoRoundRight: {
+      borderBottomRightRadius: 0,
+      borderTopRightRadius: 0,
+    },
+    generateButton: {
+      alignItems: 'center',
+      backgroundColor: colors.accentBackground,
+      borderBottomRightRadius: 8,
+      borderColor: error ? colors.errorBorder : colors.accentBorder,
+      borderLeftWidth: 0,
+      borderTopRightRadius: 8,
+      borderWidth: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 10,
       paddingVertical: 11,
     },
     domainButtonText: {
@@ -482,7 +484,7 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
   });
 
   return (
-    <View style={styles.container}>
+    <View>
       <View style={styles.labelContainer}>
         <View style={styles.switcherContainer}>
           <TouchableOpacity
@@ -535,13 +537,23 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
 
         {!isCustomDomain && (
           <TouchableOpacity
-            style={styles.domainButton}
+            style={[styles.domainButton, onGenerateAlias ? styles.domainButtonNoRoundRight : null]}
             onPress={() => setIsModalVisible(true)}
           >
             <Text style={styles.domainAt}>@</Text>
             <Text style={styles.domainButtonText} numberOfLines={1}>
               {selectedDomain}
             </Text>
+          </TouchableOpacity>
+        )}
+
+        {!isCustomDomain && onGenerateAlias && (
+          <TouchableOpacity
+            style={styles.generateButton}
+            onPress={onGenerateAlias}
+            accessibilityLabel={t('common.generate')}
+          >
+            <MaterialIcons name="refresh" size={20} color={colors.primary} />
           </TouchableOpacity>
         )}
       </View>
