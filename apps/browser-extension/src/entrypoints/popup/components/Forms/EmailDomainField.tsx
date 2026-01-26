@@ -282,14 +282,11 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
 
     if (newIsCustom) {
       /*
-       * Switching to custom domain mode (free text / normal email)
-       * Extract just the local part from the domain-based value
+       * Switching to custom domain mode (free text / normal email).
+       * Clear the value so the user starts fresh with a regular email address.
        */
-      if (value && value.includes('@')) {
-        const [local] = value.split('@');
-        onChange(local);
-        setLocalPart(local);
-      }
+      onChange('');
+      setLocalPart('');
     } else {
       // Switching to domain chooser mode
       const defaultDomain = showPrivateDomains && privateEmailDomains[0]
@@ -338,19 +335,22 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
 
   /**
    * Handle the "Generate alias email" button click.
-   * Calls onGenerateAlias if provided, and switches to domain chooser mode.
-   * Also ensures the value is updated with the domain when switching modes.
+   * When onGenerateAlias is provided, delegates to it (it sets the full email value).
+   * Otherwise, just switches to domain chooser mode and preserves the current local part.
    */
   const handleGenerateAliasClick = useCallback(() => {
-    if (onGenerateAlias) {
-      onGenerateAlias();
-    }
     // Always switch to domain chooser mode
     setIsCustomDomain(false);
 
+    if (onGenerateAlias) {
+      // Delegate to the parent callback which sets the full email value (prefix@domain)
+      onGenerateAlias();
+      return;
+    }
+
     /*
-     * When switching to alias mode, ensure the value includes the domain.
-     * Use the same simple pattern as toggleCustomDomain: check localPart first, then value.
+     * No generate callback - just switching modes.
+     * Ensure the value includes the domain when switching from email to alias mode.
      */
     const defaultDomain = showPrivateDomains && privateEmailDomains[0]
       ? privateEmailDomains[0]
@@ -359,14 +359,10 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
     if (defaultDomain) {
       setSelectedDomain(defaultDomain);
 
-      // Use the same pattern as toggleCustomDomain: check localPart first, then value
       if (localPart && localPart.trim()) {
-        // localPart is available - use it directly
         onChange(`${localPart}@${defaultDomain}`);
       } else if (value && !value.includes('@')) {
-        // Fallback: value is just a prefix without @
         onChange(`${value}@${defaultDomain}`);
-        // Also update localPart to keep in sync
         setLocalPart(value);
       }
     }
@@ -436,10 +432,23 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
             <button
               type="button"
               onClick={() => setIsPopupVisible(!isPopupVisible)}
-              className="inline-flex items-center px-2 py-2 border border-l-0 border-gray-300 dark:border-gray-600 rounded-r-md bg-gray-50 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-500 cursor-pointer text-sm truncate max-w-[120px]"
+              className={`inline-flex items-center px-2 py-2 border border-l-0 border-gray-300 dark:border-gray-600 ${onGenerateAlias ? '' : 'rounded-r-md'} bg-gray-50 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-500 cursor-pointer text-sm truncate max-w-[120px]`}
             >
               <span className="text-gray-500 dark:text-gray-400">@</span>
               <span className="truncate ml-0.5">{selectedDomain}</span>
+            </button>
+          )}
+
+          {!isCustomDomain && onGenerateAlias && (
+            <button
+              type="button"
+              onClick={onGenerateAlias}
+              className="px-3 text-gray-500 dark:text-white bg-gray-200 hover:bg-gray-300 focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-r-lg text-sm border-l border-gray-300 dark:border-gray-700 dark:bg-gray-600 dark:hover:bg-gray-700 dark:focus:ring-gray-800"
+              title={t('common.generate')}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
             </button>
           )}
         </div>
@@ -456,7 +465,7 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
                   <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                     {t('items.privateEmailTitle')} <span className="text-gray-500 dark:text-gray-400">({t('items.privateEmailAliasVaultServer')})</span>
                   </h4>
-                  <p className="text-gray-500 dark:text-gray-400 mb-3">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
                     {t('items.privateEmailDescription')}
                   </p>
                   <div className="flex flex-wrap gap-2">

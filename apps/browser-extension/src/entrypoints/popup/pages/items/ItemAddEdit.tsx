@@ -29,6 +29,7 @@ import useServiceDetection from '@/entrypoints/popup/hooks/useServiceDetection';
 import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 
 import { SKIP_FORM_RESTORE_KEY } from '@/utils/Constants';
+import { UsernameEmailGenerator, Gender } from '@/utils/dist/core/identity-generator';
 import type { Item, ItemField, ItemType, FieldType, Attachment, TotpCode, PasswordSettings } from '@/utils/dist/core/models/vault';
 import { FieldCategories, FieldTypes, ItemTypes, getSystemFieldsForItemType, getOptionalFieldsForItemType, isFieldShownByDefault, getSystemField, fieldAppliesToType } from '@/utils/dist/core/models/vault';
 import { FaviconService } from '@/utils/FaviconService';
@@ -94,7 +95,7 @@ const ItemAddEdit: React.FC = () => {
   const { executeVaultMutationAsync } = useVaultMutate();
   const { setHeaderButtons } = useHeaderButtons();
   const { setIsInitialLoading } = useLoading();
-  const { generateAlias, lastGeneratedValues } = useAliasGenerator();
+  const { generateAlias, generateRandomEmailPrefix, lastGeneratedValues } = useAliasGenerator();
   const { detectService } = useServiceDetection();
   const webApi = useWebApi();
 
@@ -506,21 +507,58 @@ const ItemAddEdit: React.FC = () => {
   }, [generateAlias, lastGeneratedValues]);
 
   /**
-   * Generate only the alias email (for Login type email field).
-   * Generates a random identity and uses it to create an email address.
+   * Generate an identity-based email alias (for Alias type email field).
+   * Uses the current alias field values (first name, last name, birthdate) to derive the email prefix,
+   * so the email stays consistent with the filled-in persona fields.
    */
-  const handleGenerateAliasEmail = useCallback(async () => {
-    const generatedData = await generateAlias();
-    if (!generatedData) {
+  const handleGenerateAliasEmail = useCallback(() => {
+    if (!dbContext?.sqliteClient) {
       return;
     }
 
-    // Only update the email field
+    const firstName = (fieldValues['alias.first_name'] as string) || '';
+    const lastName = (fieldValues['alias.last_name'] as string) || '';
+    const gender = (fieldValues['alias.gender'] as string) || Gender.Other;
+    const birthdate = (fieldValues['alias.birthdate'] as string) || '';
+
+    const generator = new UsernameEmailGenerator();
+    const prefix = generator.generateEmailPrefix({
+      firstName,
+      lastName,
+      gender: gender as Gender,
+      birthDate: birthdate ? new Date(birthdate) : new Date(),
+      emailPrefix: '',
+      nickName: ''
+    });
+
+    const defaultEmailDomain = dbContext.sqliteClient.settings.getDefaultEmailDomain();
+    const email = defaultEmailDomain ? `${prefix}@${defaultEmailDomain}` : prefix;
+
     setFieldValues(prev => ({
       ...prev,
-      'login.email': generatedData.email
+      'login.email': email
     }));
-  }, [generateAlias]);
+  }, [dbContext?.sqliteClient, fieldValues]);
+
+  /**
+   * Generate a random-string email alias (for Login type email field).
+   * Uses random characters instead of identity-based prefixes since Login type
+   * has no persona fields to base the email on.
+   */
+  const handleGenerateRandomEmail = useCallback(() => {
+    if (!dbContext?.sqliteClient) {
+      return;
+    }
+
+    const prefix = generateRandomEmailPrefix();
+    const defaultEmailDomain = dbContext.sqliteClient.settings.getDefaultEmailDomain();
+    const email = defaultEmailDomain ? `${prefix}@${defaultEmailDomain}` : prefix;
+
+    setFieldValues(prev => ({
+      ...prev,
+      'login.email': email
+    }));
+  }, [dbContext?.sqliteClient, generateRandomEmailPrefix]);
 
   /**
    * Generate a random username using the shared alias generator.
@@ -1087,7 +1125,7 @@ const ItemAddEdit: React.FC = () => {
             value={stringValue}
             onChange={(value) => handleFieldChange(fieldKey, value)}
             onRemove={onRemove}
-            onGenerateAlias={handleGenerateAliasEmail}
+            onGenerateAlias={aliasFieldsShownByDefault ? handleGenerateAliasEmail : handleGenerateRandomEmail}
             isEmailMode={isLoginEmailInEmailMode}
             onEmailModeChange={setIsLoginEmailInEmailMode}
           />
@@ -1122,7 +1160,7 @@ const ItemAddEdit: React.FC = () => {
         );
     }
 
-  }, [fieldValues, handleFieldChange, showPassword, t, handleGenerateAliasEmail, aliasFieldsShownByDefault, generateRandomUsername, isLoginEmailInEmailMode, passwordSettings]);
+  }, [fieldValues, handleFieldChange, showPassword, t, handleGenerateAliasEmail, handleGenerateRandomEmail, aliasFieldsShownByDefault, generateRandomUsername, isLoginEmailInEmailMode, passwordSettings]);
 
   /**
    * Handle form submission via Enter key.
@@ -1161,7 +1199,7 @@ const ItemAddEdit: React.FC = () => {
             type="button"
             onClick={handleGenerateAlias}
             className="p-1.5 text-gray-400 hover:text-primary-500 focus:outline-none"
-            title={t('items.generateRandomAlias')}
+            title={t('common.generate')}
           >
             <svg className='w-4 h-4' viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M23 4v6h-6"/>
