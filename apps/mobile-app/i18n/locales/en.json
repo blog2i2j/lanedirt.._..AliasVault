@@ -405,7 +405,6 @@
     "manual": "Manual",
     "generateRandomAlias": "Generate Random Alias",
     "clearAliasFields": "Clear Alias Fields",
-    "enterFullEmail": "Enter full email address",
     "enterEmailPrefix": "Enter email prefix",
     "useDomainChooser": "Use domain chooser",
     "enterCustomDomain": "Enter custom domain",

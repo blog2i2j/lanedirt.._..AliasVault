@@ -395,18 +395,26 @@ export default function AddEditItemScreen(): React.ReactNode {
   const handleGenerateAliasEmail = useCallback(async () => {
     const firstName = (fieldValues['alias.first_name'] as string) || '';
     const lastName = (fieldValues['alias.last_name'] as string) || '';
-    const gender = (fieldValues['alias.gender'] as string) || Gender.Other;
-    const birthdate = (fieldValues['alias.birthdate'] as string) || '';
 
     const generator = new UsernameEmailGenerator();
-    const prefix = generator.generateEmailPrefix({
-      firstName,
-      lastName,
-      gender: gender as Gender,
-      birthDate: birthdate ? new Date(birthdate) : new Date(),
-      emailPrefix: '',
-      nickName: ''
-    });
+    let prefix: string;
+
+    if (!firstName.trim() && !lastName.trim()) {
+      // No alias identity fields filled in, fall back to random prefix.
+      prefix = generator.generateRandomEmailPrefix();
+    } else {
+      const gender = (fieldValues['alias.gender'] as string) || Gender.Other;
+      const birthdate = (fieldValues['alias.birthdate'] as string) || '';
+
+      prefix = generator.generateEmailPrefix({
+        firstName,
+        lastName,
+        gender: gender as Gender,
+        birthDate: birthdate ? new Date(birthdate) : new Date(),
+        emailPrefix: '',
+        nickName: ''
+      });
+    }
 
     const defaultEmailDomain = await dbContext.sqliteClient!.getDefaultEmailDomain();
     const email = defaultEmailDomain ? `${prefix}@${defaultEmailDomain}` : prefix;

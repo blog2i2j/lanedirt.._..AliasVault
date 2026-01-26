@@ -518,18 +518,25 @@ const ItemAddEdit: React.FC = () => {
 
     const firstName = (fieldValues['alias.first_name'] as string) || '';
     const lastName = (fieldValues['alias.last_name'] as string) || '';
-    const gender = (fieldValues['alias.gender'] as string) || Gender.Other;
-    const birthdate = (fieldValues['alias.birthdate'] as string) || '';
 
-    const generator = new UsernameEmailGenerator();
-    const prefix = generator.generateEmailPrefix({
-      firstName,
-      lastName,
-      gender: gender as Gender,
-      birthDate: birthdate ? new Date(birthdate) : new Date(),
-      emailPrefix: '',
-      nickName: ''
-    });
+    let prefix: string;
+    if (!firstName.trim() && !lastName.trim()) {
+      // No alias identity fields filled in, fall back to random prefix.
+      prefix = generateRandomEmailPrefix();
+    } else {
+      const gender = (fieldValues['alias.gender'] as string) || Gender.Other;
+      const birthdate = (fieldValues['alias.birthdate'] as string) || '';
+
+      const generator = new UsernameEmailGenerator();
+      prefix = generator.generateEmailPrefix({
+        firstName,
+        lastName,
+        gender: gender as Gender,
+        birthDate: birthdate ? new Date(birthdate) : new Date(),
+        emailPrefix: '',
+        nickName: ''
+      });
+    }
 
     const defaultEmailDomain = dbContext.sqliteClient.settings.getDefaultEmailDomain();
     const email = defaultEmailDomain ? `${prefix}@${defaultEmailDomain}` : prefix;
@@ -538,7 +545,7 @@ const ItemAddEdit: React.FC = () => {
       ...prev,
       'login.email': email
     }));
-  }, [dbContext?.sqliteClient, fieldValues]);
+  }, [dbContext?.sqliteClient, fieldValues, generateRandomEmailPrefix]);
 
   /**
    * Generate a random-string email alias (for Login type email field).

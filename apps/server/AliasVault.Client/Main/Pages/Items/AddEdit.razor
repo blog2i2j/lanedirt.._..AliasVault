@@ -1108,16 +1108,29 @@ else
     /// </summary>
     private async Task HandleGenerateAliasEmail()
     {
-        var identity = new AliasVaultIdentity
-        {
-            FirstName = Obj.GetFieldValue(FieldKey.AliasFirstName),
-            LastName = Obj.GetFieldValue(FieldKey.AliasLastName),
-            BirthDate = Obj.GetFieldValue(FieldKey.AliasBirthdate),
-            Gender = Obj.GetFieldValue(FieldKey.AliasGender),
-            NickName = Obj.GetFieldValue(FieldKey.LoginUsername),
-        };
+        var firstName = Obj.GetFieldValue(FieldKey.AliasFirstName);
+        var lastName = Obj.GetFieldValue(FieldKey.AliasLastName);
 
-        var prefix = await JsInteropService.GenerateRandomEmailPrefixAsync(identity);
+        string prefix;
+        if (string.IsNullOrWhiteSpace(firstName) && string.IsNullOrWhiteSpace(lastName))
+        {
+            // No alias identity fields filled in, fall back to random prefix.
+            prefix = await JsInteropService.GenerateRandomStringEmailPrefixAsync();
+        }
+        else
+        {
+            var identity = new AliasVaultIdentity
+            {
+                FirstName = firstName,
+                LastName = lastName,
+                BirthDate = Obj.GetFieldValue(FieldKey.AliasBirthdate),
+                Gender = Obj.GetFieldValue(FieldKey.AliasGender),
+                NickName = Obj.GetFieldValue(FieldKey.LoginUsername),
+            };
+
+            prefix = await JsInteropService.GenerateRandomEmailPrefixAsync(identity);
+        }
+
         var defaultEmailDomain = DbService.Settings.DefaultEmailDomain;
         var email = !string.IsNullOrEmpty(defaultEmailDomain) ? $"{prefix}@{defaultEmailDomain}" : prefix;
 

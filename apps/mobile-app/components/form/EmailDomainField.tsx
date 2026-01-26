@@ -272,29 +272,20 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
       onChange('');
       setLocalPart('');
     } else {
-      // Switching to domain chooser mode
-      setIsCustomDomain(false);
-
-      if (onGenerateAlias) {
-        // Delegate to the parent callback which sets the full email value (prefix@domain)
-        onGenerateAlias();
-        return;
-      }
-
-      // No generate callback - just switch modes and preserve current local part
+      // Switching to domain chooser mode - clear old email-mode value.
       const defaultDomain = showPrivateDomains && privateEmailDomains[0]
         ? privateEmailDomains[0]
         : PUBLIC_EMAIL_DOMAINS[0];
       setSelectedDomain(defaultDomain);
+      setLocalPart('');
+      onChange('');
 
-      if (localPart && localPart.trim()) {
-        onChange(`${localPart}@${defaultDomain}`);
-      } else if (value && !value.includes('@')) {
-        onChange(`${value}@${defaultDomain}`);
-        setLocalPart(value);
+      if (onGenerateAlias) {
+        // Delegate to the parent callback which sets the full email value (prefix@domain)
+        onGenerateAlias();
       }
     }
-  }, [isCustomDomain, value, localPart, showPrivateDomains, privateEmailDomains, onChange, onGenerateAlias]);
+  }, [isCustomDomain, showPrivateDomains, privateEmailDomains, onChange, onGenerateAlias]);
 
   const styles = StyleSheet.create({
     domainAt: {
@@ -524,8 +515,6 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
           style={styles.textInput}
           value={isCustomDomain ? value : localPart}
           onChangeText={handleLocalPartChange}
-          placeholder={isCustomDomain ? t('items.enterFullEmail') : t('items.enterEmailPrefix')}
-          placeholderTextColor={colors.textMuted}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="email-address"
