@@ -120,7 +120,7 @@ else
                 @* Login Details Section - For Login and Alias types *@
                 @if (HasLoginFields())
                 {
-                    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+                    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800 overflow-visible">
                         <h3 class="mb-4 text-xl font-semibold dark:text-white flex items-center gap-2">
                             <span>@Localizer["LoginDetailsSectionHeader"]</span>
                             @if (Obj.ItemType == ItemType.Login && !ShouldShowField(FieldKey.LoginEmail))
@@ -216,7 +216,8 @@ else
                                 <div class="col-span-6">
                                     <EmailDomainField Id="email"
                                                       @bind-Value="Obj.GetField(FieldKey.LoginEmail)!.Value"
-                                                      DefaultToEmailMode="@(Obj.ItemType == ItemType.Login)"></EmailDomainField>
+                                                      DefaultToEmailMode="@(Obj.ItemType == ItemType.Login)"
+                                                      OnGenerateAlias="@(Obj.ItemType == ItemType.Alias ? HandleGenerateAliasEmail : HandleGenerateRandomEmail)"></EmailDomainField>
                                 </div>
                                 <div class="col-span-6">
                                     <EditPasswordFormRow Id="password" Label="@Localizer["PasswordLabel"]" @bind-Value="Obj.GetField(FieldKey.LoginPassword)!.Value" ShowPassword="IsPasswordVisible"></EditPasswordFormRow>
@@ -233,13 +234,15 @@ else
                                             <EmailDomainField Id="email"
                                                               @bind-Value="Obj.GetField(FieldKey.LoginEmail)!.Value"
                                                               DefaultToEmailMode="@(Obj.ItemType == ItemType.Login)"
-                                                              OnRemove="@(() => RemoveOptionalField(FieldKey.LoginEmail))"></EmailDomainField>
+                                                              OnRemove="@(() => RemoveOptionalField(FieldKey.LoginEmail))"
+                                                              OnGenerateAlias="@(Obj.ItemType == ItemType.Alias ? HandleGenerateAliasEmail : HandleGenerateRandomEmail)"></EmailDomainField>
                                         }
                                         else
                                         {
                                             <EmailDomainField Id="email"
                                                               @bind-Value="Obj.GetField(FieldKey.LoginEmail)!.Value"
-                                                              DefaultToEmailMode="@(Obj.ItemType == ItemType.Login)"></EmailDomainField>
+                                                              DefaultToEmailMode="@(Obj.ItemType == ItemType.Login)"
+                                                              OnGenerateAlias="@(Obj.ItemType == ItemType.Alias ? HandleGenerateAliasEmail : HandleGenerateRandomEmail)"></EmailDomainField>
                                         }
                                     </div>
                                 }
@@ -1096,6 +1099,45 @@ else
         }
 
         Obj.SetFieldValue(FieldKey.LoginUsername, await JsInteropService.GenerateRandomUsernameAsync(identity));
+    }
+
+    /// <summary>
+    /// Generate an identity-based email alias (for Alias type email field).
+    /// Uses the current alias field values (first name, last name, birthdate) to derive the email prefix,
+    /// so the email stays consistent with the filled-in persona fields.
+    /// </summary>
+    private async Task HandleGenerateAliasEmail()
+    {
+        var identity = new AliasVaultIdentity
+        {
+            FirstName = Obj.GetFieldValue(FieldKey.AliasFirstName),
+            LastName = Obj.GetFieldValue(FieldKey.AliasLastName),
+            BirthDate = Obj.GetFieldValue(FieldKey.AliasBirthdate),
+            Gender = Obj.GetFieldValue(FieldKey.AliasGender),
+            NickName = Obj.GetFieldValue(FieldKey.LoginUsername),
+        };
+
+        var prefix = await JsInteropService.GenerateRandomEmailPrefixAsync(identity);
+        var defaultEmailDomain = DbService.Settings.DefaultEmailDomain;
+        var email = !string.IsNullOrEmpty(defaultEmailDomain) ? $"{prefix}@{defaultEmailDomain}" : prefix;
+
+        Obj.SetFieldValue(FieldKey.LoginEmail, email);
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Generate a random-string email alias (for Login type email field).
+    /// Uses random characters instead of identity-based prefixes since Login type
+    /// has no persona fields to base the email on.
+    /// </summary>
+    private async Task HandleGenerateRandomEmail()
+    {
+        var prefix = await JsInteropService.GenerateRandomStringEmailPrefixAsync();
+        var defaultEmailDomain = DbService.Settings.DefaultEmailDomain;
+        var email = !string.IsNullOrEmpty(defaultEmailDomain) ? $"{prefix}@{defaultEmailDomain}" : prefix;
+
+        Obj.SetFieldValue(FieldKey.LoginEmail, email);
+        StateHasChanged();
     }
 
     /// <summary>

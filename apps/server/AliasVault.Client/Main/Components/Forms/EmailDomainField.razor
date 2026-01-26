@@ -1,19 +1,13 @@
 @inject Config Config
-@inject JsInteropService JsInteropService
 @inject IStringLocalizerFactory LocalizerFactory
-@inject ItemService ItemService
 @inject DbService DbService
 @using Microsoft.Extensions.Localization
-@using AliasVault.Client.Services.JsInterop.Models
-@using AliasVault.Client.Main.Models
-@using AliasClientDb
-@using AliasClientDb.Models
 
 <div class="space-y-2">
     <div class="flex items-center justify-between">
         <div class="flex items-center">
             <div class="flex items-center">
-                <button type="button" 
+                <button type="button"
                         disabled="@IsCustomDomain"
                         class="@(IsCustomDomain ? "text-sm font-medium text-primary-600 dark:text-primary-400" : "text-sm font-medium text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 cursor-pointer transition-colors")"
                         @onclick="ToggleToEmailMode"
@@ -21,7 +15,7 @@
                     @SharedLocalizer["Email"]
                 </button>
                 <span class="mx-2 text-gray-400 dark:text-gray-500">/</span>
-                <button type="button" 
+                <button type="button"
                         disabled="@(!IsCustomDomain)"
                         class="@(!IsCustomDomain ? "text-sm font-medium text-primary-600 dark:text-primary-400" : "text-sm font-medium text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 cursor-pointer transition-colors")"
                         @onclick="ToggleToAliasMode"
@@ -36,7 +30,7 @@
         </div>
         @if (OnRemove.HasDelegate)
         {
-            <button type="button" 
+            <button type="button"
                     @onclick="HandleRemove"
                     @onclick:preventDefault="true"
                     class="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-red-400 dark:text-gray-500 dark:hover:text-red-400 transition-colors"
@@ -49,11 +43,11 @@
         }
     </div>
 
-    <div class="relative w-full">
+    <div class="relative w-full overflow-visible">
         <div class="flex w-full">
-            <input type="text" 
-                   id="@Id" 
-                   class="@($"flex-1 min-w-0 px-3 py-2 border text-sm {(Error != null ? "border-red-500" : "border-gray-300 dark:border-gray-600")} {(IsCustomDomain ? "rounded-md" : "rounded-l-md")} focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white")"
+            <input type="text"
+                   id="@Id"
+                   class="@($"outline-0 shadow-sm bg-gray-50 text-gray-900 flex-1 min-w-0 px-3 py-2 border text-sm {(Error != null ? "border-red-500" : "border-gray-300 dark:border-gray-600")} {(IsCustomDomain ? "rounded-md" : "rounded-l-md")} focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white")"
                    value="@(IsCustomDomain ? Value : LocalPart)"
                    @oninput="OnLocalPartChanged" />
             @if (!IsCustomDomain)
@@ -61,9 +55,21 @@
                 <button type="button"
                         @onclick="TogglePopup"
                         @onclick:preventDefault="true"
-                        class="inline-flex items-center px-2 py-2 border border-l-0 border-gray-300 dark:border-gray-600 rounded-r-md bg-gray-50 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-500 cursor-pointer text-sm truncate max-w-[120px]">
+                        class="@($"inline-flex items-center px-2 py-2 border border-l-0 border-gray-300 dark:border-gray-600 {(OnGenerateAlias.HasDelegate ? "" : "rounded-r-md")} bg-gray-50 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-500 cursor-pointer text-sm truncate max-w-[120px]")">
                     <span class="text-gray-500 dark:text-gray-400">@@</span>
                     <span class="truncate ml-0.5">@SelectedDomain</span>
+                </button>
+            }
+            @if (!IsCustomDomain && OnGenerateAlias.HasDelegate)
+            {
+                <button type="button"
+                        @onclick="HandleRegenerate"
+                        @onclick:preventDefault="true"
+                        class="px-3 text-gray-500 dark:text-white bg-gray-200 hover:bg-gray-300 focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-r-lg text-sm border-l border-gray-300 dark:border-gray-700 dark:bg-gray-600 dark:hover:bg-gray-700 dark:focus:ring-gray-800"
+                        title="@SharedLocalizer["Generate"]">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
                 </button>
             }
         </div>
@@ -176,6 +182,14 @@
     [Parameter]
     public bool DefaultToEmailMode { get; set; } = false;
 
+    /// <summary>
+    /// Optional callback to generate an email alias.
+    /// When provided, shows a regenerate button and is called when switching to alias mode.
+    /// The callback should set the full email value (prefix@domain).
+    /// </summary>
+    [Parameter]
+    public EventCallback OnGenerateAlias { get; set; }
+
     private IStringLocalizer Localizer => LocalizerFactory.Create("Components.Main.Forms.EmailDomainField", "AliasVault.Client");
     private IStringLocalizer SharedLocalizer => LocalizerFactory.Create("SharedResources", "AliasVault.Client");
 
@@ -183,6 +197,13 @@
     private string LocalPart { get; set; } = string.Empty;
     private string SelectedDomain { get; set; } = string.Empty;
     private bool IsPopupVisible { get; set; } = false;
+
+    /// <summary>
+    /// Set to true after the user clicks a toggle button (Email/Alias).
+    /// While false (initial load), OnParametersSet auto-detects mode from the value.
+    /// Once toggled, mode is controlled exclusively by the buttons.
+    /// </summary>
+    private bool ModeToggledByUser { get; set; } = false;
 
     private List<string> PrivateDomains => Config.PrivateEmailDomains
         .Where(d => !Config.HiddenPrivateEmailDomains.Contains(d))
@@ -214,26 +235,18 @@
     }
 
     /// <inheritdoc />
-    protected override void OnParametersSet()
+    protected override async void OnParametersSet()
     {
         base.OnParametersSet();
 
+        // After a toggle button click, skip auto-detection so the user's choice is preserved.
+        // On initial load (ModeToggledByUser == false), auto-detect mode from the value.
+        var skipAutoDetect = ModeToggledByUser;
+
         if (Value is null || string.IsNullOrEmpty(Value))
         {
-            // Value is empty - clear local part but preserve selected domain
             LocalPart = string.Empty;
-            // Only set default domain if none is selected yet (initial load)
-            if (string.IsNullOrEmpty(SelectedDomain))
-            {
-                if (ShowPrivateDomains && PrivateDomains.Count > 0)
-                {
-                    SelectedDomain = PrivateDomains[0];
-                }
-                else if (PublicDomains.Count > 0)
-                {
-                    SelectedDomain = PublicDomains[0];
-                }
-            }
+            EnsureDefaultDomain();
             return;
         }
 
@@ -245,12 +258,13 @@
                 LocalPart = parts[0];
                 SelectedDomain = parts[1];
 
-                // Auto-detect mode based on domain recognition
-                var isKnownDomain = PublicDomains.Contains(SelectedDomain) ||
-                                   PrivateDomains.Contains(SelectedDomain) ||
-                                   Config.HiddenPrivateEmailDomains.Contains(SelectedDomain);
-
-                IsCustomDomain = !isKnownDomain;
+                if (!skipAutoDetect)
+                {
+                    var isKnownDomain = PublicDomains.Contains(SelectedDomain) ||
+                                       PrivateDomains.Contains(SelectedDomain) ||
+                                       Config.HiddenPrivateEmailDomains.Contains(SelectedDomain);
+                    IsCustomDomain = !isKnownDomain;
+                }
             }
             else
             {
@@ -259,22 +273,44 @@
         }
         else
         {
-            // Value has no @ symbol - default to email mode (custom domain)
+            // Value has no @ symbol
             LocalPart = Value;
-            IsCustomDomain = true;
 
-            // Set default domain if not already set (for when switching back to alias mode)
-            if (string.IsNullOrEmpty(SelectedDomain))
+            if (!skipAutoDetect)
             {
-                if (ShowPrivateDomains && PrivateDomains.Count > 0)
-                {
-                    SelectedDomain = PrivateDomains[0];
-                }
-                else if (PublicDomains.Count > 0)
-                {
-                    SelectedDomain = PublicDomains[0];
-                }
+                IsCustomDomain = true;
             }
+
+            EnsureDefaultDomain();
+
+            // When in alias mode and value doesn't have @, append the domain.
+            // This mirrors the browser extension's useEffect that ensures the
+            // persisted value always includes the domain in alias mode.
+            if (!IsCustomDomain && !string.IsNullOrWhiteSpace(LocalPart) && !string.IsNullOrEmpty(SelectedDomain))
+            {
+                Value = $"{LocalPart}@{SelectedDomain}";
+                await ValueChanged.InvokeAsync(Value);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Ensures a default domain is selected if none is set yet.
+    /// </summary>
+    private void EnsureDefaultDomain()
+    {
+        if (!string.IsNullOrEmpty(SelectedDomain))
+        {
+            return;
+        }
+
+        if (ShowPrivateDomains && PrivateDomains.Count > 0)
+        {
+            SelectedDomain = PrivateDomains[0];
+        }
+        else if (PublicDomains.Count > 0)
+        {
+            SelectedDomain = PublicDomains[0];
         }
     }
 
@@ -366,94 +402,56 @@
     {
         if (IsCustomDomain)
         {
-            return; // Already in email mode
+            return;
         }
 
+        ModeToggledByUser = true;
         IsCustomDomain = true;
-        
-        // Switching to custom domain mode (free text / normal email)
-        // Extract just the local part from the domain-based value
-        if (!string.IsNullOrEmpty(Value) && Value.Contains('@'))
-        {
-            var local = Value.Split('@')[0];
-            Value = local;
-            LocalPart = local;
-            await ValueChanged.InvokeAsync(Value);
-        }
+
+        // Switching to custom domain mode (free text / normal email).
+        // Clear the value so the user starts fresh with a regular email address.
+        Value = string.Empty;
+        LocalPart = string.Empty;
+        await ValueChanged.InvokeAsync(Value);
     }
 
+    /// <summary>
+    /// Switches to alias mode. Mirrors the browser extension's handleGenerateAliasClick:
+    /// 1. Set mode to alias (domain chooser).
+    /// 2. If OnGenerateAlias is provided, delegate to parent to generate prefix@domain.
+    /// 3. Otherwise, preserve current local part and append the default domain.
+    /// </summary>
     private async Task ToggleToAliasMode()
     {
         if (!IsCustomDomain)
         {
-            return; // Already in alias mode
+            return;
         }
 
+        ModeToggledByUser = true;
         IsCustomDomain = false;
+        EnsureDefaultDomain();
 
-        // Switching to domain chooser mode - use user's configured default domain from settings
-        var userDefaultDomain = DbService.Settings.DefaultEmailDomain;
-        var allDomains = PrivateDomains.Concat(PublicDomains).ToList();
+        // Clear old email-mode value so it doesn't interfere with alias mode.
+        LocalPart = string.Empty;
+        Value = string.Empty;
+        await ValueChanged.InvokeAsync(Value);
 
-        // Use user's configured default if it's a valid domain, otherwise fall back to first available
-        var defaultDomain = !string.IsNullOrEmpty(userDefaultDomain) && allDomains.Contains(userDefaultDomain)
-            ? userDefaultDomain
-            : (ShowPrivateDomains && PrivateDomains.Count > 0
-                ? PrivateDomains[0]
-                : (PublicDomains.Count > 0 ? PublicDomains[0] : string.Empty));
-
-        if (!string.IsNullOrEmpty(defaultDomain))
+        if (OnGenerateAlias.HasDelegate)
         {
-            SelectedDomain = defaultDomain;
+            await OnGenerateAlias.InvokeAsync();
+        }
+    }
 
-            // Generate a random email prefix instead of reusing the old one
-            // Create a minimal item to generate a random identity
-            var tempItem = new Item
-            {
-                ItemType = ItemType.Alias,
-                FieldValues = new List<FieldValue>(),
-                Attachments = new List<Attachment>(),
-                TotpCodes = new List<TotpCode>(),
-                Passkeys = new List<Passkey>()
-            };
-            
-            var generatedItem = await ItemService.GenerateRandomIdentityAsync(tempItem);
-            var randomIdentityEdit = ItemEdit.FromEntity(generatedItem);
-            
-            // Extract the email prefix from the generated identity
-            // The generated item will have a full email, extract just the prefix
-            var generatedEmail = randomIdentityEdit.GetFieldValue(FieldKey.LoginEmail);
-            string randomPrefix;
-            
-            if (!string.IsNullOrEmpty(generatedEmail) && generatedEmail.Contains('@'))
-            {
-                randomPrefix = generatedEmail.Split('@')[0];
-            }
-            else
-            {
-                // Fallback: use identity generator directly with the generated identity
-                var identity = new AliasVaultIdentity
-                {
-                    FirstName = randomIdentityEdit.GetFieldValue(FieldKey.AliasFirstName),
-                    LastName = randomIdentityEdit.GetFieldValue(FieldKey.AliasLastName),
-                    BirthDate = randomIdentityEdit.GetFieldValue(FieldKey.AliasBirthdate),
-                    Gender = randomIdentityEdit.GetFieldValue(FieldKey.AliasGender),
-                    NickName = randomIdentityEdit.GetFieldValue(FieldKey.LoginUsername),
-                };
-                randomPrefix = await JsInteropService.GenerateRandomEmailPrefixAsync(identity);
-            }
-            
-            if (!string.IsNullOrWhiteSpace(randomPrefix))
-            {
-                Value = $"{randomPrefix}@{defaultDomain}";
-                LocalPart = randomPrefix;
-            }
-            else
-            {
-                Value = string.Empty;
-            }
-
-            await ValueChanged.InvokeAsync(Value);
+    /// <summary>
+    /// Handles the regenerate button click.
+    /// Delegates to the parent callback to generate a new email value.
+    /// </summary>
+    private async Task HandleRegenerate()
+    {
+        if (OnGenerateAlias.HasDelegate)
+        {
+            await OnGenerateAlias.InvokeAsync();
         }
     }
 

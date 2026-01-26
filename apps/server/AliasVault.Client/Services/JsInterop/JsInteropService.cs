@@ -550,7 +550,33 @@ public sealed class JsInteropService(IJSRuntime jsRuntime)
     }
 
     /// <summary>
-    /// Generates a random email prefix.
+    /// Generates a random string email prefix (not based on any identity).
+    /// Uses random alphanumeric characters, suitable for login-type credentials
+    /// where no persona fields are available to base the email on.
+    /// </summary>
+    /// <returns>The generated random email prefix.</returns>
+    public async Task<string> GenerateRandomStringEmailPrefixAsync()
+    {
+        try
+        {
+            if (_identityGeneratorModule == null)
+            {
+                await InitializeAsync();
+            }
+
+            var generatorInstance = await _identityGeneratorModule!.InvokeAsync<IJSObjectReference>("CreateUsernameEmailGenerator");
+            var result = await generatorInstance.InvokeAsync<string>("generateRandomEmailPrefix");
+            return result;
+        }
+        catch (JSException ex)
+        {
+            await Console.Error.WriteLineAsync($"JavaScript error generating random string email prefix: {ex.Message}");
+            throw new InvalidOperationException("Failed to generate random string email prefix", ex);
+        }
+    }
+
+    /// <summary>
+    /// Generates a random email prefix based on an identity.
     /// </summary>
     /// <param name="identity">The identity to use for generating the email prefix.</param>
     /// <returns>The generated email prefix.</returns>
