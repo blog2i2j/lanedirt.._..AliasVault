@@ -43,6 +43,8 @@ export default function UpgradeScreen() : React.ReactNode {
   const { syncVault } = useVaultSync();
   const { showAlert, showConfirm } = useDialog();
 
+  const [isSyncingOnLoad, setIsSyncingOnLoad] = useState(true);
+
   // Initialize upgrade status with translation
   useEffect(() => {
     setUpgradeStatus(t('upgrade.status.preparingUpgrade'));
@@ -64,9 +66,53 @@ export default function UpgradeScreen() : React.ReactNode {
     }
   }, [sqliteClient]);
 
+  /**
+   * Try to sync with the server on load. If the vault was already upgraded
+   * on another device, the server may have a newer vault that doesn't need
+   * local migration, allowing us to skip the upgrade entirely.
+   */
   useEffect(() => {
-    loadVersionInfo();
-  }, [loadVersionInfo]);
+    /**
+     * Sync on load to check if server has an already-upgraded vault.
+     */
+    const syncOnLoad = async (): Promise<void> => {
+      let skipVersionLoad = false;
+
+      try {
+        setUpgradeStatus(t('vault.checkingVaultUpdates'));
+        await syncVault({
+          /**
+           * Handle the status update.
+           */
+          onStatus: (message) => setUpgradeStatus(message),
+          /**
+           * Handle successful sync and check if upgrade is still needed.
+           */
+          onSuccess: async () => {
+            // After sync, check if we still need to upgrade
+            if (!(await dbContext.hasPendingMigrations())) {
+              // Server had an upgraded vault, no local upgrade needed
+              skipVersionLoad = true;
+              dbContext.setDatabaseAvailable();
+              router.replace('/(tabs)/items');
+            }
+          },
+        });
+      } catch {
+        // On any error, fall through to local upgrade flow
+      } finally {
+        // Always load version info unless we're navigating away
+        if (!skipVersionLoad) {
+          await loadVersionInfo();
+        }
+        setIsSyncingOnLoad(false);
+        setUpgradeStatus(t('upgrade.status.preparingUpgrade'));
+      }
+    };
+
+    syncOnLoad();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /**
    * Handle the vault upgrade.
@@ -395,7 +441,7 @@ export default function UpgradeScreen() : React.ReactNode {
 
   return (
     <ThemedView style={styles.container}>
-      {(isLoading || isVaultMutationLoading) ? (
+      {(isLoading || isVaultMutationLoading || isSyncingOnLoad) ? (
         <View style={styles.loadingContainer}>
           <LoadingIndicator status={syncStatus || upgradeStatus} />
         </View>

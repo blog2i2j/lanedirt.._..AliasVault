@@ -334,11 +334,34 @@ class VaultStore(
 
     /**
      * Execute a raw SQL command on the vault without parameters.
+     * Splits the query by semicolons to handle multiple statements and
+     * skips transaction control statements (BEGIN TRANSACTION, COMMIT, ROLLBACK)
+     * as those are handled externally by the caller.
      */
     fun executeRaw(queryString: String) {
         val db = databaseComponent.dbConnection ?: error("Database not initialized")
-        val stmt = db.compileStatement(queryString)
-        stmt.execute()
+
+        // Strip BOM (U+FEFF) that may be present at the start of SQL strings.
+        val cleanedQuery = queryString.trimStart('\uFEFF')
+
+        // Split by semicolons to handle multiple statements
+        val statements = cleanedQuery.split(";")
+
+        for (statement in statements) {
+            val trimmed = statement.trim().trimStart('\uFEFF')
+
+            // Skip empty statements and transaction control statements (handled externally)
+            if (trimmed.isEmpty() ||
+                trimmed.uppercase().startsWith("BEGIN TRANSACTION") ||
+                trimmed.uppercase().startsWith("COMMIT") ||
+                trimmed.uppercase().startsWith("ROLLBACK")
+            ) {
+                continue
+            }
+
+            val stmt = db.compileStatement(trimmed)
+            stmt.execute()
+        }
     }
 
     /**
