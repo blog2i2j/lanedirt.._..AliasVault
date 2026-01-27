@@ -1,6 +1,6 @@
 /* English localization strings for VaultUI */
 "error" = "Eroare";
-"cancel" = "Anulează";
+"cancel" = "Anulați";
 "back" = "Înapoi";
 "next" = "Înainte";
 "edit" = "Editează";
@@ -13,15 +13,15 @@
 "no_items_found" = "Nu s-au găsit elemente";
 "no_items_match" = "Niciun element existent nu corespunde căutării tale";
 "create_new_item" = "Creează element nou";
-"select_item" = "Selectează elementul";
-"select_text_to_insert" = "Selectează textul de înserat";
+"select_item" = "Selectați elementul";
+"select_text_to_insert" = "Selectați textul de inserat";
 "choose_username" = "Alege numele de utilizator";
-"select_text_to_insert_message" = "Selectează textul pe care dorești să îl inserezi în câmpul selectat";
+"select_text_to_insert_message" = "Selectați textul pe care doriți să îl inserați în câmpul selectat";
 "choose_username_message" = "Acest site web poate necesita fie numele de utilizator, fie adresa de e-mail pentru autentificare";
 "username_prefix" = "Utilizator: ";
 "email_prefix" = "E-mail: ";
 "password" = "Parolă";
-"items_load_error" = "Încărcarea elementelor a eșuat. Această versiune poate fi incompatibilă. Te rugăm să deschizi aplicația AliasVault pentru actualizări.";
+"items_load_error" = "Încărcarea elementelor a eșuat. Această versiune poate fi incompatibilă. Deschide aplicația AliasVault pentru actualizări.";
 "no_item_selected" = "Niciun element selectat.";
 
 /* Context menu strings */
@@ -46,8 +46,8 @@
 "loading_passkeys" = "Se încarcă Passkey-urile...";
 "no_passkeys_found" = "Nu s-au găsit Passkey-uri";
 "no_passkeys_match" = "Niciun Passkey existent nu corespunde căutării tale";
-"select_passkey" = "Selectează Passkey";
-"passkeys_load_error" = "Încărcarea Passkey-urilor a eșuat. Această versiune poate fi incompatibilă. Te rugăm să deschizi aplicația AliasVault pentru actualizări.";
+"select_passkey" = "Selectați passkey-ul";
+"passkeys_load_error" = "Încărcarea passkey-urilor a eșuat. Această versiune poate fi incompatibilă. Deschide aplicația AliasVault pentru actualizări.";
 
 /* Passkey replacement */
 "create_new_passkey" = "Creează Passkey nou";
@@ -62,7 +62,7 @@
 "merge_passkey_explanation" = "Această acțiune va adăuga un Passkey la elementul tău existent. Parola și celelalte date vor fi păstrate.";
 
 /* PIN Unlock */
-"unlock_vault" = "Deblochează seiful";
+"unlock_vault" = "Deblocați seiful";
 "enter_pin_to_unlock_vault" = "Introdu PIN-ul pentru a debloca seiful";
 "pin_locked_max_attempts" = "PIN blocat după prea multe încercări eșuate";
 "pin_incorrect_attempts_remaining" = "PIN incorect. Mai ai %d încercări";
@@ -72,4 +72,4 @@
 "pin_setup_subtitle" = "Alege un PIN pentru a-ți debloca seiful";
 "pin_confirm_title" = "Confirmă PIN-ul";
 "pin_confirm_subtitle" = "Reintrodu PIN-ul pentru confirmare";
-"pin_mismatch" = "Codurile PIN nu coincid. Te rugăm să încerci din nou.";
+"pin_mismatch" = "Codurile PIN nu coincid. Încearcă din nou.";

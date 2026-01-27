@@ -73,7 +73,7 @@
   </data>
   <!-- Page description -->
   <data name="PageDescription" xml:space="preserve">
-    <value>Activați autentificarea cu doi factori pentru a spori securitatea seifurilor dumneavoastră.</value>
+    <value>Activați autentificarea cu doi factori pentru a spori securitatea seifurilor dvs.</value>
     <comment>Description text explaining 2FA setup</comment>
   </data>
   <!-- Setup instructions -->
@@ -87,7 +87,7 @@
     <comment>Placeholder text for verification code input</comment>
   </data>
   <data name="VerifyAndEnableButton" xml:space="preserve">
-    <value>Verifică și activează</value>
+    <value>Verificați și activați</value>
     <comment>Button text to verify and enable 2FA</comment>
   </data>
   <!-- Success and error messages -->

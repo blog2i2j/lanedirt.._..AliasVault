@@ -38,7 +38,7 @@
     }
   },
   "menu": {
-    "vault": "Vault",
+    "vault": "密码库",
     "emails": "电子邮件"
   },
   "common": {
@@ -50,11 +50,11 @@
     "back": "返回",
     "next": "下一步",
     "use": "使用",
-    "add": "Add",
+    "add": "添加",
     "delete": "删除",
     "undo": "撤销",
     "save": "保存",
-    "saving": "Saving...",
+    "saving": "保存中…",
     "create": "创建",
     "or": "或",
     "close": "关闭",
@@ -75,24 +75,25 @@
     "settings": "设置",
     "recentEmails": "近期电子邮件",
     "credentials": "凭据",
-    "customFields": "Custom Fields",
+    "customFields": "自定义字段",
     "twoFactorAuthentication": "双因素认证（2FA）",
     "alias": "别名",
     "notes": "备注",
     "email": "电子邮箱",
     "username": "用户名",
     "password": "密码",
+    "generate": "Generate",
     "serviceName": "服务名称",
     "loggedIn": "已登录",
     "syncingVault": "正在同步密码库",
     "checkingVaultUpdates": "检查密码库更新中",
     "syncingUpdatedVault": "同步更新后的密码库",
     "loadMore": "加载更多",
-    "offline": "Offline",
-    "offlineMode": "Operating in offline mode",
-    "pendingSync": "Syncing...",
-    "mergingVaultChanges": "Merging vault changes...",
-    "uploadingVault": "Uploading vault...",
+    "offline": "离线",
+    "offlineMode": "正在离线模式运行",
+    "pendingSync": "同步中…",
+    "mergingVaultChanges": "正在合并密码库更改...",
+    "uploadingVault": "正在上传密码库…",
     "errors": {
       "serverNotAvailable": "AliasVault服务器不可用。请稍后重试，若问题持续请联系支持人员。",
       "clientVersionNotSupported": "此版本的AliasVault浏览器扩展已不被服务器支持。请将浏览器扩展更新到最新版本。",
@@ -104,8 +105,8 @@
       "vaultNotAvailable": "密码库不可用",
       "vaultIsLocked": "密码库已锁定",
       "passwordChanged": "登录密码已更新，请重新登录以确保账户安全。",
-      "syncConflictMaxRetries": "Could not sync vault after multiple attempts. Please try again later.",
-      "mergeFailed": "Failed to merge vault changes. Please try again."
+      "syncConflictMaxRetries": "多次尝试后仍无法同步密码库，请稍后重试。",
+      "mergeFailed": "合并密码库更改失败，请重试。"
     },
     "apiErrors": {
       "UNKNOWN_ERROR": "发生未知错误。请重试。",
@@ -167,47 +168,48 @@
     "dismissPopup": "关闭弹窗"
   },
   "items": {
-    "title": "Items",
+    "title": "项目",
     "itemName": "名称",
     "loginCredentials": "登录凭据",
-    "cardInformation": "Card Information",
-    "addItem": "Add Item",
-    "addNewItem": "Add new item",
-    "saveItem": "Save Item",
-    "itemDetails": "Item Details",
-    "editItem": "Edit Item",
-    "untitled": "Untitled",
-    "newFolder": "New Folder",
+    "cardInformation": "卡信息",
+    "addItem": "添加项目",
+    "addNewItem": "添加新项目",
+    "saveItem": "保存项目",
+    "itemDetails": "项目详情",
+    "editItem": "编辑项目",
+    "untitled": "无标题",
+    "newFolder": "新建文件夹",
     "createFolder": "创建文件夹",
-    "editFolder": "Edit Folder",
-    "folderName": "Folder Name",
-    "folderNameRequired": "Folder name is required",
+    "editFolder": "编辑文件夹",
+    "folderName": "文件夹名称",
+    "folderNameRequired": "文件夹名称为必填项",
     "folder": "文件夹",
     "welcomeTitle": "欢迎使用AliasVault！",
     "welcomeDescription": "要使用AliasVault浏览器扩展：导航到某个网站，使用AliasVault自动填充弹窗创建新凭据。",
     "noPasskeysFound": "尚未创建通行密钥。访问以通行密钥为认证方式的网站才能创建通行密钥。",
-    "noAttachmentsFound": "No items with attachments found",
-    "noItemsOfTypeFound": "No {{type}} items found",
-    "noMatchingItems": "No matching items found",
-    "noMatchingItemsSearch": "No items matching \"{{search}}\"",
-    "noMatchingItemsWithFilter": "No {{filter}} items matching \"{{search}}\"",
-    "clearSearch": "Clear search",
-    "clearFilter": "Clear filter",
+    "noAttachmentsFound": "未找到带附件的项目",
+    "noItemsOfTypeFound": "未找到 {{type}} 项目",
+    "noMatchingItems": "未找到匹配的项目",
+    "noMatchingItemsSearch": "未找到匹配“{{search}}”的项目",
+    "noMatchingItemsWithFilter": "未找到匹配“{{search}}”的 {{filter}} 项目",
+    "clearSearch": "清除搜索",
+    "clearFilter": "清除筛选器",
     "emptyFolderHint": "This folder is empty. To move items to this folder, edit the item and tap the folder icon in the name field.",
-    "deleteFolder": "Delete Folder",
-    "deleteFolderKeepItems": "Delete folder only",
-    "deleteFolderKeepItemsDescription": "Items will be moved back to the main list.",
-    "deleteFolderAndItems": "Delete folder and all items",
-    "deleteFolderAndItemsDescription": "{{count}} item(s) will be moved to Recently Deleted.",
+    "allItemsInFolders": "All your items are organized in folders. Click a folder above to view your credentials, or use the search to find specific items.",
+    "deleteFolder": "删除文件夹",
+    "deleteFolderKeepItems": "仅删除文件夹",
+    "deleteFolderKeepItemsDescription": "项目将被移回主列表。",
+    "deleteFolderAndItems": "删除文件夹和所有项目",
+    "deleteFolderAndItemsDescription": "{{count}} 个项目将被移至“近期删除”。",
     "filters": {
-      "all": "(All) Items",
+      "all": "（所有）项目",
       "passkeys": "通行密钥"
     },
     "deleteItemTitle": "删除项目",
     "deleteItemConfirm": "您确定要删除此项目吗？",
-    "viewHistory": "View history",
-    "history": "History",
-    "noHistoryAvailable": "No history available",
+    "viewHistory": "查看历史记录",
+    "history": "历史记录",
+    "noHistoryAvailable": "暂无历史记录",
     "tags": "标签",
     "changePasswordComplexity": "更改密码复杂度",
     "passwordLength": "密码长度",
@@ -221,33 +223,29 @@
     "privateEmailDescription": "端到端加密，完全私密。",
     "publicEmailTitle": "公共临时电子邮箱提供商",
     "publicEmailDescription": "匿名但隐私性有限，任何知晓其地址的人均可读取电子邮件内容。",
-    "generateRandomUsername": "生成随机用户名",
-    "generateRandomPassword": "生成随机密码",
-    "generateNewPreview": "生成新预览",
-    "generateRandomAlias": "生成随机别名",
     "validation": {
       "required": "此字段为必填项"
     }
   },
   "itemTypes": {
-    "selectType": "Add New Item",
-    "typeLabel": "Item Type",
-    "creating": "Creating",
-    "editing": "Editing",
-    "regenerateAlias": "Regenerate alias",
-    "addCustomField": "Add custom field",
-    "fieldLabel": "Field Label",
-    "enterFieldName": "Enter field name",
-    "fieldType": "Field Type",
+    "selectType": "添加新项目",
+    "typeLabel": "项目类型",
+    "creating": "创建",
+    "editing": "编辑",
+    "regenerateAlias": "重新生成别名",
+    "addCustomField": "添加自定义字段",
+    "fieldLabel": "字段标签",
+    "enterFieldName": "输入字段名称",
+    "fieldType": "字段类型",
     "fieldTypes": {
-      "text": "Text",
+      "text": "文本",
       "hidden": "Hidden (masked text)",
       "email": "电子邮件",
       "url": "URL",
-      "phone": "Phone",
-      "number": "Number",
+      "phone": "手机",
+      "number": "号码",
       "date": "日期",
-      "textArea": "Text Area"
+      "textArea": "文本区域"
     },
     "login": {
       "title": "登录"
@@ -256,14 +254,14 @@
       "title": "别名"
     },
     "creditCard": {
-      "title": "Credit Card"
+      "title": "信用卡"
     },
     "note": {
       "title": "Secure Note"
     }
   },
   "fieldLabels": {
-    "login.url": "Website URL",
+    "login.url": "网站 URL",
     "login.username": "用户名",
     "login.password": "密码",
     "alias.first_name": "名",
@@ -272,10 +270,10 @@
     "alias.birthdate": "出生日期",
     "login.email": "电子邮件",
     "notes.content": "备注",
-    "card.cardholder_name": "Cardholder Name",
-    "card.number": "Card Number",
-    "card.expiry_month": "Expiry Month",
-    "card.expiry_year": "Expiry Year",
+    "card.cardholder_name": "持卡人姓名",
+    "card.number": "卡号",
+    "card.expiry_month": "到期月份",
+    "card.expiry_year": "到期年份",
     "card.cvv": "CVV",
     "card.pin": "PIN"
   },
@@ -285,15 +283,17 @@
     "nameOptional": "名称（可选）",
     "secretKey": "密钥",
     "saveToViewCode": "保存以查看验证码",
-    "defaultName": "Authenticator",
+    "defaultName": "身份验证器",
     "errors": {
       "invalidSecretKey": "密钥格式无效。"
     }
   },
   "attachmentUploader": {
-    "uploading": "Uploading...",
-    "uploadSuccess": "Files uploaded successfully.",
-    "deleteSuccess": "Attachment deleted successfully."
+    "uploading": "上传中…",
+    "uploadSuccess": "文件上传成功。",
+    "deleteSuccess": "附件删除成功。",
+    "firefoxExpandRequired": "要上传文件，请使用展开的窗口。",
+    "openExpandedWindow": "打开展开的窗口"
   },
   "emails": {
     "title": "邮件",
@@ -306,7 +306,7 @@
     "emailNotFound": "未找到邮件",
     "noEmails": "未找到邮件",
     "noEmailsDescription": "您的私人邮箱地址尚未收到任何邮件。当您收到新邮件时，会显示在这里。",
-    "offlineMessage": "You are offline. Please connect to the internet to load your emails.",
+    "offlineMessage": "您处于离线状态。请连接互联网以加载邮件。",
     "dateFormat": {
       "justNow": "刚刚",
       "minutesAgo_single": "{{count}}分钟前",
@@ -447,7 +447,7 @@
       "selectExistingLogin": "Add to existing login:",
       "selectExistingLoginDescription": "Attach this passkey to an existing login credential for this site.",
       "attachingToCredential": "Adding passkey to: {{serviceName}}",
-      "attachPasskey": "Add Passkey"
+      "attachPasskey": "添加通行密钥"
     },
     "settings": {
       "passkeyProvider": "通行密钥提供程序",
@@ -455,19 +455,19 @@
     }
   },
   "recentlyDeleted": {
-    "title": "Recently Deleted",
-    "noItems": "No deleted items",
+    "title": "近期删除",
+    "noItems": "没有删除的项目",
     "noItemsDescription": "Items you delete will appear here for 30 days before being permanently removed.",
     "description": "These items will be permanently deleted after 30 days. You can restore them or delete them immediately.",
-    "restore": "Restore",
-    "deletePermanently": "Delete Permanently",
-    "emptyAll": "Empty All",
+    "restore": "还原",
+    "deletePermanently": "永久删除",
+    "emptyAll": "全部清空",
     "daysRemaining_one": "剩余 {{count}} 天",
     "daysRemaining_other": "剩余 {{count}} 天",
-    "expiringSoon": "Expiring soon",
-    "confirmDeleteTitle": "Delete Permanently?",
+    "expiringSoon": "即将到期",
+    "confirmDeleteTitle": "永久删除吗？",
     "confirmDeleteMessage": "This item will be permanently deleted and cannot be recovered.",
-    "confirmEmptyAllTitle": "Empty Recently Deleted?",
+    "confirmEmptyAllTitle": "清空“近期删除”吗？",
     "confirmEmptyAllMessage": "All {{count}} items will be permanently deleted and cannot be recovered."
   },
   "upgrade": {
@@ -491,8 +491,8 @@
     }
   },
   "logout": {
-    "unsyncedChangesTitle": "Unsynced Changes",
-    "unsyncedChangesWarning": "You have unsynced changes that will be lost if you log out now. Are you sure you want to continue?",
-    "logoutAnyway": "Log out anyway"
+    "unsyncedChangesTitle": "未同步的更改",
+    "unsyncedChangesWarning": "您有更改尚未同步，若您现在退出登录，这些更改将会丢失。您确定要继续吗？",
+    "logoutAnyway": "仍要退出登录"
   }
 }

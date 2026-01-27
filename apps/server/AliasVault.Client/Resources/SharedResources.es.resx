@@ -126,6 +126,10 @@
     <value>Cancelar</value>
     <comment>Button text for canceling an action</comment>
   </data>
+  <data name="Generate" xml:space="preserve">
+    <value>Generar</value>
+    <comment>Button tooltip for generating a random value</comment>
+  </data>
   <data name="Delete" xml:space="preserve">
     <value>Eliminar</value>
     <comment>Button text for deleting an item</comment>
@@ -309,11 +313,11 @@
     <comment>Tooltip text for sync vault data button</comment>
   </data>
   <data name="SyncingChanges" xml:space="preserve">
-    <value>Syncing changes...</value>
+    <value>Sincronizando cambios...</value>
     <comment>Status text when background sync is in progress</comment>
   </data>
   <data name="LoadingVault" xml:space="preserve">
-    <value>Loading vault...</value>
+    <value>Cargando bóveda...</value>
     <comment>Status text when vault is being loaded</comment>
   </data>
 </root>

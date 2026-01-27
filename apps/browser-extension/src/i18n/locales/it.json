@@ -75,13 +75,14 @@
     "settings": "Impostazioni",
     "recentEmails": "E-mail recenti",
     "credentials": "Credenziali",
-    "customFields": "Custom Fields",
+    "customFields": "Campi Personalizzati",
     "twoFactorAuthentication": "Autenticazione a due fattori",
     "alias": "Alias",
     "notes": "Note",
     "email": "E-mail",
     "username": "Nome utente",
     "password": "Password",
+    "generate": "Generate",
     "serviceName": "Nome Servizio",
     "loggedIn": "Accesso effettuato",
     "syncingVault": "Sincronizzazione cassaforte",
@@ -189,11 +190,12 @@
     "noAttachmentsFound": "Nessun elemento con allegati trovato",
     "noItemsOfTypeFound": "Nessun elemento {{type}} trovato",
     "noMatchingItems": "Nessun elemento corrispondente trovato",
-    "noMatchingItemsSearch": "No items matching \"{{search}}\"",
-    "noMatchingItemsWithFilter": "No {{filter}} items matching \"{{search}}\"",
-    "clearSearch": "Clear search",
-    "clearFilter": "Clear filter",
+    "noMatchingItemsSearch": "Nessun elemento corrispondente \"{{search}}\"",
+    "noMatchingItemsWithFilter": "Nessun elemento {{filter}} corrispondente \"{{search}}\"",
+    "clearSearch": "Cancella ricerca",
+    "clearFilter": "Cancella filtro",
     "emptyFolderHint": "Questa cartella è vuota. Per spostare gli elementi in questa cartella, modificare l'elemento e toccare l'icona della cartella nel campo nome.",
+    "allItemsInFolders": "Tutti gli elementi sono organizzati in cartelle. Fare clic su una cartella qui sopra per visualizzare le credenziali o utilizzare la ricerca per trovare elementi specifici.",
     "deleteFolder": "Elimina Cartella",
     "deleteFolderKeepItems": "Elimina solo la cartella",
     "deleteFolderKeepItemsDescription": "Gli elementi verranno spostati nella lista principale.",
@@ -221,10 +223,6 @@
     "privateEmailDescription": "E2E crittografato, completamente privato.",
     "publicEmailTitle": "Fornitori Pubblici di Email Temporanee",
     "publicEmailDescription": "Anonimi ma con privacy ridotta. Accessibile a chiunque conosca l'indirizzo.",
-    "generateRandomUsername": "Genera nome utente casuale",
-    "generateRandomPassword": "Genera password casuale",
-    "generateNewPreview": "Genera nuova anteprima",
-    "generateRandomAlias": "Genera Alias Casuale",
     "validation": {
       "required": "Campo obbligatorio"
     }
@@ -293,7 +291,9 @@
   "attachmentUploader": {
     "uploading": "Caricamento...",
     "uploadSuccess": "File caricati correttamente",
-    "deleteSuccess": "Allegato eliminato con successo."
+    "deleteSuccess": "Allegato eliminato con successo.",
+    "firefoxExpandRequired": "Per caricare i file, usa la finestra estesa.",
+    "openExpandedWindow": "Apri Finestra Estesa"
   },
   "emails": {
     "title": "Email",
@@ -306,7 +306,7 @@
     "emailNotFound": "Email non trovata",
     "noEmails": "Nessuna email trovata",
     "noEmailsDescription": "Non hai ancora ricevuto email ai tuoi indirizzi email privati. Quando ne riceverai una nuova, apparirà qui.",
-    "offlineMessage": "You are offline. Please connect to the internet to load your emails.",
+    "offlineMessage": "Sei offline. Collegati a internet per caricare le email.",
     "dateFormat": {
       "justNow": "proprio ora",
       "minutesAgo_single": "{{count}} min fa",

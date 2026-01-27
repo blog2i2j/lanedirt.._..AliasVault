@@ -63,23 +63,23 @@
     <comment>Title for passkey unlock section</comment>
   </data>
   <data name="EnabledDescription" xml:space="preserve">
-    <value>Parola ta master este criptată cu extensia PRF a passkey-ului și stocată local. Când repornești pagina sau fila AliasVault, îți poți debloca seiful cu passkey-ul. Dacă dorești să dezactivezi deblocarea prin passkey, o poți face folosind butonul de mai jos. Parola ta master va funcționa în continuare pentru deblocarea seifului.</value>
+    <value>Parola ta master este criptată prin extensia passkey PRF și stocată local. Când reîncarci pagina sau tab-ul AliasVault, îți poți debloca seiful prin passkey. Dacă dorești să dezactivezi deblocarea prin passkey, poți face acest lucru folosind butonul de mai jos. Parola ta master va putea fi folosită în continuare pentru deblocarea seifului.</value>
     <comment>Description when passkey unlock is enabled</comment>
   </data>
   <data name="DisableButton" xml:space="preserve">
-    <value>Dezactivează deblocarea prin Passkey</value>
+    <value>Dezactivați deblocarea prin Passkey</value>
     <comment>Button to disable passkey unlock</comment>
   </data>
   <data name="DisabledDescription" xml:space="preserve">
-    <value>În mod implicit, repornirea paginii sau a filei AliasVault necesită reintroducerea parolei master. Cu un passkey, poți debloca seiful instantaneu. Când este activată, parola ta master este criptată local folosind extensia PRF a passkey-ului. Notă: deblocarea prin passkey va funcționa doar pe dispozitivul și browserul curent pe care este activată.</value>
+    <value>În mod implicit, reîncărcarea paginii sau a tab-ului AliasVault necesită reintroducerea parolei master. Prin activarea unui passkey, îți poți debloca seiful instantaneu. Când această opțiune este activată, parola ta master este criptată local prin extensia PRF a passkey-ului. Notă: deblocarea prin passkey va funcționa doar pe dispozitivul și browserul curent pe care a fost activată.</value>
     <comment>Description when passkey unlock is disabled</comment>
   </data>
   <data name="ExperimentalWarning" xml:space="preserve">
-    <value>Această funcționalitate este suportată în prezent de extensia de browser AliasVault și de aplicația iOS. Suportul pentru Android va fi disponibil în curând. Dacă întâmpini probleme, poți dezactiva această opțiune în orice moment.</value>
+    <value>Această funcționalitate este disponibilă momentan în extensia de browser AliasVault și în aplicația iOS. Compatibilitatea pentru Android va fi oferită în curând. Dacă întâmpinați probleme, puteți dezactiva această opțiune în orice moment.</value>
     <comment>Warning about feature compatibility</comment>
   </data>
   <data name="EnableButton" xml:space="preserve">
-    <value>Activează deblocarea prin Passkey</value>
+    <value>Activați deblocarea prin Passkey</value>
     <comment>Button to enable passkey unlock</comment>
   </data>
   <data name="SuccessEnabledMessage" xml:space="preserve">
@@ -91,11 +91,11 @@
     <comment>Success message when passkey unlock is disabled</comment>
   </data>
   <data name="WebAuthnNotSupportedError" xml:space="preserve">
-    <value>Browserul tău actual nu suportă extensia WebAuthn PRF. Te rugăm să încerci din nou folosind un alt browser.</value>
+    <value>Browserul tău actual nu este compatibil cu extensia WebAuthn PRF. Reîncearcă folosind un alt browser.</value>
     <comment>Error when WebAuthn is not supported</comment>
   </data>
   <data name="EnableErrorMessage" xml:space="preserve">
-    <value>A apărut o eroare la încercarea de activare a deblocării rapide a seifului. Te rugăm să încerci din nou (mai târziu).</value>
+    <value>A apărut o eroare la încercarea de activare a deblocării rapide a seifului. Reîncearcă din nou (mai târziu).</value>
     <comment>Generic error message when enabling fails</comment>
   </data>
 </root>

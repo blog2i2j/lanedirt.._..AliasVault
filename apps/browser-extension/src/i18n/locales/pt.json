@@ -82,6 +82,7 @@
     "email": "E-mail",
     "username": "Nome de Usuário",
     "password": "Senha",
+    "generate": "Generate",
     "serviceName": "Nome do Serviço",
     "loggedIn": "Logado",
     "syncingVault": "Sincronizando cofre",
@@ -194,6 +195,7 @@
     "clearSearch": "Limpar pesquisa",
     "clearFilter": "Limpar filtro",
     "emptyFolderHint": "Esta pasta está vazia. Para mover itens para esta pasta, edite o item e toque no ícone da pasta no campo de nome.",
+    "allItemsInFolders": "All your items are organized in folders. Click a folder above to view your credentials, or use the search to find specific items.",
     "deleteFolder": "Excluir Pasta",
     "deleteFolderKeepItems": "Excluir apenas a pasta",
     "deleteFolderKeepItemsDescription": "Itens serão movidos de volta para a lista principal.",
@@ -221,10 +223,6 @@
     "privateEmailDescription": "Criptografia E2E, totalmente privado.",
     "publicEmailTitle": "Provedores Públicos de E-mail Temporário",
     "publicEmailDescription": "Anônimo mas com privacidade limitada. Conteúdo do e-mail pode ser lido por qualquer um que souber o endereço.",
-    "generateRandomUsername": "Gerar nome de usuário aleatório",
-    "generateRandomPassword": "Gerar senha aleatória",
-    "generateNewPreview": "Gerar nova prévia",
-    "generateRandomAlias": "Gerar Alias Aleatório",
     "validation": {
       "required": "Este campo é obrigatório"
     }
@@ -293,7 +291,9 @@
   "attachmentUploader": {
     "uploading": "Fazendo upload...",
     "uploadSuccess": "Arquivos enviados com sucesso.",
-    "deleteSuccess": "Anexo excluído com sucesso."
+    "deleteSuccess": "Anexo excluído com sucesso.",
+    "firefoxExpandRequired": "To upload files, use the expanded window.",
+    "openExpandedWindow": "Open Expanded Window"
   },
   "emails": {
     "title": "E-mails",

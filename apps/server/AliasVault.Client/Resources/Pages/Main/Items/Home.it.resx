@@ -180,6 +180,10 @@
     <value>Questa cartella è vuota.</value>
     <comment>Empty state message when folder has no items</comment>
   </data>
+  <data name="AllItemsInFoldersMessage" xml:space="preserve">
+    <value>Tutti gli elementi sono organizzati in cartelle. Fare clic su una cartella qui sopra per visualizzare le credenziali o utilizzare la ricerca per trovare elementi specifici.</value>
+    <comment>Empty state message when all items are in folders and none at root level</comment>
+  </data>
   <!-- Folder Management -->
   <data name="NewFolder" xml:space="preserve">
     <value>Nuova Cartella</value>
@@ -212,11 +216,11 @@
   </data>
   <!-- Clear Filter -->
   <data name="ClearFilter" xml:space="preserve">
-    <value>Clear filter</value>
+    <value>Cancella filtro</value>
     <comment>Button text for clearing the active filter</comment>
   </data>
   <data name="FilteringBy" xml:space="preserve">
-    <value>Filtering by:</value>
+    <value>Filtrare per:</value>
     <comment>Label shown when a filter is active</comment>
   </data>
 </root>
