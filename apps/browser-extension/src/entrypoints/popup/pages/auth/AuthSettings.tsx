@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as Yup from 'yup';
 
@@ -66,6 +66,20 @@ const AuthSettings: React.FC = () => {
   const { setIsInitialLoading } = useLoading();
 
   const urlSchema = createUrlSchema(t);
+  const apiUrlDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clientUrlDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clean up debounce timers on unmount
+  useEffect((): (() => void) => {
+    return (): void => {
+      if (apiUrlDebounceRef.current) {
+        clearTimeout(apiUrlDebounceRef.current);
+      }
+      if (clientUrlDebounceRef.current) {
+        clearTimeout(clientUrlDebounceRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     /**
@@ -116,43 +130,57 @@ const AuthSettings: React.FC = () => {
   };
 
   /**
-   * Handle custom API URL change
+   * Handle custom API URL change.
+   * Updates UI state immediately but debounces validation and storage writes to prevent concurrency issues.
    */
-  const handleCustomUrlChange = async (e: React.ChangeEvent<HTMLInputElement>) : Promise<void> => {
+  const handleCustomUrlChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) : void => {
     const value = e.target.value;
     setCustomUrl(value);
 
-    try {
-      await urlSchema.validateAt('apiUrl', { apiUrl: value });
-      setErrors(prev => ({ ...prev, apiUrl: undefined }));
-      await storage.setItem('local:apiUrl', value);
-    } catch (error: unknown) {
-      if (error instanceof Yup.ValidationError) {
-        setErrors(prev => ({ ...prev, apiUrl: error.message }));
-        // On error we revert back to the aliasvault.net official hosted instance.
-        await storage.setItem('local:apiUrl', AppInfo.DEFAULT_API_URL);
-        await storage.setItem('local:clientUrl', AppInfo.DEFAULT_CLIENT_URL);
-      }
+    if (apiUrlDebounceRef.current) {
+      clearTimeout(apiUrlDebounceRef.current);
     }
-  };
+
+    apiUrlDebounceRef.current = setTimeout(async () => {
+      try {
+        await urlSchema.validateAt('apiUrl', { apiUrl: value });
+        setErrors(prev => ({ ...prev, apiUrl: undefined }));
+        await storage.setItem('local:apiUrl', value);
+      } catch (error: unknown) {
+        if (error instanceof Yup.ValidationError) {
+          setErrors(prev => ({ ...prev, apiUrl: error.message }));
+          // On error we revert back to the aliasvault.net official hosted instance.
+          await storage.setItem('local:apiUrl', AppInfo.DEFAULT_API_URL);
+          await storage.setItem('local:clientUrl', AppInfo.DEFAULT_CLIENT_URL);
+        }
+      }
+    }, 300);
+  }, [urlSchema]);
 
   /**
-   * Handle custom client URL change
+   * Handle custom client URL change.
+   * Updates UI state immediately but debounces validation and storage writes to prevent concurrency issues.
    */
-  const handleCustomClientUrlChange = async (e: React.ChangeEvent<HTMLInputElement>) : Promise<void> => {
+  const handleCustomClientUrlChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) : void => {
     const value = e.target.value;
     setCustomClientUrl(value);
 
-    try {
-      await urlSchema.validateAt('clientUrl', { clientUrl: value });
-      setErrors(prev => ({ ...prev, clientUrl: undefined }));
-      await storage.setItem('local:clientUrl', value);
-    } catch (error: unknown) {
-      if (error instanceof Yup.ValidationError) {
-        setErrors(prev => ({ ...prev, clientUrl: error.message }));
-      }
+    if (clientUrlDebounceRef.current) {
+      clearTimeout(clientUrlDebounceRef.current);
     }
-  };
+
+    clientUrlDebounceRef.current = setTimeout(async () => {
+      try {
+        await urlSchema.validateAt('clientUrl', { clientUrl: value });
+        setErrors(prev => ({ ...prev, clientUrl: undefined }));
+        await storage.setItem('local:clientUrl', value);
+      } catch (error: unknown) {
+        if (error instanceof Yup.ValidationError) {
+          setErrors(prev => ({ ...prev, clientUrl: error.message }));
+        }
+      }
+    }, 300);
+  }, [urlSchema]);
 
   /**
    * Toggle global popup.

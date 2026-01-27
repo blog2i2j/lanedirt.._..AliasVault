@@ -21,7 +21,7 @@ const FolderPill: React.FC<IFolderPillProps> = ({ folder, onClick }) => {
   return (
     <button
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-600/50 border border-gray-200 dark:border-gray-600 rounded-full text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-600/50 border border-gray-200 dark:border-gray-600 rounded-full text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500/50"
     >
       <svg
         className="w-3.5 h-3.5 text-orange-500 dark:text-orange-400 flex-shrink-0"
