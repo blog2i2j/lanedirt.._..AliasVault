@@ -41,7 +41,7 @@ A vulnerability is considered **critical** if it allows crossing this boundary.
 
 ---
 
-### 2.2 Out-of-Scope Attacker Capabilities
+### 2.2 Out-of-Scope: Compromised Devices
 
 The following represent **device compromise scenarios** and are **outside AliasVault’s primary security boundary**:
 
@@ -62,9 +62,9 @@ This section defines how reported issues are categorized.
 
 ---
 
-## 3.1 Class 1 — CVE-Eligible Security Vulnerabilities
+## 3.1 Critical Vulnerabilities (Class 1 - CVE-Eligible)
 
-Class 1 issues are the only category eligible for CVE assignment. These represent vulnerabilities that breach AliasVault's encryption/access control boundary (see Section 2.1).
+Class 1 issues are eligible for CVE assignment. These represent vulnerabilities that breach AliasVault's encryption/access control boundary (see Section 2.1).
 
 A report must:
 
@@ -73,12 +73,12 @@ A report must:
 - Have a **concrete security impact**
 - Not depend on full device compromise
 
-### 3.1.1 Cryptographic Boundary Breaks
+### 3.1.1 Cryptographic Failures
 - Recovery of plaintext vault data without the master password
 - Key derivation or encryption flaws weakening confidentiality
 - SRP (Secure Remote Password) implementation flaws enabling credential recovery or offline password attacks
 
-### 3.1.2 Authentication & Authorization Failures
+### 3.1.2 Authentication & Access Failures
 - Access to another user’s vault or metadata
 - Privilege escalation
 - Authentication bypass
@@ -89,14 +89,14 @@ A report must:
 - Injection leading to cross-user data access (e.g., XSS, SQL injection, or similar attacks that result in cross-tenant data exposure)
 - Server-side request forgery (SSRF) reaching internal or restricted systems
 
-### 3.1.4 Secret Exfiltration in Normal Operation
+### 3.1.4 Secret Exposure
 - Decrypted secrets exposed via logs, APIs, or unintended channels
 - Server-side plaintext exposure
 - Backend returning sensitive internal resources to an attacker
 
 ---
 
-## 3.2 Class 2 — Defense-in-Depth / Hardening Issues
+## 3.2 Security Hardening Issues (Class 2)
 
 These are security improvements but **not typically CVE-eligible**. Such issues may still be addressed in future updates as defense-in-depth improvements, even though they typically will not receive a CVE or security advisory.
 
@@ -107,30 +107,31 @@ Issues that only arise or can only be exploited after an attacker has fully comp
 - Memory inspection of a live process
 - OS-level data extraction
 
-### 3.2.2 Local Data Handling Improvements
+### 3.2.2 Local Data Handling
 - Clipboard clearing
 - Screen recording protections
 - Autofill edge cases
 - UI redaction improvements
 
-### 3.2.3 Session or Metadata Observations
+### 3.2.3 Metadata & Session Observations
 - Token leakage that does **not** allow vault decryption
 - Metadata visibility inherent to system design
 
-### 3.2.4 Theoretical or Non-Reproducible Risks
+### 3.2.4 Theoretical or Non-Reproducible
 - Speculative attack chains
 - No working proof of concept
 - Attacks requiring unrealistic assumptions
 
 ---
 
-## 3.3 Class 3 — Non-Security or Out-of-Scope Reports
+## 3.3 Out-of-Scope Reports (Class 3)
+These are not treated as security vulnerabilities.
 
 ### 3.3.1 Non-Security Bugs
 - UI inconsistencies
 - Logic errors without security impact
 
-### 3.3.2 Environmental / External
+### 3.3.2 External or Environmental
 - Social engineering
 - User misconfiguration
 - Third-party service compromise outside AliasVault control
