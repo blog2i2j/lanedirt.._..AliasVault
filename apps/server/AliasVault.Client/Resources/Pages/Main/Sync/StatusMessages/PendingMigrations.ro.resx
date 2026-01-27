@@ -63,7 +63,7 @@
     <comment>Title for vault upgrade process</comment>
   </data>
   <data name="UpgradeDescription" xml:space="preserve">
-    <value>AliasVault a fost actualizat, iar seiful dumneavoastră trebuie să treacă printr-un proces de upgrade. Acest lucru ar trebui să dureze doar câteva secunde.</value>
+    <value>AliasVault a fost actualizat, iar seiful tău necesită o actualizare de versiune. Procesul ar trebui să dureze doar câteva secunde.</value>
     <comment>Description of vault upgrade process</comment>
   </data>
   <data name="VersionInformationTitle" xml:space="preserve">
@@ -71,7 +71,7 @@
     <comment>Title for version information section</comment>
   </data>
   <data name="UpgradeRequiredDescription" xml:space="preserve">
-    <value>Este necesară o actualizare pentru a suporta următoarele modificări: {0}</value>
+    <value>Este necesară o actualizare pentru a permite următoarele modificări: {0}</value>
     <comment>Description of upgrade requirements with changes placeholder</comment>
   </data>
   <data name="NoDescriptionAvailable" xml:space="preserve">
@@ -79,7 +79,7 @@
     <comment>Fallback text when version description is not available</comment>
   </data>
   <data name="YourVaultLabel" xml:space="preserve">
-    <value>Versiunea seifului dumneavoastră:</value>
+    <value>Versiunea seifului tău:</value>
     <comment>Label for current vault version</comment>
   </data>
   <data name="NewVersionLabel" xml:space="preserve">
@@ -95,11 +95,11 @@
     <comment>Success message after successful vault upgrade</comment>
   </data>
   <data name="UpgradeSuccessButSaveFailedError" xml:space="preserve">
-    <value>Actualizarea bazei de date a reușit, dar salvarea pe server a eșuat. Vă rugăm să încercați din nou sau să contactați asistența.</value>
+    <value>Actualizarea bazei de date a reușit, dar salvarea pe server a eșuat. Încearcă din nou sau contactează asistența.</value>
     <comment>Error message when upgrade succeeds but save fails</comment>
   </data>
   <data name="UpgradeFailedError" xml:space="preserve">
-    <value>Actualizarea bazei de date a eșuat. Vă rugăm să încercați din nou sau să contactați asistența.</value>
+    <value>Actualizarea bazei de date a eșuat. Încearcă din nou sau contactează asistența.</value>
     <comment>Error message when upgrade fails</comment>
   </data>
 </root>

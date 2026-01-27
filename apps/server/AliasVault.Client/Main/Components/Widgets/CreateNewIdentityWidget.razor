@@ -282,6 +282,12 @@
         QuickCreateStateService.FolderId = GetCurrentFolderIdFromUrl();
 
         NavigationManager.NavigateTo("/items/create");
+
+        // Notify subscribers (e.g. AddEdit page) that the state has changed. This handles
+        // the case where the user is already on the AddEdit page and the navigation above
+        // does not trigger a re-initialization.
+        QuickCreateStateService.NotifyStateChanged();
+
         ClosePopup();
     }
 

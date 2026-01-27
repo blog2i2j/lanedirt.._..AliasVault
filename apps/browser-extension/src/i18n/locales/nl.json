@@ -82,6 +82,7 @@
     "email": "E-mail",
     "username": "Gebruikersnaam",
     "password": "Wachtwoord",
+    "generate": "Generate",
     "serviceName": "Naam",
     "loggedIn": "Ingelogd",
     "syncingVault": "Vault synchroniseren",
@@ -194,6 +195,7 @@
     "clearSearch": "Wis zoekopdracht",
     "clearFilter": "Wis filter",
     "emptyFolderHint": "Deze map is leeg. Om items naar deze map te verplaatsen, wijzig het item en selecteer deze map.",
+    "allItemsInFolders": "Al je items zijn georganiseerd in mappen. Klik op een map hierboven om je gegevens te bekijken, of gebruik de zoekopdracht om specifieke items te vinden.",
     "deleteFolder": "Map verwijderen",
     "deleteFolderKeepItems": "Verwijder alleen map",
     "deleteFolderKeepItemsDescription": "Items zullen terug worden verplaatst naar de hoofdlijst.",
@@ -221,10 +223,6 @@
     "privateEmailDescription": "E2E versleuteld, volledig privé.",
     "publicEmailTitle": "Publieke tijdelijke e-mailproviders",
     "publicEmailDescription": "Anoniem maar beperkte privacy. E-mail inhoud is leesbaar door iedereen die het adres kent.",
-    "generateRandomUsername": "Gebruikersnaam genereren",
-    "generateRandomPassword": "Wachtwoord genereren",
-    "generateNewPreview": "Genereer nieuw voorbeeld",
-    "generateRandomAlias": "Genereer willekeurige alias",
     "validation": {
       "required": "Dit veld is verplicht"
     }
@@ -293,7 +291,9 @@
   "attachmentUploader": {
     "uploading": "Uploaden...",
     "uploadSuccess": "Bestand succesvol geüpload.",
-    "deleteSuccess": "Bijlage is succesvol verwijderd."
+    "deleteSuccess": "Bijlage is succesvol verwijderd.",
+    "firefoxExpandRequired": "Gebruik het grote venster om bestanden te uploaden.",
+    "openExpandedWindow": "Open groot venster"
   },
   "emails": {
     "title": "E-mails",

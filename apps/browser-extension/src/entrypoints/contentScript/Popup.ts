@@ -305,7 +305,7 @@ export async function createAutofillPopup(input: HTMLInputElement, items: Item[]
           fields.push(createSystemField(FieldKey.LoginUrl, { value: serviceUrl }));
         }
         fields.push(createSystemField(FieldKey.LoginUsername, { value: identity.nickName }));
-        fields.push(createSystemField(FieldKey.LoginEmail, { value: `${identity.emailPrefix}@${domain}` }));
+        fields.push(createSystemField(FieldKey.LoginEmail, { value: domain ? `${identity.emailPrefix}@${domain}` : identity.emailPrefix }));
         fields.push(createSystemField(FieldKey.LoginPassword, { value: password }));
         fields.push(createSystemField(FieldKey.AliasFirstName, { value: identity.firstName }));
         fields.push(createSystemField(FieldKey.AliasLastName, { value: identity.lastName }));

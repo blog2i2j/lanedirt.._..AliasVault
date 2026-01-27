@@ -66,8 +66,8 @@ export default function ImportExportScreen(): React.ReactNode {
     try {
       const date = new Date(dateStr);
       if (isNaN(date.getTime())) {
-        // If invalid date, return a default date
-        return '01/01/0001 00:00:00';
+        // If invalid date, return empty string
+        return '';
       }
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
@@ -77,8 +77,8 @@ export default function ImportExportScreen(): React.ReactNode {
       const seconds = String(date.getSeconds()).padStart(2, '0');
       return `${month}/${day}/${year} ${hours}:${minutes}:${seconds}`;
     } catch {
-      // Return default date if parsing fails
-      return '01/01/0001 00:00:00';
+      // Return empty string if parsing fails
+      return '';
     }
   };
 
@@ -110,7 +110,7 @@ export default function ImportExportScreen(): React.ReactNode {
         AliasFirstName: credential.Alias?.FirstName ?? '',
         AliasLastName: credential.Alias?.LastName ?? '',
         AliasNickName: nickName,
-        AliasBirthDate: credential.Alias?.BirthDate ? formatDate(credential.Alias.BirthDate) : '01/01/0001 00:00:00',
+        AliasBirthDate: credential.Alias?.BirthDate ? formatDate(credential.Alias.BirthDate) : '',
         AliasEmail: credential.Alias?.Email ?? '',
         ServiceName: credential.ServiceName ?? '',
         ServiceUrl: credential.ServiceUrl ?? '',

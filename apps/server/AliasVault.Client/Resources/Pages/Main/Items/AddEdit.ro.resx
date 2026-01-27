@@ -42,7 +42,7 @@
     <comment>Breadcrumb text for viewing an item</comment>
   </data>
   <data name="EditItemBreadcrumb">
-    <value>Editare element</value>
+    <value>Editați elementul</value>
     <comment>Breadcrumb text for editing an item</comment>
   </data>
   <data name="AddNewItemBreadcrumb">
@@ -122,11 +122,11 @@
   </data>
   <!-- Button text -->
   <data name="GenerateRandomAliasButton">
-    <value>Generează alias aleatoriu</value>
+    <value>Generează un alias aleatoriu</value>
     <comment>Button text for generating a random alias</comment>
   </data>
   <data name="ClearAliasFieldsButton">
-    <value>Șterge câmpurile alias-ului</value>
+    <value>Șterge câmpurile Alias</value>
     <comment>Button text for clearing alias fields</comment>
   </data>
   <data name="SaveItemButton">
@@ -134,7 +134,7 @@
     <comment>Button text for saving an item</comment>
   </data>
   <data name="CancelButton">
-    <value>Anulează</value>
+    <value>Anulați</value>
     <comment>Button text for canceling the operation</comment>
   </data>
   <!-- Loading and status messages -->
@@ -144,11 +144,11 @@
   </data>
   <!-- Error messages -->
   <data name="ItemNotExistError">
-    <value>Acest element nu (mai) există. Vă rugăm să încercați din nou.</value>
+    <value>Acest element nu (mai) există. Încearcă din nou.</value>
     <comment>Error message when item doesn't exist</comment>
   </data>
   <data name="ErrorSavingItem">
-    <value>Eroare la salvarea elementului. Vă rugăm să încercați din nou.</value>
+    <value>Eroare la salvarea elementului. Încearcă din nou.</value>
     <comment>Error message when saving item fails</comment>
   </data>
   <!-- Success messages -->
@@ -194,7 +194,7 @@
     <comment>Message explaining passkey will be deleted on save</comment>
   </data>
   <data name="UndoButton">
-    <value>Anulează</value>
+    <value>Reveniți</value>
     <comment>Button to undo passkey deletion</comment>
   </data>
   <!-- Card section fields -->

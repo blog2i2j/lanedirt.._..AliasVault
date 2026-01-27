@@ -448,14 +448,22 @@ export async function getEmailAddressesForVault(
 
 /**
  * Get default email domain for a vault.
+ * Falls back to first private or public domain if no default is configured.
  */
 export function handleGetDefaultEmailDomain(): Promise<stringResponse> {
   return (async (): Promise<stringResponse> => {
     try {
       const sqliteClient = await createVaultSqliteClient();
-      const defaultEmailDomain = sqliteClient.settings.getDefaultEmailDomain();
+      let domain = sqliteClient.settings.getDefaultEmailDomain();
 
-      return { success: true, value: defaultEmailDomain ?? undefined };
+      // If no default domain is configured, fall back to first private or public domain
+      if (!domain) {
+        const privateEmailDomains = await getItemWithFallback<string[]>('local:privateEmailDomains') ?? [];
+        const publicEmailDomains = await getItemWithFallback<string[]>('local:publicEmailDomains') ?? [];
+        domain = privateEmailDomains[0] || publicEmailDomains[0] || '';
+      }
+
+      return { success: true, value: domain || undefined };
     } catch (error) {
       console.error('Error getting default email domain:', error);
       return { success: false, error: await t('common.errors.unknownError') };
