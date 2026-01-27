@@ -177,8 +177,6 @@ export const ItemNameField = forwardRef<ItemNameFieldRef, IItemNameFieldProps>((
           style={styles.input}
           value={value}
           onChangeText={onChangeText}
-          placeholder={t('items.itemName')}
-          placeholderTextColor={colors.textMuted}
           testID="item-name-input"
         />
         {hasFolders && (

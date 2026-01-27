@@ -10,7 +10,7 @@ import { StyleSheet, View, Keyboard, Platform, ScrollView, KeyboardAvoidingView,
 import Toast from 'react-native-toast-message';
 
 import type { Folder } from '@/utils/db/repositories/FolderRepository';
-import { CreateIdentityGenerator, CreateUsernameEmailGenerator, Gender, Identity, IdentityHelperUtils, convertAgeRangeToBirthdateOptions } from '@/utils/dist/core/identity-generator';
+import { CreateIdentityGenerator, CreateUsernameEmailGenerator, UsernameEmailGenerator, Gender, Identity, IdentityHelperUtils, convertAgeRangeToBirthdateOptions } from '@/utils/dist/core/identity-generator';
 import type { Attachment, Item, ItemField, TotpCode, ItemType, FieldType, PasswordSettings } from '@/utils/dist/core/models/vault';
 import { ItemTypes, getSystemFieldsForItemType, getOptionalFieldsForItemType, isFieldShownByDefault, getSystemField, fieldAppliesToType, FieldCategories, FieldTypes } from '@/utils/dist/core/models/vault';
 import type { FaviconExtractModel } from '@/utils/dist/core/models/webapi';
@@ -386,6 +386,56 @@ export default function AddEditItemScreen(): React.ReactNode {
       console.error('Error generating random username:', error);
     }
   }, [fieldValues, generateRandomIdentity, handleFieldChange]);
+
+  /**
+   * Generate an identity-based email alias (for Alias type email field).
+   * Uses the current alias field values (first name, last name, birthdate) to derive the email prefix,
+   * so the email stays consistent with the filled-in persona fields.
+   */
+  const handleGenerateAliasEmail = useCallback(async () => {
+    const firstName = (fieldValues['alias.first_name'] as string) || '';
+    const lastName = (fieldValues['alias.last_name'] as string) || '';
+
+    const generator = new UsernameEmailGenerator();
+    let prefix: string;
+
+    if (!firstName.trim() && !lastName.trim()) {
+      // No alias identity fields filled in, fall back to random prefix.
+      prefix = generator.generateRandomEmailPrefix();
+    } else {
+      const gender = (fieldValues['alias.gender'] as string) || Gender.Other;
+      const birthdate = (fieldValues['alias.birthdate'] as string) || '';
+
+      prefix = generator.generateEmailPrefix({
+        firstName,
+        lastName,
+        gender: gender as Gender,
+        birthDate: birthdate ? new Date(birthdate) : new Date(),
+        emailPrefix: '',
+        nickName: ''
+      });
+    }
+
+    const defaultEmailDomain = await dbContext.sqliteClient!.getDefaultEmailDomain();
+    const email = defaultEmailDomain ? `${prefix}@${defaultEmailDomain}` : prefix;
+
+    handleFieldChange('login.email', email);
+  }, [fieldValues, dbContext.sqliteClient, handleFieldChange]);
+
+  /**
+   * Generate a random-string email alias (for Login type email field).
+   * Uses random characters instead of identity-based prefixes since Login type
+   * has no persona fields to base the email on.
+   */
+  const handleGenerateRandomEmail = useCallback(async () => {
+    const generator = new UsernameEmailGenerator();
+    const prefix = generator.generateRandomEmailPrefix();
+
+    const defaultEmailDomain = await dbContext.sqliteClient!.getDefaultEmailDomain();
+    const email = defaultEmailDomain ? `${prefix}@${defaultEmailDomain}` : prefix;
+
+    handleFieldChange('login.email', email);
+  }, [dbContext.sqliteClient, handleFieldChange]);
 
   /**
    * Prevent accidental dismissal when there are unsaved changes.
@@ -1111,6 +1161,7 @@ export default function AddEditItemScreen(): React.ReactNode {
             onRemove={onRemove}
             testID={testID}
             defaultEmailMode={defaultEmailMode}
+            onGenerateAlias={aliasFieldsShownByDefault ? handleGenerateAliasEmail : handleGenerateRandomEmail}
           />
         );
       }
@@ -1163,7 +1214,7 @@ export default function AddEditItemScreen(): React.ReactNode {
           />
         );
     }
-  }, [fieldValues, handleFieldChange, isPasswordVisible, isEditMode, aliasFieldsShownByDefault, generateRandomUsername, t, getFieldTestId, item?.ItemType, passwordSettings]);
+  }, [fieldValues, handleFieldChange, isPasswordVisible, isEditMode, aliasFieldsShownByDefault, generateRandomUsername, handleGenerateAliasEmail, handleGenerateRandomEmail, t, getFieldTestId, item?.ItemType, passwordSettings]);
 
   const styles = StyleSheet.create({
     container: {

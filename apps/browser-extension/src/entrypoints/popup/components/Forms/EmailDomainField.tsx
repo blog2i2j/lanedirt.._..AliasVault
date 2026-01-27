@@ -73,6 +73,12 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
   const [hiddenPrivateEmailDomains, setHiddenPrivateEmailDomains] = useState<string[]>([]);
   const popupRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * Tracks whether the user explicitly toggled mode via buttons.
+   * While true, the value useEffect skips auto-detection of isCustomDomain.
+   */
+  const modeToggledByUser = useRef(false);
+
   // Get email domains from vault metadata
   useEffect(() => {
     /**
@@ -115,21 +121,19 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
       setSelectedDomain(domain);
 
       /*
-       * Auto-detect mode based on domain recognition.
-       * In controlled mode, notify parent via onEmailModeChange.
-       * In uncontrolled mode, update internal state directly.
+       * Auto-detect mode based on domain recognition, but only if the user
+       * hasn't explicitly toggled mode via the Email/Alias buttons.
        */
-      // Check if it's a known domain (public, private, or hidden private)
-      const isKnownDomain = publicEmailDomains.includes(domain) ||
-                           privateEmailDomains.includes(domain) ||
-                           hiddenPrivateEmailDomains.includes(domain);
+      if (!modeToggledByUser.current) {
+        const isKnownDomain = publicEmailDomains.includes(domain) ||
+                             privateEmailDomains.includes(domain) ||
+                             hiddenPrivateEmailDomains.includes(domain);
 
-      if (isControlled && onEmailModeChange) {
-        // Controlled mode: notify parent that mode should be alias (domain chooser) if domain is known
-        onEmailModeChange(!isKnownDomain);
-      } else if (!isControlled) {
-        // Uncontrolled mode: update internal state directly
-        setIsCustomDomain(!isKnownDomain);
+        if (isControlled && onEmailModeChange) {
+          onEmailModeChange(!isKnownDomain);
+        } else if (!isControlled) {
+          setIsCustomDomain(!isKnownDomain);
+        }
       }
     } else {
       setLocalPart(value);
@@ -149,9 +153,13 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
   /*
    * Re-check domain mode when domains finish loading.
    * This handles the case where value was set before domains were loaded.
-   * Works in both controlled and uncontrolled modes.
+   * Skip if the user has explicitly toggled mode via buttons.
    */
   useEffect(() => {
+    if (modeToggledByUser.current) {
+      return;
+    }
+
     if (!value || !value.includes('@')) {
       return;
     }
@@ -161,19 +169,13 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
       return;
     }
 
-    // Check if the domain is now recognized after domains loaded
     const isKnownDomain = publicEmailDomains.includes(domain) ||
                          privateEmailDomains.includes(domain) ||
                          hiddenPrivateEmailDomains.includes(domain);
 
     if (isControlled && onEmailModeChange) {
-      // Controlled mode: notify parent that mode should be alias (domain chooser) if domain is known
       onEmailModeChange(!isKnownDomain);
     } else if (!isControlled) {
-      /*
-       * Uncontrolled mode: update internal state directly.
-       * If domain is recognized and we're in custom mode, switch to domain chooser.
-       */
       if (isKnownDomain && isCustomDomain) {
         setIsCustomDomain(false);
       }
@@ -219,6 +221,7 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
   // Handle local part changes
   const handleLocalPartChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newLocalPart = e.target.value;
+    modeToggledByUser.current = false;
 
     // If in custom domain mode, always pass through the full value
     if (isCustomDomain) {
@@ -277,45 +280,27 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
 
   // Toggle between custom domain and domain chooser
   const toggleCustomDomain = useCallback(() => {
+    modeToggledByUser.current = true;
     const newIsCustom = !isCustomDomain;
     setIsCustomDomain(newIsCustom);
 
     if (newIsCustom) {
       /*
-       * Switching to custom domain mode (free text / normal email)
-       * Extract just the local part from the domain-based value
+       * Switching to custom domain mode (free text / normal email).
+       * Clear the value so the user starts fresh with a regular email address.
        */
-      if (value && value.includes('@')) {
-        const [local] = value.split('@');
-        onChange(local);
-        setLocalPart(local);
-      }
+      onChange('');
+      setLocalPart('');
     } else {
-      // Switching to domain chooser mode
+      // Switching to domain chooser mode - clear the old email-mode value.
       const defaultDomain = showPrivateDomains && privateEmailDomains[0]
         ? privateEmailDomains[0]
         : publicEmailDomains[0];
       setSelectedDomain(defaultDomain);
-
-      /*
-       * Use the same simple pattern as mobile app:
-       * 1. Check localPart first (most reliable, kept in sync by useEffect)
-       * 2. Fallback to value if it doesn't have @ (value is just a prefix)
-       *
-       * Note: If value has @, the useEffect will have already extracted and set localPart,
-       * so checking localPart first is the right approach.
-       */
-      if (localPart && localPart.trim()) {
-        // localPart is available - use it directly
-        onChange(`${localPart}@${defaultDomain}`);
-      } else if (value && !value.includes('@')) {
-        // Fallback: value is just a prefix without @
-        onChange(`${value}@${defaultDomain}`);
-        // Also update localPart to keep in sync
-        setLocalPart(value);
-      }
+      setLocalPart('');
+      onChange('');
     }
-  }, [isCustomDomain, value, localPart, showPrivateDomains, publicEmailDomains, privateEmailDomains, onChange, setIsCustomDomain]);
+  }, [isCustomDomain, showPrivateDomains, publicEmailDomains, privateEmailDomains, onChange, setIsCustomDomain]);
 
   // Handle clicks outside the popup
   useEffect(() => {
@@ -338,39 +323,29 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
 
   /**
    * Handle the "Generate alias email" button click.
-   * Calls onGenerateAlias if provided, and switches to domain chooser mode.
-   * Also ensures the value is updated with the domain when switching modes.
+   * When onGenerateAlias is provided, delegates to it (it sets the full email value).
+   * Otherwise, just switches to domain chooser mode and preserves the current local part.
    */
   const handleGenerateAliasClick = useCallback(() => {
-    if (onGenerateAlias) {
-      onGenerateAlias();
-    }
-    // Always switch to domain chooser mode
+    modeToggledByUser.current = true;
     setIsCustomDomain(false);
 
-    /*
-     * When switching to alias mode, ensure the value includes the domain.
-     * Use the same simple pattern as toggleCustomDomain: check localPart first, then value.
-     */
+    // Reset to the default domain so stale domains from email mode are cleared.
     const defaultDomain = showPrivateDomains && privateEmailDomains[0]
       ? privateEmailDomains[0]
       : publicEmailDomains[0];
-
     if (defaultDomain) {
       setSelectedDomain(defaultDomain);
-
-      // Use the same pattern as toggleCustomDomain: check localPart first, then value
-      if (localPart && localPart.trim()) {
-        // localPart is available - use it directly
-        onChange(`${localPart}@${defaultDomain}`);
-      } else if (value && !value.includes('@')) {
-        // Fallback: value is just a prefix without @
-        onChange(`${value}@${defaultDomain}`);
-        // Also update localPart to keep in sync
-        setLocalPart(value);
-      }
     }
-  }, [onGenerateAlias, setIsCustomDomain, showPrivateDomains, privateEmailDomains, publicEmailDomains, value, localPart, onChange]);
+
+    // Clear the old email-mode value so it doesn't interfere with alias mode.
+    setLocalPart('');
+    onChange('');
+
+    if (onGenerateAlias) {
+      onGenerateAlias();
+    }
+  }, [onGenerateAlias, setIsCustomDomain, showPrivateDomains, privateEmailDomains, publicEmailDomains, onChange]);
 
   return (
     <div className="space-y-2">
@@ -436,10 +411,23 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
             <button
               type="button"
               onClick={() => setIsPopupVisible(!isPopupVisible)}
-              className="inline-flex items-center px-2 py-2 border border-l-0 border-gray-300 dark:border-gray-600 rounded-r-md bg-gray-50 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-500 cursor-pointer text-sm truncate max-w-[120px]"
+              className={`inline-flex items-center px-2 py-2 border border-l-0 border-gray-300 dark:border-gray-600 ${onGenerateAlias ? '' : 'rounded-r-md'} bg-gray-50 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-500 cursor-pointer text-sm truncate max-w-[120px]`}
             >
               <span className="text-gray-500 dark:text-gray-400">@</span>
               <span className="truncate ml-0.5">{selectedDomain}</span>
+            </button>
+          )}
+
+          {!isCustomDomain && onGenerateAlias && (
+            <button
+              type="button"
+              onClick={onGenerateAlias}
+              className="px-3 text-gray-500 dark:text-white bg-gray-200 hover:bg-gray-300 focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-r-lg text-sm border-l border-gray-300 dark:border-gray-700 dark:bg-gray-600 dark:hover:bg-gray-700 dark:focus:ring-gray-800"
+              title={t('common.generate')}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
             </button>
           )}
         </div>
@@ -456,7 +444,7 @@ const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
                   <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                     {t('items.privateEmailTitle')} <span className="text-gray-500 dark:text-gray-400">({t('items.privateEmailAliasVaultServer')})</span>
                   </h4>
-                  <p className="text-gray-500 dark:text-gray-400 mb-3">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
                     {t('items.privateEmailDescription')}
                   </p>
                   <div className="flex flex-wrap gap-2">

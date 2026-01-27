@@ -1279,7 +1279,7 @@ export async function createAliasCreationPopup(suggestedNames: string[], rootCon
       const showPasswordConfigDialog = async (): Promise<void> => {
         // Get all translations first
         const changePasswordComplexityText = await t('items.changePasswordComplexity');
-        const generateNewPreviewText = await t('items.generateNewPreview');
+        const generateNewPreviewText = await t('common.generate');
         const includeLowercaseText = await t('items.includeLowercase');
         const includeUppercaseText = await t('items.includeUppercase');
         const includeNumbersText = await t('items.includeNumbers');

@@ -90,6 +90,15 @@ export class UsernameEmailGenerator {
   }
 
   /**
+   * Generate a random email prefix that is not based on any identity.
+   * Uses random alphanumeric characters, suitable for login-type credentials
+   * where no persona fields are available to base the email on.
+   */
+  public generateRandomEmailPrefix(length: number = 14): string {
+    return this.generateRandomString(length);
+  }
+
+  /**
    * Sanitize an email prefix.
    */
   private sanitizeEmailPrefix(input: string): string {

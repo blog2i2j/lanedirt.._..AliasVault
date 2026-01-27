@@ -7,7 +7,6 @@ import { useColors } from '@/hooks/useColorScheme';
 
 import { ThemedText } from '@/components/themed/ThemedText';
 import { useDb } from '@/context/DbContext';
-import { CreateIdentityGenerator, convertAgeRangeToBirthdateOptions } from '@/utils/dist/core/identity-generator';
 
 type EmailDomainFieldProps = {
   value: string;
@@ -21,6 +20,8 @@ type EmailDomainFieldProps = {
   testID?: string;
   /** Optional: default to email mode (free text) instead of alias mode (domain chooser). Defaults to false. */
   defaultEmailMode?: boolean;
+  /** Optional callback to generate an email alias. When provided, shows a regenerate button and is called when switching to alias mode. */
+  onGenerateAlias?: () => void;
 }
 
 // Hardcoded public email domains (same as in browser extension)
@@ -49,7 +50,8 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
   label,
   onRemove,
   testID,
-  defaultEmailMode = false
+  defaultEmailMode = false,
+  onGenerateAlias
 }) => {
   const { t } = useTranslation();
   const colors = useColors();
@@ -259,58 +261,33 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
     setIsModalVisible(false);
   }, [localPart, onChange]);
 
-  /**
-   * Generate a random email prefix using identity generator.
-   */
-  const generateRandomEmailPrefix = useCallback(async (): Promise<string> => {
-    try {
-      const identityLanguage = await dbContext.sqliteClient!.getEffectiveIdentityLanguage();
-      const identityGenerator = CreateIdentityGenerator(identityLanguage);
-
-      const genderPreference = await dbContext.sqliteClient!.getDefaultIdentityGender();
-      const ageRange = await dbContext.sqliteClient!.getDefaultIdentityAgeRange();
-      const birthdateOptions = convertAgeRangeToBirthdateOptions(ageRange);
-
-      const identity = identityGenerator.generateRandomIdentity(genderPreference, birthdateOptions);
-      return identity.emailPrefix;
-    } catch (error) {
-      console.error('Error generating random email prefix:', error);
-      // Fallback to a simple random string if generation fails
-      return `user${Math.random().toString(36).substring(2, 9)}`;
-    }
-  }, [dbContext]);
-
   // Toggle between custom domain and domain chooser
-  const toggleCustomDomain = useCallback(async () => {
+  const toggleCustomDomain = useCallback(() => {
     const newIsCustom = !isCustomDomain;
     setIsCustomDomain(newIsCustom);
 
     if (newIsCustom) {
-      // Switching to custom domain mode
-      // If we have a domain-based value, extract just the local part
-      if (value && value.includes('@')) {
-        const [local] = value.split('@');
-        onChange(local);
-        setLocalPart(local);
-      }
+      // Switching to custom domain mode (free text / normal email).
+      // Clear the value so the user starts fresh with a regular email address.
+      onChange('');
+      setLocalPart('');
     } else {
-      // Switching to domain chooser mode - generate a random email prefix
+      // Switching to domain chooser mode - clear old email-mode value.
       const defaultDomain = showPrivateDomains && privateEmailDomains[0]
         ? privateEmailDomains[0]
         : PUBLIC_EMAIL_DOMAINS[0];
       setSelectedDomain(defaultDomain);
+      setLocalPart('');
+      onChange('');
 
-      // Generate a random email prefix instead of reusing the old one
-      const randomPrefix = await generateRandomEmailPrefix();
-      setLocalPart(randomPrefix);
-      onChange(`${randomPrefix}@${defaultDomain}`);
+      if (onGenerateAlias) {
+        // Delegate to the parent callback which sets the full email value (prefix@domain)
+        onGenerateAlias();
+      }
     }
-  }, [isCustomDomain, value, showPrivateDomains, privateEmailDomains, onChange, generateRandomEmailPrefix]);
+  }, [isCustomDomain, showPrivateDomains, privateEmailDomains, onChange, onGenerateAlias]);
 
   const styles = StyleSheet.create({
-    container: {
-      marginBottom: 16,
-    },
     domainAt: {
       color: colors.textMuted,
       fontSize: 16,
@@ -327,6 +304,22 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
       flexDirection: 'row',
       justifyContent: 'center',
       paddingHorizontal: 12,
+      paddingVertical: 11,
+    },
+    domainButtonNoRoundRight: {
+      borderBottomRightRadius: 0,
+      borderTopRightRadius: 0,
+    },
+    generateButton: {
+      alignItems: 'center',
+      backgroundColor: colors.accentBackground,
+      borderBottomRightRadius: 8,
+      borderColor: error ? colors.errorBorder : colors.accentBorder,
+      borderLeftWidth: 0,
+      borderTopRightRadius: 8,
+      borderWidth: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 10,
       paddingVertical: 11,
     },
     domainButtonText: {
@@ -482,7 +475,7 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
   });
 
   return (
-    <View style={styles.container}>
+    <View>
       <View style={styles.labelContainer}>
         <View style={styles.switcherContainer}>
           <TouchableOpacity
@@ -533,13 +526,23 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
 
         {!isCustomDomain && (
           <TouchableOpacity
-            style={styles.domainButton}
+            style={[styles.domainButton, onGenerateAlias ? styles.domainButtonNoRoundRight : null]}
             onPress={() => setIsModalVisible(true)}
           >
             <Text style={styles.domainAt}>@</Text>
             <Text style={styles.domainButtonText} numberOfLines={1}>
               {selectedDomain}
             </Text>
+          </TouchableOpacity>
+        )}
+
+        {!isCustomDomain && onGenerateAlias && (
+          <TouchableOpacity
+            style={styles.generateButton}
+            onPress={onGenerateAlias}
+            accessibilityLabel={t('common.generate')}
+          >
+            <MaterialIcons name="refresh" size={20} color={colors.primary} />
           </TouchableOpacity>
         )}
       </View>

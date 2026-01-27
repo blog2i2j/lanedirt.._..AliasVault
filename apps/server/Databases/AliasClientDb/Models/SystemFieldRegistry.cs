@@ -66,6 +66,15 @@ public static class SystemFieldRegistry
     public static readonly IReadOnlyDictionary<string, SystemFieldDefinition> Fields =
         new Dictionary<string, SystemFieldDefinition>
         {
+            [FieldKey.LoginEmail] = new SystemFieldDefinition(
+                FieldKey: "login.email",
+                FieldType: "Email",
+                IsHidden: false,
+                IsMultiValue: false,
+                ApplicableToTypes: new Dictionary<string, ItemTypeFieldConfig> { ["Login"] = new ItemTypeFieldConfig(false), ["Alias"] = new ItemTypeFieldConfig(true) },
+                EnableHistory: true,
+                Category: FieldCategory.Login,
+                DefaultDisplayOrder: 10),
             [FieldKey.LoginUsername] = new SystemFieldDefinition(
                 FieldKey: "login.username",
                 FieldType: "Text",
@@ -74,7 +83,7 @@ public static class SystemFieldRegistry
                 ApplicableToTypes: new Dictionary<string, ItemTypeFieldConfig> { ["Login"] = new ItemTypeFieldConfig(true), ["Alias"] = new ItemTypeFieldConfig(true) },
                 EnableHistory: true,
                 Category: FieldCategory.Login,
-                DefaultDisplayOrder: 10),
+                DefaultDisplayOrder: 15),
             [FieldKey.LoginPassword] = new SystemFieldDefinition(
                 FieldKey: "login.password",
                 FieldType: "Password",
@@ -84,15 +93,6 @@ public static class SystemFieldRegistry
                 EnableHistory: true,
                 Category: FieldCategory.Login,
                 DefaultDisplayOrder: 20),
-            [FieldKey.LoginEmail] = new SystemFieldDefinition(
-                FieldKey: "login.email",
-                FieldType: "Email",
-                IsHidden: false,
-                IsMultiValue: false,
-                ApplicableToTypes: new Dictionary<string, ItemTypeFieldConfig> { ["Login"] = new ItemTypeFieldConfig(false), ["Alias"] = new ItemTypeFieldConfig(true) },
-                EnableHistory: true,
-                Category: FieldCategory.Login,
-                DefaultDisplayOrder: 15),
             [FieldKey.LoginUrl] = new SystemFieldDefinition(
                 FieldKey: "login.url",
                 FieldType: "URL",

@@ -2,7 +2,7 @@ import { useCallback, useState, type Dispatch, type SetStateAction } from 'react
 
 import { useDb } from '@/entrypoints/popup/context/DbContext';
 
-import { IdentityHelperUtils, CreateIdentityGenerator, convertAgeRangeToBirthdateOptions } from '@/utils/dist/core/identity-generator';
+import { IdentityHelperUtils, CreateIdentityGenerator, convertAgeRangeToBirthdateOptions, UsernameEmailGenerator } from '@/utils/dist/core/identity-generator';
 import { CreatePasswordGenerator } from '@/utils/dist/core/password-generator';
 
 /**
@@ -33,6 +33,7 @@ type LastGeneratedValues = {
  */
 const useAliasGenerator = (): {
   generateAlias: () => Promise<GeneratedAliasData | null>;
+  generateRandomEmailPrefix: () => string;
   lastGeneratedValues: LastGeneratedValues;
   setLastGeneratedValues: Dispatch<SetStateAction<LastGeneratedValues>>;
 } => {
@@ -115,8 +116,18 @@ const useAliasGenerator = (): {
     }
   }, [dbContext?.sqliteClient, initializeGenerators]);
 
+  /**
+   * Generate a random string email prefix (not identity-based).
+   * Used for Login-type credentials where no persona fields are available.
+   */
+  const generateRandomEmailPrefix = useCallback((): string => {
+    const generator = new UsernameEmailGenerator();
+    return generator.generateRandomEmailPrefix();
+  }, []);
+
   return {
     generateAlias,
+    generateRandomEmailPrefix,
     lastGeneratedValues,
     setLastGeneratedValues
   };
