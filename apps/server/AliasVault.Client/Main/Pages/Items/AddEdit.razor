@@ -457,6 +457,7 @@ else
     /// <inheritdoc />
     async ValueTask IAsyncDisposable.DisposeAsync()
     {
+        QuickCreateStateService.OnChange -= OnQuickCreateStateChanged;
         await KeyboardShortcutService.UnregisterShortcutAsync("gc");
         if (Module is not null)
         {
@@ -502,34 +503,17 @@ else
         {
             Module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/modules/newIdentityWidget.js");
 
+            // Subscribe to quick create state changes so we can reinitialize
+            // when the user triggers the widget while already on this page.
+            QuickCreateStateService.OnChange += OnQuickCreateStateChanged;
+
             if (EditMode)
             {
                 await LoadExistingCredential();
             }
             else
             {
-                CreateNewCredential();
-
-                // Use the state service to pre-fill form data
-                if (!string.IsNullOrEmpty(QuickCreateStateService.ServiceName))
-                {
-                    Obj.ServiceName = QuickCreateStateService.ServiceName;
-                }
-                if (!string.IsNullOrEmpty(QuickCreateStateService.ServiceUrl))
-                {
-                    Obj.SetFieldValue(FieldKey.LoginUrl, QuickCreateStateService.ServiceUrl);
-                }
-                if (!string.IsNullOrEmpty(QuickCreateStateService.ItemType))
-                {
-                    await HandleItemTypeChange(QuickCreateStateService.ItemType);
-                }
-                if (QuickCreateStateService.FolderId.HasValue)
-                {
-                    Obj.FolderId = QuickCreateStateService.FolderId;
-                }
-
-                // Clear the state after using it
-                QuickCreateStateService.ClearState();
+                await ApplyQuickCreateState();
             }
 
             Loading = false;
@@ -540,6 +524,60 @@ else
                 await JsInteropService.FocusElementById("service-name");
             }
         }
+    }
+
+    /// <summary>
+    /// Handles the quick create state change event when the user triggers the
+    /// CreateNewIdentityWidget while already on the AddEdit page.
+    /// </summary>
+    private async void OnQuickCreateStateChanged()
+    {
+        await InvokeAsync(async () =>
+        {
+            // Ensure we are in create mode since quick create always creates new items.
+            EditMode = false;
+
+            await ApplyQuickCreateState();
+            Loading = false;
+            StateHasChanged();
+            await JsInteropService.FocusElementById("service-name");
+        });
+    }
+
+    /// <summary>
+    /// Creates a new credential and applies any prefilled data from the QuickCreateStateService.
+    /// </summary>
+    private async Task ApplyQuickCreateState()
+    {
+        CreateNewCredential();
+
+        // Reset manually added fields tracking for the fresh form.
+        ManuallyAddedFields = [];
+        InitiallyVisibleFields = [];
+
+        // Use the state service to pre-fill form data
+        if (!string.IsNullOrEmpty(QuickCreateStateService.ServiceName))
+        {
+            Obj.ServiceName = QuickCreateStateService.ServiceName;
+        }
+
+        if (!string.IsNullOrEmpty(QuickCreateStateService.ServiceUrl))
+        {
+            Obj.SetFieldValue(FieldKey.LoginUrl, QuickCreateStateService.ServiceUrl);
+        }
+
+        if (!string.IsNullOrEmpty(QuickCreateStateService.ItemType))
+        {
+            await HandleItemTypeChange(QuickCreateStateService.ItemType);
+        }
+
+        if (QuickCreateStateService.FolderId.HasValue)
+        {
+            Obj.FolderId = QuickCreateStateService.FolderId;
+        }
+
+        // Clear the state after using it
+        QuickCreateStateService.ClearState();
     }
 
     /// <summary>
