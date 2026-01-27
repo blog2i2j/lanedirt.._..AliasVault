@@ -49,7 +49,7 @@ AliasVault binds to ports 80 and 443 by default. If you want to change the defau
 If you do not wish to run the `install.sh` wizard but prefer to run a single Docker container directly, follow the [Docker Compose setup guide](../docker-compose) instead.
 
 {: .warning } 
-Ensure you have recorded down the admin panel password and change it! The password will stay on the page until the service is restarted, of which after that the password will not show anymore. If you have missed this step, follow the guide on the admin panel or the steps in [the troubleshooting guide on resetting admin panel password](./troubleshooting.md#3-forgot-aliasvault-admin-password).
+Ensure you have recorded down the admin panel password and change it! The password will stay on the page until the service is restarted, of which after that the password will not show anymore. If you have missed this step, follow the guide on the admin panel or the steps in [the troubleshooting guide on resetting admin panel password](./troubleshooting.md#4-forgot-aliasvault-admin-password).
 
 ---
 
