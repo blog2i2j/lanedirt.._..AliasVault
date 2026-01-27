@@ -54,7 +54,7 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
   const { t } = useTranslation();
   const colors = useColors();
   const dbContext = useDb();
-  
+
   // Initialize mode immediately based on value (before domains load)
   // This prevents flicker by setting the correct mode right away
   const getInitialMode = useCallback((val: string): boolean => {
@@ -84,16 +84,16 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
     return PUBLIC_EMAIL_DOMAINS[0] || '';
   });
   const [isModalVisible, setIsModalVisible] = useState(false);
-  
+
   // Use refs to store domains - this prevents re-renders when they load
   const privateEmailDomainsRef = useRef<string[]>([]);
   const hiddenPrivateEmailDomainsRef = useRef<string[]>([]);
   const hasDomainsLoadedRef = useRef(false);
-  
+
   // State for domains (only used for UI display in modal, not for mode detection)
   const [privateEmailDomains, setPrivateEmailDomains] = useState<string[]>([]);
   const [hiddenPrivateEmailDomains, setHiddenPrivateEmailDomains] = useState<string[]>([]);
-  
+
   // Track value changes to avoid unnecessary re-initialization
   const lastValueRef = useRef<string>(value);
   const hasInitializedFromValue = useRef(false);
@@ -110,16 +110,16 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
         const metadata = await dbContext.getVaultMetadata();
         const privateDomains = metadata?.privateEmailDomains ?? [];
         const hiddenDomains = metadata?.hiddenPrivateEmailDomains ?? [];
-        
+
         // Update refs immediately (no re-render triggered)
         privateEmailDomainsRef.current = privateDomains;
         hiddenPrivateEmailDomainsRef.current = hiddenDomains;
         hasDomainsLoadedRef.current = true;
-        
+
         // Update state for modal display (triggers re-render, but only affects modal)
         setPrivateEmailDomains(privateDomains);
         setHiddenPrivateEmailDomains(hiddenDomains);
-        
+
         // Check if we need to update mode now that domains are loaded
         // Only update if value has an @ and we're in custom mode
         if (value && value.includes('@')) {
@@ -128,7 +128,7 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
             const isKnownDomain = PUBLIC_EMAIL_DOMAINS.includes(domain) ||
                                  privateDomains.includes(domain) ||
                                  hiddenDomains.includes(domain);
-            
+
             // Only update mode if domain is now recognized AND we're in custom mode
             // Use functional update to avoid stale closure and prevent unnecessary updates
             setIsCustomDomain(prev => {
@@ -174,7 +174,7 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
 
     if (value.includes('@')) {
       const [local, domain] = value.split('@');
-      
+
       // Only update if values actually changed (prevents unnecessary re-renders)
       if (local !== localPart) {
         setLocalPart(local);
@@ -182,18 +182,18 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
       if (domain !== selectedDomain) {
         setSelectedDomain(domain);
       }
-      
+
       // Check mode using refs (no re-render) - works even before domains load
       const isKnownDomain = PUBLIC_EMAIL_DOMAINS.includes(domain) ||
                            privateEmailDomainsRef.current.includes(domain) ||
                            hiddenPrivateEmailDomainsRef.current.includes(domain);
-      
+
       // Only update mode if it needs to change (prevents flicker)
       setIsCustomDomain(prev => {
         const newMode = !isKnownDomain;
         return newMode !== prev ? newMode : prev;
       });
-      
+
       hasInitializedFromValue.current = true;
     } else {
       if (value !== localPart) {
@@ -522,8 +522,6 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
           style={styles.textInput}
           value={isCustomDomain ? value : localPart}
           onChangeText={handleLocalPartChange}
-          placeholder={isCustomDomain ? t('items.enterFullEmail') : t('items.enterEmailPrefix')}
-          placeholderTextColor={colors.textMuted}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="email-address"
