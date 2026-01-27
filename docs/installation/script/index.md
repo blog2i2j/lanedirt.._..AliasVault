@@ -37,13 +37,19 @@ chmod +x install.sh
 ```bash
 ./install.sh install
 ```
-> **Note**: AliasVault binds to ports 80 and 443 by default. If you want to change the default AliasVault ports you can do so in the `.env` file. Afterwards re-run the `./install.sh install` command to restart the containers with the new port settings.
+
+{: .note } 
+AliasVault binds to ports 80 and 443 by default. If you want to change the default AliasVault ports you can do so in the `.env` file. Afterwards re-run the `./install.sh install` command to restart the containers with the new port settings.
 
 3. After the script completes, you can access AliasVault at:
   - Client: `https://localhost`
   - Admin: `https://localhost/admin`
 
-> Note: if you do not wish to run the `install.sh` wizard but prefer to use Docker commands directly, follow the [manual setup guide](../manual) instead.
+{: .note } 
+If you do not wish to run the `install.sh` wizard but prefer to run a single Docker container directly, follow the [Docker Compose setup guide](../docker-compose) instead.
+
+{: .warning } 
+Ensure you have recorded down the admin panel password and change it! The password will stay on the page until the service is restarted, of which after that the password will not show anymore. If you have missed this step, follow the guide on the admin panel or the steps in [the troubleshooting guide on resetting admin panel password](./troubleshooting.md#3-forgot-aliasvault-admin-password).
 
 ---
 
@@ -182,7 +188,8 @@ If you want to disable public registration, you can do so by running the install
 ./install.sh configure-registration
 ```
 
-> Note: disabling public registration means the ability to create new accounts in the AliasVault client is disabled for everyone, including administrators. Accounts cannot be created outside of the client because of the end-to-end encryption employed by AliasVault. So make sure you have created your own account(s) before disabling public registration.
+{: .note }
+Disabling public registration means the ability to create new accounts in the AliasVault client is disabled for everyone, including administrators. Accounts cannot be created outside of the client because of the end-to-end encryption employed by AliasVault. So make sure you have created your own account(s) before disabling public registration.
 
 ---
 
@@ -196,7 +203,8 @@ If you want to entirely disable IP logging, you can do so by running the install
 ./install.sh configure-ip-logging
 ```
 
-> Note: disabling IP logging means the ability to monitor and track abusive users on your AliasVault server is disabled.
+{: .note }
+Disabling IP logging means the ability to monitor and track abusive users on your AliasVault server is disabled.
 
 ---
 
