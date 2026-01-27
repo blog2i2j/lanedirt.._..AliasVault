@@ -460,13 +460,30 @@ export default function FolderViewScreen(): React.ReactNode {
       lineHeight: 22,
     },
     // Filter menu styles
-    filterMenu: {
+    filterMenuOverlay: {
       backgroundColor: colors.accentBackground,
       borderColor: colors.accentBorder,
       borderRadius: 8,
       borderWidth: 1,
-      marginBottom: 8,
+      elevation: 8,
+      left: 14,
       overflow: 'hidden',
+      position: 'absolute',
+      right: 14,
+      shadowColor: colors.black,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      top: Platform.OS === 'ios' ? paddingTop + 104 : paddingTop +44,
+      zIndex: 1001,
+    },
+    filterMenuBackdrop: {
+      bottom: 0,
+      left: 0,
+      position: 'absolute',
+      right: 0,
+      top: 0,
+      zIndex: 1000,
     },
     filterMenuItem: {
       paddingHorizontal: 16,
@@ -540,105 +557,114 @@ export default function FolderViewScreen(): React.ReactNode {
   });
 
   /**
-   * Render the filter menu.
+   * Render the filter menu as an absolute overlay.
    */
-  const renderFilterMenu = (): React.ReactNode => {
+  const renderFilterOverlay = (): React.ReactNode => {
     if (!showFilterMenu) {
       return null;
     }
 
     return (
-      <ThemedView style={styles.filterMenu}>
-        {/* All items filter */}
+      <>
+        {/* Backdrop to close menu when tapping outside */}
         <TouchableOpacity
-          style={[
-            styles.filterMenuItem,
-            filterType === 'all' && styles.filterMenuItemActive
-          ]}
-          onPress={() => {
-            setFilterType('all');
-            setShowFilterMenu(false);
-          }}
-        >
-          <ThemedText style={[
-            styles.filterMenuItemText,
-            filterType === 'all' && styles.filterMenuItemTextActive
-          ]}>
-            {t('items.filters.all')}
-          </ThemedText>
-        </TouchableOpacity>
-
-        <ThemedView style={styles.filterMenuSeparator} />
-
-        {/* Item type filters */}
-        {ITEM_TYPE_OPTIONS.map((option) => (
+          style={styles.filterMenuBackdrop}
+          activeOpacity={1}
+          onPress={() => setShowFilterMenu(false)}
+        />
+        {/* Menu content */}
+        <ThemedView style={styles.filterMenuOverlay}>
+          {/* All items filter */}
           <TouchableOpacity
-            key={option.type}
             style={[
               styles.filterMenuItem,
-              styles.filterMenuItemWithIcon,
-              filterType === option.type && styles.filterMenuItemActive
+              filterType === 'all' && styles.filterMenuItemActive
             ]}
             onPress={() => {
-              setFilterType(option.type);
+              setFilterType('all');
               setShowFilterMenu(false);
             }}
           >
-            <MaterialIcons
-              name={option.iconName}
-              size={18}
-              color={filterType === option.type ? colors.primary : colors.textMuted}
-              style={styles.filterMenuItemIcon}
-            />
             <ThemedText style={[
               styles.filterMenuItemText,
-              filterType === option.type && styles.filterMenuItemTextActive
+              filterType === 'all' && styles.filterMenuItemTextActive
             ]}>
-              {t(option.titleKey)}
+              {t('items.filters.all')}
             </ThemedText>
           </TouchableOpacity>
-        ))}
 
-        <ThemedView style={styles.filterMenuSeparator} />
+          <ThemedView style={styles.filterMenuSeparator} />
 
-        {/* Passkeys filter */}
-        <TouchableOpacity
-          style={[
-            styles.filterMenuItem,
-            filterType === 'passkeys' && styles.filterMenuItemActive
-          ]}
-          onPress={() => {
-            setFilterType('passkeys');
-            setShowFilterMenu(false);
-          }}
-        >
-          <ThemedText style={[
-            styles.filterMenuItemText,
-            filterType === 'passkeys' && styles.filterMenuItemTextActive
-          ]}>
-            {t('items.filters.passkeys')}
-          </ThemedText>
-        </TouchableOpacity>
+          {/* Item type filters */}
+          {ITEM_TYPE_OPTIONS.map((option) => (
+            <TouchableOpacity
+              key={option.type}
+              style={[
+                styles.filterMenuItem,
+                styles.filterMenuItemWithIcon,
+                filterType === option.type && styles.filterMenuItemActive
+              ]}
+              onPress={() => {
+                setFilterType(option.type);
+                setShowFilterMenu(false);
+              }}
+            >
+              <MaterialIcons
+                name={option.iconName}
+                size={18}
+                color={filterType === option.type ? colors.primary : colors.textMuted}
+                style={styles.filterMenuItemIcon}
+              />
+              <ThemedText style={[
+                styles.filterMenuItemText,
+                filterType === option.type && styles.filterMenuItemTextActive
+              ]}>
+                {t(option.titleKey)}
+              </ThemedText>
+            </TouchableOpacity>
+          ))}
 
-        {/* Attachments filter */}
-        <TouchableOpacity
-          style={[
-            styles.filterMenuItem,
-            filterType === 'attachments' && styles.filterMenuItemActive
-          ]}
-          onPress={() => {
-            setFilterType('attachments');
-            setShowFilterMenu(false);
-          }}
-        >
-          <ThemedText style={[
-            styles.filterMenuItemText,
-            filterType === 'attachments' && styles.filterMenuItemTextActive
-          ]}>
-            {t('common.attachments')}
-          </ThemedText>
-        </TouchableOpacity>
-      </ThemedView>
+          <ThemedView style={styles.filterMenuSeparator} />
+
+          {/* Passkeys filter */}
+          <TouchableOpacity
+            style={[
+              styles.filterMenuItem,
+              filterType === 'passkeys' && styles.filterMenuItemActive
+            ]}
+            onPress={() => {
+              setFilterType('passkeys');
+              setShowFilterMenu(false);
+            }}
+          >
+            <ThemedText style={[
+              styles.filterMenuItemText,
+              filterType === 'passkeys' && styles.filterMenuItemTextActive
+            ]}>
+              {t('items.filters.passkeys')}
+            </ThemedText>
+          </TouchableOpacity>
+
+          {/* Attachments filter */}
+          <TouchableOpacity
+            style={[
+              styles.filterMenuItem,
+              filterType === 'attachments' && styles.filterMenuItemActive
+            ]}
+            onPress={() => {
+              setFilterType('attachments');
+              setShowFilterMenu(false);
+            }}
+          >
+            <ThemedText style={[
+              styles.filterMenuItemText,
+              filterType === 'attachments' && styles.filterMenuItemTextActive
+            ]}>
+              {t('common.attachments')}
+            </ThemedText>
+          </TouchableOpacity>
+        </ThemedView>
+      </>
     );
   };
 
@@ -665,9 +691,6 @@ export default function FolderViewScreen(): React.ReactNode {
             color={colors.text}
           />
         </TouchableOpacity>
-
-        {/* Filter menu */}
-        {renderFilterMenu()}
 
         {/* Search input */}
         <ThemedView style={styles.searchContainer}>
@@ -763,6 +786,9 @@ export default function FolderViewScreen(): React.ReactNode {
         }
         ListEmptyComponent={renderEmptyComponent() as React.ReactElement}
       />
+
+      {/* Filter menu overlay */}
+      {renderFilterOverlay()}
 
       {/* Folder modals */}
       <FolderModal

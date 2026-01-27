@@ -474,14 +474,6 @@ export default function ItemsScreen(): React.ReactNode {
       lineHeight: 28,
     },
     // Filter menu styles
-    filterMenu: {
-      backgroundColor: colors.accentBackground,
-      borderColor: colors.accentBorder,
-      borderRadius: 8,
-      borderWidth: 1,
-      marginBottom: 8,
-      overflow: 'hidden',
-    },
     filterMenuOverlay: {
       backgroundColor: colors.accentBackground,
       borderColor: colors.accentBorder,
@@ -492,11 +484,11 @@ export default function ItemsScreen(): React.ReactNode {
       overflow: 'hidden',
       position: 'absolute',
       right: 14,
-      shadowColor: '#000',
+      shadowColor: colors.black,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.25,
       shadowRadius: 4,
-      top: 8,
+      top: Platform.OS === 'ios' ? insets.top + 112 : 8,
       zIndex: 1001,
     },
     filterMenuBackdrop: {
@@ -550,8 +542,7 @@ export default function ItemsScreen(): React.ReactNode {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: 8,
-      marginBottom: 12,
-      marginTop: 6,
+      marginBottom: 16,
     },
     newFolderButton: {
       alignItems: 'center',
@@ -572,6 +563,7 @@ export default function ItemsScreen(): React.ReactNode {
     // Search styles
     searchContainer: {
       position: 'relative',
+      marginTop: 12,
     },
     searchIcon: {
       left: 12,
@@ -682,135 +674,10 @@ export default function ItemsScreen(): React.ReactNode {
   });
 
   /**
-   * Render the filter menu.
+   * Render the filter menu as an absolute overlay.
    */
-  const renderFilterMenu = (): React.ReactNode => {
-    if (!showFilterMenu) {
-      return null;
-    }
-
-    return (
-      <ThemedView style={styles.filterMenu}>
-        {/* All items filter */}
-        <TouchableOpacity
-          style={[
-            styles.filterMenuItem,
-            filterType === 'all' && styles.filterMenuItemActive
-          ]}
-          onPress={() => {
-            setFilterType('all');
-            setShowFilterMenu(false);
-          }}
-        >
-          <ThemedText style={[
-            styles.filterMenuItemText,
-            filterType === 'all' && styles.filterMenuItemTextActive
-          ]}>
-            {t('items.filters.all')}
-          </ThemedText>
-        </TouchableOpacity>
-
-        <ThemedView style={styles.filterMenuSeparator} />
-
-        {/* Item type filters */}
-        {ITEM_TYPE_OPTIONS.map((option) => (
-          <TouchableOpacity
-            key={option.type}
-            style={[
-              styles.filterMenuItem,
-              styles.filterMenuItemWithIcon,
-              filterType === option.type && styles.filterMenuItemActive
-            ]}
-            onPress={() => {
-              setFilterType(option.type);
-              setShowFilterMenu(false);
-            }}
-          >
-            <MaterialIcons
-              name={option.iconName}
-              size={18}
-              color={filterType === option.type ? colors.primary : colors.textMuted}
-              style={styles.filterMenuItemIcon}
-            />
-            <ThemedText style={[
-              styles.filterMenuItemText,
-              filterType === option.type && styles.filterMenuItemTextActive
-            ]}>
-              {t(option.titleKey)}
-            </ThemedText>
-          </TouchableOpacity>
-        ))}
-
-        <ThemedView style={styles.filterMenuSeparator} />
-
-        {/* Passkeys filter */}
-        <TouchableOpacity
-          style={[
-            styles.filterMenuItem,
-            filterType === 'passkeys' && styles.filterMenuItemActive
-          ]}
-          onPress={() => {
-            setFilterType('passkeys');
-            setShowFilterMenu(false);
-          }}
-        >
-          <ThemedText style={[
-            styles.filterMenuItemText,
-            filterType === 'passkeys' && styles.filterMenuItemTextActive
-          ]}>
-            {t('items.filters.passkeys')}
-          </ThemedText>
-        </TouchableOpacity>
-
-        {/* Attachments filter */}
-        <TouchableOpacity
-          style={[
-            styles.filterMenuItem,
-            filterType === 'attachments' && styles.filterMenuItemActive
-          ]}
-          onPress={() => {
-            setFilterType('attachments');
-            setShowFilterMenu(false);
-          }}
-        >
-          <ThemedText style={[
-            styles.filterMenuItemText,
-            filterType === 'attachments' && styles.filterMenuItemTextActive
-          ]}>
-            {t('common.attachments')}
-          </ThemedText>
-        </TouchableOpacity>
-
-        <ThemedView style={styles.filterMenuSeparator} />
-
-        {/* Recently deleted link */}
-        <TouchableOpacity
-          style={styles.filterMenuItem}
-          onPress={() => {
-            setShowFilterMenu(false);
-            router.push('/(tabs)/items/deleted');
-          }}
-        >
-          <View style={styles.filterMenuItemWithBadge}>
-            <ThemedText style={styles.filterMenuItemText}>
-              {t('items.recentlyDeleted.title')}
-            </ThemedText>
-            {recentlyDeletedCount > 0 && (
-              <ThemedText style={styles.filterMenuItemBadge}>
-                {recentlyDeletedCount}
-              </ThemedText>
-            )}
-          </View>
-        </TouchableOpacity>
-      </ThemedView>
-    );
-  };
-
-  /**
-   * Render the Android filter menu as an absolute overlay.
-   */
-  const renderAndroidFilterOverlay = (): React.ReactNode => {
-    if (Platform.OS !== 'android' || !showFilterMenu || hasItemsInFoldersOnly) {
+  const renderFilterOverlay = (): React.ReactNode => {
+    if (!showFilterMenu || hasItemsInFoldersOnly) {
       return null;
     }
 
@@ -977,9 +844,6 @@ export default function ItemsScreen(): React.ReactNode {
             </TouchableOpacity>
           )
         )}
-
-        {/* Filter menu (iOS only - Android uses absolute overlay, only when not all items in folders) */}
-        {Platform.OS === 'ios' && !hasItemsInFoldersOnly && renderFilterMenu()}
 
         {/* Search input */}
         <ThemedView style={styles.searchContainer}>
@@ -1194,8 +1058,8 @@ export default function ItemsScreen(): React.ReactNode {
         />
       </ThemedView>
 
-      {/* Android filter menu overlay */}
-      {renderAndroidFilterOverlay()}
+      {/* Filter menu overlay */}
+      {renderFilterOverlay()}
 
       {/* Create folder modal */}
       <FolderModal
