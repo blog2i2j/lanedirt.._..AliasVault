@@ -66,9 +66,6 @@ services:
     - API: http://localhost/api
         - Used for configuring the browser extension and mobile app to connect to your server
 
-{: .warning } 
-Ensure you have recorded down the admin panel password and change it! The password will stay on the page until the service is restarted, of which after that the password will not show anymore. If you have missed this step, follow the guide on the admin panel or the steps in [the troubleshooting guide on resetting admin panel password](./troubleshooting.md#3-forgot-aliasvault-admin-password).
-
 ---
 
 ## 2. SSL/TLS configuration

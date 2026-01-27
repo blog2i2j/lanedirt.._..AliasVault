@@ -37,19 +37,11 @@ chmod +x install.sh
 ```bash
 ./install.sh install
 ```
+> **Note**: AliasVault binds to ports 80 and 443 by default. If you want to change the default AliasVault ports you can do so in the `.env` file. Afterwards re-run the `./install.sh install` command to restart the containers with the new port settings.
 
-{: .note } 
-AliasVault binds to ports 80 and 443 by default. If you want to change the default AliasVault ports you can do so in the `.env` file. Afterwards re-run the `./install.sh install` command to restart the containers with the new port settings.
-
-3. After the script completes, you can access AliasVault at:
+4. After the script completes, you can access AliasVault at:
   - Client: `https://localhost`
   - Admin: `https://localhost/admin`
-
-{: .note } 
-If you do not wish to run the `install.sh` wizard but prefer to run a single Docker container directly, follow the [Docker Compose setup guide](../docker-compose) instead.
-
-{: .warning } 
-Ensure you have recorded down the admin panel password and change it! The password will stay on the page until the service is restarted, of which after that the password will not show anymore. If you have missed this step, follow the guide on the admin panel or the steps in [the troubleshooting guide on resetting admin panel password](./troubleshooting.md#4-forgot-aliasvault-admin-password).
 
 ---
 
