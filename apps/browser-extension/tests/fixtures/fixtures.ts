@@ -177,6 +177,12 @@ export async function waitForLoggedIn(popup: Page, timeout: number = 30000): Pro
 }
 
 /**
+ * Debounce wait time for settings that use debounced storage writes (e.g., API URL).
+ * The extension uses 150ms debounce, we add a small buffer.
+ */
+const DEBOUNCE_WAIT = 200;
+
+/**
  * Helper to configure the extension to use a custom API URL.
  *
  * @param popup - The popup page
@@ -192,6 +198,9 @@ export async function configureApiUrl(popup: Page, apiUrl: string): Promise<void
 
   // Fill in the custom URL input
   await popup.fill('input#custom-api-url', apiUrl);
+
+  // Wait for debounce to complete before navigating away (settings use 300ms debounce for storage writes)
+  await popup.waitForTimeout(DEBOUNCE_WAIT);
 
   // Go back to main page
   await popup.click('button#back');

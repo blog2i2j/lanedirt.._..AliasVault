@@ -154,7 +154,7 @@ const AuthSettings: React.FC = () => {
           await storage.setItem('local:clientUrl', AppInfo.DEFAULT_CLIENT_URL);
         }
       }
-    }, 300);
+    }, 150);
   }, [urlSchema]);
 
   /**
@@ -179,7 +179,7 @@ const AuthSettings: React.FC = () => {
           setErrors(prev => ({ ...prev, clientUrl: error.message }));
         }
       }
-    }, 300);
+    }, 150);
   }, [urlSchema]);
 
   /**

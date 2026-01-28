@@ -16,6 +16,8 @@ export const Timeouts = {
   SHORT: 5000,
   MEDIUM: 10000,
   LONG: 30000,
+  /** Debounce wait time for settings that use debounced storage writes (e.g., API URL). The extension uses 150ms debounce. */
+  DEBOUNCE: 200,
 } as const;
 
 /**

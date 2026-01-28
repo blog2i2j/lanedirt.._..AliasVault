@@ -98,6 +98,8 @@ export class TestClient {
     await settingsButton.click();
     await this.popup.selectOption('select', ['custom']);
     await this.popup.fill('input#custom-api-url', apiUrl);
+    // Wait for debounce to complete before navigating away (settings use 300ms debounce for storage writes)
+    await this.popup.waitForTimeout(Timeouts.DEBOUNCE);
     await this.popup.click('button#back');
     await waitForLoginForm(this.popup);
     return this;
