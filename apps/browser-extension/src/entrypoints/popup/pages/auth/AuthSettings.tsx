@@ -68,15 +68,29 @@ const AuthSettings: React.FC = () => {
   const urlSchema = createUrlSchema(t);
   const apiUrlDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clientUrlDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track pending values that haven't been saved yet due to debounce
+  const pendingApiUrlRef = useRef<string | null>(null);
+  const pendingClientUrlRef = useRef<string | null>(null);
 
-  // Clean up debounce timers on unmount
+  // Flush pending saves and clean up on unmount (when navigating away)
   useEffect((): (() => void) => {
     return (): void => {
+      // Clear debounce timers
       if (apiUrlDebounceRef.current) {
         clearTimeout(apiUrlDebounceRef.current);
       }
       if (clientUrlDebounceRef.current) {
         clearTimeout(clientUrlDebounceRef.current);
+      }
+
+      // Save any pending values synchronously before unmount
+      if (pendingApiUrlRef.current !== null) {
+        const value = pendingApiUrlRef.current;
+        storage.setItem('local:apiUrl', value);
+      }
+      if (pendingClientUrlRef.current !== null) {
+        const value = pendingClientUrlRef.current;
+        storage.setItem('local:clientUrl', value);
       }
     };
   }, []);
@@ -136,6 +150,7 @@ const AuthSettings: React.FC = () => {
   const handleCustomUrlChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) : void => {
     const value = e.target.value;
     setCustomUrl(value);
+    pendingApiUrlRef.current = value;
 
     if (apiUrlDebounceRef.current) {
       clearTimeout(apiUrlDebounceRef.current);
@@ -146,12 +161,14 @@ const AuthSettings: React.FC = () => {
         await urlSchema.validateAt('apiUrl', { apiUrl: value });
         setErrors(prev => ({ ...prev, apiUrl: undefined }));
         await storage.setItem('local:apiUrl', value);
+        pendingApiUrlRef.current = null;
       } catch (error: unknown) {
         if (error instanceof Yup.ValidationError) {
           setErrors(prev => ({ ...prev, apiUrl: error.message }));
           // On error we revert back to the aliasvault.net official hosted instance.
           await storage.setItem('local:apiUrl', AppInfo.DEFAULT_API_URL);
           await storage.setItem('local:clientUrl', AppInfo.DEFAULT_CLIENT_URL);
+          pendingApiUrlRef.current = null;
         }
       }
     }, 150);
@@ -164,6 +181,7 @@ const AuthSettings: React.FC = () => {
   const handleCustomClientUrlChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) : void => {
     const value = e.target.value;
     setCustomClientUrl(value);
+    pendingClientUrlRef.current = value;
 
     if (clientUrlDebounceRef.current) {
       clearTimeout(clientUrlDebounceRef.current);
@@ -174,9 +192,11 @@ const AuthSettings: React.FC = () => {
         await urlSchema.validateAt('clientUrl', { clientUrl: value });
         setErrors(prev => ({ ...prev, clientUrl: undefined }));
         await storage.setItem('local:clientUrl', value);
+        pendingClientUrlRef.current = null;
       } catch (error: unknown) {
         if (error instanceof Yup.ValidationError) {
           setErrors(prev => ({ ...prev, clientUrl: error.message }));
+          pendingClientUrlRef.current = null;
         }
       }
     }, 150);

@@ -97,9 +97,6 @@ public class BrowserExtensionPlaywrightTest : ClientPlaywrightTest
         // Fill in the custom URL input that appears
         await extensionPopup.FillAsync("input[id='custom-api-url']", ApiBaseUrl);
 
-        // Wait for debounce to complete before navigating away (settings use 150ms debounce for storage writes)
-        await Task.Delay(200);
-
         // Go back to main page
         await extensionPopup.ClickAsync("button[id='back']");
 

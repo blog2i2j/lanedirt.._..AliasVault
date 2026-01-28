@@ -177,13 +177,8 @@ export async function waitForLoggedIn(popup: Page, timeout: number = 30000): Pro
 }
 
 /**
- * Debounce wait time for settings that use debounced storage writes (e.g., API URL).
- * The extension uses 150ms debounce, we add a small buffer.
- */
-const DEBOUNCE_WAIT = 200;
-
-/**
  * Helper to configure the extension to use a custom API URL.
+ * Verifies the URL is displayed on the login page after configuration.
  *
  * @param popup - The popup page
  * @param apiUrl - The API URL to configure
@@ -199,14 +194,19 @@ export async function configureApiUrl(popup: Page, apiUrl: string): Promise<void
   // Fill in the custom URL input
   await popup.fill('input#custom-api-url', apiUrl);
 
-  // Wait for debounce to complete before navigating away (settings use 300ms debounce for storage writes)
-  await popup.waitForTimeout(DEBOUNCE_WAIT);
-
   // Go back to main page
   await popup.click('button#back');
 
   // Wait for the login form to be visible (indicates settings were saved and we're back)
   await popup.waitForSelector('input[type="text"], input[type="password"]', { state: 'visible' });
+
+  // Sanity check: verify the configured URL is displayed on the login page
+  // This catches cases where the URL wasn't saved (e.g., debounce issues)
+  const host = new URL(apiUrl).host;
+  const displayedUrl = await popup.locator(`text=${host}`).isVisible({ timeout: 2000 }).catch(() => false);
+  if (!displayedUrl) {
+    throw new Error(`API URL configuration failed: expected "${apiUrl}" to be displayed on login page, but it wasn't. This may indicate the URL was not saved properly.`);
+  }
 }
 
 /**

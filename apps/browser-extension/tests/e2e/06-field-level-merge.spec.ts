@@ -66,7 +66,9 @@ test.describe.serial('6. Field-Level Merge', () => {
       .then((c) => c.fillNotes(clientANotes))
       .then((c) => c.screenshot('6.3-client-a-before-save.png'))
       .then((c) => c.saveCredential())
-      .then((c) => c.screenshot('6.3-client-a-after-save.png'));
+      .then((c) => c.screenshot('6.3-client-a-after-save.png'))
+      // Ensure changes are synced to server before Client B edits
+      .then((c) => c.triggerSync());
   });
 
   test('6.4 Client B edits same credential (password and notes) with stale data', async () => {
@@ -83,8 +85,9 @@ test.describe.serial('6. Field-Level Merge', () => {
   });
 
   test('6.5 Client B verifies field-level merge result', async () => {
+    // Sync to get the merged result from server after Client B's save triggered the merge
     await clientB
-      .goToVault()
+      .triggerSync()
       .then((c) => c.clickCredential(credentialName))
       .then((c) => c.openEditForm())
       .then((c) => c.screenshot('6.5-client-b-merged-form.png'));

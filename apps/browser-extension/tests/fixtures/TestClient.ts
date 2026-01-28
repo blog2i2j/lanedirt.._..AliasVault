@@ -19,6 +19,7 @@ import { expect } from './fixtures';
 import { FieldSelectors, ButtonSelectors } from './selectors';
 import {
   waitForVaultReady,
+  waitForSyncComplete,
   waitForCredentialSaved,
   waitForSettingsPage,
   waitForUnlockPage,
@@ -92,16 +93,24 @@ export class TestClient {
 
   /**
    * Configure the API URL for the extension.
+   * Verifies the URL is displayed on the login page after configuration.
    */
   async configureApiUrl(apiUrl: string): Promise<this> {
     const settingsButton = await this.popup.waitForSelector('button#settings');
     await settingsButton.click();
     await this.popup.selectOption('select', ['custom']);
     await this.popup.fill('input#custom-api-url', apiUrl);
-    // Wait for debounce to complete before navigating away (settings use 300ms debounce for storage writes)
-    await this.popup.waitForTimeout(Timeouts.DEBOUNCE);
     await this.popup.click('button#back');
     await waitForLoginForm(this.popup);
+
+    // Sanity check: verify the configured URL is displayed on the login page
+    // This catches cases where the URL wasn't saved (e.g., debounce issues)
+    const displayedUrl = await this.popup.locator('text=' + new URL(apiUrl).host).isVisible({ timeout: 2000 })
+      .catch(() => false);
+    if (!displayedUrl) {
+      throw new Error(`API URL configuration failed: expected "${apiUrl}" to be displayed on login page, but it wasn't. This may indicate the URL was not saved properly.`);
+    }
+
     return this;
   }
 
@@ -194,13 +203,14 @@ export class TestClient {
 
   /**
    * Navigate to root to trigger a fresh sync.
+   * Waits for the sync indicator to disappear before returning.
    */
   async triggerSync(): Promise<this> {
     await this.popup.evaluate(() => {
       window.location.href = '/popup.html';
     });
     await this.popup.waitForLoadState('domcontentloaded');
-    await waitForVaultReady(this.popup, Timeouts.LONG);
+    await waitForSyncComplete(this.popup, Timeouts.LONG);
     return this;
   }
 

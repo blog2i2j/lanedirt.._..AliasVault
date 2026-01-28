@@ -16,8 +16,6 @@ export const Timeouts = {
   SHORT: 5000,
   MEDIUM: 10000,
   LONG: 30000,
-  /** Debounce wait time for settings that use debounced storage writes (e.g., API URL). The extension uses 150ms debounce. */
-  DEBOUNCE: 200,
 } as const;
 
 /**
@@ -65,20 +63,35 @@ export async function waitForVaultReady(popup: Page, timeout: number = Timeouts.
 
 /**
  * Wait for a sync operation to complete.
- * Detects sync by waiting for the vault content to update or sync indicator to disappear.
+ * Waits for vault UI to be ready, then waits for sync/pending indicators to disappear.
  *
  * @param popup - The popup page
  * @param timeout - Timeout in milliseconds
  */
 export async function waitForSyncComplete(popup: Page, timeout: number = Timeouts.MEDIUM): Promise<void> {
+  // First wait for the vault button to be visible (basic UI ready)
+  await waitForVaultReady(popup, timeout);
+
   // Wait for any loading spinner to disappear (if present)
   const loadingOverlay = popup.locator('.z-50');
   await loadingOverlay.waitFor({ state: 'hidden', timeout }).catch(() => {
     // Loading overlay might not exist, which is fine
   });
 
-  // Also wait for the vault button to be visible and enabled
-  await waitForVaultReady(popup, timeout);
+  // Wait for the sync indicator (green spinning icon) to disappear
+  const syncIndicator = popup.locator('div.bg-green-100, div.bg-green-900\\/30');
+  await syncIndicator.waitFor({ state: 'hidden', timeout }).catch(() => {
+    // Sync indicator might not exist or sync was very fast, which is fine
+  });
+
+  // Also wait for pending sync indicator (blue icon) to disappear
+  const pendingSyncIndicator = popup.locator('div.bg-blue-100, div.bg-blue-900\\/30');
+  await pendingSyncIndicator.waitFor({ state: 'hidden', timeout }).catch(() => {
+    // Pending sync indicator might not exist, which is fine
+  });
+
+  // Small buffer to ensure async operations complete after UI indicators disappear
+  await popup.waitForTimeout(100);
 }
 
 /**
