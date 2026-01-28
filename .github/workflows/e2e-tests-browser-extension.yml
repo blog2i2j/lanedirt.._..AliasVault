@@ -14,6 +14,7 @@ on:
       - 'apps/browser-extension/**'
       - 'core/**'
       - '.github/workflows/e2e-tests-browser-extension.yml'
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
