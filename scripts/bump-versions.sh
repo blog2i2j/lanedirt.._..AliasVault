@@ -560,7 +560,7 @@ echo "--------------------------------"
 
 if [[ "$MARKETING_UPDATE" == true ]]; then
     # Install.sh reminder (only for version changes)
-    echo "• If you've made changes to install.sh since the last release, remember to update its @version in the header to match this release version ($version)."
+    echo "• If you've made changes to install.sh since the last release, remember to increment its @version number in the header."
 
     # Only create changelog files for GA releases (not alpha, beta, or rc)
     if [[ -z "$version_suffix" ]]; then

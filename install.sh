@@ -1,5 +1,5 @@
 #!/bin/bash
-# @version 0.25.2
+# @version 20260128
 
 # Repository information used for downloading files and images from GitHub
 REPO_OWNER="aliasvault"
@@ -2413,39 +2413,28 @@ handle_update() {
     handle_install_version "$latest_version"
 }
 
-# Function to extract version
+# Function to extract build number from install.sh
+# Supports both @version (current) and @build (future) formats
 extract_version() {
     local file="$1"
-    local version=$(head -n 2 "$file" | grep '@version' | cut -d' ' -f3)
+    # Try @version first (current format), then @build (future format)
+    local version=$(head -n 2 "$file" | grep -E '@(version|build)' | cut -d' ' -f3)
     echo "$version"
 }
 
-# Function to compare semantic versions
+# Function to compare build numbers
+# Returns: 1 if version1 > version2, -1 if version1 < version2, 0 if equal
 compare_versions() {
     local version1="$1"
     local version2="$2"
 
-    # Split versions into arrays
-    IFS='.' read -ra v1_parts <<< "$version1"
-    IFS='.' read -ra v2_parts <<< "$version2"
-
-    # Compare each part numerically
-    for i in {0..2}; do
-        # Default to 0 if part doesn't exist
-        local v1_part=${v1_parts[$i]:-0}
-        local v2_part=${v2_parts[$i]:-0}
-
-        # Compare numerically
-        if [ "$v1_part" -gt "$v2_part" ]; then
-            echo "1"  # version1 is greater
-            return
-        elif [ "$v1_part" -lt "$v2_part" ]; then
-            echo "-1"  # version1 is lesser
-            return
-        fi
-    done
-
-    echo "0"  # versions are equal
+    if [ "$version1" -gt "$version2" ] 2>/dev/null; then
+        echo "1"
+    elif [ "$version1" -lt "$version2" ] 2>/dev/null; then
+        echo "-1"
+    else
+        echo "0"
+    fi
 }
 
 # Function to check if install.sh needs updating
@@ -2512,9 +2501,10 @@ check_install_script_update() {
         exit 0
     fi
 
-    printf "${YELLOW}> A new version of the install script is available (${new_version}).${NC}\n"
+    printf "${YELLOW}> A new install script update is available.${NC}\n"
+    printf "It is recommended to update to ensure compatibility.\n"
     printf "\n"
-    printf "Would you like to update the install script? [Y/n]: "
+    printf "Update now? [Y/n]: "
     read -r reply
 
     if [[ ! $reply =~ ^[Nn]$ ]]; then
