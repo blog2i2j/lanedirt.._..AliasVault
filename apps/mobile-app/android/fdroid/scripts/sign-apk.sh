@@ -25,8 +25,12 @@ error()   { echo -e "${RED}[ERROR]${RESET} $1"; }
 
 echo -e "${YELLOW}=== APK Debug Signer (macOS) ===${RESET}"
 
-# --- Ask for unsigned APK ---
-read -rp "Enter unsigned APK filename (example: app-release-unsigned.apk): " APK_IN
+# --- Unsigned APK: from argument or prompt ---
+if [[ -n "${1:-}" ]]; then
+  APK_IN="$1"
+else
+  read -rp "Enter unsigned APK filename (example: app-release-unsigned.apk): " APK_IN
+fi
 
 if [[ ! -f "$APK_IN" ]]; then
   error "File not found: $APK_IN"
