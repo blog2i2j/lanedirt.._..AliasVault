@@ -18,7 +18,7 @@ Alternatively, you can do it manually by following these steps:
 
 ## Versioning browser extensions
 - [ ] Update `./apps/browser-extension/wxt.config.ts` with the new version for the extension. This will be shown in the browser extension web stores. This version should be equal to the git release tag.
-- [ ] Update `./apps/browser-extension/safari-xcode/AliasVault/AliasVault.xcodeproj/project.pbxproj` and set the version in `MARKETING_VERSION` and increase the build number in `CURRENT_PROJECT_VERSION`. This is the version that will be shown in the Safari Browser Extension App Store.
+- [ ] Update `./apps/browser-extension/safari-xcode/AliasVault.xcodeproj/project.pbxproj` and set the version in `MARKETING_VERSION` and increase the build number in `CURRENT_PROJECT_VERSION`. This is the version that will be shown in the Safari Browser Extension App Store.
 - [ ] Update `./apps/browser-extension/src/utils/AppInfo.ts` with the new version for the extension. This version should be equal to the git release tag.
 - [ ] Update `./apps/browser-extension/src/utils/AppInfo.ts` with the minimum supported server version (in case of required API breaking changes).
 - [ ] Update `./apps/browser-extension/src/utils/AppInfo.ts` with the minimum supported client vault version (in case of required client vault model changes).

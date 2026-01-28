@@ -99,7 +99,7 @@ The GitHub Actions workflow `Browser Extension Build` will build the browser ext
 5. Submit the Safari extension to Apple for review:
     1. Navigate to the `apps/browser-extension` directory.
     2. Build the safari extension locally via `npm run build:safari`, which will output the build files to `dist/safari-mv2`. **Note: it's important to always rebuild, as otherwise stale build files from a previous build might get included in the Safari binary by accident!**
-    3. Open the `apps/browser-extension/safari-xcode/AliasVault/AliasVault.xcodeproj` project in Xcode and submit the extension via the "Archive" and then "Distribute App" option.
+    3. Open the `apps/browser-extension/safari-xcode/AliasVault.xcodeproj` project in Xcode and submit the extension via the "Archive" and then "Distribute App" option.
 
 ## Publish new Mobile App version
 1. Submit the iOS app to Apple for review:

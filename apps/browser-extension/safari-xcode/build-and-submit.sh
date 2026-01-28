@@ -89,9 +89,9 @@ echo ""
 
 if [[ $CHOICE == "1" || $CHOICE == "2" ]]; then
   echo "Building browser extension..."
-  cd ../..
+  cd ..
   npm run build:safari
-  cd safari-xcode/AliasVault
+  cd safari-xcode
 
   echo "Building PKG..."
 
