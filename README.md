@@ -129,7 +129,8 @@ Core features that are being worked on:
 - [x] Editing in browser extension
 - [x] Multi-language support across all client applications
 - [x] Passkeys
-- [ ] Data model and usability improvements (more flexible aliases and credential types, folder support, bulk selecting etc.)
+- [x] Data model improvements (more flexible aliases and credential types, folder support, offline mode etc.)
+- [ ] Usability improvements (save credentials when browsing, more credential types, mobile app feature-parity with web app)
 - [ ] Support for FIDO2/WebAuthn hardware keys
 - [ ] Adding support for family/team sharing (organization features)
 
