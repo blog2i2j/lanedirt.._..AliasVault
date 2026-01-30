@@ -1,5 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, TextInput, TouchableOpacity, Modal, ScrollView, Pressable, StyleSheet } from 'react-native';
 
@@ -14,21 +14,15 @@ type EmailDomainFieldProps = {
   error?: string;
   required?: boolean;
   label: string;
+  /** Optional callback for remove button - when provided, shows X button in label row */
+  onRemove?: () => void;
+  /** Optional testID for the text input */
+  testID?: string;
+  /** Optional: default to email mode (free text) instead of alias mode (domain chooser). Defaults to false. */
+  defaultEmailMode?: boolean;
+  /** Optional callback to generate an email alias. When provided, shows a regenerate button and is called when switching to alias mode. */
+  onGenerateAlias?: () => void;
 }
-
-// Hardcoded public email domains (same as in browser extension)
-const PUBLIC_EMAIL_DOMAINS = [
-  'spamok.com',
-  'solarflarecorp.com',
-  'spamok.nl',
-  '3060.nl',
-  'landmail.nl',
-  'asdasd.nl',
-  'spamok.de',
-  'spamok.com.ua',
-  'spamok.es',
-  'spamok.fr',
-];
 
 /**
  * Email domain field component with domain chooser functionality for React Native.
@@ -39,28 +33,41 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
   onChange,
   error,
   required = false,
-  label
+  label,
+  onRemove,
+  testID,
+  defaultEmailMode = false,
+  onGenerateAlias
 }) => {
   const { t } = useTranslation();
   const colors = useColors();
   const dbContext = useDb();
-  const [isCustomDomain, setIsCustomDomain] = useState(false);
+
+  const [isCustomDomain, setIsCustomDomain] = useState(defaultEmailMode);
   const [localPart, setLocalPart] = useState('');
   const [selectedDomain, setSelectedDomain] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [publicEmailDomains, setPublicEmailDomains] = useState<string[]>([]);
   const [privateEmailDomains, setPrivateEmailDomains] = useState<string[]>([]);
+  const [hiddenPrivateEmailDomains, setHiddenPrivateEmailDomains] = useState<string[]>([]);
 
-  // Get private email domains from vault metadata
+  /**
+   * Tracks whether the user explicitly toggled mode via buttons.
+   * While true, the value useEffect skips auto-detection of isCustomDomain.
+   */
+  const modeToggledByUser = useRef(false);
+
+  // Get email domains from vault metadata
   useEffect(() => {
     /**
-     * Load private email domains from vault metadata.
+     * Load email domains from vault metadata.
      */
     const loadDomains = async (): Promise<void> => {
       try {
         const metadata = await dbContext.getVaultMetadata();
-        if (metadata?.privateEmailDomains) {
-          setPrivateEmailDomains(metadata.privateEmailDomains);
-        }
+        setPublicEmailDomains(metadata?.publicEmailDomains ?? []);
+        setPrivateEmailDomains(metadata?.privateEmailDomains ?? []);
+        setHiddenPrivateEmailDomains(metadata?.hiddenPrivateEmailDomains ?? []);
       } catch (err) {
         console.error('Error loading email domains:', err);
       }
@@ -74,14 +81,53 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
            !(privateEmailDomains.length === 1 && (privateEmailDomains[0] === 'DISABLED.TLD' || privateEmailDomains[0] === ''));
   }, [privateEmailDomains]);
 
+  // Track previous defaultEmailMode to detect prop changes (e.g., when item type changes)
+  const prevDefaultEmailModeRef = useRef(defaultEmailMode);
+
+  // When defaultEmailMode changes (e.g., item type switched from Login to Alias),
+  // update the mode and load the user's configured default domain
+  useEffect(() => {
+    // Only act when defaultEmailMode actually changed
+    if (prevDefaultEmailModeRef.current === defaultEmailMode) {
+      return;
+    }
+    prevDefaultEmailModeRef.current = defaultEmailMode;
+
+    // If switching to alias mode (defaultEmailMode = false) and we don't have a value with a domain
+    if (!defaultEmailMode && (!value || !value.includes('@'))) {
+      modeToggledByUser.current = false;
+      setIsCustomDomain(false);
+
+      // Load the user's configured default domain
+      const loadDefaultDomain = async (): Promise<void> => {
+        const userDefaultDomain = await dbContext.sqliteClient?.getDefaultEmailDomain();
+        if (userDefaultDomain) {
+          setSelectedDomain(userDefaultDomain);
+        }
+      };
+      loadDefaultDomain();
+    }
+  }, [defaultEmailMode, value, dbContext.sqliteClient]);
+
   // Initialize state from value prop
   useEffect(() => {
     if (!value) {
-      // Set default domain
-      if (showPrivateDomains && privateEmailDomains[0]) {
-        setSelectedDomain(privateEmailDomains[0]);
-      } else if (PUBLIC_EMAIL_DOMAINS[0]) {
-        setSelectedDomain(PUBLIC_EMAIL_DOMAINS[0]);
+      // Value is empty - clear local part but preserve selected domain
+      setLocalPart('');
+      // Only set default domain if none is selected yet (initial load)
+      if (!selectedDomain) {
+        // Load the user's configured default domain
+        const loadDefaultDomain = async (): Promise<void> => {
+          const userDefaultDomain = await dbContext.sqliteClient?.getDefaultEmailDomain();
+          if (userDefaultDomain) {
+            setSelectedDomain(userDefaultDomain);
+          } else if (showPrivateDomains && privateEmailDomains[0]) {
+            setSelectedDomain(privateEmailDomains[0]);
+          } else if (publicEmailDomains[0]) {
+            setSelectedDomain(publicEmailDomains[0]);
+          }
+        };
+        loadDefaultDomain();
       }
       return;
     }
@@ -91,27 +137,70 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
       setLocalPart(local);
       setSelectedDomain(domain);
 
-      // Check if it's a custom domain
-      const isKnownDomain = PUBLIC_EMAIL_DOMAINS.includes(domain) ||
-                           privateEmailDomains.includes(domain);
-      setIsCustomDomain(!isKnownDomain);
+      /*
+       * Auto-detect mode based on domain recognition, but only if the user
+       * hasn't explicitly toggled mode via the Email/Alias buttons.
+       */
+      if (!modeToggledByUser.current) {
+        const isKnownDomain = publicEmailDomains.includes(domain) ||
+                             privateEmailDomains.includes(domain) ||
+                             hiddenPrivateEmailDomains.includes(domain);
+        setIsCustomDomain(!isKnownDomain);
+      }
     } else {
       setLocalPart(value);
       // Don't reset isCustomDomain here - preserve the current mode
 
       // Set default domain if not already set
       if (!selectedDomain && !value.includes('@')) {
-        if (showPrivateDomains && privateEmailDomains[0]) {
-          setSelectedDomain(privateEmailDomains[0]);
-        } else if (PUBLIC_EMAIL_DOMAINS[0]) {
-          setSelectedDomain(PUBLIC_EMAIL_DOMAINS[0]);
-        }
+        // Load the user's configured default domain
+        const loadDefaultDomain = async (): Promise<void> => {
+          const userDefaultDomain = await dbContext.sqliteClient?.getDefaultEmailDomain();
+          if (userDefaultDomain) {
+            setSelectedDomain(userDefaultDomain);
+          } else if (showPrivateDomains && privateEmailDomains[0]) {
+            setSelectedDomain(privateEmailDomains[0]);
+          } else if (publicEmailDomains[0]) {
+            setSelectedDomain(publicEmailDomains[0]);
+          }
+        };
+        loadDefaultDomain();
       }
     }
-  }, [value, privateEmailDomains, showPrivateDomains]);
+  }, [value, publicEmailDomains, privateEmailDomains, hiddenPrivateEmailDomains, showPrivateDomains, selectedDomain, dbContext.sqliteClient]);
+
+  /*
+   * Re-check domain mode when domains finish loading.
+   * This handles the case where value was set before domains were loaded.
+   * Skip if the user has explicitly toggled mode via buttons.
+   */
+  useEffect(() => {
+    if (modeToggledByUser.current) {
+      return;
+    }
+
+    if (!value || !value.includes('@')) {
+      return;
+    }
+
+    const domain = value.split('@')[1];
+    if (!domain) {
+      return;
+    }
+
+    const isKnownDomain = publicEmailDomains.includes(domain) ||
+                         privateEmailDomains.includes(domain) ||
+                         hiddenPrivateEmailDomains.includes(domain);
+
+    if (isKnownDomain && isCustomDomain) {
+      setIsCustomDomain(false);
+    }
+  }, [publicEmailDomains, privateEmailDomains, hiddenPrivateEmailDomains, value, isCustomDomain]);
 
   // Handle local part changes
   const handleLocalPartChange = useCallback((newText: string) => {
+    modeToggledByUser.current = false;
+
     // If in custom domain mode, always pass through the full value
     if (isCustomDomain) {
       onChange(newText);
@@ -150,39 +239,35 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
   }, [localPart, onChange]);
 
   // Toggle between custom domain and domain chooser
-  const toggleCustomDomain = useCallback(() => {
+  const toggleCustomDomain = useCallback(async () => {
+    modeToggledByUser.current = true;
     const newIsCustom = !isCustomDomain;
     setIsCustomDomain(newIsCustom);
 
     if (newIsCustom) {
-      // Switching to custom domain mode
-      // If we have a domain-based value, extract just the local part
-      if (value && value.includes('@')) {
-        const [local] = value.split('@');
-        onChange(local);
-        setLocalPart(local);
-      }
+      // Switching to custom domain mode (free text / normal email).
+      // Clear the value so the user starts fresh with a regular email address.
+      onChange('');
+      setLocalPart('');
     } else {
-      // Switching to domain chooser mode
-      const defaultDomain = showPrivateDomains && privateEmailDomains[0]
-        ? privateEmailDomains[0]
-        : PUBLIC_EMAIL_DOMAINS[0];
-      setSelectedDomain(defaultDomain);
+      // Switching to domain chooser mode - clear old email-mode value.
+      // Load the user's configured default domain
+      const userDefaultDomain = await dbContext.sqliteClient?.getDefaultEmailDomain();
+      const defaultDomain = userDefaultDomain ||
+        (showPrivateDomains && privateEmailDomains[0] ? privateEmailDomains[0] : publicEmailDomains[0]);
+      if (defaultDomain) {
+        setSelectedDomain(defaultDomain);
+      }
+      setLocalPart('');
+      onChange('');
 
-      // Only add domain if we have a local part
-      if (localPart && localPart.trim()) {
-        onChange(`${localPart}@${defaultDomain}`);
-      } else if (value && !value.includes('@')) {
-        // If we have a value without @, add the domain
-        onChange(`${value}@${defaultDomain}`);
+      if (onGenerateAlias) {
+        onGenerateAlias();
       }
     }
-  }, [isCustomDomain, value, localPart, showPrivateDomains, privateEmailDomains, onChange]);
+  }, [isCustomDomain, showPrivateDomains, publicEmailDomains, privateEmailDomains, onChange, onGenerateAlias, dbContext.sqliteClient]);
 
   const styles = StyleSheet.create({
-    container: {
-      marginBottom: 16,
-    },
     domainAt: {
       color: colors.textMuted,
       fontSize: 16,
@@ -199,6 +284,22 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
       flexDirection: 'row',
       justifyContent: 'center',
       paddingHorizontal: 12,
+      paddingVertical: 11,
+    },
+    domainButtonNoRoundRight: {
+      borderBottomRightRadius: 0,
+      borderTopRightRadius: 0,
+    },
+    generateButton: {
+      alignItems: 'center',
+      backgroundColor: colors.accentBackground,
+      borderBottomRightRadius: 8,
+      borderColor: error ? colors.errorBorder : colors.accentBorder,
+      borderLeftWidth: 0,
+      borderTopRightRadius: 8,
+      borderWidth: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 10,
       paddingVertical: 11,
     },
     domainButtonText: {
@@ -265,7 +366,37 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
     label: {
       color: colors.textMuted,
       fontSize: 12,
+    },
+    labelContainer: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
       marginBottom: 4,
+    },
+    switcherContainer: {
+      alignItems: 'center',
+      flexDirection: 'row',
+    },
+    switcherButton: {
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    switcherButtonActive: {
+      color: colors.primary,
+      fontWeight: '600',
+    },
+    switcherButtonInactive: {
+      color: colors.textMuted,
+      fontWeight: '400',
+      opacity: 0.5,
+    },
+    switcherSeparator: {
+      color: colors.textMuted,
+      fontSize: 14,
+      marginHorizontal: 6,
+    },
+    removeButton: {
+      padding: 4,
     },
     modalCloseButton: {
       padding: 8,
@@ -321,39 +452,61 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
       paddingHorizontal: 12,
       paddingVertical: 10,
     },
-    toggleButton: {
-      marginTop: 8,
-    },
-    toggleButtonText: {
-      color: colors.primary,
-      fontSize: 14,
-    },
   });
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>
-        {label}
-        {required && <Text style={styles.requiredAsterisk}> *</Text>}
-      </Text>
+    <View>
+      <View style={styles.labelContainer}>
+        <View style={styles.switcherContainer}>
+          <TouchableOpacity
+            onPress={isCustomDomain ? undefined : toggleCustomDomain}
+            disabled={isCustomDomain}
+          >
+            <Text style={[
+              styles.switcherButton,
+              isCustomDomain ? styles.switcherButtonActive : styles.switcherButtonInactive
+            ]}>
+              {t('items.email')}
+            </Text>
+          </TouchableOpacity>
+          <Text style={styles.switcherSeparator}>/</Text>
+          <TouchableOpacity
+            onPress={!isCustomDomain ? undefined : toggleCustomDomain}
+            disabled={!isCustomDomain}
+          >
+            <Text style={[
+              styles.switcherButton,
+              !isCustomDomain ? styles.switcherButtonActive : styles.switcherButtonInactive
+            ]}>
+              {t('items.alias')}
+            </Text>
+          </TouchableOpacity>
+          {required && <Text style={styles.requiredAsterisk}> *</Text>}
+        </View>
+        {onRemove && (
+          <TouchableOpacity style={styles.removeButton} onPress={onRemove}>
+            <MaterialIcons name="close" size={18} color={colors.textMuted} />
+          </TouchableOpacity>
+        )}
+      </View>
 
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.textInput}
           value={isCustomDomain ? value : localPart}
           onChangeText={handleLocalPartChange}
-          placeholder={isCustomDomain ? t('credentials.enterFullEmail') : t('credentials.enterEmailPrefix')}
-          placeholderTextColor={colors.textMuted}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="email-address"
           multiline={false}
           numberOfLines={1}
+          testID={testID}
+          accessibilityLabel={testID}
         />
 
         {!isCustomDomain && (
           <TouchableOpacity
-            style={styles.domainButton}
+            style={[styles.domainButton, onGenerateAlias ? styles.domainButtonNoRoundRight : null]}
             onPress={() => setIsModalVisible(true)}
           >
             <Text style={styles.domainAt}>@</Text>
@@ -362,15 +515,17 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
             </Text>
           </TouchableOpacity>
         )}
-      </View>
 
-      <TouchableOpacity style={styles.toggleButton} onPress={toggleCustomDomain}>
-        <Text style={styles.toggleButtonText}>
-          {isCustomDomain
-            ? t('credentials.useDomainChooser')
-            : t('credentials.enterCustomDomain')}
-        </Text>
-      </TouchableOpacity>
+        {!isCustomDomain && onGenerateAlias && (
+          <TouchableOpacity
+            style={styles.generateButton}
+            onPress={onGenerateAlias}
+            accessibilityLabel={t('common.generate')}
+          >
+            <MaterialIcons name="refresh" size={20} color={colors.primary} />
+          </TouchableOpacity>
+        )}
+      </View>
 
       {error && <Text style={styles.errorText}>{error}</Text>}
 
@@ -385,7 +540,7 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
           <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
             <View style={styles.modalHeader}>
               <ThemedText style={styles.modalTitle}>
-                {t('credentials.selectEmailDomain')}
+                {t('items.selectEmailDomain')}
               </ThemedText>
               <TouchableOpacity
                 style={styles.modalCloseButton}
@@ -400,17 +555,17 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
                 <View style={styles.domainSection}>
                   <View style={styles.domainSectionHeader}>
                     <Text style={styles.domainSectionTitle}>
-                      {t('credentials.privateEmailTitle')}
+                      {t('items.privateEmailTitle')}
                     </Text>
                     <Text style={styles.domainSectionSubtitle}>
-                      ({t('credentials.privateEmailAliasVaultServer')})
+                      ({t('items.privateEmailAliasVaultServer')})
                     </Text>
                   </View>
                   <Text style={styles.domainSectionDescription}>
-                    {t('credentials.privateEmailDescription')}
+                    {t('items.privateEmailDescription')}
                   </Text>
                   <View style={styles.domainList}>
-                    {privateEmailDomains.map((domain) => (
+                    {privateEmailDomains.filter(domain => !hiddenPrivateEmailDomains.includes(domain)).map((domain) => (
                       <TouchableOpacity
                         key={domain}
                         style={[
@@ -435,13 +590,13 @@ export const EmailDomainField: React.FC<EmailDomainFieldProps> = ({
 
               <View style={styles.domainSection}>
                 <Text style={styles.domainSectionTitle}>
-                  {t('credentials.publicEmailTitle')}
+                  {t('items.publicEmailTitle')}
                 </Text>
                 <Text style={styles.domainSectionDescription}>
-                  {t('credentials.publicEmailDescription')}
+                  {t('items.publicEmailDescription')}
                 </Text>
                 <View style={styles.domainList}>
-                  {PUBLIC_EMAIL_DOMAINS.map((domain) => (
+                  {publicEmailDomains.map((domain) => (
                     <TouchableOpacity
                       key={domain}
                       style={[

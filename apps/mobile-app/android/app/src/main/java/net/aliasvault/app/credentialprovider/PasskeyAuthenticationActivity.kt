@@ -1,6 +1,7 @@
 package net.aliasvault.app.credentialprovider
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -8,6 +9,10 @@ import android.widget.TextView
 import androidx.credentials.provider.PendingIntentHandler
 import androidx.credentials.provider.ProviderGetCredentialRequest
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import net.aliasvault.app.R
 import net.aliasvault.app.utils.Helpers
 import net.aliasvault.app.vaultstore.VaultStore
@@ -110,6 +115,19 @@ class PasskeyAuthenticationActivity : FragmentActivity() {
     }
 
     /**
+     * Update the loading message displayed to the user.
+     */
+    private fun updateLoadingMessage(messageResId: Int) {
+        runOnUiThread {
+            try {
+                findViewById<TextView>(R.id.loadingMessage)?.text = getString(messageResId)
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not update loading message", e)
+            }
+        }
+    }
+
+    /**
      * Process the passkey authentication request and generate assertion.
      * Called after authentication (biometric or PIN) succeeds and vault is unlocked.
      */
@@ -120,107 +138,149 @@ class PasskeyAuthenticationActivity : FragmentActivity() {
             finish()
             return
         }
-        try {
-            // Extract passkey ID from intent
-            val passkeyIdString = intent.getStringExtra(
-                AliasVaultCredentialProviderService.EXTRA_PASSKEY_ID,
-            )
-            if (passkeyIdString == null) {
-                Log.e(TAG, "No passkey ID in intent")
-                setResult(RESULT_CANCELED)
-                finish()
-                return
-            }
 
-            val passkeyId = UUID.fromString(passkeyIdString.uppercase())
-
-            // Get database connection from vault (should be unlocked at this point)
-            val db = vaultStore.database
-            if (db == null) {
-                Log.e(TAG, "Database not available - vault may not be unlocked")
-                setResult(RESULT_CANCELED)
-                finish()
-                return
-            }
-
-            val passkey = vaultStore.getPasskeyById(passkeyId, db)
-            if (passkey == null) {
-                Log.e(TAG, "Passkey not found: $passkeyId")
-                setResult(RESULT_CANCELED)
-                finish()
-                return
-            }
-
-            val requestJson = intent.getStringExtra(
-                AliasVaultCredentialProviderService.EXTRA_REQUEST_JSON,
-            ) ?: ""
-            val requestObj = JSONObject(requestJson)
-
-            // Extract clientDataHash from the calling app's request
-            // Browsers (Chrome, Firefox, Edge, etc.) provide this, native apps typically don't
-            val providedClientDataHash: ByteArray? = providerRequest.credentialOptions
-                .filterIsInstance<androidx.credentials.GetPublicKeyCredentialOption>()
-                .firstOrNull()?.clientDataHash
-
-            // Determine clientDataHash and clientDataJson based on what caller provided
-            val clientDataHash: ByteArray
-            val clientDataJson: String?
-            if (providedClientDataHash != null) {
-                // Browser provided clientDataHash - use it directly
-                // The browser has its own clientDataJSON with the web origin
-                clientDataHash = providedClientDataHash
-                clientDataJson = null
-            } else {
-                // Native app scenario - build clientDataJSON ourselves and hash it
-                val challenge = requestObj.optString("challenge", "")
-                val origin = requestObj.optString("origin", "https://${passkey.rpId}")
-                val json = buildClientDataJson(challenge, origin)
-                clientDataHash = sha256(json.toByteArray(Charsets.UTF_8))
-                clientDataJson = json
-            }
-
-            // Use PasskeyAuthenticator.getAssertion for signing
-            val credentialId = PasskeyHelper.guidToBytes(passkey.id.toString())
-            val prfInputs = extractPrfInputs(requestObj)
-            val assertion = PasskeyAuthenticator.getAssertion(
-                credentialId = credentialId,
-                clientDataHash = clientDataHash,
-                rpId = passkey.rpId,
-                privateKeyJWK = passkey.privateKey,
-                userId = passkey.userHandle,
-                uvPerformed = true,
-                prfInputs = prfInputs,
-                prfSecret = passkey.prfKey,
-            )
-
-            // Build response JSON
-            val response = buildPublicKeyCredentialResponse(
-                assertion = assertion,
-                clientDataJson = clientDataJson,
-            )
-
-            val resultIntent = Intent()
+        lifecycleScope.launch {
             try {
-                PendingIntentHandler.setGetCredentialResponse(resultIntent, response)
-                setResult(RESULT_OK, resultIntent)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error setting credential response", e)
-                try {
-                    PendingIntentHandler.setGetCredentialException(
-                        resultIntent,
-                        androidx.credentials.exceptions.GetCredentialUnknownException("Failed to generate assertion: ${e.message}"),
-                    )
-                    setResult(RESULT_OK, resultIntent)
-                } catch (e2: Exception) {
-                    Log.e(TAG, "Error setting exception", e2)
+                // Show retrieving status to user
+                updateLoadingMessage(R.string.passkey_retrieving)
+
+                // Extract passkey ID from intent
+                val passkeyIdString = intent.getStringExtra(
+                    AliasVaultCredentialProviderService.EXTRA_PASSKEY_ID,
+                )
+                if (passkeyIdString == null) {
+                    Log.e(TAG, "No passkey ID in intent")
                     setResult(RESULT_CANCELED)
+                    finish()
+                    return@launch
                 }
+
+                val passkeyId = UUID.fromString(passkeyIdString.uppercase())
+
+                // Get database connection from vault
+                val db = vaultStore.database
+                if (db == null) {
+                    Log.e(TAG, "Database not available - vault may not be unlocked")
+                    setResult(RESULT_CANCELED)
+                    finish()
+                    return@launch
+                }
+
+                val passkey = vaultStore.getPasskeyById(passkeyId, db)
+                if (passkey == null) {
+                    Log.e(TAG, "Passkey not found: $passkeyId")
+                    setResult(RESULT_CANCELED)
+                    finish()
+                    return@launch
+                }
+
+                val requestJson = intent.getStringExtra(
+                    AliasVaultCredentialProviderService.EXTRA_REQUEST_JSON,
+                ) ?: ""
+                val requestObj = JSONObject(requestJson)
+
+                // Extract clientDataHash from the calling app's request
+                // Browsers (Chrome, Firefox, Edge, etc.) provide this, native apps typically don't
+                val providedClientDataHash: ByteArray? = providerRequest.credentialOptions
+                    .filterIsInstance<androidx.credentials.GetPublicKeyCredentialOption>()
+                    .firstOrNull()?.clientDataHash
+
+                // Show verifying status to user
+                updateLoadingMessage(R.string.passkey_verifying)
+
+                // Verify origin of the calling app
+                val originVerifier = OriginVerifier()
+                val callingAppInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    providerRequest.callingAppInfo
+                } else {
+                    null
+                }
+
+                // Run origin verification on IO thread
+                val originResult = withContext(Dispatchers.IO) {
+                    originVerifier.verifyOrigin(
+                        callingAppInfo = callingAppInfo,
+                        requestedRpId = passkey.rpId,
+                    )
+                }
+
+                val verifiedOrigin: String
+                val isPrivilegedCaller: Boolean
+
+                when (originResult) {
+                    is OriginVerifier.OriginResult.Success -> {
+                        verifiedOrigin = originResult.origin
+                        isPrivilegedCaller = originResult.isPrivileged
+                        Log.d(TAG, "Origin verified: $verifiedOrigin (privileged: $isPrivilegedCaller)")
+                    }
+                    is OriginVerifier.OriginResult.Failure -> {
+                        Log.e(TAG, "Origin verification failed: ${originResult.reason}")
+                        showError("Security error: ${originResult.reason}")
+                        return@launch
+                    }
+                }
+
+                // Show authenticating status to user
+                updateLoadingMessage(R.string.passkey_authenticating)
+
+                // Determine clientDataHash and clientDataJson based on what caller provided
+                val clientDataHash: ByteArray
+                val clientDataJson: String?
+                if (providedClientDataHash != null && isPrivilegedCaller) {
+                    // Browser provided clientDataHash - use it directly
+                    clientDataHash = providedClientDataHash
+                    clientDataJson = null
+                } else {
+                    // Native app scenario - build clientDataJSON ourselves
+                    val challenge = requestObj.optString("challenge", "")
+                    val json = buildClientDataJson(challenge, verifiedOrigin)
+                    clientDataHash = sha256(json.toByteArray(Charsets.UTF_8))
+                    clientDataJson = json
+                }
+
+                // Use PasskeyAuthenticator.getAssertion for signing
+                val credentialId = PasskeyHelper.guidToBytes(passkey.id.toString())
+                val prfInputs = extractPrfInputs(requestObj)
+                val assertion = PasskeyAuthenticator.getAssertion(
+                    credentialId = credentialId,
+                    clientDataHash = clientDataHash,
+                    rpId = passkey.rpId,
+                    privateKeyJWK = passkey.privateKey,
+                    userId = passkey.userHandle,
+                    uvPerformed = true,
+                    prfInputs = prfInputs,
+                    prfSecret = passkey.prfKey,
+                )
+
+                // Build response JSON
+                val response = buildPublicKeyCredentialResponse(
+                    assertion = assertion,
+                    clientDataJson = clientDataJson,
+                )
+
+                val resultIntent = Intent()
+                try {
+                    PendingIntentHandler.setGetCredentialResponse(resultIntent, response)
+                    setResult(RESULT_OK, resultIntent)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error setting credential response", e)
+                    try {
+                        PendingIntentHandler.setGetCredentialException(
+                            resultIntent,
+                            androidx.credentials.exceptions.GetCredentialUnknownException("Failed to generate assertion: ${e.message}"),
+                        )
+                        setResult(RESULT_OK, resultIntent)
+                    } catch (e2: Exception) {
+                        Log.e(TAG, "Error setting exception", e2)
+                        setResult(RESULT_CANCELED)
+                    }
+                }
+                finish()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error processing authentication request", e)
+                setResult(RESULT_CANCELED)
+                finish()
             }
-            finish()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error processing authentication request", e)
-            setResult(RESULT_CANCELED)
-            finish()
         }
     }
 

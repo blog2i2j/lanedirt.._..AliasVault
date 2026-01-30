@@ -2,9 +2,11 @@
 AliasVault is a privacy-first password and email alias manager. Create unique identities, strong passwords, and random email aliases for every website you use. Fully end-to-end encrypted, with a built-in email server and zero third-party dependencies.
 
 [<img src="https://img.shields.io/github/v/release/aliasvault/aliasvault?include_prereleases&logo=github&label=Release">](https://github.com/aliasvault/aliasvault/releases)
-[![.NET E2E Tests (with Sharding)](https://github.com/aliasvault/aliasvault/actions/workflows/dotnet-e2e-tests.yml/badge.svg)](https://github.com/aliasvault/aliasvault/actions/workflows/dotnet-e2e-tests.yml)
+[![E2E Tests](https://github.com/aliasvault/aliasvault/actions/workflows/e2e-tests-server.yml/badge.svg)](https://github.com/aliasvault/aliasvault/actions/workflows/e2e-tests-server.yml)
+[![.NET E2E Tests (with Sharding)](https://github.com/aliasvault/aliasvault/actions/workflows/e2e-tests-browser-extension.yml/badge.svg)](https://github.com/aliasvault/aliasvault/actions/workflows/e2e-browser-extension.yml)
 [<img src="https://badges.crowdin.net/aliasvault/localized.svg">](https://crowdin.com/project/aliasvault)
 [<img alt="Discord" src="https://img.shields.io/discord/1309300619026235422?logo=discord&logoColor=%237289da&label=Discord&color=%237289da">](https://discord.gg/DsaXMTEtpF)
+[<img src="https://opencollective.com/aliasvault/tiers/badge.svg">](https://opencollective.com/aliasvault)
 
 <a href="https://app.aliasvault.net">Try the cloud version 🔥</a> | <a href="https://aliasvault.net?utm_source=gh-readme">Website </a> | <a href="https://docs.aliasvault.net?utm_source=gh-readme">Documentation </a> | <a href="#self-hosting">Self-host instructions</a>
 

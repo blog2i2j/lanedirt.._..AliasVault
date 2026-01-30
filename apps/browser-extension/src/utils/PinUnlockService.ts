@@ -84,7 +84,6 @@ export class IncorrectPinError extends Error {
 
 /**
  * Error thrown when encryption key is not available for PIN setup.
- * Translation key: settings.unlockMethod.unlockVaultFirst
  */
 export class EncryptionKeyNotAvailableError extends Error {
   /**
