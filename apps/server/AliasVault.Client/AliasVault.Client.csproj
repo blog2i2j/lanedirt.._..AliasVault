@@ -25,7 +25,8 @@
         <Optimize>True</Optimize>
         <CacheBuster>$([System.DateTime]::UtcNow.ToString("yyyyMMddHHmmss"))</CacheBuster>
         <WasmDebugLevel>0</WasmDebugLevel>
-        <NoWarn>NU1903</NoWarn>
+        <!-- Suppress IL2037 linker errors for EF Core reflection-based APIs -->
+        <NoWarn>NU1903;IL2037</NoWarn>
     </PropertyGroup>
 
     <UsingTask TaskName="ReplaceText" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
@@ -66,6 +67,7 @@
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.2" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Authentication" Version="10.0.2" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.2" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.DotNet.HotReload.WebAssembly.Browser" Version="10.0.102" />
         <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.2" />
         <PackageReference Include="Microsoft.Extensions.Localization" Version="10.0.2" />
         <PackageReference Include="Microsoft.Extensions.Localization.Abstractions" Version="10.0.2" />
