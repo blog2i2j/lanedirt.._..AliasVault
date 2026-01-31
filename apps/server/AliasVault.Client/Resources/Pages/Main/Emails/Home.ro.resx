@@ -71,11 +71,11 @@
     <comment>Tooltip for auto-refresh indicator</comment>
   </data>
   <data name="RefreshButton" xml:space="preserve">
-    <value>Actualizați</value>
+    <value>Actualizează</value>
     <comment>Refresh button text</comment>
   </data>
   <data name="NoEmailClaimsMessage" xml:space="preserve">
-    <value>Nu utilizați nicio adresă de e-mail privată (încă). Creați un alias nou și folosiți o adresă de e-mail privată acceptată de AliasVault. Toate e-mailurile tale primite pe aceste adrese private vor apărea aici.</value>
+    <value>Nu utiliza nicio adresă de e-mail privată (încă). Creează un alias nou și folosește o adresă de e-mail privată acceptată de AliasVault. Toate e-mailurile tale primite pe aceste adrese private vor apărea aici.</value>
     <comment>Message when no email addresses are configured</comment>
   </data>
   <data name="NoEmailsReceivedMessage" xml:space="preserve">
