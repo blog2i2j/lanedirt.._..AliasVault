@@ -3,6 +3,7 @@ import { Alert, Platform } from 'react-native';
 
 import { ConfirmDialog, type IConfirmDialogButton } from '@/components/common/ConfirmDialog';
 import { dialogEventEmitter } from '@/events/DialogEventEmitter';
+import i18n from '@/i18n';
 
 interface DialogConfig {
   title: string;
@@ -138,7 +139,7 @@ export function DialogProvider({ children }: DialogProviderProps): React.ReactNo
     // On iOS, use native Alert
     if (Platform.OS === 'ios') {
       Alert.alert(title, message, [{
-        text: 'OK',
+        text: i18n.t('common.ok'),
         style: 'default',
         onPress: onOk,
       }]);
@@ -150,7 +151,7 @@ export function DialogProvider({ children }: DialogProviderProps): React.ReactNo
       title,
       message,
       buttons: [{
-        text: 'OK',
+        text: i18n.t('common.ok'),
         style: 'default',
         onPress: (): void => {
           onOk?.();
@@ -181,7 +182,7 @@ export function DialogProvider({ children }: DialogProviderProps): React.ReactNo
     // On iOS, use native Alert
     if (Platform.OS === 'ios') {
       Alert.alert(title, message, [
-        { text: options?.cancelText ?? 'Cancel', style: 'cancel' },
+        { text: options?.cancelText ?? i18n.t('common.cancel'), style: 'cancel' },
         {
           text: confirmText,
           style: options?.confirmStyle ?? 'default',
@@ -196,7 +197,7 @@ export function DialogProvider({ children }: DialogProviderProps): React.ReactNo
       message,
       buttons: [
         {
-          text: options?.cancelText ?? 'Cancel',
+          text: options?.cancelText ?? i18n.t('common.cancel'),
           style: 'cancel',
           onPress: (): void => setDialogConfig(null),
         },
