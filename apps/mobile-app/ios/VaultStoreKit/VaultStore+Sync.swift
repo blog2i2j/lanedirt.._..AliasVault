@@ -513,7 +513,8 @@ extension VaultStore {
                 wasOffline: true,
                 error: error.message
             )
-        case .sessionExpired, .authenticationFailed, .passwordChanged:
+        case .sessionExpired, .authenticationFailed, .passwordChanged,
+             .clientVersionNotSupported, .serverVersionNotSupported:
             return VaultSyncResult(
                 success: false,
                 action: .error,

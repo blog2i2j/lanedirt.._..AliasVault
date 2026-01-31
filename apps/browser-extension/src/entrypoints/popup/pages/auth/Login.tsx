@@ -26,6 +26,9 @@ import type { MobileLoginResult } from '@/utils/types/messaging/MobileLoginResul
 
 import { storage } from '#imports';
 
+/** Track if username prefill has been attempted (only do it once on mount) */
+let usernamePrefillAttempted = false;
+
 /**
  * Login page
  */
@@ -168,6 +171,9 @@ const Login: React.FC = () => {
       return;
     }
 
+    // Reset prefill flag so next logout will prefill again
+    usernamePrefillAttempted = false;
+
     // Navigate to reinitialize page which will take care of the proper redirect.
     navigate('/reinitialize', { replace: true });
 
@@ -188,10 +194,16 @@ const Login: React.FC = () => {
       }
       setClientUrl(clientUrl);
 
-      // Check for saved username (from forced logout) and prefill
-      const savedUsername = await storage.getItem('local:username') as string | null;
-      if (savedUsername) {
-        setCredentials(prev => ({ ...prev, username: savedUsername }));
+      /*
+       * Check for saved username (from forced logout) and prefill once on mount
+       * If user clears it, don't repopulate
+       */
+      if (!usernamePrefillAttempted) {
+        usernamePrefillAttempted = true;
+        const savedUsername = await storage.getItem('local:username') as string | null;
+        if (savedUsername) {
+          setCredentials(prev => ({ ...prev, username: savedUsername }));
+        }
       }
 
       setIsInitialLoading(false);

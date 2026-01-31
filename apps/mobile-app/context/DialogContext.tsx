@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Alert, Platform } from 'react-native';
 
 import { ConfirmDialog, type IConfirmDialogButton } from '@/components/common/ConfirmDialog';
+import { dialogEventEmitter } from '@/events/DialogEventEmitter';
 import i18n from '@/i18n';
 
 interface DialogConfig {
@@ -82,10 +83,52 @@ interface DialogProviderProps {
 export function DialogProvider({ children }: DialogProviderProps): React.ReactNode {
   const [dialogConfig, setDialogConfig] = useState<DialogConfig | null>(null);
 
+  // Use a ref to store pending dialog config that survives re-renders/navigation
+  const pendingDialogRef = useRef<DialogConfig | null>(null);
+
+  // Check for pending dialogs on every render
+  useEffect(() => {
+    if (pendingDialogRef.current && !dialogConfig) {
+      setDialogConfig(pendingDialogRef.current);
+      pendingDialogRef.current = null;
+    }
+  });
+
+  // Subscribe to dialog events from outside React (e.g., AuthContext logout)
+  useEffect(() => {
+    const unsubscribe = dialogEventEmitter.subscribe((title, message) => {
+      // On iOS, use native Alert
+      if (Platform.OS === 'ios') {
+        Alert.alert(title, message, [{ text: 'OK', style: 'default' }]);
+        return;
+      }
+
+      // On Android, use custom dialog with ref persistence
+      const config: DialogConfig = {
+        title,
+        message,
+        buttons: [{
+          text: 'OK',
+          style: 'default',
+          onPress: (): void => {
+            pendingDialogRef.current = null;
+            setDialogConfig(null);
+          },
+        }],
+      };
+
+      pendingDialogRef.current = config;
+      setDialogConfig(config);
+    });
+
+    return unsubscribe;
+  }, []);
+
   /**
    * Hide the dialog.
    */
   const hideDialog = useCallback((): void => {
+    pendingDialogRef.current = null;
     setDialogConfig(null);
   }, []);
 
@@ -93,7 +136,7 @@ export function DialogProvider({ children }: DialogProviderProps): React.ReactNo
    * Show a simple alert with an OK button.
    */
   const showAlert = useCallback((title: string, message: string, onOk?: () => void): void => {
-    // On iOS, use native Alert for simple alerts too
+    // On iOS, use native Alert
     if (Platform.OS === 'ios') {
       Alert.alert(title, message, [{
         text: i18n.t('common.ok'),
@@ -103,7 +146,8 @@ export function DialogProvider({ children }: DialogProviderProps): React.ReactNo
       return;
     }
 
-    setDialogConfig({
+    // On Android, use custom dialog with ref persistence
+    const config: DialogConfig = {
       title,
       message,
       buttons: [{
@@ -111,10 +155,15 @@ export function DialogProvider({ children }: DialogProviderProps): React.ReactNo
         style: 'default',
         onPress: (): void => {
           onOk?.();
+          pendingDialogRef.current = null;
           setDialogConfig(null);
         },
       }],
-    });
+    };
+
+    // Store in ref so it persists through navigation/re-renders
+    pendingDialogRef.current = config;
+    setDialogConfig(config);
   }, []);
 
   /**

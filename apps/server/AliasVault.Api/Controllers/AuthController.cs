@@ -110,10 +110,11 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
 
                 if (AppInfo.MinimumClientVersions.TryGetValue(platform, out var minimumVersion))
                 {
-                    if (VersionHelper.IsVersionEqualOrNewer(clientVersion, minimumVersion))
-                    {
-                        clientSupported = true;
-                    }
+                    // Check if version meets minimum requirement AND is not in blocked list
+                    var meetsMinimum = VersionHelper.IsVersionEqualOrNewer(clientVersion, minimumVersion);
+                    var isBlocked = VersionHelper.IsVersionBlocked(platform, clientVersion, AppInfo.UnsupportedClientVersions);
+
+                    clientSupported = meetsMinimum && !isBlocked;
                 }
                 else
                 {

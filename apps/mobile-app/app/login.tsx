@@ -4,7 +4,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, SafeAreaView, TextInput, ActivityIndicator, Animated, ScrollView, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
 
 import { useApiUrl } from '@/utils/ApiUrlUtility';
@@ -41,6 +41,9 @@ export default function LoginScreen() : React.ReactNode {
   const [fadeAnim] = useState(new Animated.Value(0));
   const { loadApiUrl, getDisplayUrl } = useApiUrl();
 
+  // Track if username prefill has been attempted (only do it once on mount)
+  const usernamePrefillAttemptedRef = useRef(false);
+
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -52,19 +55,18 @@ export default function LoginScreen() : React.ReactNode {
     /**
      * Check for saved username (from forced logout) and prefill the username field.
      * This enables users to easily re-login after a forced logout.
-     * Only prefill if the username field is empty (user hasn't started typing).
+     * Only prefill once on mount - if user clears it, don't repopulate.
      */
     const loadSavedUsername = async () : Promise<void> => {
+      if (usernamePrefillAttemptedRef.current) {
+        return;
+      }
+      usernamePrefillAttemptedRef.current = true;
+
       try {
         const savedUsername = await NativeVaultManager.getUsername();
         if (savedUsername) {
-          setCredentials(prev => {
-            // Only prefill if username is empty - don't overwrite user input
-            if (prev.username === '') {
-              return { ...prev, username: savedUsername };
-            }
-            return prev;
-          });
+          setCredentials(prev => ({ ...prev, username: savedUsername }));
         }
       } catch {
         // Ignore errors - username prefill is optional
@@ -222,14 +224,17 @@ export default function LoginScreen() : React.ReactNode {
       }
     }
 
-    let checkSuccess = true;
+    let upgradeRequired = false;
 
     /*
      * Sync vault from server (downloads, stores, and validates compatibility)
      * This will handle the forced logout recovery check in case our local vault is dirty
      * or is ahead of server in case of RPO event.
+     *
+     * Critical errors (auth, version) are handled internally via app.logout(message)
+     * which shows a native alert. We check the return value to know if sync succeeded.
      */
-    await syncVault({
+    const syncSuccess = await syncVault({
       /**
        * Update login status during sync.
        */
@@ -237,21 +242,18 @@ export default function LoginScreen() : React.ReactNode {
         setLoginStatus(status);
       },
       /**
-       * Handle the status update.
+       * Handle non-critical errors (shown via custom dialog).
        */
       onError: (message) => {
-        checkSuccess = false;
-
-        // Show modal with error message
+        // Show modal with error message for non-critical errors
         showAlert(t('common.error'), message);
-        // Error will trigger logout through the sync process
         setIsLoading(false);
       },
       /**
        * On upgrade required.
        */
       onUpgradeRequired: async () : Promise<void> => {
-        checkSuccess = false;
+        upgradeRequired = true;
 
         // Still login to ensure the user is logged in.
         await authContext.login();
@@ -262,8 +264,12 @@ export default function LoginScreen() : React.ReactNode {
       },
     });
 
-    if (!checkSuccess) {
-      // If the syncvault checks have failed, we can't continue with the login process.
+    if (!syncSuccess || upgradeRequired) {
+      /*
+       * Sync failed or upgrade required - don't continue with login
+       * Critical errors already showed alert via app.logout()
+       */
+      setIsLoading(false);
       return;
     }
 
@@ -274,6 +280,9 @@ export default function LoginScreen() : React.ReactNode {
     dbContext.setDatabaseAvailable();
 
     await authContext.login();
+
+    // Reset prefill flag so next logout will prefill again
+    usernamePrefillAttemptedRef.current = false;
 
     authContext.setOfflineMode(false);
     setTwoFactorRequired(false);
