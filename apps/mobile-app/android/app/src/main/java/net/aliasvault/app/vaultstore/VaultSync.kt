@@ -623,6 +623,8 @@ class VaultSync(
             is VaultSyncError.SessionExpired,
             is VaultSyncError.AuthenticationFailed,
             is VaultSyncError.PasswordChanged,
+            is VaultSyncError.ClientVersionNotSupported,
+            is VaultSyncError.ServerVersionNotSupported,
             -> {
                 VaultSyncResult(
                     success = false,

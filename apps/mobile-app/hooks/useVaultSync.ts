@@ -104,6 +104,7 @@ export const useVaultSync = (): {
 
         if (result.wasOffline) {
           await dbContext.setIsOffline(true);
+          console.log('[useVaultSync] Set offline mode');
           onOffline?.();
           // Return true to continue with local vault
           return true;
@@ -155,7 +156,8 @@ export const useVaultSync = (): {
           console.warn('Vault sync: Failed to register credential identities:', error);
         }
 
-        return hasNewVault;
+        // Return true for successful sync (regardless of whether vault changed)
+        return true;
       } catch (err) {
         if (err instanceof VaultVersionIncompatibleError) {
           await app.logout(t(err.message));
@@ -224,6 +226,10 @@ function getVaultSyncErrorCodeFromString(error: string): VaultSyncErrorCode | nu
 
 /**
  * Handle sync errors by mapping error codes to appropriate actions.
+ *
+ * For critical errors requiring logout (auth, version), we ALWAYS use app.logout(message)
+ * which shows a native Alert.alert that persists through navigation on both platforms.
+ * The onError callback is only used for non-critical errors that don't require logout.
  */
 async function handleSyncError(
   err: unknown,
@@ -235,23 +241,26 @@ async function handleSyncError(
   onOffline?: () => void
 ): Promise<boolean> {
   switch (errorCode) {
+    // Authentication errors - logout with message (shows native alert)
     case VaultSyncErrorCode.SESSION_EXPIRED:
     case VaultSyncErrorCode.AUTHENTICATION_FAILED:
-      await app.logout('Your session has expired. Please login again.');
+      await app.logout(t('auth.errors.sessionExpired'));
       return false;
 
     case VaultSyncErrorCode.PASSWORD_CHANGED:
       await app.logout(t('vault.errors.passwordChanged'));
       return false;
 
+    // Version compatibility errors - logout with message (shows native alert)
     case VaultSyncErrorCode.CLIENT_VERSION_NOT_SUPPORTED:
-      onError?.(t('vault.errors.versionNotSupported'));
+      await app.logout(t('vault.errors.versionNotSupported'));
       return false;
 
     case VaultSyncErrorCode.SERVER_VERSION_NOT_SUPPORTED:
       await app.logout(t('vault.errors.serverVersionNotSupported'));
       return false;
 
+    // Network errors - set offline mode, don't logout
     case VaultSyncErrorCode.SERVER_UNAVAILABLE:
     case VaultSyncErrorCode.NETWORK_ERROR:
     case VaultSyncErrorCode.TIMEOUT:
@@ -260,8 +269,8 @@ async function handleSyncError(
       // Return true to continue with local vault
       return true;
 
+    // Unknown errors - use onError callback if provided
     default:
-      // Unknown error
       const errorMessage = err instanceof Error ? err.message : t('common.errors.unknownError');
       onError?.(errorMessage);
       return false;

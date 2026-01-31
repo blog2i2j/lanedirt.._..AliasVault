@@ -109,6 +109,12 @@ export const useVaultSync = (): { syncVault: (options?: VaultSyncOptions) => Pro
 
       const statusError = webApi.validateStatusResponse(statusResponse);
       if (statusError) {
+        // Version compatibility errors require logout
+        if (statusError === 'clientVersionNotSupported' || statusError === 'serverVersionNotSupported') {
+          await app.logout(t('common.errors.' + statusError));
+          return false;
+        }
+        // Other errors just show the error
         onError?.(t('common.errors.' + statusError));
         return false;
       }

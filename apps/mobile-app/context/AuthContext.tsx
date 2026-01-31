@@ -4,10 +4,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainerRef, ParamListBase } from '@react-navigation/native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import EncryptionUtility from '@/utils/EncryptionUtility';
 
 import { useDb } from '@/context/DbContext';
+import { dialogEventEmitter } from '@/events/DialogEventEmitter';
 import NativeVaultManager from '@/specs/NativeVaultManager';
 import i18n from '@/i18n';
 
@@ -221,11 +222,9 @@ export const AuthProvider: React.FC<{
     await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'authMethods']);
 
     if (errorMessage) {
-      Alert.alert(
-        i18n.t('common.error'),
-        errorMessage,
-        [{ text: i18n.t('common.ok'), style: 'default' }]
-      );
+      // Use event emitter to show dialog via DialogContext
+      // This allows Android to use the custom styled dialog
+      dialogEventEmitter.emitAlert(i18n.t('common.error'), errorMessage);
     }
 
     setIsLoggedIn(false);
