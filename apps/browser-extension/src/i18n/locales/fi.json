@@ -205,6 +205,12 @@
       "all": "(Kaikki) tiedot",
       "passkeys": "Sala-avaimet"
     },
+    "sort": {
+      "title": "Sort by",
+      "oldestFirst": "Oldest first",
+      "newestFirst": "Newest first",
+      "alphabetical": "Alphabetical (A-Z)"
+    },
     "deleteItemTitle": "Poista kohde",
     "deleteItemConfirm": "Haluatko varmasti poistaa tämän kohteen?",
     "viewHistory": "View history",
@@ -396,6 +402,21 @@
       "apiUrlInvalid": "Syötä kelvollinen API-URL-osoite",
       "clientUrlRequired": "Asiakkaan URL-osoite vaaditaan",
       "clientUrlInvalid": "Syötä kelvollinen asiakas-URL-osoite"
+    },
+    "identityGenerator": "Identiteetin luonti",
+    "identityGeneratorSettings": {
+      "description": "Määritä oletuskieli- ja sukupuoliasetukset uusien käyttäjätunnusten luontia varten.",
+      "languageSection": "Kieli",
+      "languageDescription": "Aseta kieli, jota käytetään luotaessa uusia henkilöllisyyksiä.",
+      "genderSection": "Sukupuoli",
+      "genderDescription": "Aseta oletussukupuoli uusien henkilöllisyyksien luomiseksi. ",
+      "ageRangeSection": "Ikähaarukka",
+      "ageRangeDescription": "Aseta ikähaarukka uusia henkilöllisyyksien luomisessa",
+      "genderOptions": {
+        "random": "Satunnainen",
+        "male": "Mies",
+        "female": "Nainen"
+      }
     },
     "unlockMethod": {
       "title": "Holvin lukituksen avausmenetelmä",

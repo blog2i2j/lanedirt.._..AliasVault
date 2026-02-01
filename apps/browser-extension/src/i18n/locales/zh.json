@@ -205,6 +205,12 @@
       "all": "（所有）项目",
       "passkeys": "通行密钥"
     },
+    "sort": {
+      "title": "Sort by",
+      "oldestFirst": "Oldest first",
+      "newestFirst": "Newest first",
+      "alphabetical": "Alphabetical (A-Z)"
+    },
     "deleteItemTitle": "删除项目",
     "deleteItemConfirm": "您确定要删除此项目吗？",
     "viewHistory": "查看历史记录",
@@ -396,6 +402,21 @@
       "apiUrlInvalid": "请输入有效的 API URL",
       "clientUrlRequired": "客户端 URL 为必填项",
       "clientUrlInvalid": "请输入有效的客户端 URL"
+    },
+    "identityGenerator": "身份生成器",
+    "identityGeneratorSettings": {
+      "description": "配置生成新身份时的默认语言和性别偏好。",
+      "languageSection": "语言",
+      "languageDescription": "设置生成新身份时使用的语言。",
+      "genderSection": "性别",
+      "genderDescription": "设置生成新身份时的性别偏好。",
+      "ageRangeSection": "年龄范围",
+      "ageRangeDescription": "设置生成新身份的年龄范围。",
+      "genderOptions": {
+        "random": "随机",
+        "male": "男",
+        "female": "女"
+      }
     },
     "unlockMethod": {
       "title": "密码库解锁方式",

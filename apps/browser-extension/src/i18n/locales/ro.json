@@ -205,6 +205,12 @@
       "all": "(Toate) Elementele",
       "passkeys": "Passkeys"
     },
+    "sort": {
+      "title": "Filtrează după",
+      "oldestFirst": "Cele mai vechi primele",
+      "newestFirst": "Cele mai noi primele",
+      "alphabetical": "Alfabetic (A-Z)"
+    },
     "deleteItemTitle": "Șterge element",
     "deleteItemConfirm": "Sigur vrei să ștergi acest element?",
     "viewHistory": "Vezi istoric",
@@ -396,6 +402,21 @@
       "apiUrlInvalid": "Introdu un URL API valid",
       "clientUrlRequired": "URL-ul Client este obligatoriu",
       "clientUrlInvalid": "Introdu un URL Client valid"
+    },
+    "identityGenerator": "Generator de Identitate",
+    "identityGeneratorSettings": {
+      "description": "Configurează limba și genul implicit pentru generarea de noi identități.",
+      "languageSection": "Limbă",
+      "languageDescription": "Setează limba care va fi utilizată la generarea noilor identități.",
+      "genderSection": "Gen",
+      "genderDescription": "Setează preferința de gen pentru generarea noilor identități.",
+      "ageRangeSection": "Interval de vârstă",
+      "ageRangeDescription": "Setează intervalul de vârstă pentru generarea noilor identități.",
+      "genderOptions": {
+        "random": "Aleatoriu",
+        "male": "Masculin",
+        "female": "Feminin"
+      }
     },
     "unlockMethod": {
       "title": "Metodă deblocare seif",

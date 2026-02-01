@@ -205,6 +205,12 @@
       "all": "(Alla) objekt",
       "passkeys": "Passkeys"
     },
+    "sort": {
+      "title": "Sort by",
+      "oldestFirst": "Oldest first",
+      "newestFirst": "Newest first",
+      "alphabetical": "Alphabetical (A-Z)"
+    },
     "deleteItemTitle": "Radera objekt",
     "deleteItemConfirm": "Är du säker på att du vill radera det här objektet?",
     "viewHistory": "Visa historik",
@@ -396,6 +402,21 @@
       "apiUrlInvalid": "Ange en giltig API-URL",
       "clientUrlRequired": "Klientens URL krävs",
       "clientUrlInvalid": "Ange en giltig klient-URL"
+    },
+    "identityGenerator": "Identitets Generator",
+    "identityGeneratorSettings": {
+      "description": "Konfigurera standardspråk och könspreferens för att generera nya identiteter.",
+      "languageSection": "Språk",
+      "languageDescription": "Ange det språk som ska användas för att generera nya identiteter.",
+      "genderSection": "Kön",
+      "genderDescription": "Ställ in könspreferensen för att generera nya identiteter.",
+      "ageRangeSection": "Åldersintervall",
+      "ageRangeDescription": "Ange åldersintervallet för att generera nya identiteter.",
+      "genderOptions": {
+        "random": "Slumpad",
+        "male": "Man",
+        "female": "Kvinna"
+      }
     },
     "unlockMethod": {
       "title": "Valvupplåsningsmetod",
