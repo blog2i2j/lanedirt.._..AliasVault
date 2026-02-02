@@ -5,7 +5,7 @@
 - [ ] Other (please describe):
 
 ## Related Issues
-Fixes #[issue-number]
+Refs #[issue-number]
 
 ## Checklist
 - [ ] Code adheres to project standards and guidelines.
