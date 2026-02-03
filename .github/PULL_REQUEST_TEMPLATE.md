@@ -4,7 +4,7 @@
 - [ ] Documentation update
 
 ## Related Issues
-#[issue-number]
+- #[issue-number]
 
 ## Checklist
 - [ ] Code adheres to project standards and guidelines.
