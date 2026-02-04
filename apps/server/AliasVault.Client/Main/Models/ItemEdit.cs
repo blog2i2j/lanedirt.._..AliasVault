@@ -87,6 +87,7 @@ public sealed class ItemEdit
     /// <summary>
     /// Creates an ItemEdit instance from an Item entity.
     /// Creates clones of Attachments, TotpCodes, and Passkeys to avoid modifying EF-tracked entities.
+    /// Handles null navigation properties defensively to prevent errors from incomplete data loads.
     /// </summary>
     /// <param name="item">The item entity to convert.</param>
     /// <returns>A new ItemEdit instance.</returns>
@@ -100,15 +101,15 @@ public sealed class ItemEdit
             LogoId = item.LogoId,
             ServiceLogo = item.Logo?.FileData,
             FolderId = item.FolderId,
-            Attachments = item.Attachments.Where(a => !a.IsDeleted).Select(CloneAttachment).ToList(),
-            TotpCodes = item.TotpCodes.Where(t => !t.IsDeleted).Select(CloneTotpCode).ToList(),
-            Passkeys = item.Passkeys.Where(p => !p.IsDeleted).Select(ClonePasskey).ToList(),
+            Attachments = item.Attachments?.Where(a => !a.IsDeleted).Select(CloneAttachment).ToList() ?? [],
+            TotpCodes = item.TotpCodes?.Where(t => !t.IsDeleted).Select(CloneTotpCode).ToList() ?? [],
+            Passkeys = item.Passkeys?.Where(p => !p.IsDeleted).Select(ClonePasskey).ToList() ?? [],
             CreateDate = item.CreatedAt,
             LastUpdate = item.UpdatedAt,
         };
 
         // Group field values by FieldKey to handle multi-value fields
-        var groupedFields = item.FieldValues
+        var groupedFields = (item.FieldValues ?? [])
             .Where(f => !f.IsDeleted)
             .GroupBy(f => f.FieldKey ?? f.FieldDefinitionId?.ToString() ?? string.Empty);
 
@@ -573,6 +574,7 @@ public sealed class ItemEdit
 
     /// <summary>
     /// Creates a clone of an Attachment entity to avoid modifying EF-tracked entities.
+    /// Handles null blob data defensively to prevent errors from corrupted sync data.
     /// </summary>
     /// <param name="attachment">The attachment to clone.</param>
     /// <returns>A new Attachment instance with copied values.</returns>
@@ -581,8 +583,8 @@ public sealed class ItemEdit
         return new Attachment
         {
             Id = attachment.Id,
-            Filename = attachment.Filename,
-            Blob = attachment.Blob,
+            Filename = attachment.Filename ?? string.Empty,
+            Blob = attachment.Blob ?? [],
             ItemId = attachment.ItemId,
             CreatedAt = attachment.CreatedAt,
             UpdatedAt = attachment.UpdatedAt,
