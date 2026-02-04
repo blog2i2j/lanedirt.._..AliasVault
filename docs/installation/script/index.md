@@ -11,6 +11,15 @@ nav_order: 1
 # Self-host using Install Script (multi-container)
 The following guide will walk you through the steps to install AliasVault on your own server using the AliasVault installer script: `install.sh`. This script will pull pre-built Docker Images and do all the configuration for you while using `docker compose` in the background.
 
+<details open markdown="block">
+  <summary>
+    Table of contents
+  </summary>
+  {: .text-delta }
+1. TOC
+{:toc}
+</details>
+
 {: .important-title }
 > Requirements:
 > - 64-bit Linux VM with root access (Ubuntu or RHEL-based recommended)

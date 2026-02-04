@@ -11,6 +11,15 @@ nav_order: 2
 # Self-host using Docker Compose (single container)
 The following guide will walk you through the steps to install AliasVault via the All-In-One Docker container. This container uses `s6-overlay` to combine all AliasVault's services into one image for convenience. The only downside compared to the `install.sh` installer is that this version does NOT come with SSL/TLS support, so you'll have to make the container available through your own SSL/TLS proxy.
 
+<details open markdown="block">
+  <summary>
+    Table of contents
+  </summary>
+  {: .text-delta }
+1. TOC
+{:toc}
+</details>
+
 {: .important-title }
 > Requirements:
 > - Docker (20.10+) and Docker Compose (2.0+) installed on your system
@@ -76,18 +85,6 @@ To use AliasVault securely, HTTPS is required in the following situations:
 - When using the mobile apps, which require the API URL to have a valid TLS certificate; otherwise, the app will not connect
 
 You must set up and configure your own TLS/SSL infrastructure (such as Traefik, Nginx, HAProxy, or Cloudflare Tunnel) to make the AliasVault container accessible over HTTPS with a valid SSL/TLS certificate. For example: `https://aliasvault.yourdomain.com`.
-
-### Troubleshooting
-#### Enabling WebSockets
-If you're accessing the Admin page through a reverse proxy and encounter errors after login, check that the Upgrade header is allowed and forwarded. This is required because the Admin app is built with .NET Blazor Server, which uses WebSockets for client-server communication. For example, when using nginx:
-
-```nginx
-  # Add WebSocket support for Blazor server
-  proxy_http_version 1.1;
-  proxy_set_header Upgrade $http_upgrade;
-  proxy_set_header Connection "upgrade";
-  proxy_read_timeout 86400;
-```
 
 ---
 
@@ -191,3 +188,8 @@ Afterwards, when you login to the AliasVault web app, you should now be able to 
 Important: DNS propagation can take up to 24-48 hours. During this time, email delivery might be inconsistent.
 
 If you encounter any issues, feel free to join the [Discord chat](https://discord.gg/DsaXMTEtpF) to get help from other users and maintainers.
+
+---
+
+## 4. Troubleshooting
+For more detailed troubleshooting information, please refer to the [troubleshooting guide](./troubleshooting.md).
