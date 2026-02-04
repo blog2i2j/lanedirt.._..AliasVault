@@ -281,7 +281,7 @@ const Unlock: React.FC = () => {
       const sqliteClient = await dbContext.loadStoredDatabase();
       if (!sqliteClient) {
         // Edge case: no vault loaded but no error thrown (shouldn't happen)
-        throw new Error(t('auth.errors.wrongPassword'));
+        throw new Error(t('common.errors.wrongPassword'));
       }
 
       // Check if there are pending migrations
@@ -305,9 +305,9 @@ const Unlock: React.FC = () => {
         await app.logout(err.message);
       } else if (hasErrorCode(err)) {
         // Error contains an error code (E-XXX), show the formatted message as-is
-        setError(getErrorMessage(err, t('auth.errors.wrongPassword')));
+        setError(getErrorMessage(err, t('common.errors.wrongPassword')));
       } else {
-        setError(t('auth.errors.wrongPassword'));
+        setError(t('common.errors.wrongPassword'));
       }
       console.error('Unlock error:', err);
     } finally {

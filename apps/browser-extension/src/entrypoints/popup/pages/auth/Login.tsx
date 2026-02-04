@@ -287,9 +287,9 @@ const Login: React.FC = () => {
         setError(t('common.apiErrors.' + err.message));
       } else if (hasErrorCode(err)) {
         // Error contains an error code (E-XXX), show the formatted message as-is
-        setError(getErrorMessage(err, t('auth.errors.serverError')));
+        setError(getErrorMessage(err, t('common.errors.serverError')));
       } else {
-        setError(t('auth.errors.serverError'));
+        setError(t('common.errors.serverError'));
       }
       hideLoading();
     }
@@ -312,7 +312,7 @@ const Login: React.FC = () => {
       // Validate that 2FA code is a 6-digit number
       const code = twoFactorCode.trim();
       if (!/^\d{6}$/.test(code)) {
-        throw new Error(t('auth.errors.invalidCode'));
+        throw new Error(t('common.errors.invalidCode'));
       }
 
       const twoFaUsername = SrpAuthService.normalizeUsername(credentials.username);
@@ -351,9 +351,9 @@ const Login: React.FC = () => {
         setError(t('common.apiErrors.' + err.message));
       } else if (hasErrorCode(err)) {
         // Error contains an error code (E-XXX), show the formatted message as-is
-        setError(getErrorMessage(err, t('auth.errors.serverError')));
+        setError(getErrorMessage(err, t('common.errors.serverError')));
       } else {
-        setError(t('auth.errors.serverError'));
+        setError(t('common.errors.serverError'));
       }
       hideLoading();
     }
