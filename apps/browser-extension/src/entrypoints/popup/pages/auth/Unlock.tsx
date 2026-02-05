@@ -31,7 +31,7 @@ import {
   resetFailedAttempts,
   unlockWithPin
 } from '@/utils/PinUnlockService';
-import { hasErrorCode, getErrorMessage } from '@/utils/types/errors/AppErrorCodes';
+import { hasErrorCode, getErrorMessage, extractErrorCode, AppErrorCode } from '@/utils/types/errors/AppErrorCodes';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
 import type { MobileLoginResult } from '@/utils/types/messaging/MobileLoginResult';
 
@@ -304,8 +304,14 @@ const Unlock: React.FC = () => {
       if (err instanceof VaultVersionIncompatibleError) {
         await app.logout(err.message);
       } else if (hasErrorCode(err)) {
-        // Error contains an error code (E-XXX), show the formatted message as-is
-        setError(getErrorMessage(err, t('common.errors.wrongPassword')));
+        // Check if it's a decryption failure (E-203): this means wrong password
+        const errorCode = extractErrorCode(getErrorMessage(err, ''));
+        if (errorCode === AppErrorCode.VAULT_DECRYPT_FAILED) {
+          setError(t('common.errors.wrongPassword'));
+        } else {
+          // Other error codes, show the formatted message as-is
+          setError(getErrorMessage(err, t('common.errors.wrongPassword')));
+        }
       } else {
         setError(t('common.errors.wrongPassword'));
       }
@@ -418,9 +424,17 @@ const Unlock: React.FC = () => {
         setError(t('settings.unlockMethod.invalidPinFormat'));
         setPin('');
       } else if (hasErrorCode(err)) {
-        // Error contains an error code (E-XXX), show the formatted message as-is
-        console.error('PIN unlock failed:', err);
-        setError(getErrorMessage(err, t('common.errors.unknownErrorTryAgain')));
+        // Check if it's a decryption failure, this means wrong PIN
+        const errorCode = extractErrorCode(getErrorMessage(err, ''));
+        if (errorCode === AppErrorCode.VAULT_DECRYPT_FAILED) {
+          // Decryption failed during PIN unlock = wrong PIN, treat as incorrect PIN
+          console.error('PIN unlock failed (decryption error):', err);
+          setError(t('settings.unlockMethod.incorrectPin', { attemptsRemaining: 3 }));
+        } else {
+          // Other error codes: show the formatted message as-is
+          console.error('PIN unlock failed:', err);
+          setError(getErrorMessage(err, t('common.errors.unknownErrorTryAgain')));
+        }
         setPin('');
       } else {
         console.error('PIN unlock failed:', err);

@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, View, TextInput, KeyboardAvoidingView, Platform, ScrollView, Dimensions, Text, Pressable } from 'react-native';
 
 import EncryptionUtility from '@/utils/EncryptionUtility';
-import { getAppErrorCode, getErrorTranslationKey, formatErrorWithCode } from '@/utils/types/errors/AppErrorCodes';
+import { AppErrorCode, getAppErrorCode, getErrorTranslationKey, formatErrorWithCode } from '@/utils/types/errors/AppErrorCodes';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
 
 import { useColors } from '@/hooks/useColorScheme';
@@ -166,12 +166,18 @@ export default function UnlockScreen() : React.ReactNode {
 
       // Try to extract error code from the error
       const errorCode = getAppErrorCode(err);
-      if (errorCode) {
+
+      /*
+       * During unlock, VAULT_DECRYPT_FAILED indicates wrong password.
+       * This is thrown when decryption fails due to incorrect encryption key.
+       */
+      if (!errorCode || errorCode === AppErrorCode.VAULT_DECRYPT_FAILED) {
+        // Treat as incorrect password
+        showAlert(t('common.error'), t('auth.errors.incorrectPassword'));
+      } else {
+        // Other error codes: show the formatted message with raw error code
         const translationKey = getErrorTranslationKey(errorCode);
         showAlert(t('common.error'), formatErrorWithCode(t(translationKey), errorCode));
-      } else {
-        // Fallback to incorrect password for unknown errors (likely password mismatch)
-        showAlert(t('common.error'), t('auth.errors.incorrectPassword'));
       }
     } finally {
       setIsLoading(false);

@@ -248,7 +248,7 @@ class VaultCrypto(
                         val decrypted = cipher.doFinal(encryptedContent)
                         decryptedResult = String(decrypted, Charsets.UTF_8)
                     } catch (e: Exception) {
-                        error = e
+                        error = AppError.VaultDecryptFailed(cause = e)
                         Log.e(TAG, "Error decrypting data", e)
                     } finally {
                         latch.countDown()
