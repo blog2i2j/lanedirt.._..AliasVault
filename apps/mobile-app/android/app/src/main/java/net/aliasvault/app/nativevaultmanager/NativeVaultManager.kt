@@ -239,7 +239,24 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Store the encryption key.
+     * Store the encryption key in memory only (no keystore persistence).
+     * Use this to test if a password-derived key is valid before persisting.
+     * @param base64EncryptionKey The encryption key as a base64 encoded string
+     * @param promise The promise to resolve
+     */
+    @ReactMethod
+    override fun storeEncryptionKeyInMemory(base64EncryptionKey: String, promise: Promise) {
+        try {
+            vaultStore.storeEncryptionKeyInMemory(base64EncryptionKey)
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error storing encryption key in memory", e)
+            promise.reject("ERR_STORE_KEY_MEMORY", "Failed to store encryption key in memory: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Store the encryption key in memory AND persist to keystore (may trigger biometric prompt).
      * @param base64EncryptionKey The encryption key as a base64 encoded string
      * @param promise The promise to resolve
      */
@@ -252,6 +269,17 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
             Log.e(TAG, "Error storing encryption key", e)
             promise.reject("ERR_STORE_KEY", "Failed to store encryption key: ${e.message}", e)
         }
+    }
+
+    /**
+     * Clear the encryption key from memory.
+     * This forces getEncryptionKey() to fetch from keystore on next biometric access.
+     * @param promise The promise to resolve
+     */
+    @ReactMethod
+    override fun clearEncryptionKeyFromMemory(promise: Promise) {
+        vaultStore.clearEncryptionKeyFromMemory()
+        promise.resolve(null)
     }
 
     /**

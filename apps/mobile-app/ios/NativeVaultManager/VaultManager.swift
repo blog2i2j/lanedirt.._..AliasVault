@@ -61,6 +61,21 @@ public class VaultManager: NSObject {
         }
     }
 
+    /// Store encryption key in memory only (no keychain persistence).
+    /// Use this to test if a password-derived key is valid before persisting.
+    @objc
+    func storeEncryptionKeyInMemory(_ base64EncryptionKey: String,
+                                    resolver resolve: @escaping RCTPromiseResolveBlock,
+                                    rejecter reject: @escaping RCTPromiseRejectBlock) {
+        do {
+            try vaultStore.storeEncryptionKeyInMemory(base64Key: base64EncryptionKey)
+            resolve(nil)
+        } catch {
+            reject("ERR_STORE_KEY_MEMORY", "Failed to store encryption key in memory: \(error.localizedDescription)", error)
+        }
+    }
+
+    /// Store encryption key in memory AND persist to keychain if Face ID is enabled.
     @objc
     func storeEncryptionKey(_ base64EncryptionKey: String,
                             resolver resolve: @escaping RCTPromiseResolveBlock,
@@ -71,6 +86,15 @@ public class VaultManager: NSObject {
         } catch {
             reject("KEYCHAIN_ERROR", "Failed to store encryption key: \(error.localizedDescription)", error)
         }
+    }
+
+    /// Clear the encryption key from memory.
+    /// This forces getEncryptionKey() to fetch from keychain on next biometric access.
+    @objc
+    func clearEncryptionKeyFromMemory(_ resolve: @escaping RCTPromiseResolveBlock,
+                                      rejecter reject: @escaping RCTPromiseRejectBlock) {
+        vaultStore.clearEncryptionKeyFromMemory()
+        resolve(nil)
     }
 
     @objc

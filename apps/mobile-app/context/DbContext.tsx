@@ -222,21 +222,22 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   }, [sqliteClient]);
 
   /**
-   * Test if the database is working with the provided (to be stored) encryption key by performing a simple query
+   * Test if the database is working with the provided (to be stored) encryption key by performing a simple query.
+   * Uses two-step process: first init key in memory, verify it works, then persist to keystore.
+   * This prevents overwriting a valid key with an invalid one if user enters wrong password.
    * @param derivedKey The encryption key to test with
    * @returns true if the database is working
    * @throws Error with error code if unlock fails - caller should handle the error
    */
   const testDatabaseConnection = useCallback(async (derivedKey: string): Promise<boolean> => {
-    // Store the encryption key
-    await sqliteClient.storeEncryptionKey(derivedKey);
+    await sqliteClient.storeEncryptionKeyInMemory(derivedKey);
 
-    // Initialize the database - throws on failure with error code
     await unlockVault();
 
-    // Try to get the database version as a simple test query
     const version = await sqliteClient.getDatabaseVersion();
     if (version && version.version && version.version.length > 0) {
+      // Key is valid: store in keychain (possibly overwriting a previous entry)
+      await sqliteClient.storeEncryptionKey(derivedKey);
       return true;
     }
 

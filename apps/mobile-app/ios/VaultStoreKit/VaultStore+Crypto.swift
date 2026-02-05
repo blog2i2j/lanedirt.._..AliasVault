@@ -51,8 +51,9 @@ extension VaultStore {
         return derivedKeyTuple.raw
     }
 
-    /// Store the encryption key - the key used to encrypt and decrypt the vault
-    public func storeEncryptionKey(base64Key: String) throws {
+    /// Store the encryption key in memory only (no keychain persistence).
+    /// Use this to test if a password-derived key is valid before persisting.
+    public func storeEncryptionKeyInMemory(base64Key: String) throws {
         guard let keyData = Data(base64Encoded: base64Key) else {
             throw NSError(domain: "VaultStore", code: 6, userInfo: [NSLocalizedDescriptionKey: "Invalid base64 key"])
         }
@@ -62,7 +63,28 @@ extension VaultStore {
         }
 
         self.encryptionKey = keyData
-        print("Stored key in memory, will be persisted in keychain upon succesful decrypt operation")
+        print("Stored key in memory only (no keychain persistence)")
+    }
+
+    /// Clear the encryption key from memory.
+    /// This forces getEncryptionKey() to fetch from keychain on next access.
+    public func clearEncryptionKeyFromMemory() {
+        self.encryptionKey = nil
+        print("Cleared encryption key from memory")
+    }
+
+    /// Store the encryption key in memory AND persist to keychain if Face ID is enabled.
+    public func storeEncryptionKey(base64Key: String) throws {
+        // First store in memory
+        try storeEncryptionKeyInMemory(base64Key: base64Key)
+
+        // Then persist to keychain if Face ID is enabled
+        if self.enabledAuthMethods.contains(.faceID), let keyData = self.encryptionKey {
+            try storeKeyInKeychain(keyData)
+            print("Stored key in memory and persisted to keychain")
+        } else {
+            print("Stored key in memory (Face ID not enabled, skipping keychain)")
+        }
     }
 
     /// Store the key derivation parameters used for deriving the encryption key from the plain text password

@@ -224,6 +224,12 @@ export default function UnlockScreen() : React.ReactNode {
     setIsLoading(true);
     setError(null);
     try {
+      /*
+       * Clear any wrong key from memory first (e.g., from failed password attempt).
+       * This forces getEncryptionKey() to fetch from keychain via biometrics.
+       */
+      await NativeVaultManager.clearEncryptionKeyFromMemory();
+
       // unlockVault now throws errors instead of returning false
       await dbContext.unlockVault();
 
@@ -303,7 +309,7 @@ export default function UnlockScreen() : React.ReactNode {
       width: '100%',
     },
     errorText: {
-      color: colors.errorBorder,
+      color: colors.errorText,
       fontSize: 14,
       marginBottom: 12,
       textAlign: 'center',

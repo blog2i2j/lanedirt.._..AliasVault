@@ -149,10 +149,18 @@ class VaultCrypto(
     }
 
     /**
-     * Initialize the encryption key.
+     * Store the encryption key in memory only.
      */
-    fun initEncryptionKey(base64EncryptionKey: String) {
+    fun storeEncryptionKeyInMemory(base64EncryptionKey: String) {
         this.encryptionKey = Base64.decode(base64EncryptionKey, Base64.NO_WRAP)
+    }
+
+    /**
+     * Clear the encryption key from memory.
+     * This forces getEncryptionKey() to fetch from keystore on next biometric access.
+     */
+    fun clearEncryptionKeyFromMemory() {
+        this.encryptionKey = null
     }
 
     /**

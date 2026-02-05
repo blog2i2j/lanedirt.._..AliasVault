@@ -87,7 +87,7 @@ class UnlockCoordinator(
                 override fun onSuccess(result: String) {
                     try {
                         // Biometric authentication successful, unlock vault
-                        vaultStore.initEncryptionKey(result)
+                        vaultStore.storeEncryptionKeyInMemory(result)
                         vaultStore.unlockVault()
 
                         // Notify success
@@ -123,7 +123,7 @@ class UnlockCoordinator(
                 val encryptionKey = data?.getStringExtra(PinUnlockActivity.EXTRA_ENCRYPTION_KEY)
                 if (encryptionKey != null) {
                     try {
-                        vaultStore.initEncryptionKey(encryptionKey)
+                        vaultStore.storeEncryptionKeyInMemory(encryptionKey)
                         vaultStore.unlockVault()
                         onUnlocked()
                     } catch (e: Exception) {

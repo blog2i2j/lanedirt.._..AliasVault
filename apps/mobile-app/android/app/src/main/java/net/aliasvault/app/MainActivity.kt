@@ -155,11 +155,13 @@ class MainActivity : ReactActivity() {
                 // (unlockVault involves file I/O and database operations)
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
-                        // Use initEncryptionKey instead of storeEncryptionKey
-                        // storeEncryptionKey would trigger biometric prompt if biometrics is enabled
-                        // since it tries to store the key in the biometric-protected keystore.
-                        // For PIN unlock, we just want to set the key in memory.
-                        vaultStore.initEncryptionKey(encryptionKeyBase64)
+                        /*
+                         * Use storeEncryptionKeyInMemory instead of storeEncryptionKey.
+                         * storeEncryptionKey would trigger biometric prompt if biometrics is enabled
+                         * since it tries to store the key in the biometric-protected keystore.
+                         * For PIN unlock, we just want to set the key in memory.
+                         */
+                        vaultStore.storeEncryptionKeyInMemory(encryptionKeyBase64)
                         vaultStore.unlockVault()
                         promise.resolve(true)
                     } catch (e: Exception) {
