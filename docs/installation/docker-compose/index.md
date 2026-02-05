@@ -189,6 +189,19 @@ Important: DNS propagation can take up to 24-48 hours. During this time, email d
 
 If you encounter any issues, feel free to join the [Discord chat](https://discord.gg/DsaXMTEtpF) to get help from other users and maintainers.
 
+### Optional: SMTP TLS (STARTTLS)
+
+By default, SMTP TLS is disabled (`SMTP_TLS_ENABLED: "false"`). This does NOT significantly impact email deliverability: most email providers will still deliver to your server. However, if you want to enable TLS for SMTP connections:
+
+1. Obtain a valid TLS certificate for your mail hostname (e.g., `mail.example.com`)
+2. Combine the certificate and private key into a single `.pem` file
+3. Place the `.pem` file in your `./certificates/smtp/` volume directory
+4. Update your `docker-compose.yml` to set `SMTP_TLS_ENABLED: "true"`
+5. Restart the container: `docker compose down && docker compose up -d`
+
+{: .note }
+If you have multiple mail domains, use a single certificate with Subject Alternative Names (SANs) covering all domains. If TLS is enabled but no valid certificate is found, the service will log a warning (visible in admin panel > general logs) and continue in non-TLS mode.
+
 ---
 
 ## 4. Troubleshooting

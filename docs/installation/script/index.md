@@ -63,7 +63,7 @@ To generate a valid external TLS/SSL certificate for AliasVault, you can use Let
 - Port 80 and 443 on your server must be open and accessible from the internet
 - A registered domain name with an A record pointing to your server's public IP address (e.g. mydomain.com)
 
-### Steps
+### Enable Let's Encrypt SSL
 
 1. Run the install script with the `configure-ssl` option
 ```bash
@@ -176,6 +176,19 @@ After setting up your DNS, continue with configuring AliasVault to let it know w
 Important: DNS propagation can take up to 24-48 hours. During this time, email delivery might be inconsistent.
 
 If you encounter any issues, feel free to join the [Discord chat](https://discord.gg/DsaXMTEtpF) to get help from other users and maintainers.
+
+### Optional: SMTP TLS (STARTTLS)
+
+By default, SMTP TLS is disabled. This does NOT significantly impact email deliverability: most email providers will still deliver to your server. However, if you want to enable TLS for SMTP connections:
+
+1. Manually obtain a TLS certificate for your mail hostname (e.g., `mail.example.com`) - (there is no install script helper for this yet)
+2. Combine the certificate and private key into a single `.pem` file
+3. Place the `.pem` file in the `./certificates/smtp/` directory
+4. Edit your `.env` file and set `SMTP_TLS_ENABLED=true`
+5. Restart the SMTP service: `./install.sh restart smtp`
+
+{: .note }
+If you have multiple mail domains, use a single certificate with Subject Alternative Names (SANs) covering all domains. If TLS is enabled but no valid certificate is found, the service will log a warning (visible in admin panel > general logs) and continue in non-TLS mode.
 
 ---
 
