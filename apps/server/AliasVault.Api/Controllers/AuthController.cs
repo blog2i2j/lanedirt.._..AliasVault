@@ -110,10 +110,11 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
 
                 if (AppInfo.MinimumClientVersions.TryGetValue(platform, out var minimumVersion))
                 {
-                    if (VersionHelper.IsVersionEqualOrNewer(clientVersion, minimumVersion))
-                    {
-                        clientSupported = true;
-                    }
+                    // Check if version meets minimum requirement AND is not in blocked list
+                    var meetsMinimum = VersionHelper.IsVersionEqualOrNewer(clientVersion, minimumVersion);
+                    var isBlocked = VersionHelper.IsVersionBlocked(platform, clientVersion, AppInfo.UnsupportedClientVersions);
+
+                    clientSupported = meetsMinimum && !isBlocked;
                 }
                 else
                 {
@@ -513,6 +514,13 @@ public class AuthController(IAliasServerDbContextFactory dbContextFactory, UserM
     [AllowAnonymous]
     public async Task<IActionResult> ValidateUsername([FromBody] ValidateUsernameRequest model)
     {
+        // Check if public registration is disabled in the configuration.
+        // This prevents username enumeration when registration is disabled.
+        if (!config.PublicRegistrationEnabled)
+        {
+            return BadRequest(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.PUBLIC_REGISTRATION_DISABLED, 400));
+        }
+
         if (string.IsNullOrWhiteSpace(model.Username))
         {
             return BadRequest(ApiErrorCodeHelper.CreateErrorResponse(ApiErrorCode.USERNAME_REQUIRED, 400));

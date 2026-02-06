@@ -22,7 +22,7 @@
     "disabled": "Wyłączone",
     "twoFactorAuthentication": "Weryfikacja dwuetapowa (2FA)",
     "add": "Dodaj",
-    "generate": "Generate",
+    "generate": "Wygeneruj",
     "attachments": "Załączniki",
     "deleteItemConfirmTitle": "Usuń element",
     "deleteItemConfirmDescription": "Czy na pewno chcesz usunąć ten element?",
@@ -439,6 +439,12 @@
       "all": "(Wszystkie) pozycje",
       "passkeys": "Klucze dostępu",
       "attachments": "Załączniki"
+    },
+    "sort": {
+      "title": "Sortuj według",
+      "oldestFirst": "Od najstarszych",
+      "newestFirst": "Od najnowszych",
+      "alphabetical": "Alfabetycznie (A-Z)"
     },
     "totpCode": "Kod TOTP",
     "attachments": "Załaczniki",

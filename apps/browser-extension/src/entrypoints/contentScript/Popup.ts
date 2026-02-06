@@ -2,13 +2,12 @@ import { sendMessage } from 'webext-bridge/content-script';
 
 import { fillItem } from '@/entrypoints/contentScript/Form';
 
-import { DISABLED_SITES_KEY, TEMPORARY_DISABLED_SITES_KEY, GLOBAL_AUTOFILL_POPUP_ENABLED_KEY, VAULT_LOCKED_DISMISS_UNTIL_KEY, AUTOFILL_MATCHING_MODE_KEY, CUSTOM_EMAIL_HISTORY_KEY, CUSTOM_USERNAME_HISTORY_KEY } from '@/utils/Constants';
 import { CreateIdentityGenerator, IdentityHelperUtils } from '@/utils/dist/core/identity-generator';
 import { ItemTypeIconSvgs } from '@/utils/dist/core/models/icons';
 import type { Item, ItemField } from '@/utils/dist/core/models/vault';
 import { ItemTypes, FieldKey, createSystemField } from '@/utils/dist/core/models/vault';
 import { CreatePasswordGenerator, PasswordGenerator, PasswordSettings } from '@/utils/dist/core/password-generator';
-import { AutofillMatchingMode } from '@/utils/itemMatcher/ItemMatcher';
+import { LocalPreferencesService } from '@/utils/LocalPreferencesService';
 import { ClickValidator } from '@/utils/security/ClickValidator';
 import { ServiceDetectionUtility } from '@/utils/serviceDetection/ServiceDetectionUtility';
 import { SqliteClient } from '@/utils/SqliteClient';
@@ -19,8 +18,6 @@ import { StringResponse } from '@/utils/types/messaging/StringResponse';
 
 import { t } from '@/i18n/StandaloneI18n';
 
-import { storage } from '#imports';
-
 /**
  * WeakMap to store event listeners for popup containers
  */
@@ -30,6 +27,41 @@ let popupListeners = new WeakMap<HTMLElement, EventListener>();
  * Global ClickValidator instance for content script security
  */
 const clickValidator = ClickValidator.getInstance();
+
+/**
+ * Create a suggestion pill element using safe DOM methods.
+ */
+const createSuggestionPill = (value: string): HTMLElement => {
+  const pill = document.createElement('span');
+  pill.className = 'av-suggestion-pill';
+
+  const textSpan = document.createElement('span');
+  textSpan.className = 'av-suggestion-pill-text';
+  textSpan.dataset.value = value;
+  textSpan.textContent = value;
+
+  const deleteSpan = document.createElement('span');
+  deleteSpan.className = 'av-suggestion-pill-delete';
+  deleteSpan.dataset.value = value;
+  deleteSpan.title = 'Remove';
+  deleteSpan.textContent = '×';
+
+  pill.appendChild(textSpan);
+  pill.appendChild(deleteSpan);
+
+  return pill;
+};
+
+/**
+ * Create a suggested name element using safe DOM methods.
+ */
+const createSuggestedNameSpan = (name: string): HTMLElement => {
+  const span = document.createElement('span');
+  span.className = 'av-suggested-name';
+  span.dataset.name = name;
+  span.textContent = name;
+  return span;
+};
 
 /**
  * Open (or refresh) the autofill popup including check if vault is locked.
@@ -52,7 +84,7 @@ export function openAutofillPopup(input: HTMLInputElement, container: HTMLElemen
 
   (async () : Promise<void> => {
     // Load autofill matching mode setting to send to background for filtering
-    const matchingMode = await storage.getItem(AUTOFILL_MATCHING_MODE_KEY) as AutofillMatchingMode ?? AutofillMatchingMode.DEFAULT;
+    const matchingMode = await LocalPreferencesService.getAutofillMatchingMode();
 
     const response = await sendMessage('GET_FILTERED_ITEMS', {
       currentUrl: window.location.href,
@@ -181,8 +213,6 @@ export async function createAutofillPopup(input: HTMLInputElement, items: Item[]
   const creatingText = await t('content.creatingNewAlias');
   const failedText = await t('content.failedToCreateIdentity');
 
-  // Disable browser's native autocomplete to avoid conflicts with AliasVault's autocomplete.
-  input.setAttribute('autocomplete', 'false');
   const popup = createBasePopup(input, rootContainer);
 
   // Create credential list container with ID
@@ -324,9 +354,14 @@ export async function createAutofillPopup(input: HTMLInputElement, items: Item[]
       }
 
       // Create item in background.
-      await sendMessage('CREATE_ITEM', {
+      const createResponse = await sendMessage('CREATE_ITEM', {
         item: JSON.parse(JSON.stringify(newItem))
-      }, 'background');
+      }, 'background') as { success: boolean; error?: string };
+
+      // Check if item creation succeeded
+      if (!createResponse.success) {
+        throw new Error(createResponse.error || 'Failed to create item');
+      }
 
       // Close popup.
       removeExistingPopup(rootContainer);
@@ -747,9 +782,9 @@ function createItemList(items: Item[], input: HTMLInputElement, rootContainer: H
  * Check if auto-popup is disabled for current site
  */
 export async function isAutoShowPopupEnabled(): Promise<boolean> {
-  const disabledSites = await storage.getItem(DISABLED_SITES_KEY) as string[] ?? [];
-  const temporaryDisabledSites = await storage.getItem(TEMPORARY_DISABLED_SITES_KEY) as Record<string, number> ?? {};
-  const globalPopupEnabled = await storage.getItem(GLOBAL_AUTOFILL_POPUP_ENABLED_KEY) ?? true;
+  const disabledSites = await LocalPreferencesService.getDisabledSites();
+  const temporaryDisabledSites = await LocalPreferencesService.getTemporaryDisabledSites();
+  const globalPopupEnabled = await LocalPreferencesService.getGlobalAutofillPopupEnabled();
 
   const currentHostname = window.location.hostname;
 
@@ -771,7 +806,7 @@ export async function isAutoShowPopupEnabled(): Promise<boolean> {
   }
 
   // Check time-based dismissal
-  const dismissUntil = await storage.getItem(VAULT_LOCKED_DISMISS_UNTIL_KEY) as number;
+  const dismissUntil = await LocalPreferencesService.getVaultLockedDismissUntil();
   if (dismissUntil && Date.now() < dismissUntil) {
     // Popup is dismissed for a certain amount of time.
     return false;
@@ -788,15 +823,15 @@ export async function disableAutoShowPopup(temporary: boolean = false): Promise<
 
   if (temporary) {
     // Add to temporary disabled sites with 1 hour expiry
-    const temporaryDisabledSites = await storage.getItem(TEMPORARY_DISABLED_SITES_KEY) as Record<string, number> ?? {};
+    const temporaryDisabledSites = await LocalPreferencesService.getTemporaryDisabledSites();
     temporaryDisabledSites[currentHostname] = Date.now() + (60 * 60 * 1000); // 1 hour from now
-    await storage.setItem(TEMPORARY_DISABLED_SITES_KEY, temporaryDisabledSites);
+    await LocalPreferencesService.setTemporaryDisabledSites(temporaryDisabledSites);
   } else {
     // Add to permanently disabled sites
-    const disabledSites = await storage.getItem(DISABLED_SITES_KEY) as string[] ?? [];
+    const disabledSites = await LocalPreferencesService.getDisabledSites();
     if (!disabledSites.includes(currentHostname)) {
       disabledSites.push(currentHostname);
-      await storage.setItem(DISABLED_SITES_KEY, disabledSites);
+      await LocalPreferencesService.setDisabledSites(disabledSites);
     }
   }
 }
@@ -809,8 +844,8 @@ export async function createAliasCreationPopup(suggestedNames: string[], rootCon
   removeExistingPopup(rootContainer);
 
   // Load history
-  const emailHistory = await storage.getItem(CUSTOM_EMAIL_HISTORY_KEY) as string[] ?? [];
-  const usernameHistory = await storage.getItem(CUSTOM_USERNAME_HISTORY_KEY) as string[] ?? [];
+  const emailHistory = await LocalPreferencesService.getCustomEmailHistory();
+  const usernameHistory = await LocalPreferencesService.getCustomUsernameHistory();
 
   return new Promise((resolve) => {
     (async (): Promise<void> => {
@@ -864,8 +899,6 @@ export async function createAliasCreationPopup(suggestedNames: string[], rootCon
       const createAndSaveCredentialText = await t('content.createAndSaveCredential');
       const passwordLengthText = await t('items.passwordLength');
       const changePasswordComplexityText = await t('items.changePasswordComplexity');
-
-      const suggestedNamesHtml = await getSuggestedNamesHtml(suggestedNames, suggestedNames[0] ?? '');
 
       // Create the main content
       popup.innerHTML = `
@@ -925,7 +958,7 @@ export async function createAliasCreationPopup(suggestedNames: string[], rootCon
           class="av-create-popup-input"
           placeholder="${enterServiceNameText}"
         >
-        ${suggestedNames.length > 1 ? `<div class="av-suggested-names">${suggestedNamesHtml}</div>` : ''}
+        ${suggestedNames.length > 1 ? '<div class="av-suggested-names"></div>' : ''}
       </div>
 
       <div class="av-create-popup-mode av-create-popup-random-mode">
@@ -1029,11 +1062,19 @@ export async function createAliasCreationPopup(suggestedNames: string[], rootCon
       const emailSuggestions = popup.querySelector('#email-suggestions') as HTMLElement;
       const usernameSuggestions = popup.querySelector('#username-suggestions') as HTMLElement;
 
+      // Populate suggested names
+      const suggestedNamesContainer = popup.querySelector('.av-suggested-names') as HTMLElement;
+      if (suggestedNamesContainer) {
+        await populateSuggestedNames(suggestedNamesContainer, suggestedNames, suggestedNames[0] ?? '');
+      }
+
       /**
        * Update history with new value (max 2 unique entries)
        */
-      const updateHistory = async (value: string, historyKey: typeof CUSTOM_EMAIL_HISTORY_KEY | typeof CUSTOM_USERNAME_HISTORY_KEY, maxItems: number = 2): Promise<string[]> => {
-        const history = await storage.getItem(historyKey) as string[] ?? [];
+      const updateHistory = async (value: string, historyType: 'email' | 'username', maxItems: number = 2): Promise<string[]> => {
+        const history = historyType === 'email'
+          ? await LocalPreferencesService.getCustomEmailHistory()
+          : await LocalPreferencesService.getCustomUsernameHistory();
 
         // Remove the value if it already exists
         const filteredHistory = history.filter((item: string) => item !== value);
@@ -1047,7 +1088,11 @@ export async function createAliasCreationPopup(suggestedNames: string[], rootCon
         const updatedHistory = filteredHistory.slice(0, maxItems);
 
         // Save the updated history
-        await storage.setItem(historyKey, updatedHistory);
+        if (historyType === 'email') {
+          await LocalPreferencesService.setCustomEmailHistory(updatedHistory);
+        } else {
+          await LocalPreferencesService.setCustomUsernameHistory(updatedHistory);
+        }
 
         return updatedHistory;
       };
@@ -1055,48 +1100,52 @@ export async function createAliasCreationPopup(suggestedNames: string[], rootCon
       /**
        * Remove item from history
        */
-      const removeFromHistory = async (value: string, historyKey: typeof CUSTOM_EMAIL_HISTORY_KEY | typeof CUSTOM_USERNAME_HISTORY_KEY): Promise<string[]> => {
-        const history = await storage.getItem(historyKey) as string[] ?? [];
+      const removeFromHistory = async (value: string, historyType: 'email' | 'username'): Promise<string[]> => {
+        const history = historyType === 'email'
+          ? await LocalPreferencesService.getCustomEmailHistory()
+          : await LocalPreferencesService.getCustomUsernameHistory();
         const updatedHistory = history.filter((item: string) => item !== value);
-        await storage.setItem(historyKey, updatedHistory);
+        if (historyType === 'email') {
+          await LocalPreferencesService.setCustomEmailHistory(updatedHistory);
+        } else {
+          await LocalPreferencesService.setCustomUsernameHistory(updatedHistory);
+        }
         return updatedHistory;
       };
 
       /**
-       * Format suggestions HTML as pill-style buttons
+       * Update suggestions display using safe DOM methods.
        */
-      const formatSuggestionsHtml = async (history: string[], currentValue: string): Promise<string> => {
+      const updateSuggestions = (input: HTMLInputElement, suggestionsContainer: HTMLElement, history: string[]): void => {
+        const currentValue = input.value.trim();
+
         // Filter out the current value from history and limit to 2 items
         const filteredHistory = history
           .filter(item => item.toLowerCase() !== currentValue.toLowerCase())
           .slice(0, 2);
 
+        // Clear existing content
+        suggestionsContainer.textContent = '';
+
         if (filteredHistory.length === 0) {
-          return '';
+          suggestionsContainer.style.display = 'none';
+          return;
         }
 
-        // Build HTML with pill-style buttons
-        return filteredHistory.map(item =>
-          `<span class="av-suggestion-pill">
-            <span class="av-suggestion-pill-text" data-value="${item}">${item}</span>
-            <span class="av-suggestion-pill-delete" data-value="${item}" title="Remove">×</span>
-          </span>`
-        ).join(' ');
-      };
+        // Build pill elements
+        filteredHistory.forEach((item, index) => {
+          if (index > 0) {
+            suggestionsContainer.appendChild(document.createTextNode(' '));
+          }
+          suggestionsContainer.appendChild(createSuggestionPill(item));
+        });
 
-      /**
-       * Update suggestions display
-       */
-      const updateSuggestions = async (input: HTMLInputElement, suggestionsContainer: HTMLElement, history: string[]): Promise<void> => {
-        const currentValue = input.value.trim();
-        const html = await formatSuggestionsHtml(history, currentValue);
-        suggestionsContainer.innerHTML = html;
-        suggestionsContainer.style.display = html ? 'flex' : 'none';
+        suggestionsContainer.style.display = 'flex';
       };
 
       // Initial display of suggestions
-      await updateSuggestions(customEmail, emailSuggestions, emailHistory);
-      await updateSuggestions(customUsername, usernameSuggestions, usernameHistory);
+      updateSuggestions(customEmail, emailSuggestions, emailHistory);
+      updateSuggestions(customUsername, usernameSuggestions, usernameHistory);
 
       // Handle popout button click
       popoutBtn.addEventListener('click', (e) => {
@@ -1112,13 +1161,13 @@ export async function createAliasCreationPopup(suggestedNames: string[], rootCon
       });
 
       // Handle email input
-      customEmail.addEventListener('input', async () => {
-        await updateSuggestions(customEmail, emailSuggestions, emailHistory);
+      customEmail.addEventListener('input', () => {
+        updateSuggestions(customEmail, emailSuggestions, emailHistory);
       });
 
       // Handle username input
-      customUsername.addEventListener('input', async () => {
-        await updateSuggestions(customUsername, usernameSuggestions, usernameHistory);
+      customUsername.addEventListener('input', () => {
+        updateSuggestions(customUsername, usernameSuggestions, usernameHistory);
       });
 
       // Handle suggestion clicks for email
@@ -1131,9 +1180,9 @@ export async function createAliasCreationPopup(suggestedNames: string[], rootCon
         if (target.classList.contains('av-suggestion-pill-delete')) {
           const value = target.dataset.value;
           if (value) {
-            const updatedHistory = await removeFromHistory(value, CUSTOM_EMAIL_HISTORY_KEY);
+            const updatedHistory = await removeFromHistory(value, 'email');
             emailHistory.splice(0, emailHistory.length, ...updatedHistory);
-            await updateSuggestions(customEmail, emailSuggestions, emailHistory);
+            updateSuggestions(customEmail, emailSuggestions, emailHistory);
           }
         } else {
           // Check if pill or pill text was clicked
@@ -1143,7 +1192,7 @@ export async function createAliasCreationPopup(suggestedNames: string[], rootCon
             const value = textElement?.dataset.value;
             if (value) {
               customEmail.value = value;
-              await updateSuggestions(customEmail, emailSuggestions, emailHistory);
+              updateSuggestions(customEmail, emailSuggestions, emailHistory);
             }
           }
         }
@@ -1159,9 +1208,9 @@ export async function createAliasCreationPopup(suggestedNames: string[], rootCon
         if (target.classList.contains('av-suggestion-pill-delete')) {
           const value = target.dataset.value;
           if (value) {
-            const updatedHistory = await removeFromHistory(value, CUSTOM_USERNAME_HISTORY_KEY);
+            const updatedHistory = await removeFromHistory(value, 'username');
             usernameHistory.splice(0, usernameHistory.length, ...updatedHistory);
-            await updateSuggestions(customUsername, usernameSuggestions, usernameHistory);
+            updateSuggestions(customUsername, usernameSuggestions, usernameHistory);
           }
         } else {
           // Check if pill or pill text was clicked
@@ -1171,7 +1220,7 @@ export async function createAliasCreationPopup(suggestedNames: string[], rootCon
             const value = textElement?.dataset.value;
             if (value) {
               customUsername.value = value;
-              await updateSuggestions(customUsername, usernameSuggestions, usernameHistory);
+              updateSuggestions(customUsername, usernameSuggestions, usernameHistory);
             }
           }
         }
@@ -1591,10 +1640,10 @@ export async function createAliasCreationPopup(suggestedNames: string[], rootCon
 
           // Update history when saving
           if (finalEmail) {
-            await updateHistory(finalEmail, CUSTOM_EMAIL_HISTORY_KEY);
+            await updateHistory(finalEmail, 'email');
           }
           if (finalUsername) {
-            await updateHistory(finalUsername, CUSTOM_USERNAME_HISTORY_KEY);
+            await updateHistory(finalUsername, 'username');
           }
 
           closePopup({
@@ -1671,10 +1720,9 @@ export async function createAliasCreationPopup(suggestedNames: string[], rootCon
             customUsername.value = name;
 
             // Update the suggested names section
-            const suggestedNamesContainer = target.closest('.av-suggested-names');
+            const suggestedNamesContainer = target.closest('.av-suggested-names') as HTMLElement;
             if (suggestedNamesContainer) {
-            // Update the suggestions HTML using the helper function
-              suggestedNamesContainer.innerHTML = await getSuggestedNamesHtml(suggestedNames, name);
+              await populateSuggestedNames(suggestedNamesContainer, suggestedNames, name);
             }
           }
         }
@@ -1689,21 +1737,33 @@ export async function createAliasCreationPopup(suggestedNames: string[], rootCon
 }
 
 /**
- * Get suggested names HTML with current input value excluded
+ * Populate a suggested names container using safe DOM methods.
  */
-async function getSuggestedNamesHtml(suggestedNames: string[], currentValue: string): Promise<string> {
+async function populateSuggestedNames(container: HTMLElement, suggestedNames: string[], currentValue: string): Promise<void> {
   // Filter out the current value and create unique set of remaining suggestions
   const filteredSuggestions = [...new Set(suggestedNames.filter(n => n !== currentValue))];
 
+  // Clear existing content
+  container.textContent = '';
+
   if (filteredSuggestions.length === 0) {
-    return '';
+    return;
   }
 
   const orLabel = await t('content.or');
 
-  return `${orLabel} ${filteredSuggestions.map((name, index) =>
-    `<span class="av-suggested-name" data-name="${name}">${name}</span>${index < filteredSuggestions.length - 1 ? ', ' : ''}`
-  ).join('')}?`;
+  // Add "or" label as text node
+  container.appendChild(document.createTextNode(orLabel + ' '));
+
+  // Add each suggestion
+  filteredSuggestions.forEach((name, index) => {
+    container.appendChild(createSuggestedNameSpan(name));
+    if (index < filteredSuggestions.length - 1) {
+      container.appendChild(document.createTextNode(', '));
+    }
+  });
+
+  container.appendChild(document.createTextNode('?'));
 }
 
 /**
@@ -1828,11 +1888,11 @@ export async function dismissVaultLockedPopup(): Promise<void> {
   if (authStatus.isLoggedIn) {
     // User is logged in - dismiss for 4 hours
     const fourHoursFromNow = Date.now() + (4 * 60 * 60 * 1000);
-    await storage.setItem(VAULT_LOCKED_DISMISS_UNTIL_KEY, fourHoursFromNow);
+    await LocalPreferencesService.setVaultLockedDismissUntil(fourHoursFromNow);
   } else {
     // User is not logged in - dismiss for 3 days
     const threeDaysFromNow = Date.now() + (3 * 24 * 60 * 60 * 1000);
-    await storage.setItem(VAULT_LOCKED_DISMISS_UNTIL_KEY, threeDaysFromNow);
+    await LocalPreferencesService.setVaultLockedDismissUntil(threeDaysFromNow);
   }
 }
 

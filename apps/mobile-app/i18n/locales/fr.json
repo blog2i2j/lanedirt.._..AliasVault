@@ -440,6 +440,12 @@
       "passkeys": "Clés d'accès",
       "attachments": "Pièces jointes"
     },
+    "sort": {
+      "title": "Trier par",
+      "oldestFirst": "Plus anciens en premier",
+      "newestFirst": "Les plus récents en premier",
+      "alphabetical": "Alphabétique (A-Z)"
+    },
     "totpCode": "Code à usage unique",
     "attachments": "Pièces jointes",
     "deleteAttachment": "Supprimer",

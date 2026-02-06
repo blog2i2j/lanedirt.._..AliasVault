@@ -51,8 +51,9 @@ extension VaultStore {
         return derivedKeyTuple.raw
     }
 
-    /// Store the encryption key - the key used to encrypt and decrypt the vault
-    public func storeEncryptionKey(base64Key: String) throws {
+    /// Store the encryption key in memory only (no keychain persistence).
+    /// Use this to test if a password-derived key is valid before persisting.
+    public func storeEncryptionKeyInMemory(base64Key: String) throws {
         guard let keyData = Data(base64Encoded: base64Key) else {
             throw NSError(domain: "VaultStore", code: 6, userInfo: [NSLocalizedDescriptionKey: "Invalid base64 key"])
         }
@@ -62,7 +63,28 @@ extension VaultStore {
         }
 
         self.encryptionKey = keyData
-        print("Stored key in memory, will be persisted in keychain upon succesful decrypt operation")
+        print("Stored key in memory only (no keychain persistence)")
+    }
+
+    /// Clear the encryption key from memory.
+    /// This forces getEncryptionKey() to fetch from keychain on next access.
+    public func clearEncryptionKeyFromMemory() {
+        self.encryptionKey = nil
+        print("Cleared encryption key from memory")
+    }
+
+    /// Store the encryption key in memory AND persist to keychain if Face ID is enabled.
+    public func storeEncryptionKey(base64Key: String) throws {
+        // First store in memory
+        try storeEncryptionKeyInMemory(base64Key: base64Key)
+
+        // Then persist to keychain if Face ID is enabled
+        if self.enabledAuthMethods.contains(.faceID), let keyData = self.encryptionKey {
+            try storeKeyInKeychain(keyData)
+            print("Stored key in memory and persisted to keychain")
+        } else {
+            print("Stored key in memory (Face ID not enabled, skipping keychain)")
+        }
     }
 
     /// Store the key derivation parameters used for deriving the encryption key from the plain text password
@@ -153,7 +175,7 @@ extension VaultStore {
                 print("Simulator detected, skipping biometric policy evaluation check and continuing with key retrieval from keychain")
             #else
                 guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
-                    throw NSError(domain: "VaultStore", code: 2, userInfo: [NSLocalizedDescriptionKey: "Face ID not available: \(error?.localizedDescription ?? "Unknown error")"])
+                    throw AppError.biometricFailed
                 }
             #endif
 
@@ -162,20 +184,24 @@ extension VaultStore {
                 let keyData = try retrieveKeyFromKeychain(context: context)
                 self.encryptionKey = keyData
                 return keyData
+            } catch let vaultError as AppError {
+                throw vaultError
             } catch {
-                throw NSError(domain: "VaultStore", code: 9, userInfo: [NSLocalizedDescriptionKey: "Failed to retrieve key from keychain: \(error.localizedDescription)"])
+                throw AppError.keystoreKeyNotFound
             }
         }
 
-        throw NSError(domain: "VaultStore", code: 3, userInfo: [NSLocalizedDescriptionKey: "No encryption key found in memory"])
+        throw AppError.keystoreKeyNotFound
     }
 
     /// Store the encryption key in the keychain
     internal func storeKeyInKeychain(_ keyData: Data) throws {
+        // Use .biometryCurrentSet to require biometric authentication only (no passcode fallback)
+        // This also invalidates the key when biometrics are added/removed.
         guard let accessControl = SecAccessControlCreateWithFlags(
             nil,
             kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
-            [.userPresence],
+            [.biometryCurrentSet],
             nil
         ) else {
             throw NSError(domain: "VaultStore", code: 11, userInfo: [NSLocalizedDescriptionKey: "Failed to create access control"])
@@ -217,7 +243,7 @@ extension VaultStore {
 
     /// Retrieve the encryption key from the keychain
     private func retrieveKeyFromKeychain(context: LAContext) throws -> Data {
-        // Ensure interaction is allowed so system can prompt for Face ID or passcode fallback
+        // Ensure interaction is allowed so system can prompt for biometric authentication
         context.interactionNotAllowed = false
         context.localizedReason = "Authenticate to unlock your vault"
 
@@ -241,11 +267,11 @@ extension VaultStore {
         guard status == errSecSuccess,
               let keyData = result as? Data else {
             if status == errSecUserCanceled {
-                throw NSError(domain: "VaultStore", code: 8, userInfo: [NSLocalizedDescriptionKey: "Authentication canceled by user"])
+                throw AppError.biometricCancelled
             } else if status == errSecAuthFailed {
-                throw NSError(domain: "VaultStore", code: 8, userInfo: [NSLocalizedDescriptionKey: "Authentication failed"])
+                throw AppError.biometricFailed
             } else {
-                throw NSError(domain: "VaultStore", code: 2, userInfo: [NSLocalizedDescriptionKey: "No encryption key found"])
+                throw AppError.keystoreKeyNotFound
             }
         }
 

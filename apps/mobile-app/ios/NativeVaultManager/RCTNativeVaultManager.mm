@@ -61,6 +61,10 @@
     [vaultManager rollbackTransaction:resolve rejecter:reject];
 }
 
+- (void)persistAndMarkDirty:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager persistAndMarkDirty:resolve rejecter:reject];
+}
+
 - (void)getAuthMethods:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     [vaultManager getAuthMethods:resolve rejecter:reject];
 }
@@ -93,8 +97,16 @@
     [vaultManager storeMetadata:metadata resolver:resolve rejecter:reject];
 }
 
+- (void)storeEncryptionKeyInMemory:(NSString *)base64EncryptionKey resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager storeEncryptionKeyInMemory:base64EncryptionKey resolver:resolve rejecter:reject];
+}
+
 - (void)storeEncryptionKey:(NSString *)base64EncryptionKey resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     [vaultManager storeEncryptionKey:base64EncryptionKey resolver:resolve rejecter:reject];
+}
+
+- (void)clearEncryptionKeyFromMemory:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager clearEncryptionKeyFromMemory:resolve rejecter:reject];
 }
 
 - (void)storeEncryptionKeyDerivationParams:(NSString *)keyDerivationParams resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {

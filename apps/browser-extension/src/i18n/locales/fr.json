@@ -205,6 +205,12 @@
       "all": "(Tous) Éléments",
       "passkeys": "Clés d'accès"
     },
+    "sort": {
+      "title": "Trier par",
+      "oldestFirst": "Plus anciens en premier",
+      "newestFirst": "Les plus récents en premier",
+      "alphabetical": "Alphabétique (A-Z)"
+    },
     "deleteItemTitle": "Supprimer l'élement",
     "deleteItemConfirm": "Êtes-vous certain de vouloir supprimer cet élément?",
     "viewHistory": "Voir l'historique",
@@ -396,6 +402,21 @@
       "apiUrlInvalid": "Veuillez entrer une URL d'API valide",
       "clientUrlRequired": "L'URL du client est requise",
       "clientUrlInvalid": "Veuillez entrer une URL de client valide"
+    },
+    "identityGenerator": "Générateur d'identité",
+    "identityGeneratorSettings": {
+      "description": "Configurer la langue par défaut et la préférence de genre pour la génération de nouvelles identités.",
+      "languageSection": "Langue",
+      "languageDescription": "Définit la langue qui sera utilisée lors de la génération de nouvelles identités.",
+      "genderSection": "Genre",
+      "genderDescription": "Définissez la préférence de genre pour la génération de nouvelles identités.",
+      "ageRangeSection": "Tranche d'âge",
+      "ageRangeDescription": "Définit la tranche d'âge pour la génération de nouvelles identités.",
+      "genderOptions": {
+        "random": "Aléatoire",
+        "male": "Homme",
+        "female": "Femme"
+      }
     },
     "unlockMethod": {
       "title": "Méthode de déverrouillage du coffre",

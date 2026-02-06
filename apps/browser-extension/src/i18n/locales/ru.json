@@ -54,7 +54,7 @@
     "delete": "Удалить",
     "undo": "Отменить",
     "save": "Сохранить",
-    "saving": "Saving...",
+    "saving": "Сохраняем...",
     "create": "Создать",
     "or": "Или",
     "close": "Закрыть",
@@ -82,7 +82,7 @@
     "email": "Электронная почта",
     "username": "Имя пользователя",
     "password": "Пароль",
-    "generate": "Generate",
+    "generate": "Сгенерировать",
     "serviceName": "Название сервиса",
     "loggedIn": "Вход выполнен",
     "syncingVault": "Синхронизация хранилища",
@@ -90,10 +90,10 @@
     "syncingUpdatedVault": "Синхронизация обновленного хранилища",
     "loadMore": "Загрузить ещё",
     "offline": "Офлайн",
-    "offlineMode": "Operating in offline mode",
+    "offlineMode": "Работа в автономном режиме",
     "pendingSync": "Синхронизация...",
     "mergingVaultChanges": "Объединение изменений в хранилище...",
-    "uploadingVault": "Uploading vault...",
+    "uploadingVault": "Загрузка хранилища...",
     "errors": {
       "serverNotAvailable": "Сервер AliasVault недоступен. Пожалуйста, повторите попытку позже или обратитесь в службу поддержки, если проблема не устранится.",
       "clientVersionNotSupported": "Эта версия браузерного расширения AliasVault больше не поддерживается сервером. Пожалуйста, обновите расширение вашего браузера до последней версии.",
@@ -105,8 +105,8 @@
       "vaultNotAvailable": "Хранилище недоступно",
       "vaultIsLocked": "Хранилище заблокировано",
       "passwordChanged": "С момента вашего последнего входа ваш пароль изменился. Пожалуйста, войдите еще раз в целях безопасности.",
-      "syncConflictMaxRetries": "Could not sync vault after multiple attempts. Please try again later.",
-      "mergeFailed": "Failed to merge vault changes. Please try again."
+      "syncConflictMaxRetries": "Ошибка синхронизации хранилища. Повторите попытку позже.",
+      "mergeFailed": "Не удалось объединить изменения. Попробуйте снова."
     },
     "apiErrors": {
       "UNKNOWN_ERROR": "Произошла неизвестная ошибка. Пожалуйста, попробуйте снова.",
@@ -173,8 +173,8 @@
     "loginCredentials": "Учетные данные для авторизации",
     "cardInformation": "Данные карты",
     "addItem": "Добавить запись",
-    "addNewItem": "Add new item",
-    "saveItem": "Save Item",
+    "addNewItem": "Добавить запись",
+    "saveItem": "Сохранить запись",
     "itemDetails": "Детали записи",
     "editItem": "Редактировать запись",
     "untitled": "Без названия",
@@ -190,12 +190,12 @@
     "noAttachmentsFound": "Элементы с вложениями не найдены",
     "noItemsOfTypeFound": "Элементы типа «{{type}}» не найдены",
     "noMatchingItems": "Совпадений не найдено",
-    "noMatchingItemsSearch": "No items matching \"{{search}}\"",
-    "noMatchingItemsWithFilter": "No {{filter}} items matching \"{{search}}\"",
-    "clearSearch": "Clear search",
-    "clearFilter": "Clear filter",
-    "emptyFolderHint": "This folder is empty. To move items to this folder, edit the item and tap the folder icon in the name field.",
-    "allItemsInFolders": "All your items are organized in folders. Click a folder above to view your credentials, or use the search to find specific items.",
+    "noMatchingItemsSearch": "По запросу \"{{search}}\" ничего не найдено",
+    "noMatchingItemsWithFilter": "Ничего не найдено в \"{{filter}}\" по запросу \"{{search}}\"",
+    "clearSearch": "Очистить поиск",
+    "clearFilter": "Сбросить фильтр",
+    "emptyFolderHint": "Эта папка пуста. Чтобы переместить сюда записи, перейдите в режим редактирования записи и нажмите на иконку папки в поле имени.",
+    "allItemsInFolders": "Все ваши данные разложены по папкам. Выберите нужную папку выше или воспользуйтесь поиском, чтобы найти конкретную запись.",
     "deleteFolder": "Удалить папку",
     "deleteFolderKeepItems": "Удалить только папку",
     "deleteFolderKeepItemsDescription": "Элементы будут перемещены обратно в основной список.",
@@ -204,6 +204,12 @@
     "filters": {
       "all": "(Все) Записи",
       "passkeys": "Ключи доступа"
+    },
+    "sort": {
+      "title": "Sort by",
+      "oldestFirst": "Oldest first",
+      "newestFirst": "Newest first",
+      "alphabetical": "Alphabetical (A-Z)"
     },
     "deleteItemTitle": "Удалить элемент",
     "deleteItemConfirm": "Вы уверены, что хотите удалить этот элемент?",
@@ -228,18 +234,18 @@
     }
   },
   "itemTypes": {
-    "selectType": "Add New Item",
-    "typeLabel": "Item Type",
+    "selectType": "Добавить новую запись",
+    "typeLabel": "Тип записи",
     "creating": "Создание",
     "editing": "Редактирование",
-    "regenerateAlias": "Regenerate alias",
-    "addCustomField": "Add custom field",
+    "regenerateAlias": "Перегенерировать псевдоним",
+    "addCustomField": "Добавить свое поле",
     "fieldLabel": "Название поля",
     "enterFieldName": "Введите название поля",
     "fieldType": "Тип поля",
     "fieldTypes": {
       "text": "Текст",
-      "hidden": "Hidden (masked text)",
+      "hidden": "Скрыто (маскированный текст)",
       "email": "Почта",
       "url": "URL",
       "phone": "Телефон",
@@ -257,7 +263,7 @@
       "title": "Банковская карта"
     },
     "note": {
-      "title": "Secure Note"
+      "title": "Защищенная заметка"
     }
   },
   "fieldLabels": {
@@ -283,17 +289,17 @@
     "nameOptional": "Имя (необязательно)",
     "secretKey": "Секретный ключ",
     "saveToViewCode": "Сохранить для просмотра кода",
-    "defaultName": "Authenticator",
+    "defaultName": "Аутентификатор",
     "errors": {
       "invalidSecretKey": "Неверный формат секретного ключа."
     }
   },
   "attachmentUploader": {
-    "uploading": "Uploading...",
-    "uploadSuccess": "Files uploaded successfully.",
-    "deleteSuccess": "Attachment deleted successfully.",
-    "firefoxExpandRequired": "To upload files, use the expanded window.",
-    "openExpandedWindow": "Open Expanded Window"
+    "uploading": "Загрузка...",
+    "uploadSuccess": "Файлы успешно загружены.",
+    "deleteSuccess": "Вложение успешно удалено.",
+    "firefoxExpandRequired": "Для загрузки файлов используйте расширенное окно.",
+    "openExpandedWindow": "Открыть расширенное окно"
   },
   "emails": {
     "title": "Письма",
@@ -397,6 +403,21 @@
       "clientUrlRequired": "Требуется URL-адрес клиента",
       "clientUrlInvalid": "Пожалуйста, введите корректный URL-адрес клиента"
     },
+    "identityGenerator": "Генератор личности",
+    "identityGeneratorSettings": {
+      "description": "Настройте язык и гендерные предпочтения по умолчанию для создания новых личностей.",
+      "languageSection": "Язык",
+      "languageDescription": "Установите язык, который будет использоваться при создании новых личностей.",
+      "genderSection": "Пол",
+      "genderDescription": "Установите гендерные предпочтения для создания новых личностей.",
+      "ageRangeSection": "Возрастной диапазон",
+      "ageRangeDescription": "Установите диапазон возраста для генерации новых личностей.",
+      "genderOptions": {
+        "random": "Случайный",
+        "male": "Мужской",
+        "female": "Женский"
+      }
+    },
     "unlockMethod": {
       "title": "Способ разблокировки хранилища",
       "introText": "Выберите способ разблокировки хранилища. Вы можете использовать свой мастер-пароль (он доступен всегда) или установить ПИН-код для быстрого доступа. После 3 неудачных попыток ввода ПИН-кода необходимо будет ввести мастер-пароль.",
@@ -444,10 +465,10 @@
       "createNewPasskey": "Создать новый ключ доступа",
       "replacingPasskey": "Замена ключа доступа: {{displayName}}",
       "confirmReplace": "Подтвердить замену",
-      "selectExistingLogin": "Add to existing login:",
-      "selectExistingLoginDescription": "Attach this passkey to an existing login credential for this site.",
-      "attachingToCredential": "Adding passkey to: {{serviceName}}",
-      "attachPasskey": "Add Passkey"
+      "selectExistingLogin": "Привязать к логину:",
+      "selectExistingLoginDescription": "Привяжите этот ключ доступа к существующей учетной записи для этого сайта.",
+      "attachingToCredential": "Добавление ключа доступа для: {{serviceName}}",
+      "attachPasskey": "Добавить ключ доступа"
     },
     "settings": {
       "passkeyProvider": "Провайдер ключей доступа",

@@ -440,6 +440,12 @@
       "passkeys": "Passkeys",
       "attachments": "Bijlagen"
     },
+    "sort": {
+      "title": "Sorteren op",
+      "oldestFirst": "Oudste eerst",
+      "newestFirst": "Nieuwste eerst",
+      "alphabetical": "Alfabetisch (A-Z)"
+    },
     "totpCode": "TOTP-code",
     "attachments": "Bijlagen",
     "deleteAttachment": "Verwijderen",

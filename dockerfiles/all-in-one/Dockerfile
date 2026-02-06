@@ -3,7 +3,9 @@
 # ============================================
 # Stage 1: Build core libraries
 # ============================================
-FROM rust:1-slim-bookworm AS core-builder
+# Use BUILDPLATFORM to run on native arch (amd64) instead of emulating arm64.
+# WASM output is platform-independent, so we only need to build once.
+FROM --platform=$BUILDPLATFORM rust:1-slim-bookworm AS core-builder
 
 # Install Node.js and wasm-pack (Rust already included in base image)
 RUN apt-get update && \
@@ -224,5 +226,5 @@ ENV ALIASVAULT_VERBOSITY=0 \
 EXPOSE 80 443 25 587
 VOLUME ["/database", "/logs", "/secrets"]
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
-    CMD curl -f http://localhost/api || exit 1
+    CMD curl -f http://127.0.0.1/api || exit 1
 ENTRYPOINT ["/init"]

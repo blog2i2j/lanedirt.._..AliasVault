@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import net.aliasvault.app.qrscanner.QRScannerActivity
+import net.aliasvault.app.vaultstore.AppError
 import net.aliasvault.app.vaultstore.VaultStore
 import net.aliasvault.app.vaultstore.keystoreprovider.AndroidKeystoreProvider
 import net.aliasvault.app.vaultstore.storageprovider.AndroidStorageProvider
@@ -192,9 +193,12 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
         try {
             vaultStore.unlockVault()
             promise.resolve(null)
+        } catch (e: AppError) {
+            Log.e(TAG, "Error unlocking vault: ${e.code}", e)
+            promise.reject(e.code, e.message, e)
         } catch (e: Exception) {
-            Log.e(TAG, "Error storing encryption key", e)
-            promise.reject("ERR_STORE_KEY", "Failed to store encryption key: ${e.message}", e)
+            Log.e(TAG, "Error unlocking vault", e)
+            promise.reject("E-001", "Failed to unlock vault: ${e.message}", e)
         }
     }
 
@@ -235,7 +239,24 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Store the encryption key.
+     * Store the encryption key in memory only (no keystore persistence).
+     * Use this to test if a password-derived key is valid before persisting.
+     * @param base64EncryptionKey The encryption key as a base64 encoded string
+     * @param promise The promise to resolve
+     */
+    @ReactMethod
+    override fun storeEncryptionKeyInMemory(base64EncryptionKey: String, promise: Promise) {
+        try {
+            vaultStore.storeEncryptionKeyInMemory(base64EncryptionKey)
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error storing encryption key in memory", e)
+            promise.reject("ERR_STORE_KEY_MEMORY", "Failed to store encryption key in memory: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Store the encryption key in memory AND persist to keystore (may trigger biometric prompt).
      * @param base64EncryptionKey The encryption key as a base64 encoded string
      * @param promise The promise to resolve
      */
@@ -248,6 +269,17 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
             Log.e(TAG, "Error storing encryption key", e)
             promise.reject("ERR_STORE_KEY", "Failed to store encryption key: ${e.message}", e)
         }
+    }
+
+    /**
+     * Clear the encryption key from memory.
+     * This forces getEncryptionKey() to fetch from keystore on next biometric access.
+     * @param promise The promise to resolve
+     */
+    @ReactMethod
+    override fun clearEncryptionKeyFromMemory(promise: Promise) {
+        vaultStore.clearEncryptionKeyFromMemory()
+        promise.resolve(null)
     }
 
     /**
@@ -480,6 +512,26 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
             promise.reject(
                 "ERR_ROLLBACK_TRANSACTION",
                 "Failed to rollback transaction: ${e.message}",
+                e,
+            )
+        }
+    }
+
+    /**
+     * Persist the in-memory database to encrypted storage and mark as dirty.
+     * Used after migrations where SQL handles its own transactions but we need to persist and sync.
+     * @param promise The promise to resolve
+     */
+    @ReactMethod
+    override fun persistAndMarkDirty(promise: Promise) {
+        try {
+            vaultStore.persistAndMarkDirty()
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error persisting and marking dirty", e)
+            promise.reject(
+                "ERR_PERSIST_AND_MARK_DIRTY",
+                "Failed to persist and mark dirty: ${e.message}",
                 e,
             )
         }

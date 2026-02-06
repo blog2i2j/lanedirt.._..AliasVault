@@ -78,7 +78,7 @@ export class WebApiService {
 
           return parseJson ? retryResponse.json() : retryResponse as unknown as T;
         } else {
-          logoutEventEmitter.emit('auth.errors.sessionExpired');
+          logoutEventEmitter.emit('common.errors.sessionExpired');
           throw new ApiAuthError('Session expired');
         }
       }
@@ -281,7 +281,7 @@ export class WebApiService {
       this.updateTokens(tokenResponse.token, tokenResponse.refreshToken);
       return tokenResponse.token;
     } catch {
-      logoutEventEmitter.emit('auth.errors.sessionExpired');
+      logoutEventEmitter.emit('common.errors.sessionExpired');
       return null;
     }
   }

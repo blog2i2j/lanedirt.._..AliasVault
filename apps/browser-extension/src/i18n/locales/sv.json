@@ -205,6 +205,12 @@
       "all": "(Alla) objekt",
       "passkeys": "Passkeys"
     },
+    "sort": {
+      "title": "Sortera efter",
+      "oldestFirst": "Äldst först",
+      "newestFirst": "Nyast först",
+      "alphabetical": "Alfabetiskt (A-Z)"
+    },
     "deleteItemTitle": "Radera objekt",
     "deleteItemConfirm": "Är du säker på att du vill radera det här objektet?",
     "viewHistory": "Visa historik",
@@ -382,7 +388,7 @@
     "contextMenuDescription": "Högerklicka på inmatningsfält för att komma åt AliasVault alternativ",
     "selectLanguage": "Välj Språk",
     "serverConfiguration": "Serverkonfiguration",
-    "serverConfigurationDescription": "Konfigurera AliasVault-serverns URL för själv-hostade instanser",
+    "serverConfigurationDescription": "Konfigurera AliasVault-serverns URL för egenhostade instanser",
     "customApiUrl": "API URL",
     "customClientUrl": "Klientens URL",
     "apiUrlHint": "API slutpunkts-URL (vanligtvis klientens URL + /api)",
@@ -397,22 +403,37 @@
       "clientUrlRequired": "Klientens URL krävs",
       "clientUrlInvalid": "Ange en giltig klient-URL"
     },
+    "identityGenerator": "Identitets Generator",
+    "identityGeneratorSettings": {
+      "description": "Konfigurera standardspråk och könspreferens för att generera nya identiteter.",
+      "languageSection": "Språk",
+      "languageDescription": "Ange det språk som ska användas för att generera nya identiteter.",
+      "genderSection": "Kön",
+      "genderDescription": "Ställ in könspreferensen för att generera nya identiteter.",
+      "ageRangeSection": "Åldersintervall",
+      "ageRangeDescription": "Ange åldersintervallet för att generera nya identiteter.",
+      "genderOptions": {
+        "random": "Slumpad",
+        "male": "Man",
+        "female": "Kvinna"
+      }
+    },
     "unlockMethod": {
       "title": "Valvupplåsningsmetod",
-      "introText": "Välj hur du vill låsa upp ditt valv. Du kan använda ditt huvudlösenord (alltid tillgängligt) eller ange en PIN kod för snabbare åtkomst. Efter 3 misslyckade PIN försök måste du använda ditt huvudlösenord.",
+      "introText": "Välj hur du vill låsa upp ditt valv. Du kan använda ditt huvudlösenord (alltid tillgängligt) eller ange en PIN-kod för snabbare åtkomst. Efter 3 misslyckade PIN-försök måste du använda ditt huvudlösenord.",
       "password": "Huvudlösenord",
-      "pin": "PIN Kod",
+      "pin": "PIN-Kod",
       "pinDescription": "Lås upp valv med PIN-kod",
-      "setupPin": "Ställ in PIN kod",
-      "enterNewPinDescription": "Ange en PIN kod som består av minst 6 siffror",
-      "confirmPin": "Bekräfta PIN kod",
-      "confirmPinDescription": "Ange din PIN kod igen för att bekräfta",
-      "invalidPinFormat": "Ogiltigt PIN format",
-      "pinMismatch": "PIN koder matchar inte",
-      "incorrectPin": "Felaktig PIN kod. {{attemptsRemaining}} försök återstår.",
-      "incorrectPinSingular": "Felaktig PIN kod. 1 försök återstår.",
-      "enableSuccess": "PIN upplåsning har aktiverats!",
-      "pinLocked": "PIN upplåsning har inaktiverats. Använd ditt huvudlösenord för att låsa upp ditt valv.",
+      "setupPin": "Ställ in PIN-kod",
+      "enterNewPinDescription": "Ange en PIN-kod som består av minst 6 siffror",
+      "confirmPin": "Bekräfta PIN-kod",
+      "confirmPinDescription": "Ange din PIN-kod igen för att bekräfta",
+      "invalidPinFormat": "Ogiltigt PIN-format",
+      "pinMismatch": "PIN-koder matchar inte",
+      "incorrectPin": "Felaktig PIN-kod. {{attemptsRemaining}} försök återstår.",
+      "incorrectPinSingular": "Felaktig PIN-kod. 1 försök återstår.",
+      "enableSuccess": "PIN-upplåsning har aktiverats!",
+      "pinLocked": "PIN-upplåsning har inaktiverats. Använd ditt huvudlösenord för att låsa upp ditt valv.",
       "pinSecurityWarning": "PIN-upplåsning i webbläsartillägget kan vara mindre säkert än ditt huvudlösenord, eftersom PIN-koder vanligtvis har lägre entropi och kan bli \"brute-forcead\" om din enhet äventyras. Använd den endast på enheter som du litar på."
     }
   },

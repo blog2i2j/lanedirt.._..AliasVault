@@ -205,6 +205,12 @@
       "all": "(All) Items",
       "passkeys": "Ключі доступу"
     },
+    "sort": {
+      "title": "Sort by",
+      "oldestFirst": "Oldest first",
+      "newestFirst": "Newest first",
+      "alphabetical": "Alphabetical (A-Z)"
+    },
     "deleteItemTitle": "Delete Item",
     "deleteItemConfirm": "Are you sure you want to delete this item?",
     "viewHistory": "View history",
@@ -396,6 +402,21 @@
       "apiUrlInvalid": "Будь ласка, введіть дійсну URL-адресу API",
       "clientUrlRequired": "URL-адреса клієнта обов'язкова",
       "clientUrlInvalid": "Будь ласка, введіть дійсну URL-адресу клієнта"
+    },
+    "identityGenerator": "Генератор ідентифікаційних даних",
+    "identityGeneratorSettings": {
+      "description": "Налаштуйте мову та стать за замовчуванням для створення нових ідентифікаційних даних.",
+      "languageSection": "Мова",
+      "languageDescription": "Встановіть мову, яка використовуватиметься під час створення нових ідентифікаторів.",
+      "genderSection": "Стать",
+      "genderDescription": "Встановити параметри гендеру для генерації нових ідентифікацій.",
+      "ageRangeSection": "Віковий діапазон",
+      "ageRangeDescription": "Встановіть віковий діапазон для створення нових ідентифікаційних даних.",
+      "genderOptions": {
+        "random": "Випадкова",
+        "male": "Чоловіча",
+        "female": "Жіноча"
+      }
     },
     "unlockMethod": {
       "title": "Метод розблокування сховища",
