@@ -2,7 +2,7 @@
 WORKDIR /app
 EXPOSE 3002
 
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 ARG TARGETARCH
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
