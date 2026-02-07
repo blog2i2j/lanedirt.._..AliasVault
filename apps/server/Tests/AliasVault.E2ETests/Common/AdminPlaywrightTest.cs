@@ -62,6 +62,7 @@ public abstract class AdminPlaywrightTest : PlaywrightTest
 
         // Start Admin project in-memory.
         _webAppFactory.Port = appPort;
+        _webAppFactory.InitializeKestrel();
         _webAppFactory.CreateDefaultClient();
 
         await SetupPlaywrightBrowserAndContext();

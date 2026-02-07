@@ -101,10 +101,12 @@ public abstract class ClientPlaywrightTest : PlaywrightTest
 
         // Start WebAPI in-memory.
         _apiFactory.Port = apiPort;
+        _apiFactory.InitializeKestrel();
         _apiFactory.CreateDefaultClient();
 
         // Start Blazor WASM in-memory.
         _clientFactory.Port = appPort;
+        _clientFactory.InitializeKestrel();
         _clientFactory.CreateDefaultClient();
 
         await SetupPlaywrightBrowserAndContext();
