@@ -122,6 +122,12 @@ public abstract class PlaywrightTest
 
         // Perform soft navigation within the app
         await Page.EvaluateAsync($"window.blazorNavigate('{relativeUrl}')");
+
+        // Wait for the URL to change to the expected value
+        await Page.WaitForURLAsync("**/" + relativeUrl, new PageWaitForURLOptions
+        {
+            Timeout = TestDefaults.DefaultTimeout,
+        });
     }
 
     /// <summary>
