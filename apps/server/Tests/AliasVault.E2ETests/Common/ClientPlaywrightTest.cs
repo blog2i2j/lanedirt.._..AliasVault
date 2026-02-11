@@ -189,7 +189,7 @@ public abstract class ClientPlaywrightTest : PlaywrightTest
     protected async Task RefreshPageAndUnlockVault()
     {
         // Get current URL.
-        var currentUrl = Page.Url;
+        var currentUrl = GetCurrentRelativeUrl();
 
         // Hard refresh the page.
         await Page.ReloadAsync();
