@@ -1265,6 +1265,163 @@ public class ImportExportTests
     }
 
     /// <summary>
+    /// Test case for importing credentials from Edge CSV and ensuring all values are present.
+    /// </summary>
+    /// <returns>Async task.</returns>
+    [Test]
+    public async Task ImportCredentialsFromEdgeCsv()
+    {
+        // Arrange
+        var fileContent = await ResourceReaderUtility.ReadEmbeddedResourceStringAsync("AliasVault.UnitTests.TestData.Exports.edge.csv");
+
+        // Act
+        var importedCredentials = await EdgeImporter.ImportFromCsvAsync(fileContent);
+
+        // Assert
+        Assert.That(importedCredentials, Has.Count.EqualTo(4));
+
+        // Test first entry (no notes)
+        var exampleAppCredential = importedCredentials.First(c => c.ServiceName == "example.app.tld");
+        Assert.Multiple(() =>
+        {
+            Assert.That(exampleAppCredential.ServiceName, Is.EqualTo("example.app.tld"));
+            Assert.That(exampleAppCredential.ServiceUrls?.FirstOrDefault(), Is.EqualTo("https://example.app.tld/"));
+            Assert.That(exampleAppCredential.Username, Is.EqualTo("exampleu"));
+            Assert.That(exampleAppCredential.Password, Is.EqualTo("examplep"));
+            Assert.That(exampleAppCredential.Notes, Is.Empty);
+        });
+
+        // Test entry with notes
+        var googleCredential = importedCredentials.First(c => c.ServiceName == "google.nl");
+        Assert.Multiple(() =>
+        {
+            Assert.That(googleCredential.ServiceName, Is.EqualTo("google.nl"));
+            Assert.That(googleCredential.ServiceUrls?.FirstOrDefault(), Is.EqualTo("https://google.nl/"));
+            Assert.That(googleCredential.Username, Is.EqualTo("myuser"));
+            Assert.That(googleCredential.Password, Is.EqualTo("mypass"));
+            Assert.That(googleCredential.Notes, Is.EqualTo("Google note here microsoft edge"));
+        });
+
+        // Test youtube entry
+        var youtubeCredential = importedCredentials.First(c => c.ServiceName == "youtube.com");
+        Assert.Multiple(() =>
+        {
+            Assert.That(youtubeCredential.ServiceName, Is.EqualTo("youtube.com"));
+            Assert.That(youtubeCredential.ServiceUrls?.FirstOrDefault(), Is.EqualTo("https://youtube.com/"));
+            Assert.That(youtubeCredential.Username, Is.EqualTo("youtubeuser"));
+            Assert.That(youtubeCredential.Password, Is.EqualTo("ytpassword"));
+            Assert.That(youtubeCredential.Notes, Is.EqualTo("Youtubenotes"));
+        });
+    }
+
+    /// <summary>
+    /// Test case for importing credentials from Enpass CSV and ensuring all values are present.
+    /// Enpass uses a unique format with alternating key-value pairs instead of headers.
+    /// </summary>
+    /// <returns>Async task.</returns>
+    [Test]
+    public async Task ImportCredentialsFromEnpassCsv()
+    {
+        // Arrange
+        var fileContent = await ResourceReaderUtility.ReadEmbeddedResourceStringAsync("AliasVault.UnitTests.TestData.Exports.enpass.csv");
+
+        // Act
+        var importedCredentials = await EnpassImporter.ImportFromCsvAsync(fileContent);
+
+        // Assert - Should import 5 records
+        Assert.That(importedCredentials, Has.Count.EqualTo(5));
+
+        // Test credit card
+        var creditCard = importedCredentials.First(c => c.ServiceName == "Credit Card");
+        Assert.Multiple(() =>
+        {
+            Assert.That(creditCard.ItemType, Is.EqualTo(ImportedItemType.Creditcard));
+            Assert.That(creditCard.Creditcard, Is.Not.Null);
+            Assert.That(creditCard.Creditcard!.CardholderName, Is.EqualTo("ccholder"));
+            Assert.That(creditCard.Creditcard.Number, Is.EqualTo("1234123412341234"));
+            Assert.That(creditCard.Creditcard.Cvv, Is.EqualTo("1234"));
+            Assert.That(creditCard.Creditcard.Pin, Is.EqualTo("1234"));
+            Assert.That(creditCard.Creditcard.ExpiryMonth, Is.EqualTo("12"));
+            Assert.That(creditCard.Creditcard.ExpiryYear, Is.EqualTo("28"));
+        });
+
+        // Test Google login with TOTP
+        var googleLogin = importedCredentials.First(c => c.ServiceName == "Google");
+        Assert.Multiple(() =>
+        {
+            Assert.That(googleLogin.ItemType, Is.EqualTo(ImportedItemType.Login));
+            Assert.That(googleLogin.Username, Is.EqualTo("usergoogle"));
+            Assert.That(googleLogin.Email, Is.EqualTo("email@email.com"));
+            Assert.That(googleLogin.Password, Is.EqualTo("password"));
+            Assert.That(googleLogin.ServiceUrls?.FirstOrDefault(), Is.EqualTo("https://accounts.google.com/"));
+            Assert.That(googleLogin.TwoFactorSecret, Is.EqualTo("PLW4SB3PQ7MKVXY2MXF4NEXS6Y"));
+            Assert.That(googleLogin.Notes, Does.Contain("Security question: secquestion"));
+            Assert.That(googleLogin.Notes, Does.Contain("Security answer: secanswer"));
+        });
+
+        // Test identity
+        var identity = importedCredentials.First(c => c.ServiceName == "Identity");
+        Assert.Multiple(() =>
+        {
+            Assert.That(identity.ItemType, Is.EqualTo(ImportedItemType.Alias));
+            Assert.That(identity.Alias, Is.Not.Null);
+            Assert.That(identity.Alias!.FirstName, Is.EqualTo("John"));
+            Assert.That(identity.Alias.LastName, Is.EqualTo("Johnson"));
+            Assert.That(identity.Alias.Gender, Is.EqualTo("Male"));
+            Assert.That(identity.Alias.BirthDate, Is.EqualTo(new DateTime(1970, 1, 1)));
+        });
+
+        // Test password entry
+        var passwordEntry = importedCredentials.First(c => c.ServiceName == "Password");
+        Assert.Multiple(() =>
+        {
+            Assert.That(passwordEntry.ItemType, Is.EqualTo(ImportedItemType.Login));
+            Assert.That(passwordEntry.Username, Is.EqualTo("loginpw1"));
+            Assert.That(passwordEntry.Password, Is.EqualTo("password"));
+        });
+
+        // Test secure note
+        var secureNote = importedCredentials.First(c => c.ServiceName == "Securenote");
+        Assert.Multiple(() =>
+        {
+            Assert.That(secureNote.ItemType, Is.EqualTo(ImportedItemType.Note));
+            Assert.That(secureNote.Notes, Is.EqualTo("Note only content here"));
+        });
+    }
+
+    /// <summary>
+    /// Test case for Enpass credit card conversion to Item.
+    /// </summary>
+    /// <returns>Async task.</returns>
+    [Test]
+    public async Task EnpassCreditCardConversion()
+    {
+        // Arrange
+        var fileContent = await ResourceReaderUtility.ReadEmbeddedResourceStringAsync("AliasVault.UnitTests.TestData.Exports.enpass.csv");
+
+        // Act
+        var importedCredentials = await EnpassImporter.ImportFromCsvAsync(fileContent);
+        var creditCardCredential = importedCredentials.First(c => c.ServiceName == "Credit Card");
+        var items = BaseImporter.ConvertToItem([creditCardCredential]);
+
+        // Assert
+        var creditCardItem = items[0];
+        Assert.That(creditCardItem.ItemType, Is.EqualTo(ItemType.CreditCard));
+
+        var cardNumber = creditCardItem.FieldValues.FirstOrDefault(fv => fv.FieldKey == FieldKey.CardNumber);
+        Assert.That(cardNumber?.Value, Is.EqualTo("1234123412341234"));
+
+        var cardholderName = creditCardItem.FieldValues.FirstOrDefault(fv => fv.FieldKey == FieldKey.CardCardholderName);
+        Assert.That(cardholderName?.Value, Is.EqualTo("ccholder"));
+
+        var cardCvv = creditCardItem.FieldValues.FirstOrDefault(fv => fv.FieldKey == FieldKey.CardCvv);
+        Assert.That(cardCvv?.Value, Is.EqualTo("1234"));
+
+        var cardPin = creditCardItem.FieldValues.FirstOrDefault(fv => fv.FieldKey == FieldKey.CardPin);
+        Assert.That(cardPin?.Value, Is.EqualTo("1234"));
+    }
+
+    /// <summary>
     /// Helper method to add a field value to an item.
     /// </summary>
     /// <param name="item">The item to add the field value to.</param>

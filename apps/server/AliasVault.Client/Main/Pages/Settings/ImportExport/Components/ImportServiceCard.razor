@@ -13,18 +13,16 @@
 @using AliasClientDb
 @using AliasClientDb.Models
 
-<div @onclick="OpenImportModal" class="flex flex-col p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+<div @onclick="OpenImportModal" class="flex flex-col p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors duration-200">
     <div class="flex items-center">
-        <div class="w-12 h-12 mr-3 flex-shrink-0">
+        <div class="w-12 h-12 mr-3 flex-shrink-0 rounded-md flex items-center justify-center">
             @if (!string.IsNullOrEmpty(LogoUrl))
             {
                 <img src="@LogoUrl" alt="@ServiceName logo" class="w-full h-full object-contain" />
             }
             else
             {
-                <div class="w-full h-full bg-gray-200 dark:bg-gray-700 rounded-md flex items-center justify-center">
-                    <span class="text-gray-500 dark:text-gray-400 text-xs">@Localizer["NoLogoText"]</span>
-                </div>
+                <span class="text-gray-500 dark:text-gray-400 text-xs">@Localizer["NoLogoText"]</span>
             }
         </div>
         <div>
