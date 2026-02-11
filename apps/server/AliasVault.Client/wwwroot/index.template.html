@@ -192,7 +192,9 @@
             let value = translations;
             for (const key of keys) {
                 value = value?.[key];
-                if (!value) break;
+                if (!value) {
+                    break;
+                }
             }
             return value || '';
         }
@@ -371,7 +373,14 @@
         }
     </script>
     <script src="js/bundle.min.js?v=@CacheBuster"></script>
-    <script src="_framework/blazor.webassembly.js?v=@CacheBuster" async></script>
+    <script src="_framework/blazor.webassembly.js?v=@CacheBuster" autostart="false"></script>
+    <script>
+        Blazor.start({
+            configureRuntime: runtime => runtime.withConfig({
+                loadAllSatelliteResources: true
+            })
+        })
+     </script>
 </body>
 
 </html>

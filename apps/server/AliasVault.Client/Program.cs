@@ -9,11 +9,9 @@ using System.Globalization;
 using AliasVault.Client;
 using AliasVault.Client.Main.Services;
 using AliasVault.Client.Providers;
-using AliasVault.Client.Services;
 using AliasVault.Client.Services.JsInterop.RustCore;
 using AliasVault.RazorComponents.Services;
 using AliasVault.Shared.Core;
-using Blazor.WebAssembly.DynamicCulture.Loader;
 using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
@@ -107,15 +105,6 @@ builder.Services.AddAuthorizationCore();
 builder.Services.AddBlazoredLocalStorage();
 
 var app = builder.Build();
-
-// Load all supported cultures for dynamic switching
-// NOTE: Temporarily disabled due to .NET 10 HTTP streaming compatibility issue
-// The third-party package Blazor.WebAssembly.DynamicCulture.Loader v3.1.0
-// attempts to read Response streams multiple times, which fails in .NET 10
-// TODO: Update to compatible version or implement alternative solution
-// var supportedLanguages = LanguageService.GetSupportedLanguages();
-// var cultures = supportedLanguages.Keys.Select(langCode => new CultureInfo(langCode)).ToArray();
-// await app.LoadSatelliteCultureAssembliesCultureAsync(cultures);
 
 // Initialize language service
 var languageService = app.Services.GetRequiredService<LanguageService>();
