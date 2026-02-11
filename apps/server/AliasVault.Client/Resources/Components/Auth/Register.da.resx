@@ -58,45 +58,63 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="Title" xml:space="preserve">
-    <value>Upplåsning med Passkey</value>
-    <comment>Title for passkey unlock section</comment>
+  <!-- Page title -->
+  <data name="PageTitle" xml:space="preserve">
+    <value>Opret en ny AliasVault-konto</value>
+    <comment>Main registration page title</comment>
   </data>
-  <data name="EnabledDescription" xml:space="preserve">
-    <value>Ditt huvudlösenord krypteras med lösenordet PRF och lagras lokalt. När du laddar om AliasVault-sidan eller fliken, kan du låsa upp ditt valv med din passkey. Om du vill inaktivera upplåsning via passkey kan du göra det med knappen nedan. Huvudlösenordet fungerar fortfarande för att låsa upp valvet.</value>
-    <comment>Description when passkey unlock is enabled</comment>
+  <!-- Form labels -->
+  <data name="UsernameOrEmailLabel" xml:space="preserve">
+    <value>Dit brugernavn eller e-mail</value>
+    <comment>Label for username/email input field</comment>
   </data>
-  <data name="DisableButton" xml:space="preserve">
-    <value>Inaktivera Passkey upplåsning</value>
-    <comment>Button to disable passkey unlock</comment>
+  <data name="PasswordLabel" xml:space="preserve">
+    <value>Din adgangskode</value>
+    <comment>Label for password input field</comment>
   </data>
-  <data name="DisabledDescription" xml:space="preserve">
-    <value>Omladdning av AliasVault-sidan eller fliken kräver som standard att du anger ditt huvudlösenord igen. Med en passkey kan du låsa upp ditt valv omedelbart. När detta är aktiverat krypteras ditt huvudlösenord lokalt med passkeyns PRF-tillägg.
-OBS: Passkeyn fungerar endast för den enhet och webbläsare där du aktiverar den.</value>
-    <comment>Description when passkey unlock is disabled</comment>
+  <data name="ConfirmPasswordLabel" xml:space="preserve">
+    <value>Bekræft adgangskode</value>
+    <comment>Label for password confirmation input field</comment>
   </data>
-  <data name="ExperimentalWarning" xml:space="preserve">
-    <value>Denna funktion stöds för närvarande av AliasVault-webbläsartillägget och iOS-appen. Android-support kommer snart. Om du upplever några problem, kan du inaktivera den här funktionen när som helst.</value>
-    <comment>Warning about feature compatibility</comment>
+  <!-- Terms and conditions -->
+  <data name="AcceptTermsLabel" xml:space="preserve">
+    <value>Jeg accepterer</value>
+    <comment>Text before terms and conditions link</comment>
   </data>
-  <data name="EnableButton" xml:space="preserve">
-    <value>Aktivera Passkeyupplåsning</value>
-    <comment>Button to enable passkey unlock</comment>
+  <data name="TermsAndConditionsLink" xml:space="preserve">
+    <value>Vilkår og betingelser</value>
+    <comment>Link text for terms and conditions</comment>
   </data>
-  <data name="SuccessEnabledMessage" xml:space="preserve">
-    <value>Passkeyupplåsning har aktiverats. Nästa gång ditt valv är låst, kan du låsa upp det med din skapade passkey.</value>
-    <comment>Success message when passkey unlock is enabled</comment>
+  <!-- Buttons -->
+  <data name="CreateAccountButton" xml:space="preserve">
+    <value>Opret konto</value>
+    <comment>Create account button text</comment>
   </data>
-  <data name="SuccessDisabledMessage" xml:space="preserve">
-    <value>Passkeyupplåsning har inaktiverats</value>
-    <comment>Success message when passkey unlock is disabled</comment>
+  <!-- Links -->
+  <data name="AlreadyRegisteredText" xml:space="preserve">
+    <value>Allerede registreret?</value>
+    <comment>Text before login link</comment>
   </data>
-  <data name="WebAuthnNotSupportedError" xml:space="preserve">
-    <value>Din nuvarande webbläsare stöder inte tillägget WebAuthn PRF. Försök igen med en annan webbläsare.</value>
-    <comment>Error when WebAuthn is not supported</comment>
+  <data name="LoginHereLink" xml:space="preserve">
+    <value>Log ind her</value>
+    <comment>Link text for login page</comment>
   </data>
-  <data name="EnableErrorMessage" xml:space="preserve">
-    <value>Ett fel uppstod när Quick Vault Unlock skulle aktiveras. Försök igen (senare)</value>
-    <comment>Generic error message when enabling fails</comment>
+  <!-- Loading and status messages -->
+  <data name="CreatingAccountMessage" xml:space="preserve">
+    <value>Opretter konto...</value>
+    <comment>Loading message during account creation</comment>
+  </data>
+  <data name="RegistrationErrorMessage" xml:space="preserve">
+    <value>Der opstod en fejl under registreringen.</value>
+    <comment>Generic registration error message</comment>
+  </data>
+  <!-- Placeholders -->
+  <data name="UsernamePlaceholder" xml:space="preserve">
+    <value>navn / navn@firma.dk</value>
+    <comment>Placeholder text for username input</comment>
+  </data>
+  <data name="PasswordPlaceholder" xml:space="preserve">
+    <value>••••••••</value>
+    <comment>Placeholder text for password input</comment>
   </data>
 </root>
