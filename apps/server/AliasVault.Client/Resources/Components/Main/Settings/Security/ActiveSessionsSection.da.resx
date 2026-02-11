@@ -59,44 +59,47 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="Title" xml:space="preserve">
-    <value>Upplåsning med Passkey</value>
-    <comment>Title for passkey unlock section</comment>
+    <value>Active Sessions</value>
+    <comment>Section title</comment>
   </data>
-  <data name="EnabledDescription" xml:space="preserve">
-    <value>Ditt huvudlösenord krypteras med lösenordet PRF och lagras lokalt. När du laddar om AliasVault-sidan eller fliken, kan du låsa upp ditt valv med din passkey. Om du vill inaktivera upplåsning via passkey kan du göra det med knappen nedan. Huvudlösenordet fungerar fortfarande för att låsa upp valvet.</value>
-    <comment>Description when passkey unlock is enabled</comment>
+  <data name="Description" xml:space="preserve">
+    <value>Below is a list of devices where your account is currently logged in or has an active session. You can log out from any of these sessions here.</value>
+    <comment>Description of active sessions</comment>
   </data>
-  <data name="DisableButton" xml:space="preserve">
-    <value>Inaktivera Passkey upplåsning</value>
-    <comment>Button to disable passkey unlock</comment>
+  <data name="NoSessionsMessage" xml:space="preserve">
+    <value>No active sessions found.</value>
+    <comment>Message when no active sessions are available</comment>
   </data>
-  <data name="DisabledDescription" xml:space="preserve">
-    <value>Omladdning av AliasVault-sidan eller fliken kräver som standard att du anger ditt huvudlösenord igen. Med en passkey kan du låsa upp ditt valv omedelbart. När detta är aktiverat krypteras ditt huvudlösenord lokalt med passkeyns PRF-tillägg.
-OBS: Passkeyn fungerar endast för den enhet och webbläsare där du aktiverar den.</value>
-    <comment>Description when passkey unlock is disabled</comment>
+  <data name="DeviceColumn" xml:space="preserve">
+    <value>Device</value>
+    <comment>Table column header</comment>
   </data>
-  <data name="ExperimentalWarning" xml:space="preserve">
-    <value>Denna funktion stöds för närvarande av AliasVault-webbläsartillägget och iOS-appen. Android-support kommer snart. Om du upplever några problem, kan du inaktivera den här funktionen när som helst.</value>
-    <comment>Warning about feature compatibility</comment>
+  <data name="LastActiveColumn" xml:space="preserve">
+    <value>Last active</value>
+    <comment>Table column header</comment>
   </data>
-  <data name="EnableButton" xml:space="preserve">
-    <value>Aktivera Passkeyupplåsning</value>
-    <comment>Button to enable passkey unlock</comment>
+  <data name="ExpiresColumn" xml:space="preserve">
+    <value>Expires</value>
+    <comment>Table column header</comment>
   </data>
-  <data name="SuccessEnabledMessage" xml:space="preserve">
-    <value>Passkeyupplåsning har aktiverats. Nästa gång ditt valv är låst, kan du låsa upp det med din skapade passkey.</value>
-    <comment>Success message when passkey unlock is enabled</comment>
+  <data name="ActionColumn" xml:space="preserve">
+    <value>Action</value>
+    <comment>Table column header</comment>
   </data>
-  <data name="SuccessDisabledMessage" xml:space="preserve">
-    <value>Passkeyupplåsning har inaktiverats</value>
-    <comment>Success message when passkey unlock is disabled</comment>
+  <data name="RevokeButton" xml:space="preserve">
+    <value>Revoke</value>
+    <comment>Button to revoke session</comment>
   </data>
-  <data name="WebAuthnNotSupportedError" xml:space="preserve">
-    <value>Din nuvarande webbläsare stöder inte tillägget WebAuthn PRF. Försök igen med en annan webbläsare.</value>
-    <comment>Error when WebAuthn is not supported</comment>
+  <data name="RevokeSuccessMessage" xml:space="preserve">
+    <value>Session revoked successfully.</value>
+    <comment>Success message when session is revoked</comment>
   </data>
-  <data name="EnableErrorMessage" xml:space="preserve">
-    <value>Ett fel uppstod när Quick Vault Unlock skulle aktiveras. Försök igen (senare)</value>
-    <comment>Generic error message when enabling fails</comment>
+  <data name="RevokeErrorMessage" xml:space="preserve">
+    <value>Failed to revoke session.</value>
+    <comment>Error message when session revocation fails</comment>
+  </data>
+  <data name="RevokeExceptionMessage" xml:space="preserve">
+    <value>Failed to revoke session: {0}.</value>
+    <comment>Exception message when session revocation fails. {0} is placeholder for error details</comment>
   </data>
 </root>

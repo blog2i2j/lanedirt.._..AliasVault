@@ -58,45 +58,50 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="Title" xml:space="preserve">
-    <value>Upplåsning med Passkey</value>
-    <comment>Title for passkey unlock section</comment>
+  <!-- Page title and breadcrumbs -->
+  <data name="PageTitle" xml:space="preserve">
+    <value>Disable two-factor authentication</value>
+    <comment>Page title for the disable 2FA page</comment>
   </data>
-  <data name="EnabledDescription" xml:space="preserve">
-    <value>Ditt huvudlösenord krypteras med lösenordet PRF och lagras lokalt. När du laddar om AliasVault-sidan eller fliken, kan du låsa upp ditt valv med din passkey. Om du vill inaktivera upplåsning via passkey kan du göra det med knappen nedan. Huvudlösenordet fungerar fortfarande för att låsa upp valvet.</value>
-    <comment>Description when passkey unlock is enabled</comment>
+  <data name="BreadcrumbSecuritySettings" xml:space="preserve">
+    <value>Security settings</value>
+    <comment>Breadcrumb text for security settings</comment>
   </data>
-  <data name="DisableButton" xml:space="preserve">
-    <value>Inaktivera Passkey upplåsning</value>
-    <comment>Button to disable passkey unlock</comment>
+  <data name="BreadcrumbDisable2Fa" xml:space="preserve">
+    <value>Disable two-factor authentication</value>
+    <comment>Breadcrumb text for disable 2FA</comment>
   </data>
-  <data name="DisabledDescription" xml:space="preserve">
-    <value>Omladdning av AliasVault-sidan eller fliken kräver som standard att du anger ditt huvudlösenord igen. Med en passkey kan du låsa upp ditt valv omedelbart. När detta är aktiverat krypteras ditt huvudlösenord lokalt med passkeyns PRF-tillägg.
-OBS: Passkeyn fungerar endast för den enhet och webbläsare där du aktiverar den.</value>
-    <comment>Description when passkey unlock is disabled</comment>
+  <!-- Page description -->
+  <data name="PageDescription" xml:space="preserve">
+    <value>Disabling two-factor authentication means you will be able to login with only your password.</value>
+    <comment>Description text explaining what disabling 2FA means</comment>
   </data>
-  <data name="ExperimentalWarning" xml:space="preserve">
-    <value>Denna funktion stöds för närvarande av AliasVault-webbläsartillägget och iOS-appen. Android-support kommer snart. Om du upplever några problem, kan du inaktivera den här funktionen när som helst.</value>
-    <comment>Warning about feature compatibility</comment>
+  <!-- Warning message -->
+  <data name="WarningMessage" xml:space="preserve">
+    <value>Please note: after disabling two-factor authentication any configured authenticator app(s) will stop working. When you want to re-enable two-factor authentication you will have to configure the authenticator app(s) again.</value>
+    <comment>Warning message about the consequences of disabling 2FA</comment>
   </data>
-  <data name="EnableButton" xml:space="preserve">
-    <value>Aktivera Passkeyupplåsning</value>
-    <comment>Button to enable passkey unlock</comment>
+  <!-- Status message -->
+  <data name="StatusMessage" xml:space="preserve">
+    <value>Two factor authentication is currently enabled. Disable it in order to be able to access your vault with your password only.</value>
+    <comment>Status message explaining current 2FA state</comment>
   </data>
-  <data name="SuccessEnabledMessage" xml:space="preserve">
-    <value>Passkeyupplåsning har aktiverats. Nästa gång ditt valv är låst, kan du låsa upp det med din skapade passkey.</value>
-    <comment>Success message when passkey unlock is enabled</comment>
+  <!-- Button text -->
+  <data name="ConfirmDisableButton" xml:space="preserve">
+    <value>Confirm Disable Two-Factor Authentication</value>
+    <comment>Button text to confirm disabling 2FA</comment>
   </data>
-  <data name="SuccessDisabledMessage" xml:space="preserve">
-    <value>Passkeyupplåsning har inaktiverats</value>
-    <comment>Success message when passkey unlock is disabled</comment>
+  <!-- Success and error messages -->
+  <data name="TwoFactorDisabledSuccess" xml:space="preserve">
+    <value>Two-factor authentication is now successfully disabled.</value>
+    <comment>Success message when 2FA is disabled</comment>
   </data>
-  <data name="WebAuthnNotSupportedError" xml:space="preserve">
-    <value>Din nuvarande webbläsare stöder inte tillägget WebAuthn PRF. Försök igen med en annan webbläsare.</value>
-    <comment>Error when WebAuthn is not supported</comment>
+  <data name="FailedToDisable2Fa" xml:space="preserve">
+    <value>Failed to disable two-factor authentication.</value>
+    <comment>Error message when 2FA disable fails</comment>
   </data>
-  <data name="EnableErrorMessage" xml:space="preserve">
-    <value>Ett fel uppstod när Quick Vault Unlock skulle aktiveras. Försök igen (senare)</value>
-    <comment>Generic error message when enabling fails</comment>
+  <data name="TwoFactorNotEnabled" xml:space="preserve">
+    <value>Two-factor authentication is not enabled.</value>
+    <comment>Error message when 2FA is not enabled</comment>
   </data>
 </root>

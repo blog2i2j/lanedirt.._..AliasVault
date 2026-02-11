@@ -58,45 +58,64 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="Title" xml:space="preserve">
-    <value>Upplåsning med Passkey</value>
-    <comment>Title for passkey unlock section</comment>
+  <data name="FromLabel" xml:space="preserve">
+    <value>From:</value>
+    <comment>Email sender field label</comment>
   </data>
-  <data name="EnabledDescription" xml:space="preserve">
-    <value>Ditt huvudlösenord krypteras med lösenordet PRF och lagras lokalt. När du laddar om AliasVault-sidan eller fliken, kan du låsa upp ditt valv med din passkey. Om du vill inaktivera upplåsning via passkey kan du göra det med knappen nedan. Huvudlösenordet fungerar fortfarande för att låsa upp valvet.</value>
-    <comment>Description when passkey unlock is enabled</comment>
+  <data name="ToLabel" xml:space="preserve">
+    <value>To:</value>
+    <comment>Email recipient field label</comment>
   </data>
-  <data name="DisableButton" xml:space="preserve">
-    <value>Inaktivera Passkey upplåsning</value>
-    <comment>Button to disable passkey unlock</comment>
+  <data name="DateLabel" xml:space="preserve">
+    <value>Date:</value>
+    <comment>Email date field label</comment>
   </data>
-  <data name="DisabledDescription" xml:space="preserve">
-    <value>Omladdning av AliasVault-sidan eller fliken kräver som standard att du anger ditt huvudlösenord igen. Med en passkey kan du låsa upp ditt valv omedelbart. När detta är aktiverat krypteras ditt huvudlösenord lokalt med passkeyns PRF-tillägg.
-OBS: Passkeyn fungerar endast för den enhet och webbläsare där du aktiverar den.</value>
-    <comment>Description when passkey unlock is disabled</comment>
+  <data name="ItemLabel" xml:space="preserve">
+    <value>Item:</value>
+    <comment>Email item field label</comment>
   </data>
-  <data name="ExperimentalWarning" xml:space="preserve">
-    <value>Denna funktion stöds för närvarande av AliasVault-webbläsartillägget och iOS-appen. Android-support kommer snart. Om du upplever några problem, kan du inaktivera den här funktionen när som helst.</value>
-    <comment>Warning about feature compatibility</comment>
+  <data name="NoneValue" xml:space="preserve">
+    <value>None</value>
+    <comment>No item assigned value</comment>
   </data>
-  <data name="EnableButton" xml:space="preserve">
-    <value>Aktivera Passkeyupplåsning</value>
-    <comment>Button to enable passkey unlock</comment>
+  <data name="AttachmentsLabel" xml:space="preserve">
+    <value>Attachments:</value>
+    <comment>Email attachments section header</comment>
   </data>
-  <data name="SuccessEnabledMessage" xml:space="preserve">
-    <value>Passkeyupplåsning har aktiverats. Nästa gång ditt valv är låst, kan du låsa upp det med din skapade passkey.</value>
-    <comment>Success message when passkey unlock is enabled</comment>
+  <data name="SelectEmailMessage" xml:space="preserve">
+    <value>Select an email to view its contents</value>
+    <comment>Empty state message when no email is selected</comment>
   </data>
-  <data name="SuccessDisabledMessage" xml:space="preserve">
-    <value>Passkeyupplåsning har inaktiverats</value>
-    <comment>Success message when passkey unlock is disabled</comment>
+  <data name="DeleteEmailTitle" xml:space="preserve">
+    <value>Delete Email</value>
+    <comment>Delete email confirmation dialog title</comment>
   </data>
-  <data name="WebAuthnNotSupportedError" xml:space="preserve">
-    <value>Din nuvarande webbläsare stöder inte tillägget WebAuthn PRF. Försök igen med en annan webbläsare.</value>
-    <comment>Error when WebAuthn is not supported</comment>
+  <data name="DeleteEmailConfirmation" xml:space="preserve">
+    <value>Are you sure you want to delete this email? This action cannot be undone.</value>
+    <comment>Delete email confirmation message</comment>
   </data>
-  <data name="EnableErrorMessage" xml:space="preserve">
-    <value>Ett fel uppstod när Quick Vault Unlock skulle aktiveras. Försök igen (senare)</value>
-    <comment>Generic error message when enabling fails</comment>
+  <data name="EmailDeletedSuccess" xml:space="preserve">
+    <value>Email deleted successfully</value>
+    <comment>Success message when email is deleted</comment>
+  </data>
+  <data name="EmailDeleteFailed" xml:space="preserve">
+    <value>Failed to delete email</value>
+    <comment>Error message when email deletion fails</comment>
+  </data>
+  <data name="GenericError" xml:space="preserve">
+    <value>An error occurred</value>
+    <comment>Generic error message</comment>
+  </data>
+  <data name="NoEmailBody" xml:space="preserve">
+    <value>[This email has no body.]</value>
+    <comment>Message shown when email has no content</comment>
+  </data>
+  <data name="AttachmentDownloadFailed" xml:space="preserve">
+    <value>Failed to download attachment</value>
+    <comment>Error message when attachment download fails</comment>
+  </data>
+  <data name="AttachmentDownloadError" xml:space="preserve">
+    <value>Error downloading attachment</value>
+    <comment>Error message for attachment download error</comment>
   </data>
 </root>
