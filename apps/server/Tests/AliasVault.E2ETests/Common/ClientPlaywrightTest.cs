@@ -501,6 +501,12 @@ public abstract class ClientPlaywrightTest : PlaywrightTest
     /// <returns>Async task.</returns>
     protected async Task Register(bool checkForSuccess = true, string? username = null, string? password = null)
     {
+        // Check that we are on the login page after navigating to the base URL.
+        // This hard navigation ensures the Blazor app is fully reset, which is important
+        // after logout to ensure the router is in a clean state.
+        await Page.GotoAsync(AppBaseUrl);
+        await WaitForUrlAsync("user/start", "Log in with");
+
         // Try to register a new account.
         await NavigateUsingBlazorRouter("user/register");
         await WaitForUrlAsync("user/register", "Create account");
