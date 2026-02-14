@@ -347,8 +347,13 @@
             if (errorMessage.includes('WebAssembly')) {
                 showError(getTranslation('errors.webAssemblyError'));
             }
-            // Detect Blazor boot failures
-            else if (errorMessage.includes('blazor.boot.json') || errorMessage.includes('Failed to load config file') || errorMessage.includes('Failed to start platform')) {
+            // Detect Blazor boot failures and runtime errors that require a reload
+            else if (
+                errorMessage.includes('blazor.boot.json') ||
+                errorMessage.includes('Failed to load config file') ||
+                errorMessage.includes('Failed to start platform') ||
+                errorMessage.includes('Argument_InvalidHandle')
+            ) {
                 event.preventDefault();
                 handleBlazorBootFailure();
             }
