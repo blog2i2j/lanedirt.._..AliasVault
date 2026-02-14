@@ -9,6 +9,7 @@ import { ItemTypes, FieldKey, createSystemField } from '@/utils/dist/core/models
 import { CreatePasswordGenerator, PasswordGenerator, PasswordSettings } from '@/utils/dist/core/password-generator';
 import { getAllFaviconLinks } from '@/utils/favicon';
 import { LocalPreferencesService } from '@/utils/LocalPreferencesService';
+import { sliderToLength, lengthToSlider, SLIDER_MIN, SLIDER_MAX } from '@/utils/passwordLengthSlider';
 import { ClickValidator } from '@/utils/security/ClickValidator';
 import { ServiceDetectionUtility } from '@/utils/serviceDetection/ServiceDetectionUtility';
 import { SqliteClient } from '@/utils/SqliteClient';
@@ -1026,7 +1027,7 @@ export async function createAliasCreationPopup(suggestedNames: string[], rootCon
                 </button>
               </div>
             </div>
-            <input type="range" id="password-length-slider" min="8" max="64" value="12" class="av-password-length-slider">
+            <input type="range" id="password-length-slider" min="${SLIDER_MIN}" max="${SLIDER_MAX}" step="0.1" value="${lengthToSlider(12)}" class="av-password-length-slider">
           </div>
         </div>
         <div class="av-create-popup-actions">
@@ -1246,7 +1247,7 @@ export async function createAliasCreationPopup(suggestedNames: string[], rootCon
         // Update UI with loaded settings
         const lengthSlider = popup.querySelector('#password-length-slider') as HTMLInputElement;
         const lengthValue = popup.querySelector('#password-length-value') as HTMLSpanElement;
-        lengthSlider.value = currentPasswordSettings.Length.toString();
+        lengthSlider.value = lengthToSlider(currentPasswordSettings.Length).toString();
         lengthValue.textContent = currentPasswordSettings.Length.toString();
 
         // Generate initial password after settings are loaded
@@ -1275,7 +1276,8 @@ export async function createAliasCreationPopup(suggestedNames: string[], rootCon
       const lengthValue = popup.querySelector('#password-length-value') as HTMLSpanElement;
 
       lengthSlider.addEventListener('input', () => {
-        const newLength = parseInt(lengthSlider.value, 10);
+        const sliderValue = parseFloat(lengthSlider.value);
+        const newLength = sliderToLength(sliderValue);
         currentPasswordSettings.Length = newLength;
         lengthValue.textContent = newLength.toString();
 
@@ -1466,7 +1468,7 @@ export async function createAliasCreationPopup(suggestedNames: string[], rootCon
           passwordGenerator = CreatePasswordGenerator(currentPasswordSettings);
 
           // Update slider value
-          lengthSlider.value = currentPasswordSettings.Length.toString();
+          lengthSlider.value = lengthToSlider(currentPasswordSettings.Length).toString();
           lengthValue.textContent = currentPasswordSettings.Length.toString();
 
           // Close dialog
