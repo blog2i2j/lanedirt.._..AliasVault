@@ -317,8 +317,16 @@ Build: @BuildVersion
         }
 
         window.addEventListener('error', function(event) {
-            if (event.error && event.error.message && event.error.message.includes('WebAssembly')) {
+            const errorMessage = event.error?.message || event.message || '';
+            if (errorMessage.includes('WebAssembly')) {
                 showError(getTranslation('errors.webAssemblyError'));
+            }
+            else if (
+                errorMessage.includes('Argument_InvalidHandle') ||
+                errorMessage.includes('Failed to start platform')
+            ) {
+                event.preventDefault();
+                handleBlazorBootFailure();
             }
         });
         window.addEventListener('unhandledrejection', function(event) {
