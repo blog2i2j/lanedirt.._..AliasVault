@@ -24,6 +24,8 @@
     "unlockSuccessDescription": "Du kan nu använda autofyll av inloggningsformulär i din webbläsare.",
     "closePopup": "Stäng detta popup-fönster",
     "browseVault": "Bläddra bland valvets innehåll",
+    "autoCloseUnlockPopup": "Stäng automatiskt vid framtida inloggningar",
+    "closingIn": "Stänger om {{seconds}}...",
     "connectingTo": "Ansluter till",
     "switchAccounts": "Växla konton?",
     "loginWithMobile": "Logga in med hjälp av mobilapp",
@@ -40,6 +42,7 @@
     "error": "Fel",
     "cancel": "Avbryt",
     "confirm": "Bekräfta",
+    "remove": "Ta bort",
     "back": "Tillbaka",
     "next": "Nästa",
     "use": "Använd",
@@ -51,6 +54,7 @@
     "create": "Skapa",
     "or": "Eller",
     "close": "Stäng",
+    "dismiss": "Avfärda",
     "logout": "Logga ut",
     "copied": "Kopierad!",
     "openInNewWindow": "Öppna i nytt fönster",
@@ -163,7 +167,11 @@
     "passwordCopiedToClipboard": "Lösenord har kopierats till urklipp",
     "openAliasVaultToUpgrade": "Öppna AliasVault för att uppgradera",
     "vaultUpgradeRequired": "Uppgradering av valv krävs.",
-    "dismissPopup": "Avvisa popup"
+    "dismissPopup": "Avvisa popup",
+    "savePrompt": {
+      "title": "Spara till AliasVault?",
+      "neverForThisSite": "Aldrig för denna webbplats"
+    }
   },
   "items": {
     "title": "Objekt",
@@ -348,6 +356,11 @@
     "disabledForThisSite": "Inaktiverad för denna webbplats",
     "temporarilyDisabledUntil": "Tillfälligt inaktiverad tills",
     "resetAllSiteSettings": "Återställ alla webbplatsspecifika inställningar",
+    "autofillPopupDescription": "Visa autofyll när inloggningsfält upptäcks.",
+    "disabledSites": "Inaktiverade webbplatser",
+    "disabledSitesDescription": "Webbplatser där autofyll inte kommer att visas.",
+    "clearAllDisabledSites": "Rensa alla inaktiverade sajter",
+    "temporaryUntil": "fram till",
     "appearance": "Utseende",
     "theme": "Tema",
     "useDefault": "Använd standard",
@@ -415,6 +428,13 @@
         "male": "Man",
         "female": "Kvinna"
       }
+    },
+    "loginSave": {
+      "title": "Spara Inloggningsdialog",
+      "description": "Visa en dialogruta för att spara inloggningsuppgifter när du skickar in ett inloggningsformulär på en webbplats.",
+      "blockedSites": "Blockerade webbplatser",
+      "blockedSitesDescription": "Webbplatser där dialogrutan för att spara inloggning aldrig kommer att visas.",
+      "clearAllBlockedSites": "Rensa alla blockerade webbplatser"
     },
     "unlockMethod": {
       "title": "Valvupplåsningsmetod",

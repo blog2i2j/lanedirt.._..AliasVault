@@ -24,6 +24,8 @@
     "unlockSuccessDescription": "Du kan nu bruge autofyld i login-formularer i din browser.",
     "closePopup": "Luk denne popup",
     "browseVault": "Gennemse boksens indhold",
+    "autoCloseUnlockPopup": "Luk automatisk ved fremtidige log in",
+    "closingIn": "Lukker om {{seconds}}...",
     "connectingTo": "Forbinder til",
     "switchAccounts": "Skift konto?",
     "loginWithMobile": "Log ind via mobilapp",
@@ -40,6 +42,7 @@
     "error": "Fejl",
     "cancel": "Annuller",
     "confirm": "Bekræft",
+    "remove": "Fjern",
     "back": "Tilbage",
     "next": "Næste",
     "use": "Brug",
@@ -51,6 +54,7 @@
     "create": "Opret",
     "or": "Eller",
     "close": "Luk",
+    "dismiss": "Afvis",
     "logout": "Log ud",
     "copied": "Kopieret!",
     "openInNewWindow": "Åbn i nyt vindue",
@@ -163,7 +167,11 @@
     "passwordCopiedToClipboard": "Adgangskode kopieret til udklipsholder",
     "openAliasVaultToUpgrade": "Åbn AliasVault for at opgradere",
     "vaultUpgradeRequired": "Opgradering af boks påkrævet.",
-    "dismissPopup": "Luk popup"
+    "dismissPopup": "Luk popup",
+    "savePrompt": {
+      "title": "Gem i AliasVault?",
+      "neverForThisSite": "Aldrig for dette websted"
+    }
   },
   "items": {
     "title": "Elementer",
@@ -348,6 +356,11 @@
     "disabledForThisSite": "Deaktiveret for dette websted",
     "temporarilyDisabledUntil": "Midlertidigt deaktiveret indtil ",
     "resetAllSiteSettings": "Nulstil alle webstedsspecifikke indstillinger",
+    "autofillPopupDescription": "Vis popup for autofyld når login-felter detekteres.",
+    "disabledSites": "Deaktiverede websteder",
+    "disabledSitesDescription": "Websteder hvor popup-vinduet for autofyld ikke vises.",
+    "clearAllDisabledSites": "Ryd alle deaktiverede websteder",
+    "temporaryUntil": "indtil",
     "appearance": "Udseende",
     "theme": "Tema",
     "useDefault": "Brug standard",
@@ -415,6 +428,13 @@
         "male": "Mand",
         "female": "Kvinde"
       }
+    },
+    "loginSave": {
+      "title": "Gem Login-prompt",
+      "description": "Vis en prompt for at gemme loginoplysninger, når du indsender en login-formular på et websted.",
+      "blockedSites": "Blokerede websteder",
+      "blockedSitesDescription": "Websteder, hvor den gemte prompt aldrig vises.",
+      "clearAllBlockedSites": "Slet alle blokerede websteder"
     },
     "unlockMethod": {
       "title": "Oplåsningsmetode for boks",
