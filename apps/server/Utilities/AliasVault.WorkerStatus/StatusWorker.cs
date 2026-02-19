@@ -26,6 +26,17 @@ public class StatusWorker(ILogger<StatusWorker> logger, Func<IWorkerStatusDbCont
     /// <returns>Task.</returns>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        try
+        {
+            using var initDbContext = createDbContext();
+            _dbContext = initDbContext;
+            await GetOrCreateInitialStatusRecordAsync();
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Failed to initialize service status record for {ServiceName}", globalServiceStatus.ServiceName);
+        }
+
         while (!stoppingToken.IsCancellationRequested)
         {
             using var dbContext = createDbContext();

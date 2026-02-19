@@ -223,6 +223,14 @@
                     service.CurrentStatus = entry.CurrentStatus;
                     service.DesiredStatus = entry.DesiredStatus;
                 }
+                else
+                {
+                    // No record exists - service hasn't started yet or database issue.
+                    // Show as offline/stopped state so the button displays red (not transparent).
+                    service.IsHeartBeatValid = false;
+                    service.CurrentStatus = "Stopped";
+                    service.DesiredStatus = string.Empty;
+                }
             }
 
             await InvokeAsync(StateHasChanged);
