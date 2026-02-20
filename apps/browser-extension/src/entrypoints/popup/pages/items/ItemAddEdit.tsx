@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
@@ -88,6 +89,7 @@ const ItemAddEdit: React.FC = () => {
 
   // Component state
   const [localLoading, setLocalLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [item, setItem] = useState<Item | null>(null);
 
@@ -625,9 +627,23 @@ const ItemAddEdit: React.FC = () => {
    * Handle form submission.
    */
   const handleSave = useCallback(async () => {
-    if (!item) {
+    if (!item || isSaving) {
       return;
     }
+
+    /*
+     * Use flushSync to force React to render the loading state immediately.
+     * This ensures the spinner shows before the blocking vault export begins.
+     */
+    flushSync(() => {
+      setIsSaving(true);
+    });
+
+    /*
+     * Additional yield to event loop to ensure DOM has updated.
+     * This is critical for showing the loading animation before heavy synchronous work.
+     */
+    await new Promise(resolve => setTimeout(resolve, 10));
 
     try {
       // Build the fields array from fieldValues
@@ -679,15 +695,21 @@ const ItemAddEdit: React.FC = () => {
         UpdatedAt: new Date().toISOString()
       };
 
-      // Fetch and attach favicon from URL if needed (handles deduplication internally)
-      if (dbContext?.sqliteClient) {
-        setLocalLoading(true);
+      /*
+       * Fetch and attach favicon from URL if needed (handles deduplication internally).
+       * Only call if we have a URL value to avoid unnecessary processing.
+       */
+      const urlValue = fieldValues['login.url'];
+      if (dbContext?.sqliteClient && urlValue) {
         updatedItem = await FaviconService.fetchAndAttachFavicon(
           updatedItem,
-          fieldValues['login.url'],
+          urlValue,
           dbContext.sqliteClient,
           webApi
         );
+      } else if (!urlValue) {
+        // Explicitly clear logo if no URL (Note items, etc.)
+        updatedItem.Logo = undefined;
       }
 
       // Save to database and sync vault
@@ -700,8 +722,6 @@ const ItemAddEdit: React.FC = () => {
        * Sync happens in background, status shown via header indicator.
        */
       await executeVaultMutationAsync(async () => {
-        setLocalLoading(false);
-
         if (isEditMode) {
           await dbContext.sqliteClient!.items.update(
             updatedItem,
@@ -738,8 +758,9 @@ const ItemAddEdit: React.FC = () => {
       }
     } catch (err) {
       console.error('Error saving item:', err);
+      setIsSaving(false);
     }
-  }, [item, fieldValues, applicableSystemFields, customFields, dbContext, isEditMode, executeVaultMutationAsync, navigate, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes, passkeyIdsMarkedForDeletion, webApi, clearPersistedValues]);
+  }, [item, isSaving, fieldValues, applicableSystemFields, customFields, dbContext, isEditMode, executeVaultMutationAsync, navigate, originalAttachmentIds, attachments, originalTotpCodeIds, totpCodes, passkeyIdsMarkedForDeletion, webApi, clearPersistedValues]);
 
   /**
    * Handle delete action.
@@ -977,13 +998,16 @@ const ItemAddEdit: React.FC = () => {
             title={t('items.deleteItemTitle')}
             iconType={HeaderIconType.DELETE}
             variant="danger"
+            disabled={isSaving}
           />
         )}
         <HeaderButton
           id="save-credential"
           onClick={handleSave}
-          title={t('items.saveItem')}
+          title={isSaving ? t('common.saving') : t('items.saveItem')}
           iconType={HeaderIconType.SAVE}
+          isLoading={isSaving}
+          disabled={isSaving}
         />
       </div>
     );
@@ -991,7 +1015,7 @@ const ItemAddEdit: React.FC = () => {
     setHeaderButtons(headerButtonsJSX);
 
     return (): void => setHeaderButtons(null);
-  }, [setHeaderButtons, isEditMode, t, handleSave]);
+  }, [setHeaderButtons, isEditMode, t, handleSave, isSaving]);
 
   /**
    * Render a field input based on field type.
