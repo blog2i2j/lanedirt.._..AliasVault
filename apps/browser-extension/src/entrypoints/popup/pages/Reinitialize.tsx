@@ -14,6 +14,7 @@ import { storage } from '#imports';
 const LAST_VISITED_PAGE_KEY = 'session:lastVisitedPage';
 const LAST_VISITED_TIME_KEY = 'session:lastVisitedTime';
 const NAVIGATION_HISTORY_KEY = 'session:navigationHistory';
+const LAST_TAB_URL_KEY = 'session:lastTabUrl';
 const PAGE_MEMORY_DURATION = 120 * 1000; // 2 minutes in milliseconds
 
 type NavigationHistoryEntry = {
@@ -67,10 +68,10 @@ const Reinitialize: React.FC = () => {
       navigate('/items', { replace: true });
       navigate(`/items/${matchResult.items[0].Id}`, { replace: false });
     } else if (matchResult && matchResult.items.length > 1) {
-      // Multiple matches - navigate to items list with domain search
+      // Multiple matches - navigate to items list with domain search to help user find the right one
       navigate(`/items?search=${encodeURIComponent(matchResult.domain)}`, { replace: true });
     } else {
-      // No matches or matching failed - navigate to items page as default
+      // No matches or matching failed - navigate to items page without search (don't prefill search when there are no matches)
       navigate('/items', { replace: true });
     }
   }, [navigate]);
@@ -84,11 +85,16 @@ const Reinitialize: React.FC = () => {
     const matchResult = await matchCurrentTab();
     const matchedPath = getMatchedPath(matchResult);
 
-    const [lastPage, lastVisitTime, savedHistory] = await Promise.all([
+    const [lastPage, lastVisitTime, savedHistory, lastTabUrl] = await Promise.all([
       storage.getItem(LAST_VISITED_PAGE_KEY) as Promise<string>,
       storage.getItem(LAST_VISITED_TIME_KEY) as Promise<number>,
       storage.getItem(NAVIGATION_HISTORY_KEY) as Promise<NavigationHistoryEntry[]>,
+      storage.getItem(LAST_TAB_URL_KEY) as Promise<string>,
     ]);
+
+    // Check if user switched to a different tab (different URL)
+    const currentTabUrl = matchResult?.currentUrl;
+    const hasTabChanged = currentTabUrl && lastTabUrl && currentTabUrl !== lastTabUrl;
 
     if (lastPage && lastVisitTime) {
       const timeSinceLastVisit = Date.now() - lastVisitTime;
@@ -96,6 +102,7 @@ const Reinitialize: React.FC = () => {
         /*
          * Check if user navigated away from the auto-matched page to a specific different page.
          * Use fresh URL matching if:
+         * - Tab URL has changed (user switched tabs)
          * - lastPage matches what URL matching would show AND has no search query (user stayed on auto-matched page)
          * - lastPage is /items with no search query (default index page - treat as "home" state)
          *
@@ -107,7 +114,7 @@ const Reinitialize: React.FC = () => {
         const hasSearchQuery = lastHistoryEntry?.search && lastHistoryEntry.search.length > 0;
         const isOnMatchedPage = lastPage === matchedPath && !hasSearchQuery;
         const isOnDefaultIndexPage = lastPage === '/items' && !hasSearchQuery;
-        const shouldUseFreshMatch = isOnMatchedPage || isOnDefaultIndexPage;
+        const shouldUseFreshMatch = hasTabChanged || isOnMatchedPage || isOnDefaultIndexPage;
 
         if (!shouldUseFreshMatch) {
           // Restore user's navigation since they navigated away from auto-matched page
@@ -136,6 +143,11 @@ const Reinitialize: React.FC = () => {
       storage.removeItem(NAVIGATION_HISTORY_KEY),
       sendMessage('CLEAR_PERSISTED_FORM_VALUES', null, 'background'),
     ]);
+
+    // Save current tab URL for future tab-switch detection
+    if (currentTabUrl) {
+      await storage.setItem(LAST_TAB_URL_KEY, currentTabUrl);
+    }
 
     // Navigate based on URL matching
     await navigateWithUrlMatching(matchResult);

@@ -133,7 +133,8 @@ export function openAutofillPopup(input: HTMLInputElement, container: HTMLElemen
     const response = await sendMessage('GET_FILTERED_ITEMS', {
       currentUrl: window.location.href,
       pageTitle: document.title,
-      matchingMode: matchingMode
+      matchingMode: matchingMode,
+      includeRecentlySelected: true // Enable for multi-step login autofill
     }, 'background') as ItemsResponse;
 
     if (response.success) {
@@ -655,7 +656,7 @@ export function createLoadingPopup(input: HTMLInputElement, message: string, roo
  * @param itemList - The item list element.
  * @param input - The input element that triggered the popup. Required when filling items to know which form to fill.
  */
-export function updatePopupContent(items: Item[], itemList: HTMLElement | null, input: HTMLInputElement, rootContainer: HTMLElement, noMatchesText?: string) : void {
+export async function updatePopupContent(items: Item[], itemList: HTMLElement | null, input: HTMLInputElement, rootContainer: HTMLElement, noMatchesText?: string) : Promise<void> {
   if (!itemList) {
     itemList = document.getElementById('aliasvault-credential-list') as HTMLElement;
   }
@@ -721,7 +722,7 @@ export async function createAutofillPopup(input: HTMLInputElement, items: Item[]
     items = [];
   }
 
-  updatePopupContent(items, credentialList, input, rootContainer, noMatchesText);
+  await updatePopupContent(items, credentialList, input, rootContainer, noMatchesText);
 
   // Add divider
   const divider = document.createElement('div');
@@ -1118,7 +1119,7 @@ async function handleSearchInput(searchInput: HTMLInputElement, initialItems: It
 
   if (searchTerm === '') {
     // If search is empty, show the initially URL-filtered items
-    updatePopupContent(initialItems, itemList, input, rootContainer, noMatchesText);
+    await updatePopupContent(initialItems, itemList, input, rootContainer, noMatchesText);
   } else {
     // Search in full vault with search term
     const response = await sendMessage('GET_SEARCH_ITEMS', {
@@ -1126,10 +1127,10 @@ async function handleSearchInput(searchInput: HTMLInputElement, initialItems: It
     }, 'background') as ItemsResponse;
 
     if (response.success && response.items) {
-      updatePopupContent(response.items, itemList, input, rootContainer, noMatchesText);
+      await updatePopupContent(response.items, itemList, input, rootContainer, noMatchesText);
     } else {
       // On error, fallback to showing initial filtered items
-      updatePopupContent(initialItems, itemList, input, rootContainer, noMatchesText);
+      await updatePopupContent(initialItems, itemList, input, rootContainer, noMatchesText);
     }
   }
 }
@@ -1144,7 +1145,7 @@ function createItemList(items: Item[], input: HTMLInputElement, rootContainer: H
   const elements: HTMLElement[] = [];
 
   if (items.length > 0) {
-    items.forEach(item => {
+    items.forEach((item) => {
       const itemElement = document.createElement('div');
       itemElement.className = 'av-credential-item';
 

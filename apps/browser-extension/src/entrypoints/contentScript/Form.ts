@@ -133,6 +133,11 @@ export async function fillItem(item: Item, input: HTMLInputElement): Promise<voi
   sendMessage('STORE_LAST_AUTOFILLED', lastAutofilled, 'background').catch(() => {
     // Ignore errors as background script might not be ready
   });
+
+  // Store recently selected item for smart autofill prioritization
+  sendMessage('SET_RECENTLY_SELECTED', { itemId: item.Id, domain: window.location.hostname }, 'background').catch(() => {
+    // Ignore errors as background script might not be ready
+  });
 }
 
 /**
@@ -324,6 +329,11 @@ export async function fillTotpCode(itemId: string, input: HTMLInputElement): Pro
 
   // Trigger input events for form validation
   triggerInputEvents(input);
+
+  // Store recently selected item for smart autofill prioritization
+  sendMessage('SET_RECENTLY_SELECTED', { itemId, domain: window.location.hostname }, 'background').catch(() => {
+    // Ignore errors as background script might not be ready
+  });
 }
 
 /**

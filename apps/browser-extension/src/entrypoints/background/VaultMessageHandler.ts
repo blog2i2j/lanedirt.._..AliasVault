@@ -8,6 +8,7 @@ import type { Vault, VaultResponse, VaultPostResponse } from '@/utils/dist/core/
 import { EncryptionUtility } from '@/utils/EncryptionUtility';
 import { filterItems, AutofillMatchingMode } from '@/utils/itemMatcher/ItemMatcher';
 import { LocalPreferencesService } from '@/utils/LocalPreferencesService';
+import { RecentlySelectedItemService } from '@/utils/RecentlySelectedItemService';
 import { SqliteClient } from '@/utils/SqliteClient';
 import { getItemWithFallback } from '@/utils/StorageUtility';
 import { ApiAuthError } from '@/utils/types/errors/ApiAuthError';
@@ -360,7 +361,67 @@ function filterItemsByUrl(items: Item[], currentUrl: string, pageTitle: string, 
 }
 
 /**
+ * Prioritize recently selected item in the filtered items list.
+ * If a recently selected item exists and is valid, ensure it's at the front of the array.
+ * If the item is not in the filtered results, fetch it from the vault and add it.
+ *
+ * @param items - The filtered items array
+ * @param domain - The current domain for recently selected item validation
+ * @param allItems - All items from the vault (to fetch recently selected if not in filtered)
+ * @returns The items array with recently selected item prioritized
+ */
+async function prioritizeRecentlySelectedItem(items: Item[], domain: string, allItems: Item[]): Promise<Item[]> {
+  const recentlySelectedId = await RecentlySelectedItemService.getRecentlySelected(domain);
+
+  if (!recentlySelectedId) {
+    return items;
+  }
+
+  // Find the recently selected item in the filtered results
+  const recentlySelectedIndex = items.findIndex(item => item.Id === recentlySelectedId);
+
+  if (recentlySelectedIndex !== -1) {
+    // Item is already in filtered results - move it to the front
+    const recentlySelectedItem = items[recentlySelectedIndex];
+    const reorderedItems = [
+      recentlySelectedItem,
+      ...items.slice(0, recentlySelectedIndex),
+      ...items.slice(recentlySelectedIndex + 1)
+    ];
+    return reorderedItems;
+  }
+
+  // Item is not in filtered results - fetch it from all items and prepend it
+  const recentlySelectedItem = allItems.find(item => item.Id === recentlySelectedId);
+
+  if (!recentlySelectedItem) {
+    // Item not found in vault (might have been deleted)
+    return items;
+  }
+
+  // Prepend the recently selected item to the filtered results
+  return [recentlySelectedItem, ...items];
+}
+
+/**
+ * Extract domain from URL for recently selected item scoping.
+ * @param url - The full URL
+ * @returns The domain or the original URL if parsing fails
+ */
+function extractDomain(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.hostname;
+  } catch {
+    // If URL parsing fails, return the original URL
+    return url;
+  }
+}
+
+/**
  * Filter items by search term.
+ * Splits search into words and matches items where ALL words appear in searchable fields.
+ * Word order doesn't matter - matching behavior consistent with popup search.
  *
  * @param items - The items to filter
  * @param searchTerm - The search term to use
@@ -371,7 +432,10 @@ function filterItemsBySearchTerm(items: Item[], searchTerm: string): Item[] {
     return [];
   }
 
-  const normalizedTerm = searchTerm.toLowerCase().trim();
+  const searchLower = searchTerm.toLowerCase().trim();
+
+  // Split search query into individual words (same as popup search)
+  const searchWords = searchLower.split(/\s+/).filter(word => word.length > 0);
 
   const searchableFieldKeys = [
     FieldKey.LoginUsername,
@@ -382,19 +446,24 @@ function filterItemsBySearchTerm(items: Item[], searchTerm: string): Item[] {
   ];
 
   return items.filter((item: Item) => {
-    // Search in item name
-    if (item.Name?.toLowerCase().includes(normalizedTerm)) {
-      return true;
-    }
+    // Build searchable fields array
+    const searchableFields: string[] = [
+      item.Name?.toLowerCase() || ''
+    ];
 
-    // Search in field values
-    return item.Fields?.some((field: { FieldKey: string; Value: string | string[] }) => {
+    // Add field values to searchable fields
+    item.Fields?.forEach((field: { FieldKey: string; Value: string | string[]; Label: string }) => {
       if ((searchableFieldKeys as string[]).includes(field.FieldKey)) {
         const value = Array.isArray(field.Value) ? field.Value.join(' ') : field.Value;
-        return value?.toLowerCase().includes(normalizedTerm);
+        searchableFields.push(value?.toLowerCase() || '');
+        searchableFields.push(field.Label.toLowerCase());
       }
-      return false;
     });
+
+    // Every word must appear in at least one searchable field (order doesn't matter)
+    return searchWords.every(word =>
+      searchableFields.some(field => field.includes(word))
+    );
   }).sort((a: Item, b: Item) => (a.Name ?? '').localeCompare(b.Name ?? ''));
 }
 
@@ -402,10 +471,10 @@ function filterItemsBySearchTerm(items: Item[], searchTerm: string): Item[] {
  * Get items filtered by URL matching (for autofill).
  * Filters items in the background script before sending to reduce message payload size.
  *
- * @param message - Filtering parameters: currentUrl, pageTitle, matchingMode
+ * @param message - Filtering parameters: currentUrl, pageTitle, matchingMode, skipRecentlySelected
  */
 export async function handleGetFilteredItems(
-  message: { currentUrl: string, pageTitle: string, matchingMode?: string }
+  message: { currentUrl: string, pageTitle: string, matchingMode?: string, includeRecentlySelected?: boolean }
 ) : Promise<messageItemsResponse> {
   const encryptionKey = await handleGetEncryptionKey();
 
@@ -419,7 +488,14 @@ export async function handleGetFilteredItems(
     const allItems = sqliteClient.items.getAll();
     const filteredItems = await filterItemsByUrl(allItems, message.currentUrl, message.pageTitle, message.matchingMode);
 
-    return { success: true, items: filteredItems };
+    // Prioritize recently selected item for multi-step login flows (opt-in only)
+    let prioritizedItems = filteredItems;
+    if (message.includeRecentlySelected) {
+      const domain = extractDomain(message.currentUrl);
+      prioritizedItems = await prioritizeRecentlySelectedItem(filteredItems, domain, allItems);
+    }
+
+    return { success: true, items: prioritizedItems };
   } catch (error) {
     console.error('Error getting filtered items:', error);
     // E-304: Item read failed
@@ -1672,7 +1748,11 @@ export async function handleGetItemsWithTotp(
     // Then filter by URL matching using shared logic
     const filteredItems = await filterItemsByUrl(itemsWithTotp, message.currentUrl, message.pageTitle, message.matchingMode);
 
-    return { success: true, items: filteredItems };
+    // Prioritize recently selected item for multi-step login flows
+    const domain = extractDomain(message.currentUrl);
+    const prioritizedItems = await prioritizeRecentlySelectedItem(filteredItems, domain, itemsWithTotp);
+
+    return { success: true, items: prioritizedItems };
   } catch (error) {
     console.error('Error getting items with TOTP:', error);
     return { success: false, error: formatErrorWithCode(await t('common.errors.unknownError'), AppErrorCode.ITEM_READ_FAILED) };
@@ -1778,5 +1858,35 @@ export async function handleGenerateTotpCode(
   } catch (error) {
     console.error('Error generating TOTP code:', error);
     return { success: false, error: formatErrorWithCode(await t('common.errors.unknownError'), AppErrorCode.ITEM_READ_FAILED) };
+  }
+}
+
+/**
+ * Set recently selected item for smart autofill.
+ */
+export async function handleSetRecentlySelected(
+  message: { itemId: string; domain: string }
+): Promise<{ success: boolean }> {
+  try {
+    await RecentlySelectedItemService.setRecentlySelected(message.itemId, message.domain);
+    return { success: true };
+  } catch (error) {
+    console.error('Error setting recently selected item:', error);
+    return { success: false };
+  }
+}
+
+/**
+ * Get recently selected item for smart autofill.
+ */
+export async function handleGetRecentlySelected(
+  message: { domain: string }
+): Promise<{ success: boolean; itemId?: string | null }> {
+  try {
+    const itemId = await RecentlySelectedItemService.getRecentlySelected(message.domain);
+    return { success: true, itemId };
+  } catch (error) {
+    console.error('Error getting recently selected item:', error);
+    return { success: false, itemId: null };
   }
 }

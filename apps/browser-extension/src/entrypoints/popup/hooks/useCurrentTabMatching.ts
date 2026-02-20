@@ -21,9 +21,6 @@ export type CurrentTabMatchResult = {
 
 /**
  * Hook for matching vault items against the current browser tab.
- *
- * Uses the same credential matching logic as the content script autofill popup,
- * respecting user's autofill matching mode settings.
  */
 const useCurrentTabMatching = (): {
   matchCurrentTab: () => Promise<CurrentTabMatchResult | null>;
@@ -59,11 +56,12 @@ const useCurrentTabMatching = (): {
       // Get autofill matching mode from user settings
       const matchingMode = await LocalPreferencesService.getAutofillMatchingMode();
 
-      // Use the same filtering logic as content script
+      // Use the same filtering logic as content script (without recently selected prioritization)
       const response = await sendMessage('GET_FILTERED_ITEMS', {
         currentUrl: activeTab.url,
         pageTitle: activeTab.title || '',
         matchingMode: matchingMode
+        // includeRecentlySelected defaults to false (recently selected is for autofill only)
       }, 'background') as ItemsResponse;
 
       if (!response.success || !response.items) {

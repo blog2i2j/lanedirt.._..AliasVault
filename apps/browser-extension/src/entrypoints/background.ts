@@ -11,7 +11,7 @@ import { handleGetWebAuthnSettings, handleWebAuthnCreate, handleWebAuthnGet, han
 import { handleOpenPopup, handlePopupWithItem, handleOpenPopupCreateCredential, handleToggleContextMenu } from '@/entrypoints/background/PopupMessageHandler';
 import { handleStoreSavePromptState, handleGetSavePromptState, handleClearSavePromptState, handleStoreLastAutofilled, handleGetLastAutofilled, handleClearLastAutofilled } from '@/entrypoints/background/SavePromptStateHandler';
 import { handleStoreTwoFactorState, handleGetTwoFactorState, handleClearTwoFactorState } from '@/entrypoints/background/TwoFactorStateHandler';
-import { handleCheckAuthStatus, handleClearPersistedFormValues, handleClearSession, handleClearVaultData, handleLockVault, handleCreateItem, handleGetFilteredItems, handleGetSearchItems, handleGetDefaultEmailDomain, handleGetDefaultIdentitySettings, handleGetEncryptionKey, handleGetEncryptionKeyDerivationParams, handleGetPasswordSettings, handleGetPersistedFormValues, handleGetVault, handlePersistFormValues, handleStoreEncryptionKey, handleStoreEncryptionKeyDerivationParams, handleStoreVaultMetadata, handleSyncVault, handleUploadVault, handleGetEncryptedVault, handleStoreEncryptedVault, handleGetSyncState, handleMarkVaultClean, handleGetServerRevision, handleCheckSyncStatus, handleFullVaultSync, handleCheckLoginDuplicate, handleSaveLoginCredential, handleAddUrlToCredential, handleGetLoginSaveSettings, handleSetLoginSaveEnabled, handleGetItemsWithTotp, handleSearchItemsWithTotp, handleGetTotpSecrets, handleGenerateTotpCode } from '@/entrypoints/background/VaultMessageHandler';
+import { handleCheckAuthStatus, handleClearPersistedFormValues, handleClearSession, handleClearVaultData, handleLockVault, handleCreateItem, handleGetFilteredItems, handleGetSearchItems, handleGetDefaultEmailDomain, handleGetDefaultIdentitySettings, handleGetEncryptionKey, handleGetEncryptionKeyDerivationParams, handleGetPasswordSettings, handleGetPersistedFormValues, handleGetVault, handlePersistFormValues, handleStoreEncryptionKey, handleStoreEncryptionKeyDerivationParams, handleStoreVaultMetadata, handleSyncVault, handleUploadVault, handleGetEncryptedVault, handleStoreEncryptedVault, handleGetSyncState, handleMarkVaultClean, handleGetServerRevision, handleCheckSyncStatus, handleFullVaultSync, handleCheckLoginDuplicate, handleSaveLoginCredential, handleAddUrlToCredential, handleGetLoginSaveSettings, handleSetLoginSaveEnabled, handleGetItemsWithTotp, handleSearchItemsWithTotp, handleGetTotpSecrets, handleGenerateTotpCode, handleSetRecentlySelected, handleGetRecentlySelected } from '@/entrypoints/background/VaultMessageHandler';
 
 import { EncryptionKeyDerivationParams } from "@/utils/dist/core/models/metadata";
 import type { LoginResponse } from "@/utils/dist/core/models/webapi";
@@ -31,7 +31,7 @@ export default defineBackground({
     onMessage('GET_ENCRYPTION_KEY', () => handleGetEncryptionKey());
     onMessage('GET_ENCRYPTION_KEY_DERIVATION_PARAMS', () => handleGetEncryptionKeyDerivationParams());
     onMessage('GET_VAULT', () => handleGetVault());
-    onMessage('GET_FILTERED_ITEMS', ({ data }) => handleGetFilteredItems(data as { currentUrl: string, pageTitle: string, matchingMode?: string }));
+    onMessage('GET_FILTERED_ITEMS', ({ data }) => handleGetFilteredItems(data as { currentUrl: string, pageTitle: string, matchingMode?: string, includeRecentlySelected?: boolean }));
     onMessage('GET_SEARCH_ITEMS', ({ data }) => handleGetSearchItems(data as { searchTerm: string }));
 
     onMessage('GET_DEFAULT_EMAIL_DOMAIN', () => handleGetDefaultEmailDomain());
@@ -78,6 +78,10 @@ export default defineBackground({
     onMessage('SEARCH_ITEMS_WITH_TOTP', ({ data }) => handleSearchItemsWithTotp(data as { searchTerm: string }));
     onMessage('GET_TOTP_SECRETS', ({ data }) => handleGetTotpSecrets(data as { itemIds: string[] }));
     onMessage('GENERATE_TOTP_CODE', ({ data }) => handleGenerateTotpCode(data as { itemId: string }));
+
+    // Track recently selected items for autofill prioritization
+    onMessage('SET_RECENTLY_SELECTED', ({ data }) => handleSetRecentlySelected(data as { itemId: string; domain: string }));
+    onMessage('GET_RECENTLY_SELECTED', ({ data }) => handleGetRecentlySelected(data as { domain: string }));
 
     // Remember login save state (for surviving page navigation)
     onMessage('STORE_SAVE_PROMPT_STATE', ({ data, sender }) => handleStoreSavePromptState({ tabId: sender.tabId!, state: data as SavePromptPersistedState }));
