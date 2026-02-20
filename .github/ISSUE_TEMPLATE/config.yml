@@ -1,11 +1,8 @@
 blank_issues_enabled: true
 contact_links:
-  - name: 💬 Discussions & Questions
-    url: https://github.com/yourusername/AliasVault/discussions
-    about: Ask questions and discuss ideas with the community
+  - name: 💬 Discord Community
+    url: https://discord.gg/DsaXMTEtpF
+    about: Ask questions and discuss ideas with the community on Discord
   - name: 📖 Documentation
     url: https://docs.aliasvault.net
-    about: Check out the official documentation
-  - name: 🔒 Security Vulnerability
-    url: https://github.com/yourusername/AliasVault/security/advisories/new
-    about: Report security vulnerabilities privately (do not create public issues for security bugs)
+    about: Check out the official (self-host) documentation
