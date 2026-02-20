@@ -6,7 +6,8 @@
 //! Algorithm Structure (Priority Order with Early Returns):
 //! 1. PRIORITY 1: App Package Name Exact Match (for mobile apps)
 //! 2. PRIORITY 2: URL Domain Matching (exact, subdomain, root domain)
-//! 3. PRIORITY 3: Service Name Fallback (only for credentials without URLs - anti-phishing)
+//! 3. PRIORITY 3: Page Title Fallback (only for credentials without URLs - anti-phishing)
+//! 3b. PRIORITY 3b: Root Domain Word Matching (only base domain, no subdomains or paths)
 //! 4. PRIORITY 4: Text/Page Title Matching (non-URL search)
 
 mod domain;
@@ -246,60 +247,20 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
             }
 
             // ═══════════════════════════════════════════════════════════════════════════
-            // PRIORITY 3: Page Title / Item Name Fallback (Anti-Phishing Protection)
-            // No domain matches found - search in item names using page title
-            // CRITICAL: Only search credentials with NO URLs defined
-            // ═══════════════════════════════════════════════════════════════════════════
-            if !page_title.is_empty() {
-                let title_words = extract_words(&page_title);
-
-                if !title_words.is_empty() {
-                    let name_match_ids: Vec<String> = credentials
-                        .iter()
-                        .filter(|cred| {
-                            // SECURITY: Skip credentials that have URLs defined
-                            if !cred.item_urls.is_empty()
-                                && cred.item_urls.iter().any(|u| !u.is_empty())
-                            {
-                                return false;
-                            }
-
-                            // Check page title match with item name
-                            if let Some(item_name) = &cred.item_name {
-                                let cred_name_words = extract_words(item_name);
-
-                                // Match only complete words, not substrings
-                                title_words.iter().any(|title_word| {
-                                    cred_name_words.iter().any(|cred_word| title_word == cred_word)
-                                })
-                            } else {
-                                false
-                            }
-                        })
-                        .map(|cred| cred.id.clone())
-                        .take(3)
-                        .collect();
-
-                    // Return matches from Priority 3 if any found
-                    if !name_match_ids.is_empty() {
-                        return CredentialMatcherOutput {
-                            matched_ids: name_match_ids,
-                            matched_priority: 3,
-                        };
-                    }
-                }
-            }
-
-            // ═══════════════════════════════════════════════════════════════════════════
-            // PRIORITY 3b: URL Word / Item Name Fallback
+            // PRIORITY 3b: Root Domain Word / Item Name Fallback
             // No domain or page title matches found - try matching words extracted
-            // from the current URL against item names for credentials without URLs.
+            // from ONLY the root domain (no subdomains, no path/query) against item names.
             // Same anti-phishing rule: only credentials with NO URLs are eligible.
+            // IMPORTANT: Extract words only from root domain to avoid false positives:
+            //   - outlook.office.com → extract from "office.com" only (not "outlook")
+            //   - www.dumpert.nl → extract from "dumpert.nl" only (not "www")
+            //   - Don't match "mail" from "/mail/" path
             // ═══════════════════════════════════════════════════════════════════════════
-            let url_words = extract_words(&current_url);
+            let root_domain = extract_root_domain(&current_domain_info.domain);
+            let domain_words = extract_words(&root_domain);
 
-            if !url_words.is_empty() {
-                let url_word_match_ids: Vec<String> = credentials
+            if !domain_words.is_empty() {
+                let domain_word_match_ids: Vec<String> = credentials
                     .iter()
                     .filter(|cred| {
                         // SECURITY: Skip credentials that have URLs defined
@@ -313,8 +274,8 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
                             let cred_name_words = extract_words(item_name);
 
                             // Match only complete words, not substrings
-                            url_words.iter().any(|url_word| {
-                                cred_name_words.iter().any(|cred_word| url_word == cred_word)
+                            domain_words.iter().any(|domain_word| {
+                                cred_name_words.iter().any(|cred_word| domain_word == cred_word)
                             })
                         } else {
                             false
@@ -324,9 +285,9 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
                     .take(3)
                     .collect();
 
-                if !url_word_match_ids.is_empty() {
+                if !domain_word_match_ids.is_empty() {
                     return CredentialMatcherOutput {
-                        matched_ids: url_word_match_ids,
+                        matched_ids: domain_word_match_ids,
                         matched_priority: 3,
                     };
                 }
@@ -337,6 +298,52 @@ pub fn filter_credentials(input: CredentialMatcherInput) -> CredentialMatcherOut
                 matched_ids: vec![],
                 matched_priority: 0,
             };
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // PRIORITY 3: Page Title / Item Name Fallback (Anti-Phishing Protection)
+    // Only runs when domain extraction FAILED (desktop apps, malformed URLs, etc.)
+    // CRITICAL: Only search credentials with NO URLs defined
+    // NOTE: This does NOT run for normal web pages (those are handled in Priority 2)
+    // ═══════════════════════════════════════════════════════════════════════════════
+    if !page_title.is_empty() {
+        let title_words = extract_words(&page_title);
+
+        if !title_words.is_empty() {
+            let name_match_ids: Vec<String> = credentials
+                .iter()
+                .filter(|cred| {
+                    // SECURITY: Skip credentials that have URLs defined
+                    if !cred.item_urls.is_empty()
+                        && cred.item_urls.iter().any(|u| !u.is_empty())
+                    {
+                        return false;
+                    }
+
+                    // Check page title match with item name
+                    if let Some(item_name) = &cred.item_name {
+                        let cred_name_words = extract_words(item_name);
+
+                        // Match only complete words, not substrings
+                        title_words.iter().any(|title_word| {
+                            cred_name_words.iter().any(|cred_word| title_word == cred_word)
+                        })
+                    } else {
+                        false
+                    }
+                })
+                .map(|cred| cred.id.clone())
+                .take(3)
+                .collect();
+
+            // Return matches from Priority 3 if any found
+            if !name_match_ids.is_empty() {
+                return CredentialMatcherOutput {
+                    matched_ids: name_match_ids,
+                    matched_priority: 3,
+                };
+            }
         }
     }
 

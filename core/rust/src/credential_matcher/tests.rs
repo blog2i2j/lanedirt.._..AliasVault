@@ -227,11 +227,12 @@ fn test_priority_ordering() {
     assert_eq!(matches[0].item_name.as_deref(), Some("Coolblue"));
 }
 
-/// [#13] - Title-only matching
+/// [#13] - Title-only matching (only works when domain extraction fails)
 #[test]
 fn test_title_only_matching() {
     let credentials = create_shared_test_credentials();
-    let matches = filter(credentials, "https://nomatch.com", "newyorktimes");
+    // Use a non-URL string to trigger domain extraction failure, forcing Priority 3
+    let matches = filter(credentials, "invalid-url", "newyorktimes");
 
     assert_eq!(matches.len(), 1);
     assert_eq!(matches[0].item_name.as_deref(), Some("Title Only newyorktimes"));
@@ -286,11 +287,12 @@ fn test_full_word_matching_only() {
     assert_eq!(matches.len(), 0);
 }
 
-/// [#19] - Ensure separators and punctuation are stripped for matching
+/// [#19] - Ensure separators and punctuation are stripped for matching (only works when domain extraction fails)
 #[test]
 fn test_separators_and_punctuation_stripped() {
     let credentials = create_shared_test_credentials();
-    let matches = filter(credentials, "https://nomatch.com", "Reddit, social media platform");
+    // Use a non-URL string to trigger domain extraction failure, forcing Priority 3
+    let matches = filter(credentials, "invalid-url", "Reddit, social media platform");
 
     // Should match "Reddit" even though it's followed by a comma and description
     assert_eq!(matches.len(), 1);
