@@ -45,12 +45,16 @@ public class AntiforgeryTokenMiddleware
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task InvokeAsync(HttpContext context)
     {
+        // Check if we've already attempted to clear cookies (prevents infinite redirect loop)
+        const string ClearedFlagQueryParam = "av_cookies_cleared";
+        var alreadyCleared = context.Request.Query.ContainsKey(ClearedFlagQueryParam);
+
         // Check if we have any antiforgery cookies and if they can be decrypted
         var antiforgeryCookies = context.Request.Cookies
             .Where(c => c.Key.StartsWith(".AspNetCore.Antiforgery", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        if (antiforgeryCookies.Count > 0)
+        if (antiforgeryCookies.Count > 0 && !alreadyCleared)
         {
             // Try to verify we can decrypt the cookie using the data protection provider
             // If we can't, clear the cookies and redirect
@@ -130,7 +134,23 @@ public class AntiforgeryTokenMiddleware
             }
         }
 
-        // Redirect to the same path to get fresh tokens
-        context.Response.Redirect(context.Request.Path + context.Request.QueryString);
+        // Build redirect URL with flag to prevent infinite loop
+        // Include PathBase (e.g., /admin) to maintain proper routing when app is mounted at a subpath
+        var redirectUrl = context.Request.PathBase.ToString() + context.Request.Path.ToString();
+        var queryString = context.Request.QueryString.ToString();
+
+        // Add the cleared flag query parameter
+        const string ClearedFlagQueryParam = "av_cookies_cleared";
+        if (string.IsNullOrEmpty(queryString))
+        {
+            redirectUrl += $"?{ClearedFlagQueryParam}=1";
+        }
+        else
+        {
+            redirectUrl += queryString + $"&{ClearedFlagQueryParam}=1";
+        }
+
+        // Redirect to the same path with the flag to get fresh tokens
+        context.Response.Redirect(redirectUrl);
     }
 }
