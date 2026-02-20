@@ -1,0 +1,165 @@
+name: Bug Report
+description: Report a bug or unexpected behavior in AliasVault
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Thanks for taking the time to report a bug!
+
+        Please fill out this form as completely as possible to help us investigate and fix the issue quickly.
+
+        **Before submitting:**
+        - Search [existing issues](https://github.com/yourusername/AliasVault/issues) to avoid duplicates
+        - Make sure you're using a supported version
+        - Test with the latest release if possible
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm the following before submitting
+      options:
+        - label: I have searched existing issues and this is not a duplicate
+          required: true
+        - label: I have updated to the latest version and the issue still occurs
+          required: false
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Which platform are you experiencing this issue on?
+      options:
+        - Web App (Browser)
+        - Browser Extension - Chrome
+        - Browser Extension - Firefox
+        - Browser Extension - Edge
+        - Browser Extension - Safari
+        - Mobile App - iOS
+        - Mobile App - Android
+        - Server/API
+        - Admin Portal
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: App Version
+      description: "What version are you using? (Find in: Settings and/or bottom of the page)"
+      placeholder: "e.g., 0.26.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      description: Which operating system are you using?
+      multiple: false
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - iOS
+        - Android
+        - Other (please specify in description)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser (if applicable)
+      description: Which browser are you using? (For web app or browser extension issues)
+      multiple: false
+      options:
+        - Not applicable
+        - Chrome
+        - Firefox
+        - Safari
+        - Edge
+        - Brave
+        - Other
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is
+      placeholder: |
+        Describe what went wrong. For example:
+        "When I try to save a new alias, the app crashes..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: |
+        Describe what you expected to happen instead. For example:
+        "The alias should be saved successfully and appear in my vault..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps To Reproduce
+      description: Provide detailed steps to reproduce this issue
+      placeholder: |
+        1. Open AliasVault
+        2. Navigate to '...'
+        3. Click on '...'
+        4. Enter '...'
+        5. See error / unexpected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or Screen Recording
+      description: |
+        **Highly recommended!** Screenshots or screen recordings help us debug much faster.
+        Drag and drop images or videos here, or paste from clipboard.
+
+        **Please redact any sensitive information** (passwords, email addresses, personal data) before uploading.
+      placeholder: |
+        Drag and drop files here or paste screenshots...
+    validations:
+      required: false
+
+  - type: textarea
+    id: error-message
+    attributes:
+      label: Error Messages or Logs
+      description: |
+        If you see any error messages, please copy them here.
+        For browser extension: Right-click → Inspect → Console tab
+      render: shell
+      placeholder: |
+        Paste error messages or logs here...
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: |
+        Add any other context about the problem here:
+        - Does this happen every time or intermittently?
+        - Did this start after a recent update?
+        - Are you using self-hosted or cloud version?
+        - Any browser extensions or security software that might interfere?
+      placeholder: |
+        Any additional information that might help...
+    validations:
+      required: false
