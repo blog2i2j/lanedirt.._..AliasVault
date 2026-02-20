@@ -1,6 +1,6 @@
 name: Bug Report
 description: Report a bug or unexpected behavior in AliasVault
-title: "[Bug]: "
+title: "[Bug] "
 labels: ["bug"]
 body:
   - type: markdown
@@ -11,7 +11,7 @@ body:
         Please fill out this form as completely as possible to help us investigate and fix the issue quickly.
 
         **Before submitting:**
-        - Search [existing issues](https://github.com/yourusername/AliasVault/issues) to avoid duplicates
+        - Search [existing issues](https://github.com/aliasvault/aliasvault/issues) to avoid duplicates
         - Make sure you're using a supported version
         - Test with the latest release if possible
 
@@ -137,24 +137,12 @@ body:
       required: false
 
   - type: textarea
-    id: error-message
-    attributes:
-      label: Error Messages or Logs
-      description: |
-        If you see any error messages, please copy them here.
-        For browser extension: Right-click → Inspect → Console tab
-      render: shell
-      placeholder: |
-        Paste error messages or logs here...
-    validations:
-      required: false
-
-  - type: textarea
     id: additional-context
     attributes:
       label: Additional Context
       description: |
         Add any other context about the problem here:
+        - Any (technical) error messages or logs
         - Does this happen every time or intermittently?
         - Did this start after a recent update?
         - Are you using self-hosted or cloud version?

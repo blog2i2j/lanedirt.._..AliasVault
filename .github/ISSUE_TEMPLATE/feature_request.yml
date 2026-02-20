@@ -1,6 +1,6 @@
 name: Feature Request
 description: Suggest a new feature or enhancement for AliasVault
-title: "[Feature Request]: "
+title: "[Feature Request] "
 labels: ["⚡️ enhancement"]
 body:
   - type: markdown
@@ -11,8 +11,8 @@ body:
         We appreciate your ideas to improve AliasVault. Please provide as much detail as possible.
 
         **Before submitting:**
-        - Search [existing feature requests](https://github.com/yourusername/AliasVault/issues?q=is%3Aissue+label%3A%22⚡️+enhancement%22) to avoid duplicates
-        - Check the [roadmap](https://github.com/yourusername/AliasVault/projects) if available
+        - Search [existing feature requests](https://github.com/aliasvault/aliasvault/issues?q=is%3Aissue%20label%3A"⚡%EF%B8%8F%20enhancement"%20state%3Aopen) to avoid duplicates
+        - Check the [v1.0 roadmap](https://github.com/aliasvault/aliasvault/issues/731)
 
   - type: checkboxes
     id: prerequisites
@@ -92,22 +92,10 @@ body:
       required: false
 
   - type: textarea
-    id: mockups
-    attributes:
-      label: Mockups or Examples
-      description: |
-        If applicable, add mockups, wireframes, or examples from other apps.
-        Drag and drop images here, or paste from clipboard.
-      placeholder: |
-        Drag and drop files here or paste screenshots...
-    validations:
-      required: false
-
-  - type: textarea
     id: additional-context
     attributes:
       label: Additional Context
-      description: Add any other context or information about the feature request
+      description: Add any other context or information about the feature request, for example mockups, example screenshots, etc.
       placeholder: |
         This would help with...
         Similar to how [other app] does it...
