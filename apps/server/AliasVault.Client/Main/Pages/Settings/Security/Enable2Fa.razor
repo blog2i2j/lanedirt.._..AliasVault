@@ -40,7 +40,8 @@ else
                     <div>
                         <InputText id="verificationCode" @bind-Value="VerifyModel.Code"
                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
-                                   placeholder="@Localizer["VerificationCodePlaceholder"]"/>
+                                   placeholder="@Localizer["VerificationCodePlaceholder"]"
+                                   autocomplete="one-time-code"/>
                     </div>
                     <button type="submit"
                             class="w-full bg-primary-500 text-white py-2 px-4 rounded-md hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition duration-150 ease-in-out">
