@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { sendMessage } from 'webext-bridge/popup';
 
 import type { FullVaultSyncResult } from '@/entrypoints/background/VaultMessageHandler';
@@ -26,6 +26,7 @@ export function useVaultMutate(): {
     executeVaultMutationAsync: (operation: () => Promise<void>) => Promise<void>;
     } {
   const dbContext = useDb();
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   /**
    * Execute the provided operation and save locally.
@@ -54,12 +55,65 @@ export function useVaultMutate(): {
   }, [dbContext]);
 
   /**
+   * Start polling to detect when background sync completes.
+   * Polls isDirty flag AND background sync state every 500ms.
+   * Only clears indicator when vault is clean AND background has no sync in progress.
+   */
+  const startPollingForCompletion = useCallback((): void => {
+    /* Clear any existing poll interval */
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+    }
+
+    console.info('[VaultMutate] Starting to poll for sync completion');
+
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        /*
+         * Get sync state from background - includes both isDirty flag
+         * and isSyncInProgress status from the background script
+         */
+        const syncState = await sendMessage('GET_SYNC_STATE', {}, 'background') as {
+          isDirty: boolean;
+          isSyncInProgress: boolean;
+          mutationSequence: number;
+          serverRevision: number;
+        };
+
+        /*
+         * Only clear uploading indicator when:
+         * 1. Vault is not dirty (no pending changes)
+         * 2. Background has no sync in progress (no queued syncs running)
+         *
+         * This prevents clearing the indicator between queued syncs.
+         */
+        if (!syncState.isDirty && !syncState.isSyncInProgress) {
+          console.info('[VaultMutate] Sync completed (isDirty=false, isSyncInProgress=false), clearing uploading indicator');
+          dbContext.setIsUploading(false);
+          dbContext.setIsSyncing(false);
+
+          /* Refresh React state to match storage */
+          await dbContext.refreshSyncState();
+
+          /* Stop polling */
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+          }
+        }
+      } catch (error) {
+        console.error('[VaultMutate] Error polling sync state:', error);
+      }
+    }, 500); /* Poll every 500ms */
+  }, [dbContext]);
+
+  /**
    * Trigger a sync in the background script.
    * This is fire-and-forget - the sync runs entirely in the background context
    * and continues even if the popup closes.
    *
-   * If a merge happened during sync (hasNewVault=true), reload the database
-   * so the popup shows the merged data.
+   * Always polls to detect completion since background sync may queue additional
+   * syncs that we cannot directly observe from the popup context.
    */
   const triggerBackgroundSync = useCallback((): void => {
     dbContext.setIsUploading(true);
@@ -68,20 +122,21 @@ export function useVaultMutate(): {
      * Fire-and-forget: send message to background without awaiting.
      * The background script will handle the full sync orchestration
      * and will re-sync if mutations happened during the sync.
+     *
+     * After sending message, we start polling to detect completion.
      */
-    sendMessage('FULL_VAULT_SYNC', {}, 'background').then(async (result: FullVaultSyncResult) => {
-      // If a merge happened, reload the database to show merged data
-      if (result.hasNewVault) {
+    void sendMessage('FULL_VAULT_SYNC', {}, 'background').then(async (result) => {
+      const syncResult = result as FullVaultSyncResult;
+      if (syncResult.hasNewVault) {
         await dbContext.loadStoredDatabase();
       }
-      // Refresh sync state if popup is still open
-      await dbContext.refreshSyncState();
     }).catch((error) => {
       console.error('Background sync error:', error);
-    }).finally(() => {
-      dbContext.setIsUploading(false);
     });
-  }, [dbContext]);
+
+    // Start polling for completion
+    startPollingForCompletion();
+  }, [dbContext, startPollingForCompletion]);
 
   /**
    * Execute a vault mutation asynchronously: save locally immediately, then

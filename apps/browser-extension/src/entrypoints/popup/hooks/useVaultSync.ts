@@ -124,7 +124,6 @@ export const useVaultSync = (): { syncVault: (options?: VaultSyncOptions) => Pro
     } finally {
       // Always clear syncing/uploading states when done
       dbContext.setIsSyncing(false);
-      dbContext.setIsUploading(false);
     }
   }, [app, dbContext, t]);
 

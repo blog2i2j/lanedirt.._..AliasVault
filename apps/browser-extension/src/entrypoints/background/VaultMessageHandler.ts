@@ -45,6 +45,13 @@ let cachedSqliteClient: SqliteClient | null = null;
 let cachedVaultBlob: string | null = null;
 
 /**
+ * Global sync queue state.
+ * Prevents multiple simultaneous sync operations and ensures pending changes are synced.
+ */
+let isSyncInProgress = false;
+let hasPendingSync = false;
+
+/**
  * Check if the user is logged in and if the vault is locked, and also check for pending migrations.
  */
 export async function handleCheckAuthStatus() : Promise<{ isLoggedIn: boolean, isVaultLocked: boolean, hasPendingMigrations: boolean, error?: string }> {
@@ -671,7 +678,15 @@ export async function handleUploadVault(
     };
   } catch (error) {
     console.error('Failed to upload vault:', error);
-    // E-801: Upload failed
+
+    // Check if error is UPLOAD_OUTDATED (E-802) - server has newer vault
+    const errorMessage = error instanceof Error ? error.message : '';
+    if (errorMessage.includes('E-802')) {
+      // Return status 2 (Outdated) so caller can handle merge
+      return { success: false, status: 2, error: errorMessage };
+    }
+
+    // E-801: Upload failed for other reasons
     return { success: false, error: formatErrorWithCode(await t('common.errors.unknownError'), AppErrorCode.UPLOAD_FAILED) };
   }
 }
@@ -956,6 +971,7 @@ export async function handleGetSyncState(): Promise<{
   isDirty: boolean;
   mutationSequence: number;
   serverRevision: number;
+  isSyncInProgress: boolean;
 }> {
   const [isDirty, mutationSequence, serverRevision] = await Promise.all([
     storage.getItem('local:isDirty') as Promise<boolean | null>,
@@ -966,7 +982,8 @@ export async function handleGetSyncState(): Promise<{
   return {
     isDirty: isDirty ?? false,
     mutationSequence: mutationSequence ?? 0,
-    serverRevision: serverRevision ?? 0
+    serverRevision: serverRevision ?? 0,
+    isSyncInProgress
   };
 }
 
@@ -1094,19 +1111,20 @@ export async function handleCheckSyncStatus(): Promise<SyncStatusCheckResult> {
 /**
  * Full vault sync orchestration that runs entirely in background context.
  * This ensures sync completes even if popup closes mid-operation.
- *
- * Sync logic:
- * - If server has newer vault AND we have local changes (isDirty) → merge then upload
- * - If server has newer vault AND no local changes → just download
- * - If server has same revision AND we have local changes → upload
- * - If offline → keep local changes, sync later
- *
- * Race detection:
- * - Upload captures mutationSequence at start
- * - After upload, only clears isDirty if sequence unchanged
- * - If sequence changed during upload, stays dirty for next sync
  */
 export async function handleFullVaultSync(): Promise<FullVaultSyncResult> {
+  // Check if sync is already in progress
+  if (isSyncInProgress) {
+    // Mark that we need to sync again after current sync completes
+    hasPendingSync = true;
+    console.info('[VaultSync] Sync already in progress, queued for retry after completion');
+    return { success: true, hasNewVault: false, wasOffline: false, upgradeRequired: false, requiresLogout: false };
+  }
+
+  // Mark sync as in progress
+  isSyncInProgress = true;
+  hasPendingSync = false;
+
   const webApi = new WebApiService();
 
   try {
@@ -1380,6 +1398,23 @@ export async function handleFullVaultSync(): Promise<FullVaultSyncResult> {
       ? baseMessage
       : formatErrorWithCode(baseMessage, AppErrorCode.UNKNOWN_ERROR);
     return { success: false, hasNewVault: false, wasOffline: false, upgradeRequired: false, requiresLogout: false, error: errorMessage };
+  } finally {
+    // Reset sync in progress flag
+    isSyncInProgress = false;
+
+    /*
+     * Check if another sync is needed (mutations happened during this sync).
+     * Trigger follow-up sync asynchronously (don't await to avoid blocking).
+     * Popup will poll isDirty flag to detect when background sync completes.
+     */
+    if (hasPendingSync) {
+      console.info('[VaultSync] Pending mutations detected, triggering follow-up sync');
+      hasPendingSync = false;
+
+      handleFullVaultSync().catch(err => {
+        console.error('[VaultSync] Follow-up sync failed:', err);
+      });
+    }
   }
 }
 
