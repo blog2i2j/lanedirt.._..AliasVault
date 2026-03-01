@@ -187,9 +187,8 @@ export const DbProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const refreshSyncState = useCallback(async (): Promise<void> => {
     try {
       const syncState = await NativeVaultManager.getSyncState();
-      setIsDirty(syncState.isDirty);
-      // Also refresh offline mode from native
       const offline = await NativeVaultManager.getOfflineMode();
+      setIsDirty(syncState.isDirty);
       setIsOfflineState(offline);
     } catch (error) {
       console.error('Failed to refresh sync state:', error);

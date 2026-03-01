@@ -238,9 +238,7 @@ export const useVaultSync = (): {
       return false;
     } finally {
       syncInProgressRef.current = false;
-      // Always clear syncing/uploading states when done
       dbContext.setIsSyncing(false);
-      dbContext.setIsUploading(false);
     }
   }, [app, dbContext, t]);
 

@@ -1,6 +1,6 @@
 import { Buffer } from 'buffer';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Toast from 'react-native-toast-message';
 
@@ -43,6 +43,8 @@ export function useVaultMutate() : {
   const dbContext = useDb();
   const webApi = useWebApi();
   const { syncVault } = useVaultSync();
+  const syncInProgressRef = useRef(false);
+  const syncQueuedRef = useRef(false);
 
   /**
    * Prepare vault for password change operation.
@@ -91,8 +93,14 @@ export function useVaultMutate() : {
    * This is fire-and-forget - the ServerSyncIndicator shows progress.
    */
   const triggerBackgroundSync = useCallback(async (options: VaultMutationOptions): Promise<void> => {
-    // Show uploading indicator since we're uploading local changes
-    dbContext.setIsUploading(true);
+    // If sync already in progress, queue this request
+    if (syncInProgressRef.current) {
+      syncQueuedRef.current = true;
+      console.log('[useVaultMutate] Sync already in progress, queuing sync request');
+      return;
+    }
+
+    syncInProgressRef.current = true;
 
     try {
       await syncVault({
@@ -103,24 +111,32 @@ export function useVaultMutate() : {
           } catch (error) {
             console.warn('VaultMutate: Failed to register credential identities:', error);
           }
-          await dbContext.refreshSyncState();
           options.onSuccess?.();
         },
         onError: async (error) => {
-          await dbContext.refreshSyncState();
-          // Don't show error toast - the indicator shows offline/pending state
           console.warn('Background sync failed:', error);
           options.onError?.(new Error(error));
         },
         onOffline: async () => {
-          // Local change is saved and isDirty is set - will sync when back online
-          await dbContext.refreshSyncState();
           options.onSuccess?.();
         }
       });
     } finally {
-      dbContext.setIsUploading(false);
-      await dbContext.refreshSyncState();
+      syncInProgressRef.current = false;
+
+      // Process queued sync if one was requested while we were syncing
+      if (syncQueuedRef.current) {
+        syncQueuedRef.current = false;
+        console.log('[useVaultMutate] Processing queued sync request');
+        // Small delay to avoid rapid-fire syncs
+        setTimeout(() => {
+          void triggerBackgroundSync(options);
+        }, 100);
+      } else {
+        // Only refresh state and clear uploading if no queued sync
+        await dbContext.refreshSyncState();
+        dbContext.setIsUploading(false);
+      }
     }
   }, [syncVault, dbContext]);
 
@@ -133,7 +149,10 @@ export function useVaultMutate() : {
   ): Promise<void> => {
     await operation();
 
-    // Refresh sync state to show "Pending" indicator immediately
+    // Set uploading state BEFORE refreshing sync state to prevent "pending" flash
+    dbContext.setIsUploading(true);
+
+    // Refresh sync state to update isDirty flag
     await dbContext.refreshSyncState();
 
     // Trigger background sync - fire-and-forget, don't await
