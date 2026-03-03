@@ -25,8 +25,10 @@ describe('FormDetector - Emby Connect login form', () => {
 
     expect(form).toBeTruthy();
 
-    // Should detect the real email field (labeled as "Email" in the form), not the fake username field
-    // This field can be used for username/email login
+    /*
+     * Should detect the real email field (labeled as "Email" in the form), not the fake username field
+     * This field can be used for username/email login
+     */
     expect(form?.emailField).toBeTruthy();
     expect(form?.emailField?.className).toContain('txtUser');
     expect(form?.emailField?.id).toBe('embyinput0');
