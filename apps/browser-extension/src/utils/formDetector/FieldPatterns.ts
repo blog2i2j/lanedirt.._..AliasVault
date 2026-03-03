@@ -234,11 +234,20 @@ export const DutchStopWords = new Set([
   'je', 'in', 'op', 'de', 'van', 'ons', 'allemaal'
 ]);
 
+/*
+ * Import translation-based patterns dynamically
+ * These patterns are extracted from all i18n translation files
+ */
+import { TranslationEmailPatterns, TranslationUsernamePatterns, TranslationPasswordPatterns } from './TranslationPatterns';
+
 /**
  * Combined field patterns which includes all supported languages.
+ * This includes:
+ * - Hardcoded English and Dutch patterns
+ * - Translation-based patterns from all supported languages
  */
 export const CombinedFieldPatterns: FieldPatterns = {
-  username: [...new Set([...EnglishFieldPatterns.username, ...DutchFieldPatterns.username])],
+  username: [...new Set([...EnglishFieldPatterns.username, ...DutchFieldPatterns.username, ...TranslationUsernamePatterns])],
   fullName: [...new Set([...EnglishFieldPatterns.fullName, ...DutchFieldPatterns.fullName])],
   firstName: [...new Set([...EnglishFieldPatterns.firstName, ...DutchFieldPatterns.firstName])],
   lastName: [...new Set([...EnglishFieldPatterns.lastName, ...DutchFieldPatterns.lastName])],
@@ -247,10 +256,12 @@ export const CombinedFieldPatterns: FieldPatterns = {
    * the nl-registration-form5.html honeypot field is named. The order of the patterns
    * determine which field is detected. If a pattern entry with higher index is detected, that
    * field will be selected instead of the lower index one.
+   *
+   * Translation patterns are added last to catch all language variations (e.g., "E-post" in Swedish)
    */
-  email: [...new Set([...DutchFieldPatterns.email, ...EnglishFieldPatterns.email])],
+  email: [...new Set([...DutchFieldPatterns.email, ...EnglishFieldPatterns.email, ...TranslationEmailPatterns])],
   emailConfirm: [...new Set([...EnglishFieldPatterns.emailConfirm, ...DutchFieldPatterns.emailConfirm])],
-  password: [...new Set([...EnglishFieldPatterns.password, ...DutchFieldPatterns.password])],
+  password: [...new Set([...EnglishFieldPatterns.password, ...DutchFieldPatterns.password, ...TranslationPasswordPatterns])],
   birthdate: [...new Set([...EnglishFieldPatterns.birthdate, ...DutchFieldPatterns.birthdate])],
   gender: [...new Set([...EnglishFieldPatterns.gender, ...DutchFieldPatterns.gender])],
   birthDateDay: [...new Set([...EnglishFieldPatterns.birthDateDay, ...DutchFieldPatterns.birthDateDay])],
