@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>MFA Authenticator Add Form</title>
+</head>
+<body>
+  <div class="l-form__fields">
+    <div class="l-form-field l-form-field--name">
+      <div class="l-form-field__label-container">
+        <label for="name" class="l-form-field__label">Name</label>
+      </div>
+      <div class="l-form-field__children-container">
+        <input type="text" id="name" name="name" class="l-mfa-authenticator-add-form__name" value="My Authentication app" autocomplete="off">
+      </div>
+    </div>
+    <div class="l-form-field l-form-field--scan">
+      <div class="l-form-field__label-container">
+        <label for="scan" class="l-form-field__label">Scan this barcode with your app</label>
+      </div>
+      <div class="l-form-field__children-container">
+        <div class="l-mfa-authenticator-add-form__scan-description">Scan the image below with the Authentication app on your phone.</div>
+        <div class="l-mfa-authenticator-add-form__scan-qr-container">
+          <img src="data:image/jpeg;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIAEAAAAACBg1dlAAAKeElEQVR4nOzdsW5ku3JAUY9x//+Xx4DTdwK+S06Ro71WrO6jbgkbDArFf37//h8g6n9v/wLAPQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYf/MPObXr5nnrPj9+9+/dvVzfD3j9Gt3fu7LxDN2nrvzfl92/kYTdr6DdU4AECYAECYAECYAECYAECYAECYAECYAECYAEDY0CfhlYtJpZ7Lr9GtXJ89emvpbdev9Tj/3y+v/p3ucACBMACBMACBMACBMACBMACBMACBMACBMACDs4iTgl52JqImJrVvTcqcnxSZ2Fn659YzT/xuv/5+ucwKAMAGAMAGAMAGAMAGAMAGAMAGAMAGAMAGAsMcmAV+3s6vultO/y+mJvJe+qx4nAAgTAAgTAAgTAAgTAAgTAAgTAAgTAAgTAAgzCfhfOb1Lb+e5E6/9cnrCb+I7ndgT+HdyAoAwAYAwAYAwAYAwAYAwAYAwAYAwAYAwAYCwxyYBb01n7Uy3Tey5m3juxOc9PR14a5/gz5kidAKAMAGAMAGAMAGAMAGAMAGAMAGAMAGAMAGAsIuTgG6FndlVd+tG3tOThbcmM3/2/6kTAIQJAIQJAIQJAIQJAIQJAIQJAIQJAIQJAIQNTQK+vkNtZ8ps9f123No7uPpzO9/LrT2LX17/Pz3PCQDCBADCBADCBADCBADCBADCBADCBADCBADCfs3MPu1Mj52eFDv92tNO7wl8ab/e6e/v1v/Vz5kYdAKAMAGAMAGAMAGAMAGAMAGAMAGAMAGAMAGAsIs7AV+6GXdn4u3WTruJyceXPtvXc3f+Xyb+J1+aMP3mBABhAgBhAgBhAgBhAgBhAgBhAgBhAgBhAgBhF3cCvu6n7H27tcPv1hTc6efe2tE4wwkAwgQAwgQAwgQAwgQAwgQAwgQAwgQAwgQAwoZ2Aq46vcPv1oTVxK21EyYmOE/vNpzYgbjqpb/lNycACBMACBMACBMACBMACBMACBMACBMACBMACLs4CfjSLbMTz7h18+yOW5OZX6/dmebbcfrzvnVjsBMAhAkAhAkAhAkAhAkAhAkAhAkAhAkAhAkAhA1NAp6e+pvYuXf699vxU6YIv7z0t7w1JXqPEwCECQCECQCECQCECQCECQCECQCECQCECQCEDU0Cnp7EmrjttXZT8c4evp3nrr72y0vTkKe/UzsBgT9MACBMACBMACBMACBMACBMACBMACBMACDssduBv+xMbN3aDzcx8fb6a1ftPOP0pOfqM1a9tf/vixMAhAkAhAkAhAkAhAkAhAkAhAkAhAkAhAkAhF28HXjCxF66WzfUTnynp3cg3tqHd3pv40/ZF+kEAGkCAGECAGECAGECAGECAGECAGECAGECAGEXdwKuTkTtTO7deu2qiZ17O899aSfgrenAife7Nx3oBABhAgBhAgBhAgBhAgBhAgBhAgBhAgBhAgBhv2bmjU7vgpuYlvvy0p67iemxW9OVq04/46WpTpOAwB8mABAmABAmABAmABAmABAmABAmABAmABB28Xbgid1yp7000Tgx8XZrZ+GXib2NE7cIf7n1nToBQJoAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQNjF24FX7dyw+mVir9/E5Nnpn/tya0fe6i3ROzdMf7321g3J9zgBQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQNjQJODpvWov3Vq7Mz12esrxy8SttbduSF51a//k+xODTgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQ9uvWbNZb+9du3V586zs4PV152q3bfHfcuul5jxMAhAkAhAkAhAkAhAkAhAkAhAkAhAkAhAkAhF3cCbhqYtrr1k67lz7baac/x86E5MRNyn/nLcJOABAmABAmABAmABAmABAmABAmABAmABAmABA2NAl46zbV07vlVp9x+qbinc9x+rOtmpj6m5iQfGlX4nlOABAmABAmABAmABAmABAmABAmABAmABAmABD2F9wOPPHaHbem1iY+78TfY9Xrt+9OTHWe5wQAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYUM7AXfc2l838dzV97t1q+6X13fkTUxcvv4drHMCgDABgDABgDABgDABgDABgDABgDABgDABgLChScDXb2I9PQH20s3CX07vqrs1hfnl1i3Cq05/3j1OABAmABAmABAmABAmABAmABAmABAmABAmABD22E7AiSmpr2fcuuF39efcLDwzqfjS1OkMJwAIEwAIEwAIEwAIEwAIEwAIEwAIEwAIEwAIG5oEnNgjt+r0vrlVp3cMTnwHO9N8t/bcvbS3cdW96UAnAAgTAAgTAAgTAAgTAAgTAAgTAAgTAAj7NTNvNHH77us/t2PixuBVr09wvnX77r9nEhD4wwQAwgQAwgQAwgQAwgQAwgQAwgQAwgQAwi7uBNz5uZ3n7kzL7fzcxB6+iVuET3+nb92W+58mbjl2OzBwgQBAmABAmABAmABAmABAmABAmABAmABA2NAk4Onpp53prNWfOz3Nd/p3fmln4ZeJzzHhZ+8idAKAMAGAMAGAMAGAMAGAMAGAMAGAMAGAMAGAsMd2At567tfE1s5U3cRk4cQtva9P5E3sXlz9XXbc+56dACBMACBMACBMACBMACBMACBMACBMACBMACDs4k7AWyb29a2+dmKycOK7f2kf3s7vMrG78qXpSicASBMACBMACBMACBMACBMACBMACBMACBMACBuaBPwyMf20MwH2ktPf1el9eKvvN3Ej9I7Tz3hr6u+LEwCECQCECQCECQCECQCECQCECQCECQCECQCEXZwE/DJx4+3qa1+a4ro1fbf6fi/d3Lvq9V2JbgcG/jABgDABgDABgDABgDABgDABgDABgDABgLDHJgFv2Zlke33aa+d32ZlAPP3cnddO3P68+n4v3aTsBABpAgBhAgBhAgBhAgBhAgBhAgBhAgBhAgBhJgH/38RtuROTcTvvN3GT8s4ew1s7/L7c+lue5wQAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYQIAYY9NAt66fffLxF6/id13t/Ydfrm1K/H0nsDTuwjv/d87AUCYAECYAECYAECYAECYAECYAECYAECYAEDYxUnAl3aj7Uxxrb7fjlu3zE7s/zv9O9/aqfjSFOs6JwAIEwAIEwAIEwAIEwAIEwAIEwAIEwAIEwAI+/V3zi8BJzgBQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQJgAQNj/BQAA///fexZ7ck3B9wAAAABJRU5ErkJggg==" class="l-mfa-authenticator-add-form__scan-qr">
+        </div>
+        <div class="l-mfa-authenticator-add-form__scan-fallback">
+          <div class="l-mfa-authenticator-add-form__scan-fallback-text">If you can't use a barcode, enter this code instead:</div>
+          <div class="l-mfa-authenticator-add-form__scan-fallback-code">AOP7ELH2S3DOFP6E</div>
+        </div>
+      </div>
+    </div>
+    <div class="l-form-field l-form-field--code">
+      <div class="l-form-field__label-container">
+        <label for="code" class="l-form-field__label">Enter the six-digit code from the application</label>
+      </div>
+      <div class="l-form-field__children-container">
+        <div class="l-mfa-authenticator-add-form__code-description">After scanning the barcode image, the app will display a six-digit code that you can enter below.</div>
+        <input type="text" id="code" name="code" class="l-mfa-authenticator-add-form__code" value="" autocomplete="off" data-av-autocomplete="off">
+      </div>
+    </div>
+  </div>
+</body>
+</html>

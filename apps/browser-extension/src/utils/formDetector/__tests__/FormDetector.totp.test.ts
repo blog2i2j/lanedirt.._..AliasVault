@@ -61,6 +61,12 @@ describe('FormDetector TOTP tests', () => {
     testField(FormField.Totp, 'riot-mfa-0', htmlFile);
   });
 
+  describe('English TOTP form 8 detection (MFA Authenticator Add)', () => {
+    const htmlFile = 'en-totp-form8.html';
+
+    testField(FormField.Totp, 'code', htmlFile);
+  });
+
   describe('Email verification form should NOT be detected as TOTP', () => {
     it('should NOT detect English email verification form as TOTP', () => {
       const htmlFile = 'en-email-verification-form1.html';

@@ -473,6 +473,7 @@ export class FormDetector {
         input.id,
         input.getAttribute('name'),
         input.getAttribute('placeholder'),
+        input.getAttribute('class'),
         autocomplete
       ]
         .map(a => a?.toLowerCase() ?? '');
