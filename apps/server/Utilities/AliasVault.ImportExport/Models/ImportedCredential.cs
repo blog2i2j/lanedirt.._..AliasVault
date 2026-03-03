@@ -86,4 +86,25 @@ public class ImportedCredential
     /// Each importer should populate this from its own format.
     /// </summary>
     public ImportedCreditcard? Creditcard { get; set; }
+
+    /// <summary>
+    /// Gets or sets the list of passkeys associated with this credential.
+    /// </summary>
+    public List<ImportedPasskey>? Passkeys { get; set; }
+
+    /// <summary>
+    /// Gets or sets the list of tags associated with this credential.
+    /// </summary>
+    public List<string>? Tags { get; set; }
+
+    /// <summary>
+    /// Gets or sets the list of attachments associated with this credential.
+    /// </summary>
+    public List<ImportedAttachment>? Attachments { get; set; }
+
+    /// <summary>
+    /// Gets or sets custom field definitions for this credential.
+    /// Key is the field label, value is the field value.
+    /// </summary>
+    public Dictionary<string, string>? CustomFields { get; set; }
 }

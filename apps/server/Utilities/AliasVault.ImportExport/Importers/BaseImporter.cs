@@ -254,6 +254,42 @@ public static class BaseImporter
                 }
             }
 
+            // Add passkeys if present
+            if (importedCredential.Passkeys != null)
+            {
+                foreach (var passkey in importedCredential.Passkeys)
+                {
+                    item.Passkeys.Add(new Passkey
+                    {
+                        Id = Guid.NewGuid(),
+                        RpId = passkey.RpId,
+                        UserHandle = passkey.UserHandle ?? Array.Empty<byte>(),
+                        PublicKey = passkey.PublicKey,
+                        PrivateKey = passkey.PrivateKey,
+                        PrfKey = passkey.PrfKey,
+                        DisplayName = passkey.DisplayName,
+                        CreatedAt = createdAt,
+                        UpdatedAt = updatedAt,
+                    });
+                }
+            }
+
+            // Add attachments if present
+            if (importedCredential.Attachments != null)
+            {
+                foreach (var attachment in importedCredential.Attachments)
+                {
+                    item.Attachments.Add(new Attachment
+                    {
+                        Id = Guid.NewGuid(),
+                        Filename = attachment.Filename,
+                        Blob = attachment.Blob,
+                        CreatedAt = createdAt,
+                        UpdatedAt = updatedAt,
+                    });
+                }
+            }
+
             items.Add(item);
         }
 

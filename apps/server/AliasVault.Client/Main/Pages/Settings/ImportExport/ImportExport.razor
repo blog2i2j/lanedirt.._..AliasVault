@@ -10,6 +10,8 @@
 @using AliasVault.Client.Services.Auth
 @using AliasVault.Client.Services.Auth.Enums
 @using AliasVault.ImportExport
+@using Microsoft.EntityFrameworkCore
+@using AliasClientDb
 
 <LayoutPageTitle>@Localizer["PageTitle"]</LayoutPageTitle>
 
@@ -57,6 +59,9 @@
         <div class="mt-6">
             <Button OnClick="@(() => ShowExportConfirmation(ExportType.Sqlite))">@Localizer["ExportSqliteButton"]</Button>
         </div>
+        <div class="mt-6">
+            <Button OnClick="@(() => ShowExportConfirmation(ExportType.Avux))">@Localizer["ExportAvuxButton"]</Button>
+        </div>
     </div>
 </div>
 
@@ -80,7 +85,8 @@
     private enum ExportType
     {
         Csv,
-        Sqlite
+        Sqlite,
+        Avux
     }
 
     /// <inheritdoc />
@@ -179,6 +185,9 @@
             case ExportType.Sqlite:
                 await ExportVaultSqlite();
                 break;
+            case ExportType.Avux:
+                await ExportVaultAvux();
+                break;
         }
     }
 
@@ -220,6 +229,66 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error downloading file");
+        }
+    }
+
+    private async Task ExportVaultAvux()
+    {
+        GlobalLoadingSpinner.Show(Localizer["ExportingVaultMessage"]);
+        try
+        {
+            var context = await DbService.GetDbContextAsync();
+
+            // Load all vault entities with their related data
+            var items = await context.Items
+                .Where(i => !i.IsDeleted && i.DeletedAt == null)
+                .Include(i => i.FieldValues)
+                .Include(i => i.Attachments)
+                .Include(i => i.TotpCodes)
+                .Include(i => i.Passkeys)
+                .ToListAsync();
+
+            var folders = await context.Folders
+                .Where(f => !f.IsDeleted)
+                .ToListAsync();
+
+            var tags = await context.Tags
+                .Where(t => !t.IsDeleted)
+                .ToListAsync();
+
+            var itemTags = await context.ItemTags
+                .Where(it => !it.IsDeleted)
+                .ToListAsync();
+
+            var fieldDefinitions = await context.FieldDefinitions
+                .Where(fd => !fd.IsDeleted)
+                .ToListAsync();
+
+            var username = await GetUsernameAsync();
+
+            // Export to .avux format
+            var zipBytes = await VaultExportService.ExportToAvuxAsync(
+                items,
+                folders,
+                tags,
+                itemTags,
+                fieldDefinitions,
+                username);
+
+            await JsInteropService.DownloadFileFromStream(
+                $"{await GetExportFileName("avux")}",
+                zipBytes);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error exporting vault to .avux format");
+            GlobalNotificationService.AddErrorMessage(
+                $"{Localizer["ExportErrorTitle"]}: {Localizer["ExportErrorMessage"]}",
+                true);
+        }
+        finally
+        {
+            GlobalLoadingSpinner.Hide();
         }
     }
 
