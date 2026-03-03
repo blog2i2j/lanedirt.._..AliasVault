@@ -1,0 +1,45 @@
+<!-- Test form with various hidden field techniques -->
+<form>
+    <!-- Technique 1: height:0 overflow:hidden (Emby-style) -->
+    <div style="height:0; overflow: hidden;">
+        <input type="text" name="fake1" tabindex="-1">
+        <input type="password" name="fake1pass" tabindex="-1">
+    </div>
+
+    <!-- Technique 2: width:0 -->
+    <div style="width:0;">
+        <input type="text" name="fake2">
+        <input type="password" name="fake2pass">
+    </div>
+
+    <!-- Technique 3: position absolute off-screen -->
+    <div style="position:absolute; left:-9999px;">
+        <input type="text" name="fake3">
+        <input type="password" name="fake3pass">
+    </div>
+
+    <!-- Technique 4: honeypot naming -->
+    <input type="text" name="honeypot" style="display:none;">
+    <input type="text" name="hp-field" style="display:none;">
+    <input type="text" name="bot_check" style="display:none;">
+    <input type="text" name="antispam-field" style="display:none;">
+
+    <!-- Technique 5: aria-hidden -->
+    <input type="text" name="hidden-username" aria-hidden="true">
+    <input type="password" name="hidden-password" aria-hidden="true">
+
+    <!-- Technique 6: role="presentation" -->
+    <input type="text" name="presentation-field" role="presentation">
+
+    <!-- Real visible fields -->
+    <div>
+        <label for="real-email">Email</label>
+        <input type="email" id="real-email" name="email">
+    </div>
+    <div>
+        <label for="real-password">Password</label>
+        <input type="password" id="real-password" name="password">
+    </div>
+
+    <button type="submit">Sign In</button>
+</form>

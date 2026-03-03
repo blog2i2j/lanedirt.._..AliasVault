@@ -205,6 +205,89 @@ export class FormDetector {
   }
 
   /**
+   * Check if an input field is likely a fake/honeypot field used to prevent autofill.
+   * These fields are intentionally hidden from users but present in the DOM.
+   * Common patterns:
+   * - Fields with "fake" in name/id
+   * - Fields with tabindex="-1" (not keyboard accessible)
+   * - Fields in containers styled to be invisible
+   * - Fields with aria-hidden="true"
+   * - Fields with role="presentation"
+   * - Honeypot-named fields (honeypot, bot-field, etc.)
+   */
+  private isLikelyFakeField(input: HTMLInputElement): boolean {
+    /*
+     * Check for "fake" in name, id, or class
+     */
+    const name = (input.getAttribute('name') || '').toLowerCase();
+    const id = (input.id || '').toLowerCase();
+    const className = (input.className || '').toLowerCase();
+
+    if (name.includes('fake') || id.includes('fake') || className.includes('fake')) {
+      return true;
+    }
+
+    /*
+     * Check for honeypot patterns in name or id
+     */
+    const honeypotPatterns = ['honeypot', 'bot-field', 'hp-', 'hidden-field', 'bot_check', 'antispam'];
+    if (honeypotPatterns.some(pattern => name.includes(pattern) || id.includes(pattern))) {
+      return true;
+    }
+
+    /*
+     * Check for aria-hidden="true" which explicitly marks the field as hidden from assistive tech
+     * This is often used for fake fields that shouldn't be interacted with
+     */
+    if (input.getAttribute('aria-hidden') === 'true') {
+      return true;
+    }
+
+    /*
+     * Check for role="presentation" which indicates the element is for presentation only
+     */
+    if (input.getAttribute('role') === 'presentation') {
+      return true;
+    }
+
+    /*
+     * Check for tabindex="-1" which indicates field is not meant for user interaction
+     * Combined with suspicious positioning or naming
+     */
+    const tabIndex = input.getAttribute('tabindex');
+    if (tabIndex === '-1') {
+      /*
+       * If tabindex=-1 AND the field is in a hidden container, it's likely fake
+       * The visibility check will catch this, but we add extra confirmation
+       */
+      const parent = input.parentElement;
+      if (parent) {
+        const parentStyle = this.document.defaultView?.getComputedStyle(parent);
+        if (parentStyle) {
+          const height = parseFloat(parentStyle.height);
+          const overflow = parentStyle.overflow;
+          if (height === 0 && overflow === 'hidden') {
+            return true;
+          }
+        }
+      }
+    }
+
+    /*
+     * Check for readonly AND hidden combination (sometimes used for fake fields)
+     * Note: legitimate readonly fields should be visible, so if it's readonly + not visible, it's suspicious
+     */
+    if (input.readOnly) {
+      const style = this.document.defaultView?.getComputedStyle(input);
+      if (style && (style.display === 'none' || style.visibility === 'hidden')) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * Get the actual input element from a potentially custom element.
    * This handles any element with shadow DOM containing input elements.
    * @param element The element to check (could be a custom element or regular input)
@@ -314,6 +397,78 @@ export class FormDetector {
           }
           return false;
         }
+
+        /*
+         * Check if element has zero or near-zero dimensions (effectively invisible)
+         * This catches various hiding techniques:
+         * - height:0, width:0, max-height:0, max-width:0
+         * - position:absolute with clip/clip-path
+         * - Any combination that results in no visible pixels
+         */
+        const height = parseFloat(style.height);
+        const width = parseFloat(style.width);
+        const maxHeight = parseFloat(style.maxHeight);
+        const maxWidth = parseFloat(style.maxWidth);
+
+        // Check if element has zero dimensions
+        if (height === 0 || width === 0 || maxHeight === 0 || maxWidth === 0) {
+          // Cache and return false for this element and all its parents
+          let parent: HTMLElement | null = current;
+          while (parent) {
+            if (checkOpacity) {
+              this.visibilityCache.set(parent, false);
+            }
+            parent = parent.parentElement;
+          }
+          return false;
+        }
+
+        /*
+         * Check for elements positioned off-screen using absolute/fixed positioning
+         * Common technique: position:absolute; left:-9999px or top:-9999px
+         */
+        if (style.position === 'absolute' || style.position === 'fixed') {
+          const left = parseFloat(style.left);
+          const top = parseFloat(style.top);
+          const right = parseFloat(style.right);
+          const bottom = parseFloat(style.bottom);
+
+          // If positioned far off-screen (more than 5000px away)
+          if (left < -5000 || top < -5000 || right < -5000 || bottom < -5000) {
+            let parent: HTMLElement | null = current;
+            while (parent) {
+              if (checkOpacity) {
+                this.visibilityCache.set(parent, false);
+              }
+              parent = parent.parentElement;
+            }
+            return false;
+          }
+        }
+
+        /*
+         * Check for CSS clip property that hides the element
+         * Note: clip is deprecated but still widely used for hiding elements
+         * Example: clip: rect(0,0,0,0)
+         */
+        const clipValue = style.getPropertyValue('clip');
+        if (clipValue && clipValue !== 'auto' && clipValue.includes('0')) {
+          // Simple check for clip: rect(0,0,0,0) or similar
+          const clipMatch = clipValue.match(/rect\((\d+)[^\d]+(\d+)[^\d]+(\d+)[^\d]+(\d+)\)/);
+          if (clipMatch) {
+            const [, top, right, bottom, left] = clipMatch.map(Number);
+            if (top === 0 && right === 0 && bottom === 0 && left === 0) {
+              let parent: HTMLElement | null = current;
+              while (parent) {
+                if (checkOpacity) {
+                  this.visibilityCache.set(parent, false);
+                }
+                parent = parent.parentElement;
+              }
+              return false;
+            }
+          }
+        }
       } catch {
         // If we can't get computed style, cache and return true for this element and all its parents
         let parent: HTMLElement | null = current;
@@ -377,6 +532,13 @@ export class FormDetector {
 
     for (const input of Array.from(candidates)) {
       if (excludeElements.includes(input as HTMLInputElement)) {
+        continue;
+      }
+
+      /*
+       * Skip fake/honeypot fields (e.g., fields with "fake" in name/id, tabindex="-1", etc.)
+       */
+      if (this.isLikelyFakeField(input as HTMLInputElement)) {
         continue;
       }
 

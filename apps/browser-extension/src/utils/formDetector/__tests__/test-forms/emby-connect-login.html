@@ -1,0 +1,57 @@
+<div class="scrollSlider flex-grow flex-direction-column padded-left padded-right padded-top-page padded-bottom-page scrollSliderY focuscontainer-y navout-up">
+
+    <div class="readOnlyContent" style="margin:0 auto;">
+
+        <h1 style="margin-top:0;">Sign in with Emby Connect</h1>
+
+        <p>With Emby Connect you can easily access your Emby Server wherever you are and share servers with your family and friends.</p>
+
+        <div class="pinLogin hide">
+            <p class="pinCodeHeader">To sign in with Emby Connect, use a mobile device or computer to visit <a is="emby-linkbutton" class="lnkPinSignIn button-link emby-button emby-button-focusscale" href="https://emby.media/pin" target="_blank">https://emby.media/pin</a> and enter the following pin code:</p>
+            <h1 class="pinCodeValue" style="text-align: center;"></h1>
+            <p class="pinMessage hide" style="text-align: center; margin: -1em auto 2em; color: orange; width: 70%;"></p>
+
+            <button is="emby-button" class="raised block btnNewPin emby-button emby-button-focusscale"><span>Generate New Pin</span></button>
+        </div>
+
+        <form class="manualLoginForm">
+
+            <div style="height:0; overflow: hidden;"><input type="text" name="fakeusernameremembered" tabindex="-1"><input type="password" name="fakepasswordremembered" tabindex="-1"></div>
+
+            <div class="inputContainer">
+                <label class="inputLabel" for="embyinput0">Email</label><input is="emby-input" type="text" class="txtUser emby-input" required="required" label="Email" id="embyinput0" autocomplete="off" data-av-field-type="username" data-av-autocomplete="off">
+                <div class="fieldDescription">This is the email address that you used to setup your Emby Connect account.</div>
+            </div>
+            <div class="inputContainer">
+                <label class="inputLabel" for="embyinput1">Password</label><input is="emby-input" type="password" class="txtPassword emby-input" required="required" label="Password" id="embyinput1">
+            </div>
+            <button is="emby-button" type="submit" class="raised accent block emby-button emby-button-focusscale">
+                <span>Sign In</span>
+            </button>
+
+            <a is="emby-linkbutton" class="raised cancel block btnForgotPassword emby-button emby-button-focusscale" target="_blank" href="https://emby.media/community/index.php?/lostpassword" data-autohide="true">
+                <span>Forgot Password?</span>
+            </a>
+
+            <div class="terms hide fieldDescription" style="margin-top: 2em; color: #ccc;">Emby is designed to help you manage your personal media library, such as home videos and photos. Please see our <a is="emby-linkbutton" class="lnkTerms button-link emby-button emby-button-focusscale" href="https://emby.media/terms" target="_blank">terms of use</a>. The use of any Emby software constitutes acceptance of these terms.</div>
+        </form>
+
+        <div class="skip" style="text-align: center;">
+            <button is="emby-button" class="raised block btnSkipConnect emby-button emby-button-focusscale">
+                <span>Skip</span>
+            </button>
+            <div class="fieldDescription">Connect to server manually</div>
+        </div>
+
+        <div style="margin-top: 1.5em;">
+            <!-- The new user section is not needed for the pin login because the pin page has a signup link. Keep this around for when manual connect login is added. -->
+            <div class="newUsers">
+                <h2 style="margin-bottom:0;">New Users</h2>
+                <a is="emby-linkbutton" class="raised cancel block btnSignup emby-button emby-button-focusscale" href="https://emby.media/community/index.php?/register" target="_blank">
+                    <span>Sign Up</span>
+                </a>
+            </div>
+            <div class="terms fieldDescription" style="margin-top: .5em;"></div>
+        </div>
+    </div>
+</div>
