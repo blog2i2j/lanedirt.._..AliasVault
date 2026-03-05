@@ -732,6 +732,16 @@ public class VaultManager: NSObject {
         resolve(vaultStore.isKeystoreAvailable())
     }
 
+    /// Check if biometric unlock is actually available (device + key validation).
+    /// This checks not only if biometrics are configured in auth methods,
+    /// but also validates that the encryption key in Keychain is valid.
+    /// Returns false if key has been invalidated (e.g., biometric enrollment changed).
+    @objc
+    func isBiometricUnlockAvailable(_ resolve: @escaping RCTPromiseResolveBlock,
+                                    rejecter reject: @escaping RCTPromiseRejectBlock) {
+        resolve(vaultStore.isBiometricAuthEnabled())
+    }
+
     @objc
     func getPinFailedAttempts(_ resolve: @escaping RCTPromiseResolveBlock,
                              rejecter reject: @escaping RCTPromiseRejectBlock) {

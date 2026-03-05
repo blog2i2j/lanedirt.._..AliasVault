@@ -128,7 +128,7 @@ class VaultCrypto(
     fun storeEncryptionKey(base64EncryptionKey: String, authMethods: String) {
         this.encryptionKey = Base64.decode(base64EncryptionKey, Base64.NO_WRAP)
 
-        if (authMethods.contains(BIOMETRICS_AUTH_METHOD) && keystoreProvider.isBiometricAvailable()) {
+        if (authMethods.contains(BIOMETRICS_AUTH_METHOD)) {
             try {
                 val latch = java.util.concurrent.CountDownLatch(1)
                 var error: Exception? = null

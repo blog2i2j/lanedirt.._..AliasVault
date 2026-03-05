@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, View, KeyboardAvoidingView, Platform, ScrollView, Dimensions, Text } from 'react-native';
 
+import { AppUnlockUtility } from '@/utils/AppUnlockUtility';
 import { AppErrorCode, getAppErrorCode, getErrorTranslationKey, formatErrorWithCode } from '@/utils/types/errors/AppErrorCodes';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
 
@@ -25,7 +26,7 @@ import NativeVaultManager from '@/specs/NativeVaultManager';
  * Unlock screen.
  */
 export default function UnlockScreen() : React.ReactNode {
-  const { isLoggedIn, username, isBiometricsEnabled, getBiometricDisplayName, getEncryptionKeyDerivationParams } = useApp();
+  const { isLoggedIn, username, getEncryptionKeyDerivationParams } = useApp();
   const { logoutUserInitiated, logoutForced } = useLogout();
   const dbContext = useDb();
   const [isLoading, setIsLoading] = useState(true);
@@ -74,13 +75,13 @@ export default function UnlockScreen() : React.ReactNode {
       }
 
       // Check if biometrics is available
-      const enabled = await isBiometricsEnabled();
+      const enabled = await AppUnlockUtility.isBiometricUnlockAvailable();
       if (!isMounted) {
         return;
       }
       setIsBiometricsAvailable(enabled);
 
-      const displayName = await getBiometricDisplayName();
+      const displayName = await AppUnlockUtility.getBiometricDisplayName();
       if (!isMounted) {
         return;
       }
@@ -162,7 +163,7 @@ export default function UnlockScreen() : React.ReactNode {
     return (): void => {
       isMounted = false;
     };
-  }, [isBiometricsEnabled, getKeyDerivationParams, getBiometricDisplayName, dbContext, isLoggedIn, username, t, logoutForced]);
+  }, [getKeyDerivationParams, dbContext, isLoggedIn, username, t, logoutForced]);
 
   /**
    * Hide the alert dialog.

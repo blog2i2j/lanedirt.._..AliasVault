@@ -2,10 +2,9 @@ import { Buffer } from 'buffer';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainerRef, ParamListBase } from '@react-navigation/native';
-import * as LocalAuthentication from 'expo-local-authentication';
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { Platform } from 'react-native';
 import EncryptionUtility from '@/utils/EncryptionUtility';
+import type { AuthMethod } from '@/utils/AppUnlockUtility';
 
 import { useDb } from '@/context/DbContext';
 import { dialogEventEmitter } from '@/events/DialogEventEmitter';
@@ -13,18 +12,14 @@ import NativeVaultManager from '@/specs/NativeVaultManager';
 import i18n from '@/i18n';
 import { LocalPreferencesService } from '@/services/LocalPreferencesService';
 
-// Create a navigation reference
 export const navigationRef = React.createRef<NavigationContainerRef<ParamListBase>>();
-
-export type AuthMethod = 'faceid' | 'password';
+export type { AuthMethod } from '@/utils/AppUnlockUtility';
 
 type AuthContextType = {
   isLoggedIn: boolean;
   isInitialized: boolean;
   username: string | null;
   isOffline: boolean;
-  getEnabledAuthMethods: () => Promise<AuthMethod[]>;
-  isBiometricsEnabled: () => Promise<boolean>;
   setAuthTokens: (username: string, accessToken: string, refreshToken: string) => Promise<void>;
   initializeAuth: () => Promise<{ isLoggedIn: boolean; enabledAuthMethods: AuthMethod[] }>;
   login: () => Promise<void>;
@@ -39,11 +34,8 @@ type AuthContextType = {
    */
   clearAuthForced: (errorMessage?: string) => Promise<void>;
   setAuthMethods: (methods: AuthMethod[]) => Promise<void>;
-  getAuthMethodDisplayKey: () => Promise<string>;
   getAutoLockTimeout: () => Promise<number>;
   setAutoLockTimeout: (timeout: number) => Promise<void>;
-  getBiometricDisplayName: () => Promise<string>;
-  isBiometricsEnabledOnDevice: () => Promise<boolean>;
   setOfflineMode: (isOffline: boolean) => void;
   verifyPassword: (password: string) => Promise<string | null>;
   getEncryptionKeyDerivationParams: () => Promise<{ salt: string; encryptionType: string; encryptionSettings: string } | null>;
@@ -70,52 +62,6 @@ export const AuthProvider: React.FC<{
   const [shouldShowAutofillReminder, setShouldShowAutofillReminder] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
   const dbContext = useDb();
-
-  /**
-   * Get enabled auth methods from the native module
-   */
-  const getEnabledAuthMethods = useCallback(async (): Promise<AuthMethod[]> => {
-    try {
-      let methods = await NativeVaultManager.getAuthMethods() as AuthMethod[];
-      // Check if Face ID is actually available despite being enabled
-      if (methods.includes('faceid')) {
-        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-        if (!isEnrolled) {
-          // Remove Face ID from the list of enabled auth methods
-          methods = methods.filter(method => method !== 'faceid');
-        }
-      }
-      return methods;
-    } catch (error) {
-      console.error('Failed to get enabled auth methods:', error);
-      return ['password'];
-    }
-  }, []);
-
-  /**
-   * Check if biometrics is enabled on the device (regardless of whether it's enabled in the AliasVault app).
-   */
-  const isBiometricsEnabledOnDevice = useCallback(async (): Promise<boolean> => {
-    const hasBiometrics = await LocalAuthentication.hasHardwareAsync();
-    if (!hasBiometrics) {
-      return false;
-    }
-
-    return await LocalAuthentication.isEnrolledAsync();
-  }, []);
-
-  /**
-   * Check if biometrics is enabled based on enabled auth methods
-   */
-  const isBiometricsEnabled = useCallback(async (): Promise<boolean> => {
-    const deviceHasBiometrics = await isBiometricsEnabledOnDevice();
-    if (!deviceHasBiometrics) {
-      return false;
-    }
-
-    const methods = await getEnabledAuthMethods();
-    return methods.includes('faceid');
-  }, [getEnabledAuthMethods, isBiometricsEnabledOnDevice]);
 
   /**
    * Set auth tokens in storage as part of the login process. After db is initialized, the login method should be called as well.
@@ -149,7 +95,8 @@ export const AuthProvider: React.FC<{
       setUsername(username);
       setIsLoggedIn(true);
       isAuthenticated = true;
-      methods = await getEnabledAuthMethods();
+      const { AppUnlockUtility } = await import('@/utils/AppUnlockUtility');
+      methods = await AppUnlockUtility.getEnabledAuthMethods();
     }
 
     const offline = await NativeVaultManager.getOfflineMode();
@@ -157,7 +104,7 @@ export const AuthProvider: React.FC<{
     setIsInitialized(true);
     setIsOffline(offline);
     return { isLoggedIn: isAuthenticated, enabledAuthMethods: methods };
-  }, [getEnabledAuthMethods]);
+  }, []);
 
   /**
    * Sync legacy config to native layer
@@ -248,82 +195,13 @@ export const AuthProvider: React.FC<{
   }, [dbContext, clearAuthForced]);
 
   /**
-   * Set the authentication methods and save them to storage
+   * Set the authentication methods and save them to storage.
+   * Delegates to AppUnlockUtility for consistent auth method management.
    */
   const setAuthMethods = useCallback(async (methods: AuthMethod[]): Promise<void> => {
-    // Ensure password is always included
-    const methodsToSave = methods.includes('password') ? methods : [...methods, 'password'];
-
-    // Update native credentials manager
-    try {
-      await NativeVaultManager.setAuthMethods(methodsToSave);
-    } catch (error) {
-      console.error('Failed to update native auth methods:', error);
-    }
+    const { AppUnlockUtility } = await import('@/utils/AppUnlockUtility');
+    await AppUnlockUtility.setAuthMethods(methods);
   }, []);
-
-  /**
-   * Get the appropriate biometric display name translation key based on device capabilities
-   */
-  const getBiometricDisplayName = useCallback(async (): Promise<string> => {
-    try {
-      const hasBiometrics = await LocalAuthentication.hasHardwareAsync();
-      const enrolled = await LocalAuthentication.isEnrolledAsync();
-
-      // For Android, we use the term "Biometrics" for facial recognition and fingerprint.
-      if (Platform.OS === 'android') {
-        return i18n.t('settings.vaultUnlockSettings.biometrics');
-      }
-
-      // For iOS, we check if the device has explicit Face ID or Touch ID support.
-      if (!hasBiometrics || !enrolled) {
-        return i18n.t('settings.vaultUnlockSettings.faceIdTouchId');
-      }
-
-      const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
-      const hasFaceIDSupport = types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION);
-      const hasTouchIDSupport = types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT);
-
-      if (hasFaceIDSupport) {
-        return i18n.t('settings.vaultUnlockSettings.faceId');
-      } else if (hasTouchIDSupport) {
-        return i18n.t('settings.vaultUnlockSettings.touchId');
-      }
-
-      return i18n.t('settings.vaultUnlockSettings.faceIdTouchId');
-    } catch (error) {
-      console.error('Failed to get biometric display name:', error);
-      return i18n.t('settings.vaultUnlockSettings.faceIdTouchId');
-    }
-  }, []);
-
-  /**
-   * Get the display label translation key for the current auth method
-   * Priority: Biometrics > PIN > Password
-   */
-  const getAuthMethodDisplayKey = useCallback(async (): Promise<string> => {
-    try {
-      // Check for biometrics first (highest priority)
-      const methods = await getEnabledAuthMethods();
-      if (methods.includes('faceid')) {
-        if (await isBiometricsEnabledOnDevice()) {
-          return await getBiometricDisplayName();
-        }
-      }
-
-      // Check for PIN (second priority)
-      const pinEnabled = await NativeVaultManager.isPinEnabled();
-      if (pinEnabled) {
-        return 'settings.vaultUnlockSettings.pin';
-      }
-
-      // Fallback to password
-      return 'items.password';
-    } catch (error) {
-      console.error('Failed to get auth method display key:', error);
-      return 'items.password';
-    }
-  }, [getEnabledAuthMethods, getBiometricDisplayName, isBiometricsEnabledOnDevice]);
 
   /**
    * Get the auto-lock timeout from the iOS credentials manager
@@ -433,19 +311,14 @@ export const AuthProvider: React.FC<{
     username,
     shouldShowAutofillReminder,
     isOffline,
-    getEnabledAuthMethods,
-    isBiometricsEnabled,
     setAuthTokens,
     initializeAuth,
     login,
     clearAuthUserInitiated,
     clearAuthForced,
     setAuthMethods,
-    getAuthMethodDisplayKey,
-    isBiometricsEnabledOnDevice,
     getAutoLockTimeout,
     setAutoLockTimeout,
-    getBiometricDisplayName,
     markAutofillConfigured,
     verifyPassword,
     getEncryptionKeyDerivationParams,
@@ -456,19 +329,14 @@ export const AuthProvider: React.FC<{
     username,
     shouldShowAutofillReminder,
     isOffline,
-    getEnabledAuthMethods,
-    isBiometricsEnabled,
     setAuthTokens,
     initializeAuth,
     login,
     clearAuthUserInitiated,
     clearAuthForced,
     setAuthMethods,
-    getAuthMethodDisplayKey,
-    isBiometricsEnabledOnDevice,
     getAutoLockTimeout,
     setAutoLockTimeout,
-    getBiometricDisplayName,
     markAutofillConfigured,
     verifyPassword,
     getEncryptionKeyDerivationParams,
