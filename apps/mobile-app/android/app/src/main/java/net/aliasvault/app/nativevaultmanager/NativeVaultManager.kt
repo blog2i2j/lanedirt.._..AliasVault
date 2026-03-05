@@ -1347,6 +1347,24 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     }
 
     /**
+     * Check if biometric unlock is actually available (device + key validation).
+     * This checks not only if biometrics are configured in auth methods,
+     * but also validates that the encryption key in KeyStore is valid.
+     * Returns false if key has been invalidated (e.g., biometric enrollment changed).
+     * @param promise The promise to resolve with boolean result.
+     */
+    @ReactMethod
+    override fun isBiometricUnlockAvailable(promise: Promise) {
+        try {
+            val available = vaultStore.isBiometricAuthEnabled()
+            promise.resolve(available)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking biometric unlock availability", e)
+            promise.reject("ERR_BIOMETRIC_CHECK", "Failed to check biometric unlock availability: ${e.message}", e)
+        }
+    }
+
+    /**
      * Show native PIN setup UI.
      * Launches the native PinUnlockActivity in setup mode.
      * Gets the vault encryption key from memory (vault must be unlocked).

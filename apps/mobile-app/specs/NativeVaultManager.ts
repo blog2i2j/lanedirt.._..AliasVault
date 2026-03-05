@@ -94,6 +94,12 @@ export interface Spec extends TurboModule {
   // PIN unlock methods
   isPinEnabled(): Promise<boolean>;
   isKeystoreAvailable(): Promise<boolean>;
+
+  // Biometric unlock validation - checks if biometric unlock is actually available
+  // Returns true only if device supports biometrics AND the encryption key is valid
+  // Returns false if key has been invalidated (e.g., biometric enrollment changed)
+  isBiometricUnlockAvailable(): Promise<boolean>;
+
   removeAndDisablePin(): Promise<void>;
   showPinUnlock(): Promise<void>;
   showPinSetup(): Promise<void>;

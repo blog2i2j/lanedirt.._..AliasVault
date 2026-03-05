@@ -1,15 +1,15 @@
-import * as LocalAuthentication from 'expo-local-authentication';
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View, Platform, Linking, Switch, TouchableOpacity } from 'react-native';
 import Toast from 'react-native-toast-message';
+
+import { AppUnlockUtility } from '@/utils/AppUnlockUtility';
 
 import { useColors } from '@/hooks/useColorScheme';
 
 import { ThemedContainer } from '@/components/themed/ThemedContainer';
 import { ThemedScrollView } from '@/components/themed/ThemedScrollView';
 import { ThemedText } from '@/components/themed/ThemedText';
-import { AuthMethod, useAuth } from '@/context/AuthContext';
 import { useDialog } from '@/context/DialogContext';
 import NativeVaultManager from '@/specs/NativeVaultManager';
 
@@ -20,12 +20,9 @@ export default function VaultUnlockSettingsScreen() : React.ReactNode {
   const colors = useColors();
   const { t } = useTranslation();
   const { showAlert, showDialog } = useDialog();
-  const [initialized, setInitialized] = useState(false);
-  const { setAuthMethods, getEnabledAuthMethods, getBiometricDisplayName } = useAuth();
   const [hasBiometrics, setHasBiometrics] = useState(false);
   const [isBiometricsEnabled, setIsBiometricsEnabled] = useState(false);
   const [biometricDisplayName, setBiometricDisplayName] = useState('');
-  const [_, setEnabledAuthMethods] = useState<AuthMethod[]>([]);
 
   // PIN state
   const [pinEnabled, setPinEnabled] = useState(false);
@@ -36,64 +33,44 @@ export default function VaultUnlockSettingsScreen() : React.ReactNode {
      */
     const initializeAuth = async () : Promise<void> => {
       try {
-        // Check for hardware support
-        const compatible = await LocalAuthentication.hasHardwareAsync();
+        // Check if device has biometric hardware and enrollment
+        const deviceAvailable = await AppUnlockUtility.isBiometricsAvailableOnDevice();
+        setHasBiometrics(deviceAvailable);
 
-        // Check if any biometrics are enrolled
-        const enrolled = await LocalAuthentication.isEnrolledAsync();
-
-        // Set biometric availability based on all checks
-        const isBiometricAvailable = compatible && enrolled;
-        setHasBiometrics(isBiometricAvailable);
-
-        // Get appropriate display name from auth context
-        const displayName = await getBiometricDisplayName();
+        // Get appropriate display name
+        const displayName = await AppUnlockUtility.getBiometricDisplayName();
         setBiometricDisplayName(displayName);
 
-        const methods = await getEnabledAuthMethods();
-        setEnabledAuthMethods(methods);
+        const methods = await AppUnlockUtility.getEnabledAuthMethods();
 
-        if (methods.includes('faceid') && enrolled) {
-          setIsBiometricsEnabled(true);
+        // Check if biometric unlock is actually functional (validates stored key)
+        if (methods.includes('faceid') && deviceAvailable) {
+          const unlockAvailable = await AppUnlockUtility.isBiometricUnlockAvailable();
+
+          if (!unlockAvailable) {
+            /*
+             * Key is invalid (e.g., biometric enrollment changed)
+             * Remove biometrics from auth methods so user must re-enable it
+             */
+            console.info('Biometric key invalid, removing from auth methods');
+            await AppUnlockUtility.disableAuthMethod('faceid');
+            setIsBiometricsEnabled(false);
+          } else {
+            setIsBiometricsEnabled(true);
+          }
         }
 
-        // Load PIN settings (locked state removed - automatically handled by native code)
+        // Load PIN settings
         const enabled = await NativeVaultManager.isPinEnabled();
         setPinEnabled(enabled);
-
-        setInitialized(true);
       } catch (error) {
         console.error('Failed to initialize auth:', error);
         setHasBiometrics(false);
-        setInitialized(true);
       }
     };
 
     initializeAuth();
-  }, [getEnabledAuthMethods, getBiometricDisplayName, t]);
-
-  useEffect(() => {
-    if (!initialized) {
-      return;
-    }
-
-    /**
-     * Update the auth methods.
-     */
-    const updateAuthMethods = async () : Promise<void> => {
-      const currentAuthMethods = await getEnabledAuthMethods();
-      const newAuthMethods = isBiometricsEnabled ? ['faceid', 'password'] : ['password'];
-
-      if (currentAuthMethods.length === newAuthMethods.length &&
-          currentAuthMethods.every(method => newAuthMethods.includes(method))) {
-        return;
-      }
-
-      setAuthMethods(newAuthMethods as AuthMethod[]);
-    };
-
-    updateAuthMethods();
-  }, [isBiometricsEnabled, setAuthMethods, getEnabledAuthMethods, initialized]);
+  }, [t]);
 
   const handleBiometricsToggle = useCallback(async (value: boolean) : Promise<void> => {
     if (value && !hasBiometrics) {
@@ -107,9 +84,9 @@ export default function VaultUnlockSettingsScreen() : React.ReactNode {
             /**
              * Handle the open settings press.
              */
-            onPress: () : void => {
+            onPress: async () : Promise<void> => {
+              await AppUnlockUtility.enableAuthMethod('faceid');
               setIsBiometricsEnabled(true);
-              setAuthMethods(['faceid', 'password']);
               if (Platform.OS === 'ios') {
                 Linking.openURL('app-settings:');
               } else {
@@ -123,9 +100,9 @@ export default function VaultUnlockSettingsScreen() : React.ReactNode {
             /**
              * Handle the cancel press.
              */
-            onPress: () : void => {
+            onPress: async () : Promise<void> => {
+              await AppUnlockUtility.disableAuthMethod('faceid');
               setIsBiometricsEnabled(false);
-              setAuthMethods(['password']);
             },
           },
         ]
@@ -133,8 +110,8 @@ export default function VaultUnlockSettingsScreen() : React.ReactNode {
       return;
     }
 
-    // Check if keystore is available when enabling biometrics (iOS requires device passcode)
-    if (value && Platform.OS === 'ios') {
+    // Check if keystore is available when enabling biometrics (requires device passcode)
+    if (value) {
       const keystoreAvailable = await NativeVaultManager.isKeystoreAvailable();
       if (!keystoreAvailable) {
         showAlert(
@@ -146,13 +123,16 @@ export default function VaultUnlockSettingsScreen() : React.ReactNode {
     }
 
     /*
-     * Biometrics and PIN can now both be enabled simultaneously.
-     * Biometrics takes priority during unlock, PIN serves as fallback.
+     * Save new biometrics state.
      */
+    if (value) {
+      await AppUnlockUtility.enableAuthMethod('faceid');
+    } else {
+      await AppUnlockUtility.disableAuthMethod('faceid');
+    }
     setIsBiometricsEnabled(value);
-    setAuthMethods(value ? ['faceid', 'password'] : ['password']);
 
-    // Show toast notification only on biometrics enabled
+    // Show toast notification
     if (value) {
       Toast.show({
         type: 'success',
@@ -161,7 +141,7 @@ export default function VaultUnlockSettingsScreen() : React.ReactNode {
         visibilityTime: 1200,
       });
     }
-  }, [hasBiometrics, setAuthMethods, biometricDisplayName, showDialog, showAlert, t]);
+  }, [hasBiometrics, biometricDisplayName, showDialog, showAlert, t]);
 
   /**
    * Handle enable PIN - launches native PIN setup UI.

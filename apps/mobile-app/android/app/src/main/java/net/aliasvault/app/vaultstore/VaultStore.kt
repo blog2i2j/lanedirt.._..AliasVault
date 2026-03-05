@@ -478,7 +478,7 @@ class VaultStore(
 
         auth.setAuthMethods(authMethods)
 
-        if (!wasBiometricEnabled && isBiometricEnabled && crypto.encryptionKey != null && keystoreProvider.isBiometricAvailable()) {
+        if (!wasBiometricEnabled && isBiometricEnabled) {
             try {
                 crypto.storeEncryptionKey(
                     android.util.Base64.encodeToString(crypto.encryptionKey, android.util.Base64.NO_WRAP),
