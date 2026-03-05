@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, View, KeyboardAvoidingView, Platform, ScrollView, Dimensions, Text } from 'react-native';
 
 import { AppUnlockUtility } from '@/utils/AppUnlockUtility';
+import { HapticsUtility } from '@/utils/HapticsUtility';
 import { AppErrorCode, getAppErrorCode, getErrorTranslationKey, formatErrorWithCode } from '@/utils/types/errors/AppErrorCodes';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
 
@@ -125,9 +126,7 @@ export default function UnlockScreen() : React.ReactNode {
           }
 
           // Haptic feedback for successful unlock
-          if (Platform.OS === 'ios' || Platform.OS === 'android') {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          }
+          HapticsUtility.notification(Haptics.NotificationFeedbackType.Success);
 
           router.replace('/reinitialize');
         } catch (err) {
@@ -140,9 +139,7 @@ export default function UnlockScreen() : React.ReactNode {
           const errorCode = getAppErrorCode(err);
 
           // Haptic feedback for authentication error
-          if (Platform.OS === 'ios' || Platform.OS === 'android') {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          }
+          HapticsUtility.notification(Haptics.NotificationFeedbackType.Error);
 
           if (!errorCode || errorCode === AppErrorCode.VAULT_DECRYPT_FAILED) {
             setError(t('auth.errors.incorrectPassword'));
@@ -205,9 +202,7 @@ export default function UnlockScreen() : React.ReactNode {
       }
 
       // Haptic feedback for successful unlock
-      if (Platform.OS === 'ios' || Platform.OS === 'android') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+      HapticsUtility.notification(Haptics.NotificationFeedbackType.Success);
 
       /*
        * Navigate to reinitialize which will sync vault with server
@@ -225,9 +220,7 @@ export default function UnlockScreen() : React.ReactNode {
       const errorCode = getAppErrorCode(err);
 
       // Haptic feedback for authentication error
-      if (Platform.OS === 'ios' || Platform.OS === 'android') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
+      HapticsUtility.notification(Haptics.NotificationFeedbackType.Error);
 
       /*
        * During unlock, VAULT_DECRYPT_FAILED indicates wrong password.
@@ -264,9 +257,7 @@ export default function UnlockScreen() : React.ReactNode {
         }
 
         // Haptic feedback for successful unlock
-        if (Platform.OS === 'ios' || Platform.OS === 'android') {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }
+        HapticsUtility.notification(Haptics.NotificationFeedbackType.Success);
 
         router.replace('/reinitialize');
         return true;
@@ -302,9 +293,7 @@ export default function UnlockScreen() : React.ReactNode {
       }
 
       // Haptic feedback for successful unlock
-      if (Platform.OS === 'ios' || Platform.OS === 'android') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+      HapticsUtility.notification(Haptics.NotificationFeedbackType.Success);
 
       router.replace('/reinitialize');
     } catch (err) {
@@ -322,9 +311,7 @@ export default function UnlockScreen() : React.ReactNode {
         await performPinUnlock();
       } else if (errorCode) {
         // Haptic feedback for authentication error
-        if (Platform.OS === 'ios' || Platform.OS === 'android') {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        }
+        HapticsUtility.notification(Haptics.NotificationFeedbackType.Error);
 
         // Show the error with code if no PIN fallback
         const translationKey = getErrorTranslationKey(errorCode);
