@@ -275,11 +275,11 @@ public class DatabaseMessageStore(ILogger<DatabaseMessageStore> logger, Config c
 
         if (attachment is MimePart mimePartAttachment)
         {
-            mimePartAttachment.Content.DecodeTo(memory);
+            mimePartAttachment.Content?.DecodeTo(memory);
         }
         else
         {
-            ((MessagePart)attachment).Message.WriteTo(memory);
+            ((MessagePart)attachment).Message?.WriteTo(memory);
         }
 
         return memory.ToArray();
