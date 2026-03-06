@@ -4,7 +4,7 @@
     "close": "Закрыть",
     "delete": "Удалить",
     "save": "Сохранить",
-    "edit": "Edit",
+    "edit": "Редактировать",
     "yes": "Да",
     "no": "Нет",
     "ok": "ОК",
@@ -25,7 +25,7 @@
     "add": "Добавить",
     "generate": "Сгенерировать",
     "attachments": "Вложения",
-    "or": "or",
+    "or": "или",
     "deleteItemConfirmTitle": "Удалить запись",
     "deleteItemConfirmDescription": "Вы уверены, что хотите удалить эту запись?",
     "errors": {
@@ -48,7 +48,9 @@
     "verifyingAuthCode": "Проверка кода аутентификации",
     "verify": "Проверить",
     "unlockVault": "Разблокировать хранилище",
+    "unlockWithBiometric": "Разблокировать через {{biometric}}",
     "unlockWithPin": "Разблокировать ПИН-кодом﻿",
+    "unlockWithPassword": "Разблокировать паролем",
     "enterPassword": "Введите ваш пароль для разблокировки вашего хранилища",
     "enterPasswordPlaceholder": "Пароль",
     "enterAuthCode": "Введите 6-значный код",
@@ -56,8 +58,6 @@
     "passwordPlaceholder": "Введите ваш пароль",
     "enableBiometric": "Включить {{biometric}}?",
     "biometricPrompt": "Вы хотите использовать {{biometric}} для разблокировки вашего хранилища?",
-    "tryBiometricAgain": "Попробуйте {{biometric}} ещё раз",
-    "tryPinAgain": "Повторите ввод PIN-кода",
     "authCodeNote": "Примечание: если у вас нет доступа к устройству аутентификации, вы можете сбросить ваш 2FA с помощью кода восстановления, войдя в систему через сайт.",
     "errors": {
       "credentialsRequired": "Требуется имя пользователя и пароль",
@@ -116,11 +116,11 @@
     "secretKey": "Секретный ключ",
     "instructions": "Введите секретный ключ, указанный на веб-сайте, где вы хотите добавить двухфакторную аутентификацию.",
     "saveToViewCode": "Сохранить для просмотра кода",
-    "scanQrCode": "Scan QR Code",
-    "enterManually": "Enter a setup key",
+    "scanQrCode": "Отсканировать QR-код",
+    "enterManually": "Введите ключ настройки",
     "errors": {
       "invalidSecretKey": "Неверный формат секретного ключа.",
-      "scanFailed": "Failed to scan QR code. Please try again."
+      "scanFailed": "Не удалось отсканировать QR-код. Попробуйте еще раз."
     }
   },
   "settings": {
@@ -216,6 +216,7 @@
       "biometricDisabledMessage": "{{biometric}} отключен для AliasVault. Чтобы использовать его, пожалуйста, сначала включите его в настройках вашего устройства.",
       "biometricHelp": "Разблокируйте хранилище с помощью биометрии. Оно защищено {{keystore}}.",
       "biometricUnavailableHelp": "{{biometric}} недоступен. Нажмите, чтобы открыть настройки, и/или перейдите в настройки своего устройства, чтобы включить и настроить его.",
+      "featureRequiresPasscode": "Для этой функции необходимо настроить код-пароль на вашем устройстве.",
       "pin": "ПИН-код",
       "pinDescription": "Используйте PIN-код для быстрой разблокировки хранилища.",
       "pinEnabled": "Вход по PIN-коду успешно включен",
@@ -321,7 +322,8 @@
         "confirmSubtitle": "Авторизуйтесь повторно, чтобы подтвердить вход на другом устройстве.",
         "confirmMessage": "Внимание! Вы входите в аккаунт на другом устройстве. Оно получит полный доступ к вашему хранилищу. Продолжайте только если полностью доверяете этому устройству.",
         "successDescription": "Вход на удаленном устройстве выполнен успешно.",
-        "requestExpired": "Срок действия запроса на вход истек. Пожалуйста, сгенерируйте новый QR-код."
+        "requestExpired": "Срок действия запроса на вход истек. Пожалуйста, сгенерируйте новый QR-код.",
+        "noPinOrBiometricError": "Требуется ПИН-код или биометрия. Пожалуйста, включите ПИН-код, Face ID или Touch ID в настройках разблокировки, чтобы использовать эту функцию."
       }
     }
   },
@@ -447,7 +449,7 @@
       "showFolders": "Папки",
       "passkeys": "Ключи доступа",
       "attachments": "Вложения",
-      "totp": "2FA Codes"
+      "totp": "2FA-коды"
     },
     "sort": {
       "title": "Сортировка",
@@ -473,7 +475,8 @@
       "usernameCopied": "Имя пользователя скопировано в буфер обмена",
       "emailCopied": "Email скопирован в буфер обмена",
       "passwordCopied": "Пароль скопирован в буфер обмена",
-      "urlCopied": "URL copied to clipboard"
+      "totpCodeCopied": "2FA-код скопирован в буфер обмена",
+      "urlCopied": "URL скопирован в буфер обмена"
     },
     "createNewAliasFor": "Создайте новый псевдоним для",
     "contextMenu": {
@@ -482,13 +485,14 @@
       "delete": "Удалить",
       "copyUsername": "Скопировать имя пользователя",
       "copyEmail": "Скопировать Email",
-      "copyPassword": "Скопировать пароль"
+      "copyPassword": "Скопировать пароль",
+      "copyTotpCode": "Копировать 2FA-код"
     },
     "urlContextMenu": {
-      "title": "URL Options",
-      "copyLink": "Copy Link",
-      "openLink": "Open Link",
-      "shareLink": "Share Link"
+      "title": "Действия с URL",
+      "copyLink": "Копировать ссылку",
+      "openLink": "Открыть ссылку",
+      "shareLink": "Поделиться ссылкой"
     },
     "viewHistory": "Посмотреть историю",
     "history": "История",
