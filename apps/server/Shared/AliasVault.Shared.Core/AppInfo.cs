@@ -25,7 +25,7 @@ public static class AppInfo
     /// <summary>
     /// Gets the minor version number.
     /// </summary>
-    public const int VersionMinor = 27;
+    public const int VersionMinor = 28;
 
     /// <summary>
     /// Gets the patch version number.
