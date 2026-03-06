@@ -399,28 +399,27 @@ export class FormDetector {
         }
 
         /*
-         * Check if element has zero or near-zero dimensions (effectively invisible)
-         * This catches various hiding techniques:
-         * - height:0, width:0, max-height:0, max-width:0
-         * - position:absolute with clip/clip-path
-         * - Any combination that results in no visible pixels
+         * Check if element has zero dimensions using actual rendered size.
+         * Skip this check for positioned elements (fixed/absolute) since they
+         * can have 0x0 dimensions but still contain visible children.
          */
         const height = parseFloat(style.height);
         const width = parseFloat(style.width);
         const maxHeight = parseFloat(style.maxHeight);
         const maxWidth = parseFloat(style.maxWidth);
+        const position = style.position;
 
         // Check if element has zero dimensions
         if (height === 0 || width === 0 || maxHeight === 0 || maxWidth === 0) {
-          // Cache and return false for this element and all its parents
-          let parent: HTMLElement | null = current;
-          while (parent) {
-            if (checkOpacity) {
-              this.visibilityCache.set(parent, false);
+          if (position !== 'fixed' && position !== 'absolute') {
+            const rect = current.getBoundingClientRect();
+            if (rect.width === 0 && rect.height === 0) {
+              if (checkOpacity) {
+                this.visibilityCache.set(current, false);
+              }
+              return false;
             }
-            parent = parent.parentElement;
           }
-          return false;
         }
 
         /*
