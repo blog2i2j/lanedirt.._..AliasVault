@@ -130,6 +130,11 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     override fun clearSession(promise: Promise) {
         try {
             vaultStore.clearSession()
+
+            // Reset password unlock failed attempts counter on logout
+            val sharedPreferences = reactApplicationContext.getSharedPreferences("aliasvault", android.content.Context.MODE_PRIVATE)
+            sharedPreferences.edit().remove("password_unlock_failed_attempts").apply()
+
             promise.resolve(null)
         } catch (e: Exception) {
             Log.e(TAG, "Error clearing session", e)

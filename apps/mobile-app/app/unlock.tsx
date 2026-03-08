@@ -135,6 +135,13 @@ export default function UnlockScreen() : React.ReactNode {
             return;
           }
 
+          // Check if max attempts reached
+          if (err && typeof err === 'object' && 'code' in err && err.code === 'MAX_ATTEMPTS_REACHED') {
+            // Max attempts reached - vault has been cleared, force logout
+            await logoutForced();
+            return;
+          }
+
           console.error('Unlock error:', err);
           const errorCode = getAppErrorCode(err);
 
@@ -212,6 +219,13 @@ export default function UnlockScreen() : React.ReactNode {
     } catch (err) {
       if (err instanceof VaultVersionIncompatibleError) {
         // Vault version incompatible - force logout without confirmation
+        await logoutForced();
+        return;
+      }
+
+      // Check if max attempts reached
+      if (err && typeof err === 'object' && 'code' in err && err.code === 'MAX_ATTEMPTS_REACHED') {
+        // Max attempts reached - vault has been cleared, force logout
         await logoutForced();
         return;
       }

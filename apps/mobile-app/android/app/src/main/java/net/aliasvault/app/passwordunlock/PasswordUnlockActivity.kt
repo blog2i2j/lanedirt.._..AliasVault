@@ -4,6 +4,7 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
@@ -19,6 +20,7 @@ import android.widget.ImageButton
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.edit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -45,6 +47,9 @@ class PasswordUnlockActivity : AppCompatActivity() {
         /** Result code for cancelled password unlock. */
         const val RESULT_CANCELLED = Activity.RESULT_CANCELED
 
+        /** Result code for max attempts reached - user has been logged out. */
+        const val RESULT_MAX_ATTEMPTS_REACHED = Activity.RESULT_FIRST_USER + 1
+
         /** Intent extra key for the encryption key (returned on success). */
         const val EXTRA_ENCRYPTION_KEY = "encryption_key"
 
@@ -56,6 +61,15 @@ class PasswordUnlockActivity : AppCompatActivity() {
 
         /** Intent extra key for custom button text (optional). */
         const val EXTRA_CUSTOM_BUTTON_TEXT = "custom_button_text"
+
+        /** Maximum number of failed password attempts before logout. */
+        private const val MAX_FAILED_ATTEMPTS = 10
+
+        /** Warning threshold for failed attempts. */
+        private const val WARNING_THRESHOLD = 5
+
+        /** SharedPreferences key for failed password attempts counter. */
+        private const val PREF_FAILED_ATTEMPTS = "password_unlock_failed_attempts"
     }
 
     private lateinit var vaultStore: VaultStore
@@ -74,6 +88,7 @@ class PasswordUnlockActivity : AppCompatActivity() {
     // State
     private var isProcessing: Boolean = false
     private var isShowingError: Boolean = false
+    private var failedAttempts: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -93,6 +108,10 @@ class PasswordUnlockActivity : AppCompatActivity() {
             AndroidKeystoreProvider(this) { null },
             AndroidStorageProvider(this),
         )
+
+        // Load failed attempts counter
+        val sharedPreferences = getSharedPreferences("aliasvault", Context.MODE_PRIVATE)
+        failedAttempts = sharedPreferences.getInt(PREF_FAILED_ATTEMPTS, 0)
 
         // Get custom title/subtitle/buttonText from intent
         val customTitle = intent.getStringExtra(EXTRA_CUSTOM_TITLE)
@@ -253,15 +272,16 @@ class PasswordUnlockActivity : AppCompatActivity() {
                 }
 
                 if (encryptionKey != null) {
-                    // Success - return encryption key
+                    // Success - reset failed attempts counter and return encryption key
+                    resetFailedAttempts()
                     val resultIntent = Intent().apply {
                         putExtra(EXTRA_ENCRYPTION_KEY, encryptionKey)
                     }
                     setResult(RESULT_SUCCESS, resultIntent)
                     finish()
                 } else {
-                    // Incorrect password
-                    showError(getString(R.string.password_unlock_incorrect))
+                    // Incorrect password - increment failed attempts
+                    handleFailedAttempt()
                 }
             } catch (e: Exception) {
                 // Error during verification
@@ -321,6 +341,64 @@ class PasswordUnlockActivity : AppCompatActivity() {
                     }
                 })
                 .start()
+        }
+    }
+
+    private fun handleFailedAttempt() {
+        failedAttempts++
+        saveFailedAttempts()
+
+        val remainingAttempts = MAX_FAILED_ATTEMPTS - failedAttempts
+
+        if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
+            // Max attempts reached - logout user
+            logoutUser()
+        } else if (failedAttempts >= WARNING_THRESHOLD) {
+            // Show warning about remaining attempts
+            val warningMessage = getString(R.string.password_unlock_attempts_warning, remainingAttempts)
+            showError(warningMessage)
+        } else {
+            // Show standard incorrect password error
+            showError(getString(R.string.password_unlock_incorrect))
+        }
+    }
+
+    private fun saveFailedAttempts() {
+        val sharedPreferences = getSharedPreferences("aliasvault", Context.MODE_PRIVATE)
+        sharedPreferences.edit {
+            putInt(PREF_FAILED_ATTEMPTS, failedAttempts)
+        }
+    }
+
+    private fun resetFailedAttempts() {
+        failedAttempts = 0
+        val sharedPreferences = getSharedPreferences("aliasvault", Context.MODE_PRIVATE)
+        sharedPreferences.edit {
+            remove(PREF_FAILED_ATTEMPTS)
+        }
+    }
+
+    private fun logoutUser() {
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                // Clear vault and all session data
+                withContext(Dispatchers.IO) {
+                    vaultStore.clearVault()
+                }
+
+                // Show logout message and close activity
+                showError(getString(R.string.password_unlock_max_attempts_reached))
+
+                // Delay to let user read the message, then return max attempts result
+                passwordEditText.postDelayed({
+                    setResult(RESULT_MAX_ATTEMPTS_REACHED)
+                    finish()
+                }, 2000)
+            } catch (e: Exception) {
+                android.util.Log.e("PasswordUnlockActivity", "Error during logout", e)
+                setResult(RESULT_MAX_ATTEMPTS_REACHED)
+                finish()
+            }
         }
     }
 
