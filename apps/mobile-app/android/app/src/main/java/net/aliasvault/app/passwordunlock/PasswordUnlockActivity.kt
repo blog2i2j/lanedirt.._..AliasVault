@@ -148,8 +148,8 @@ class PasswordUnlockActivity : AppCompatActivity() {
                 // Not used
             }
             override fun afterTextChanged(s: Editable?) {
-                // Only hide error if user is typing (not when we programmatically clear for error display)
-                if (!isShowingError) {
+                // Hide error when user starts typing a new password
+                if (!isShowingError && !s.isNullOrEmpty()) {
                     hideError()
                 }
                 unlockButton.isEnabled = !s.isNullOrEmpty() && !isProcessing
@@ -278,8 +278,10 @@ class PasswordUnlockActivity : AppCompatActivity() {
     }
 
     private fun showError(message: String) {
-        errorTextView.text = message
+        errorContainer.animate().cancel()
         isShowingError = true
+
+        errorTextView.text = message
 
         // Animate error in with slide from top
         errorContainer.visibility = View.VISIBLE
@@ -290,6 +292,7 @@ class PasswordUnlockActivity : AppCompatActivity() {
             .translationY(0f)
             .setDuration(300)
             .setInterpolator(AccelerateDecelerateInterpolator())
+            .setListener(null) // Clear any previous listeners
             .start()
 
         // Shake password field to indicate error
@@ -298,18 +301,15 @@ class PasswordUnlockActivity : AppCompatActivity() {
         shake.start()
 
         passwordEditText.text?.clear()
-
-        // Reset flag after clearing is done
-        passwordEditText.post {
+        passwordEditText.postDelayed({
             isShowingError = false
-        }
+        }, 100)
 
         passwordEditText.requestFocus()
     }
 
     private fun hideError() {
-        if (errorContainer.visibility == View.VISIBLE) {
-            isShowingError = false
+        if (errorContainer.visibility == View.VISIBLE && !isShowingError) {
             errorContainer.animate()
                 .alpha(0f)
                 .translationY(-20f)
