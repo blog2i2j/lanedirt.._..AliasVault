@@ -39,6 +39,9 @@ const KEYS = {
   // Session/Navigation state
   PENDING_REDIRECT_URL: 'session:pendingRedirectUrl',
   SKIP_FORM_RESTORE: 'local:aliasvault_skip_form_restore',
+
+  // Brute force protection
+  PASSWORD_UNLOCK_FAILED_ATTEMPTS: 'local:password_unlock_failed_attempts',
 } as const;
 
 /**
@@ -406,5 +409,40 @@ export const LocalPreferencesService = {
    */
   async setLoginSaveBlockedDomains(domains: string[]): Promise<void> {
     await storage.setItem(KEYS.LOGIN_SAVE_BLOCKED_DOMAINS, domains);
+  },
+
+  /*
+   * ============================================
+   * Brute Force Protection
+   * ============================================
+   */
+
+  /**
+   * Get the password unlock failed attempts count.
+   * @returns The number of failed password unlock attempts. Defaults to 0.
+   */
+  async getPasswordUnlockFailedAttempts(): Promise<number> {
+    const value = await storage.getItem(KEYS.PASSWORD_UNLOCK_FAILED_ATTEMPTS) as number | string | null;
+    if (typeof value === 'number') {
+      return value;
+    }
+    if (typeof value === 'string') {
+      return parseInt(value, 10) || 0;
+    }
+    return 0;
+  },
+
+  /**
+   * Set the password unlock failed attempts count.
+   */
+  async setPasswordUnlockFailedAttempts(attempts: number): Promise<void> {
+    await storage.setItem(KEYS.PASSWORD_UNLOCK_FAILED_ATTEMPTS, attempts);
+  },
+
+  /**
+   * Reset the password unlock failed attempts counter.
+   */
+  async resetPasswordUnlockFailedAttempts(): Promise<void> {
+    await storage.removeItem(KEYS.PASSWORD_UNLOCK_FAILED_ATTEMPTS);
   },
 };
