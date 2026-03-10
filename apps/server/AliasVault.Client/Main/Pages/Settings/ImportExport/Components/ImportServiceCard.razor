@@ -71,9 +71,23 @@
 
                                 <div class="@(IsImporting ? "hidden" : "")">
                                     @ChildContent
+                                    @if (SupportedFormats != null && SupportedFormats.Count > 0)
+                                    {
+                                        <div class="mb-4">
+                                            <p class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                                                @Localizer["SupportedFormatsLabel"]
+                                            </p>
+                                            <ul class="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                                                @foreach (var format in SupportedFormats)
+                                                {
+                                                    <li><strong class="text-gray-700 dark:text-gray-300">@format.Key</strong> - @format.Value</li>
+                                                }
+                                            </ul>
+                                        </div>
+                                    }
                                     <div class="mb-4 bg-amber-50 border border-amber-400 dark:bg-amber-800/30 dark:border-amber-500/50 rounded-lg p-4">
                                         <p class="mb-4 text-gray-700 dark:text-gray-200">@string.Format(Localizer["UploadExportFileText"], ServiceName)</p>
-                                        <InputFile OnChange="HandleFileUpload" class="text-gray-700 dark:text-gray-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-primary-900/40 dark:file:text-primary-300 dark:hover:file:bg-primary-800/60" />
+                                        <InputFile OnChange="HandleFileUpload" accept="@AcceptedFileTypes" class="text-gray-700 dark:text-gray-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-primary-900/40 dark:file:text-primary-300 dark:hover:file:bg-primary-800/60" />
                                     </div>
                                     <div class="flex justify-end mt-6 space-x-2">
                                         <Button OnClick="@CloseModal" Color="secondary">@Localizer["CancelButton"]</Button>
@@ -86,7 +100,7 @@
                             <div class="mb-4">
                                 @if (DuplicateCredentialsCount > 0)
                                 {
-                                    <div class="p-4 mb-4 text-blue-700 bg-blue-100 rounded-lg dark:bg-blue-800/30 dark:text-blue-300" role="alert">
+                                    <div class="p-4 mb-4 text-gray-700 bg-gray-100 rounded-lg dark:bg-gray-700/50 dark:text-gray-300" role="alert">
                                         <p>@string.Format(Localizer["DuplicateCredentialsWarning"], DuplicateCredentialsCount)</p>
                                     </div>
                                 }
@@ -243,10 +257,29 @@
     public EventCallback OnImportConfirmed { get; set; }
 
     /// <summary>
-    /// The callback for processing the file.
+    /// The callback for processing the file (text-based).
     /// </summary>
     [Parameter]
-    public Func<string, Task<List<ImportedCredential>>> ProcessFileCallback { get; set; } = null!;
+    public Func<string, Task<List<ImportedCredential>>>? ProcessFileCallback { get; set; }
+
+    /// <summary>
+    /// The callback for auto-detecting and processing files (accepts filename and bytes).
+    /// This callback should determine whether to process as text or binary based on the file extension.
+    /// </summary>
+    [Parameter]
+    public Func<string, byte[], Task<List<ImportedCredential>>>? ProcessFileWithAutoDetectionCallback { get; set; }
+
+    /// <summary>
+    /// Gets or sets the accepted file types (e.g., ".csv", ".avux").
+    /// </summary>
+    [Parameter]
+    public string AcceptedFileTypes { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the supported file formats with descriptions (e.g., {".csv": "CSV format", ".avux": "Complete backup"}).
+    /// </summary>
+    [Parameter]
+    public Dictionary<string, string>? SupportedFormats { get; set; }
 
     private bool IsModalOpen { get; set; } = false;
     private bool IsImporting { get; set; } = false;
@@ -688,18 +721,40 @@
             IsImporting = true;
             StateHasChanged();
 
-            // Limit file size to 10MB
-            if (e.File.Size > 10 * 1024 * 1024)
+            // Limit file size to 50MB (increased for binary files with attachments)
+            var maxFileSize = 50 * 1024 * 1024;
+            if (e.File.Size > maxFileSize)
             {
                 ImportError = Localizer["ImportErrorFileTooLarge"];
                 return;
             }
 
-            await using var stream = e.File.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
-            using var reader = new StreamReader(stream);
-            var fileContents = await reader.ReadToEndAsync();
+            await using var stream = e.File.OpenReadStream(maxAllowedSize: maxFileSize);
 
-            var processingTask = ProcessFileCallback(fileContents);
+            Task<List<ImportedCredential>> processingTask;
+
+            // Check if we have auto-detection callback first
+            if (ProcessFileWithAutoDetectionCallback != null)
+            {
+                // Read as binary and let the callback decide how to process
+                using var memoryStream = new MemoryStream();
+                await stream.CopyToAsync(memoryStream);
+                var fileBytes = memoryStream.ToArray();
+                processingTask = ProcessFileWithAutoDetectionCallback(e.File.Name, fileBytes);
+            }
+            else if (ProcessFileCallback != null)
+            {
+                // Read as text
+                using var reader = new StreamReader(stream);
+                var fileContents = await reader.ReadToEndAsync();
+                processingTask = ProcessFileCallback(fileContents);
+            }
+            else
+            {
+                ImportError = "No file processor configured";
+                return;
+            }
+
             var delayTask = Task.Delay(500);
 
             await Task.WhenAll(processingTask, delayTask);

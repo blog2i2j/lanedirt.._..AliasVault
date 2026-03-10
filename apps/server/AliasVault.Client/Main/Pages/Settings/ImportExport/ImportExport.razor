@@ -283,7 +283,7 @@
         {
             Logger.LogError(ex, "Error exporting vault to .avux format");
             GlobalNotificationService.AddErrorMessage(
-                $"{Localizer["ExportErrorTitle"]}: {Localizer["ExportErrorMessage"]}",
+                SharedLocalizer["ErrorGeneric"],
                 true);
         }
         finally

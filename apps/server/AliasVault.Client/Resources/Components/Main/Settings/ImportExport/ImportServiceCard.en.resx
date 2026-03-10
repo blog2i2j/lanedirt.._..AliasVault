@@ -166,4 +166,8 @@
     <value>File size exceeds 10MB limit.</value>
     <comment>Error message when file is too large</comment>
   </data>
+  <data name="SupportedFormatsLabel" xml:space="preserve">
+    <value>Supported formats:</value>
+    <comment>Label for the list of supported file formats in the import modal</comment>
+  </data>
 </root>

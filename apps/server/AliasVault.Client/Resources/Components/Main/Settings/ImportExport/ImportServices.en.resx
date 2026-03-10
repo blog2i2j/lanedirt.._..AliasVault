@@ -230,14 +230,35 @@
     <value>Once you have exported the file, you can upload it below.</value>
     <comment>Strongbox export instructions part 2</comment>
   </data>
-  <!-- AliasVault -->
+  <!-- AliasVault .avux -->
+  <data name="AvuxDescription" xml:space="preserve">
+    <value>Import complete AliasVault backup (.avux format)</value>
+    <comment>Description for AliasVault .avux import service</comment>
+  </data>
+  <data name="AvuxInstructions" xml:space="preserve">
+    <value>Use this option to restore a complete vault backup including all items, folders, tags, passkeys, TOTP codes, and attachments from an .avux export file.</value>
+    <comment>AliasVault .avux import instructions</comment>
+  </data>
+  <data name="AvuxFormatTitle" xml:space="preserve">
+    <value>Complete Vault Backup:</value>
+    <comment>Title for .avux format explanation</comment>
+  </data>
+  <data name="AvuxFormatDescription" xml:space="preserve">
+    <value>Complete backup format (includes passkeys, attachments, custom fields, and all metadata)</value>
+    <comment>Description of what .avux format includes</comment>
+  </data>
+  <!-- AliasVault CSV/AVUX -->
   <data name="AliasVaultDescription" xml:space="preserve">
-    <value>Import passwords from another AliasVault server or manual back-up</value>
+    <value>Import from AliasVault backup (.csv or .avux)</value>
     <comment>Description for AliasVault import service</comment>
   </data>
   <data name="AliasVaultInstructionsPart1" xml:space="preserve">
-    <value>If you have a CSV file back-up of your AliasVault database (from a different AliasVault server), you can import it here.</value>
+    <value>Import your AliasVault backup from another server or a manual backup. Supports both CSV and .avux formats.</value>
     <comment>AliasVault import instructions</comment>
+  </data>
+  <data name="CsvFormatDescription" xml:space="preserve">
+    <value>Basic backup format (passwords, usernames, notes, TOTP codes)</value>
+    <comment>Description of CSV format capabilities</comment>
   </data>
   <!-- Dropbox -->
   <data name="DropboxDescription" xml:space="preserve">

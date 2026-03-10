@@ -90,6 +90,14 @@
     <value>Export vault to unencrypted SQLite file</value>
     <comment>Button to export as SQLite</comment>
   </data>
+  <data name="ExportAvuxButton" xml:space="preserve">
+    <value>Export full vault (.avux)</value>
+    <comment>Button to export full vault as .avux archive</comment>
+  </data>
+  <data name="ExportingVaultMessage" xml:space="preserve">
+    <value>Exporting vault...</value>
+    <comment>Message shown while exporting vault</comment>
+  </data>
   <data name="ExportConfirmTitle" xml:space="preserve">
     <value>Export vault</value>
     <comment>Export confirmation dialog title</comment>

@@ -4,22 +4,66 @@
 @inject IStringLocalizerFactory LocalizerFactory
 @using AliasVault.ImportExport.Models
 @using AliasVault.ImportExport.Importers
+@using AliasVault.ImportExport
 @using Microsoft.Extensions.Localization
+@using System.Text
 
 <ImportServiceCard
     ServiceName="AliasVault"
     Description="@Localizer["AliasVaultDescription"]"
     LogoUrl="img/logo.svg"
-    ProcessFileCallback="ProcessFile">
+    AcceptedFileTypes=".csv,.avux"
+    ProcessFileWithAutoDetectionCallback="ProcessFile"
+    SupportedFormats="@GetSupportedFormats()">
     <p class="text-gray-700 dark:text-gray-300 mb-4">@Localizer["AliasVaultInstructionsPart1"]</p>
 </ImportServiceCard>
 
 @code {
     private IStringLocalizer Localizer => LocalizerFactory.Create("Components.Main.Settings.ImportExport.ImportServices", "AliasVault.Client");
 
-    private static async Task<List<ImportedCredential>> ProcessFile(string fileContents)
+    /// <summary>
+    /// Gets the supported file formats with their descriptions.
+    /// </summary>
+    /// <returns>Dictionary of file extensions to format descriptions.</returns>
+    private Dictionary<string, string> GetSupportedFormats()
     {
-        var importedCredentials = await AliasVault.ImportExport.ItemCsvService.ImportItemsFromCsv(fileContents);
-        return importedCredentials;
+        return new Dictionary<string, string>
+        {
+            { ".csv", Localizer["CsvFormatDescription"] },
+            { ".avux", Localizer["AvuxFormatDescription"] }
+        };
+    }
+
+    /// <summary>
+    /// Processes the file with auto-detection based on file extension.
+    /// </summary>
+    /// <param name="filename">The name of the uploaded file.</param>
+    /// <param name="fileBytes">The file content as bytes.</param>
+    /// <returns>List of imported credentials.</returns>
+    private static async Task<List<ImportedCredential>> ProcessFile(string filename, byte[] fileBytes)
+    {
+        try
+        {
+            // Detect file format based on extension
+            if (filename.EndsWith(".avux", StringComparison.OrdinalIgnoreCase))
+            {
+                // Process as binary .avux file
+                return await VaultImportService.ImportFromAvuxAsync(fileBytes);
+            }
+            else if (filename.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+            {
+                // Process as text CSV file
+                var fileContents = Encoding.UTF8.GetString(fileBytes);
+                return await ItemCsvService.ImportItemsFromCsv(fileContents);
+            }
+            else
+            {
+                throw new InvalidOperationException($"Unsupported file format: {filename}. Expected .csv or .avux");
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Failed to import file '{filename}': {ex.Message}", ex);
+        }
     }
 }
