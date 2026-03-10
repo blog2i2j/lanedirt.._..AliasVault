@@ -247,6 +247,7 @@ public static class VaultImportService
     {
         return new ImportedPasskey
         {
+            Id = avuxPasskey.Id,
             RpId = avuxPasskey.RpId,
             UserHandle = !string.IsNullOrEmpty(avuxPasskey.UserHandle)
                 ? Convert.FromBase64String(avuxPasskey.UserHandle)

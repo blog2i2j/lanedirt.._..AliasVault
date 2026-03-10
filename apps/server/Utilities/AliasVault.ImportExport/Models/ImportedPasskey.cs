@@ -13,6 +13,12 @@ namespace AliasVault.ImportExport.Models;
 public class ImportedPasskey
 {
     /// <summary>
+    /// Gets or sets the passkey ID (GUID from the original database record).
+    /// This is used to preserve the credential ID during import/export.
+    /// </summary>
+    public Guid? Id { get; set; }
+
+    /// <summary>
     /// Gets or sets the relying party ID.
     /// </summary>
     public string RpId { get; set; } = string.Empty;

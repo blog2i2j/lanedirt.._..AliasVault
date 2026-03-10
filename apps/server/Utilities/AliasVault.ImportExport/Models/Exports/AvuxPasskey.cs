@@ -13,7 +13,8 @@ namespace AliasVault.ImportExport.Models.Exports;
 public class AvuxPasskey
 {
     /// <summary>
-    /// Gets or sets the passkey ID.
+    /// Gets or sets the passkey ID (GUID).
+    /// The WebAuthn credential ID is derived from this GUID at runtime using base64url encoding.
     /// </summary>
     public Guid Id { get; set; }
 

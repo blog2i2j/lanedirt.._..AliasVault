@@ -7,14 +7,14 @@
 
 namespace AliasVault.ImportExport.Importers;
 
+using System.Globalization;
+using System.Text.RegularExpressions;
 using AliasClientDb;
 using AliasClientDb.Models;
 using AliasVault.ImportExport.Models;
 using AliasVault.TotpGenerator;
 using CsvHelper;
 using CsvHelper.Configuration;
-using System.Globalization;
-using System.Text.RegularExpressions;
 
 /// <summary>
 /// Generic import logic.
@@ -259,9 +259,12 @@ public static class BaseImporter
             {
                 foreach (var passkey in importedCredential.Passkeys)
                 {
+                    // Use the GUID from the import if available, otherwise generate a new one
+                    var passkeyId = passkey.Id ?? Guid.NewGuid();
+
                     item.Passkeys.Add(new Passkey
                     {
-                        Id = Guid.NewGuid(),
+                        Id = passkeyId,
                         RpId = passkey.RpId,
                         UserHandle = passkey.UserHandle ?? Array.Empty<byte>(),
                         PublicKey = passkey.PublicKey,
