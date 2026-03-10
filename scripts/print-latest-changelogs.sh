@@ -34,7 +34,20 @@ print_android() {
             local file="$locale_dir/changelogs/$latest_file"
             if [ -f "$file" ]; then
                 echo "<$locale>"
-                cat "$file"
+                # Strip trailing whitespace from each line, then remove trailing blank lines
+                awk '{sub(/[[:space:]]+$/, ""); lines[NR] = $0} END {
+                    # Find last non-empty line
+                    for (i = NR; i >= 1; i--) {
+                        if (lines[i] != "") {
+                            last = i;
+                            break;
+                        }
+                    }
+                    # Print up to last non-empty line
+                    for (i = 1; i <= last; i++) {
+                        print lines[i];
+                    }
+                }' "$file"
                 echo "</$locale>"
             fi
         fi

@@ -16,6 +16,7 @@ import { ItemTypes, getSystemFieldsForItemType, getOptionalFieldsForItemType, is
 import type { FaviconExtractModel } from '@/utils/dist/core/models/webapi';
 import { CreatePasswordGenerator, PasswordGenerator } from '@/utils/dist/core/password-generator';
 import emitter from '@/utils/EventEmitter';
+import { HapticsUtility } from '@/utils/HapticsUtility';
 import { extractServiceNameFromUrl } from '@/utils/UrlUtility';
 
 import { useColors } from '@/hooks/useColorScheme';
@@ -671,9 +672,7 @@ export default function AddEditItemScreen(): React.ReactNode {
       Fields: []
     });
 
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    HapticsUtility.impact();
   }, [item, isEditMode]);
 
   /**
@@ -915,9 +914,7 @@ export default function AddEditItemScreen(): React.ReactNode {
       setIsSaveDisabled(false);
 
       // Haptic feedback for successful save
-      if (Platform.OS === 'ios' || Platform.OS === 'android') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+      HapticsUtility.notification(Haptics.NotificationFeedbackType.Success);
 
       // Navigate immediately - sync continues in background
       if (itemUrl && !isEditMode) {
@@ -982,9 +979,7 @@ export default function AddEditItemScreen(): React.ReactNode {
     emitter.emit('credentialChanged', id);
 
     // Haptic feedback for delete action (warning type for destructive action)
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    }
+    HapticsUtility.notification(Haptics.NotificationFeedbackType.Warning);
 
     setTimeout(() => {
       Toast.show({

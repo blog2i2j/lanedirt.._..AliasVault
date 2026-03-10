@@ -4,6 +4,8 @@ import { router } from 'expo-router';
 import { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, View, KeyboardAvoidingView, Platform, ScrollView, Dimensions, Text } from 'react-native';
 
+import { AppUnlockUtility } from '@/utils/AppUnlockUtility';
+import { HapticsUtility } from '@/utils/HapticsUtility';
 import { AppErrorCode, getAppErrorCode, getErrorTranslationKey, formatErrorWithCode } from '@/utils/types/errors/AppErrorCodes';
 import { VaultVersionIncompatibleError } from '@/utils/types/errors/VaultVersionIncompatibleError';
 
@@ -25,7 +27,7 @@ import NativeVaultManager from '@/specs/NativeVaultManager';
  * Unlock screen.
  */
 export default function UnlockScreen() : React.ReactNode {
-  const { isLoggedIn, username, isBiometricsEnabled, getBiometricDisplayName, getEncryptionKeyDerivationParams } = useApp();
+  const { isLoggedIn, username, getEncryptionKeyDerivationParams } = useApp();
   const { logoutUserInitiated, logoutForced } = useLogout();
   const dbContext = useDb();
   const [isLoading, setIsLoading] = useState(true);
@@ -74,13 +76,13 @@ export default function UnlockScreen() : React.ReactNode {
       }
 
       // Check if biometrics is available
-      const enabled = await isBiometricsEnabled();
+      const enabled = await AppUnlockUtility.isBiometricUnlockAvailable();
       if (!isMounted) {
         return;
       }
       setIsBiometricsAvailable(enabled);
 
-      const displayName = await getBiometricDisplayName();
+      const displayName = await AppUnlockUtility.getBiometricDisplayName();
       if (!isMounted) {
         return;
       }
@@ -124,9 +126,7 @@ export default function UnlockScreen() : React.ReactNode {
           }
 
           // Haptic feedback for successful unlock
-          if (Platform.OS === 'ios' || Platform.OS === 'android') {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          }
+          HapticsUtility.notification(Haptics.NotificationFeedbackType.Success);
 
           router.replace('/reinitialize');
         } catch (err) {
@@ -135,13 +135,18 @@ export default function UnlockScreen() : React.ReactNode {
             return;
           }
 
+          // Check if max attempts reached
+          if (err && typeof err === 'object' && 'code' in err && err.code === 'MAX_ATTEMPTS_REACHED') {
+            // Max attempts reached - vault has been cleared, force logout
+            await logoutForced();
+            return;
+          }
+
           console.error('Unlock error:', err);
           const errorCode = getAppErrorCode(err);
 
           // Haptic feedback for authentication error
-          if (Platform.OS === 'ios' || Platform.OS === 'android') {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          }
+          HapticsUtility.notification(Haptics.NotificationFeedbackType.Error);
 
           if (!errorCode || errorCode === AppErrorCode.VAULT_DECRYPT_FAILED) {
             setError(t('auth.errors.incorrectPassword'));
@@ -162,7 +167,7 @@ export default function UnlockScreen() : React.ReactNode {
     return (): void => {
       isMounted = false;
     };
-  }, [isBiometricsEnabled, getKeyDerivationParams, getBiometricDisplayName, dbContext, isLoggedIn, username, t, logoutForced]);
+  }, [getKeyDerivationParams, dbContext, isLoggedIn, username, t, logoutForced]);
 
   /**
    * Hide the alert dialog.
@@ -204,9 +209,7 @@ export default function UnlockScreen() : React.ReactNode {
       }
 
       // Haptic feedback for successful unlock
-      if (Platform.OS === 'ios' || Platform.OS === 'android') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+      HapticsUtility.notification(Haptics.NotificationFeedbackType.Success);
 
       /*
        * Navigate to reinitialize which will sync vault with server
@@ -220,13 +223,18 @@ export default function UnlockScreen() : React.ReactNode {
         return;
       }
 
+      // Check if max attempts reached
+      if (err && typeof err === 'object' && 'code' in err && err.code === 'MAX_ATTEMPTS_REACHED') {
+        // Max attempts reached - vault has been cleared, force logout
+        await logoutForced();
+        return;
+      }
+
       // Try to extract error code from the error
       const errorCode = getAppErrorCode(err);
 
       // Haptic feedback for authentication error
-      if (Platform.OS === 'ios' || Platform.OS === 'android') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
+      HapticsUtility.notification(Haptics.NotificationFeedbackType.Error);
 
       /*
        * During unlock, VAULT_DECRYPT_FAILED indicates wrong password.
@@ -263,9 +271,7 @@ export default function UnlockScreen() : React.ReactNode {
         }
 
         // Haptic feedback for successful unlock
-        if (Platform.OS === 'ios' || Platform.OS === 'android') {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }
+        HapticsUtility.notification(Haptics.NotificationFeedbackType.Success);
 
         router.replace('/reinitialize');
         return true;
@@ -301,9 +307,7 @@ export default function UnlockScreen() : React.ReactNode {
       }
 
       // Haptic feedback for successful unlock
-      if (Platform.OS === 'ios' || Platform.OS === 'android') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+      HapticsUtility.notification(Haptics.NotificationFeedbackType.Success);
 
       router.replace('/reinitialize');
     } catch (err) {
@@ -321,9 +325,7 @@ export default function UnlockScreen() : React.ReactNode {
         await performPinUnlock();
       } else if (errorCode) {
         // Haptic feedback for authentication error
-        if (Platform.OS === 'ios' || Platform.OS === 'android') {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        }
+        HapticsUtility.notification(Haptics.NotificationFeedbackType.Error);
 
         // Show the error with code if no PIN fallback
         const translationKey = getErrorTranslationKey(errorCode);
@@ -403,15 +405,19 @@ export default function UnlockScreen() : React.ReactNode {
       alignItems: 'center',
       backgroundColor: colors.primary,
       borderRadius: 8,
-      height: 50,
       justifyContent: 'center',
       marginBottom: 16,
+      minHeight: 50,
+      paddingVertical: 8,
       width: '100%',
     },
     buttonText: {
       color: colors.primarySurfaceText,
       fontSize: 16,
       fontWeight: '600',
+      paddingHorizontal: 16,
+      paddingVertical: 4,
+      textAlign: 'center',
     },
     container: {
       flex: 1,
@@ -430,14 +436,18 @@ export default function UnlockScreen() : React.ReactNode {
     },
     faceIdButton: {
       alignItems: 'center',
-      height: 50,
       justifyContent: 'center',
+      minHeight: 50,
+      paddingVertical: 8,
       width: '100%',
     },
     faceIdButtonText: {
       color: colors.primary,
       fontSize: 16,
       fontWeight: '600',
+      paddingHorizontal: 16,
+      paddingVertical: 4,
+      textAlign: 'center',
     },
     gradientContainer: {
       height: Dimensions.get('window').height * 0.4,

@@ -291,6 +291,11 @@ class MainActivity : ReactActivity() {
                 // For authenticateUser(), resolve with false
                 authPromise?.resolve(false)
             }
+            net.aliasvault.app.passwordunlock.PasswordUnlockActivity.RESULT_MAX_ATTEMPTS_REACHED -> {
+                // Max attempts reached - vault has been cleared, reject to trigger logout in React Native
+                passwordPromise?.reject("MAX_ATTEMPTS_REACHED", "Too many failed unlock attempts", null)
+                authPromise?.reject("MAX_ATTEMPTS_REACHED", "Too many failed unlock attempts", null)
+            }
             else -> {
                 // For showPasswordUnlock(), resolve with null
                 passwordPromise?.resolve(null)

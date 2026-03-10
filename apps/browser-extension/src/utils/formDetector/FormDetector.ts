@@ -53,8 +53,14 @@ export class FormDetector {
     let formWrapper = this.getFormWrapper();
 
     if (formWrapper?.getAttribute('role') === 'dialog') {
-      // If we hit a dialog, search for form only within the dialog
-      formWrapper = formWrapper.querySelector('form') as HTMLElement | null ?? formWrapper;
+      /*
+       * If we hit a dialog, try to find a more specific container within it.
+       * Try in order: <form>, custom form elements (like faceplate-form), or keep the dialog.
+       */
+      const standardForm = formWrapper.querySelector('form') as HTMLElement | null;
+      const customFormElement = formWrapper.querySelector('[id*="login"], [id*="register"], [class*="auth"], [class*="login"], [class*="register"]') as HTMLElement | null;
+
+      formWrapper = standardForm ?? customFormElement ?? formWrapper;
     }
 
     if (!formWrapper) {
@@ -399,28 +405,30 @@ export class FormDetector {
         }
 
         /*
-         * Check if element has zero or near-zero dimensions (effectively invisible)
-         * This catches various hiding techniques:
-         * - height:0, width:0, max-height:0, max-width:0
-         * - position:absolute with clip/clip-path
-         * - Any combination that results in no visible pixels
+         * Check if element has zero dimensions using actual rendered size.
+         * Only check this for input elements themselves, not their parent containers.
+         * Container elements (divs, fieldsets, etc.) may have zero dimensions but contain visible children.
+         * This check is primarily to catch fake/honeypot input fields.
          */
-        const height = parseFloat(style.height);
-        const width = parseFloat(style.width);
-        const maxHeight = parseFloat(style.maxHeight);
-        const maxWidth = parseFloat(style.maxWidth);
+        const isInputElement = current.tagName.toLowerCase() === 'input' ||
+                               current.tagName.toLowerCase() === 'textarea' ||
+                               current.tagName.toLowerCase() === 'select';
 
-        // Check if element has zero dimensions
-        if (height === 0 || width === 0 || maxHeight === 0 || maxWidth === 0) {
-          // Cache and return false for this element and all its parents
-          let parent: HTMLElement | null = current;
-          while (parent) {
+        if (isInputElement) {
+          const rect = current.getBoundingClientRect();
+          const height = parseFloat(style.height);
+          const width = parseFloat(style.width);
+          const maxHeight = parseFloat(style.maxHeight);
+          const maxWidth = parseFloat(style.maxWidth);
+
+          // Only reject if both bounding rect is 0x0 AND has explicit zero-sizing styles
+          if (rect.width === 0 && rect.height === 0 &&
+              (height === 0 || width === 0 || maxHeight === 0 || maxWidth === 0)) {
             if (checkOpacity) {
-              this.visibilityCache.set(parent, false);
+              this.visibilityCache.set(current, false);
             }
-            parent = parent.parentElement;
+            return false;
           }
-          return false;
         }
 
         /*

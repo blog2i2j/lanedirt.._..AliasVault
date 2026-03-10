@@ -293,6 +293,9 @@ export async function handleClearSession(): Promise<messageBoolResponse> {
     'session:navigationHistory',
   ]);
 
+  // Reset password unlock failed attempts counter on logout
+  await LocalPreferencesService.resetPasswordUnlockFailedAttempts();
+
   // Clear cached client since session ended
   cachedSqliteClient = null;
   cachedVaultBlob = null;

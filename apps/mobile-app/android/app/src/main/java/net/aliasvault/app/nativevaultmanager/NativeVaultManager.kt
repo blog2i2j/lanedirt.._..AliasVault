@@ -130,6 +130,11 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
     override fun clearSession(promise: Promise) {
         try {
             vaultStore.clearSession()
+
+            // Reset password unlock failed attempts counter on logout
+            val sharedPreferences = reactApplicationContext.getSharedPreferences("aliasvault", android.content.Context.MODE_PRIVATE)
+            sharedPreferences.edit().remove("password_unlock_failed_attempts").apply()
+
             promise.resolve(null)
         } catch (e: Exception) {
             Log.e(TAG, "Error clearing session", e)
@@ -1343,6 +1348,24 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
         } catch (e: Exception) {
             Log.e(TAG, "Error checking keystore availability", e)
             promise.reject("ERR_KEYSTORE_CHECK", "Failed to check keystore availability: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Check if biometric unlock is actually available (device + key validation).
+     * This checks not only if biometrics are configured in auth methods,
+     * but also validates that the encryption key in KeyStore is valid.
+     * Returns false if key has been invalidated (e.g., biometric enrollment changed).
+     * @param promise The promise to resolve with boolean result.
+     */
+    @ReactMethod
+    override fun isBiometricUnlockAvailable(promise: Promise) {
+        try {
+            val available = vaultStore.isBiometricAuthEnabled()
+            promise.resolve(available)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking biometric unlock availability", e)
+            promise.reject("ERR_BIOMETRIC_CHECK", "Failed to check biometric unlock availability: ${e.message}", e)
         }
     }
 

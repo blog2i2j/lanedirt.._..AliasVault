@@ -18,14 +18,9 @@ type AppContextType = {
   setAuthTokens: (username: string, accessToken: string, refreshToken: string) => Promise<void>;
   login: () => Promise<void>;
   // Auth methods from AuthContext
-  getEnabledAuthMethods: () => Promise<AuthMethod[]>;
-  isBiometricsEnabled: () => Promise<boolean>;
   setAuthMethods: (methods: AuthMethod[]) => Promise<void>;
-  getAuthMethodDisplayKey: () => Promise<string>;
   getAutoLockTimeout: () => Promise<number>;
   setAutoLockTimeout: (timeout: number) => Promise<void>;
-  getBiometricDisplayName: () => Promise<string>;
-  isBiometricsEnabledOnDevice: () => Promise<boolean>;
   setOfflineMode: (isOffline: boolean) => void;
   verifyPassword: (password: string) => Promise<string | null>;
   getEncryptionKeyDerivationParams: () => Promise<{ salt: string; encryptionType: string; encryptionSettings: string } | null>;
@@ -108,14 +103,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAuthTokens: auth.setAuthTokens,
     login: auth.login,
     // Pass through other auth methods
-    getEnabledAuthMethods: auth.getEnabledAuthMethods,
-    isBiometricsEnabled: auth.isBiometricsEnabled,
     setAuthMethods: auth.setAuthMethods,
-    getAuthMethodDisplayKey: auth.getAuthMethodDisplayKey,
     getAutoLockTimeout: auth.getAutoLockTimeout,
     setAutoLockTimeout: auth.setAutoLockTimeout,
-    getBiometricDisplayName: auth.getBiometricDisplayName,
-    isBiometricsEnabledOnDevice: auth.isBiometricsEnabledOnDevice,
     setOfflineMode: auth.setOfflineMode,
     verifyPassword: auth.verifyPassword,
     getEncryptionKeyDerivationParams: auth.getEncryptionKeyDerivationParams,
@@ -129,14 +119,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     auth.initializeAuth,
     auth.setAuthTokens,
     auth.login,
-    auth.getEnabledAuthMethods,
-    auth.isBiometricsEnabled,
     auth.setAuthMethods,
-    auth.getAuthMethodDisplayKey,
     auth.getAutoLockTimeout,
     auth.setAutoLockTimeout,
-    auth.getBiometricDisplayName,
-    auth.isBiometricsEnabledOnDevice,
     auth.setOfflineMode,
     auth.verifyPassword,
     auth.getEncryptionKeyDerivationParams,

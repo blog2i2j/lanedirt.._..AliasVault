@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useApiUrl } from '@/utils/ApiUrlUtility';
 import { AppInfo } from '@/utils/AppInfo';
+import { AppUnlockUtility } from '@/utils/AppUnlockUtility';
 
 import { useColors } from '@/hooks/useColorScheme';
 import { useLogout } from '@/hooks/useLogout';
@@ -31,7 +32,7 @@ export default function SettingsScreen() : React.ReactNode {
   const { t } = useTranslation();
   const { showAlert, showConfirm } = useDialog();
   const insets = useSafeAreaInsets();
-  const { getAuthMethodDisplayKey, shouldShowAutofillReminder } = useApp();
+  const { shouldShowAutofillReminder } = useApp();
   const { getAutoLockTimeout } = useApp();
   const { logoutUserInitiated } = useLogout();
   const { loadApiUrl, getDisplayUrl } = useApiUrl();
@@ -97,7 +98,7 @@ export default function SettingsScreen() : React.ReactNode {
        * Load the auth method display.
        */
       const loadAuthMethodDisplay = async () : Promise<void> => {
-        const authMethodKey = await getAuthMethodDisplayKey();
+        const authMethodKey = await AppUnlockUtility.getAuthMethodDisplayKey();
         setAuthMethodDisplay(t(authMethodKey));
       };
 
@@ -110,7 +111,7 @@ export default function SettingsScreen() : React.ReactNode {
       };
 
       loadData();
-    }, [getAutoLockTimeout, getAuthMethodDisplayKey, setIsFirstLoad, loadApiUrl, t])
+    }, [getAutoLockTimeout, setIsFirstLoad, loadApiUrl, t])
   );
 
   /**
@@ -282,8 +283,11 @@ export default function SettingsScreen() : React.ReactNode {
     },
     settingItemValue: {
       color: colors.textMuted,
+      flexShrink: 1,
       fontSize: 16,
       marginRight: 8,
+      maxWidth: '50%',
+      textAlign: 'right',
     },
     skeletonLoader: {
       marginRight: 8,

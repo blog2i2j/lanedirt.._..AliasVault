@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, SafeAreaView, TextInput, ActivityIndicator, Animated, ScrollView, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
 
 import { useApiUrl } from '@/utils/ApiUrlUtility';
+import { AppUnlockUtility } from '@/utils/AppUnlockUtility';
 import ConversionUtility from '@/utils/ConversionUtility';
 import type { EncryptionKeyDerivationParams } from '@/utils/dist/core/models/metadata';
 import type { LoginResponse } from '@/utils/dist/core/models/webapi';
@@ -166,9 +167,9 @@ export default function LoginScreen() : React.ReactNode {
     passwordHashBase64: string,
     initiateLoginResponse: LoginResponse
   ) : Promise<void> => {
-    // Get biometric display name from auth context
-    const biometricDisplayName = await authContext.getBiometricDisplayName();
-    const isBiometricsEnabledOnDevice = await authContext.isBiometricsEnabledOnDevice();
+    // Get biometric display name
+    const biometricDisplayName = await AppUnlockUtility.getBiometricDisplayName();
+    const isBiometricsEnabledOnDevice = await AppUnlockUtility.isBiometricsAvailableOnDevice();
     const isKeystoreAvailable = await NativeVaultManager.isKeystoreAvailable();
 
     /*

@@ -273,6 +273,10 @@
     [vaultManager isKeystoreAvailable:resolve rejecter:reject];
 }
 
+- (void)isBiometricUnlockAvailable:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager isBiometricUnlockAvailable:resolve rejecter:reject];
+}
+
 - (void)removeAndDisablePin:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     [vaultManager removeAndDisablePin:resolve rejecter:reject];
 }

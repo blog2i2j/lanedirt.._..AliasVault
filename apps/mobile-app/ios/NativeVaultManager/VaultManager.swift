@@ -199,6 +199,9 @@ public class VaultManager: NSObject {
     @objc
     func clearSession() {
         vaultStore.clearSession()
+
+        // Reset password unlock failed attempts counter on logout
+        UserDefaults.standard.removeObject(forKey: "password_unlock_failed_attempts")
     }
 
     /// Clear all vault data including from persisted storage.
@@ -732,6 +735,16 @@ public class VaultManager: NSObject {
         resolve(vaultStore.isKeystoreAvailable())
     }
 
+    /// Check if biometric unlock is actually available (device + key validation).
+    /// This checks not only if biometrics are configured in auth methods,
+    /// but also validates that the encryption key in Keychain is valid.
+    /// Returns false if key has been invalidated (e.g., biometric enrollment changed).
+    @objc
+    func isBiometricUnlockAvailable(_ resolve: @escaping RCTPromiseResolveBlock,
+                                    rejecter reject: @escaping RCTPromiseRejectBlock) {
+        resolve(vaultStore.isBiometricAuthEnabled())
+    }
+
     @objc
     func getPinFailedAttempts(_ resolve: @escaping RCTPromiseResolveBlock,
                              rejecter reject: @escaping RCTPromiseRejectBlock) {
@@ -866,6 +879,20 @@ public class VaultManager: NSObject {
                     rootVC.dismiss(animated: true) {
                         resolve(nil)
                     }
+                },
+                logoutHandler: { [weak self] in
+                    // Clear vault on max failed attempts
+                    try? self?.vaultStore.clearVault()
+
+                    // Throw error to signal max attempts reached to React Native
+                    await MainActor.run {
+                        rootVC.dismiss(animated: true) {
+                            reject("MAX_ATTEMPTS_REACHED", "Too many failed unlock attempts", nil)
+                        }
+                    }
+
+                    // Throw to stop further processing in ViewModel
+                    throw NSError(domain: "VaultManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "Max attempts reached"])
                 }
             )
 

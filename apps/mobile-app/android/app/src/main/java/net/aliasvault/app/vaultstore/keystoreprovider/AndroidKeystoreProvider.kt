@@ -66,14 +66,87 @@ class AndroidKeystoreProvider(
 
     /**
      * Whether the biometric is available.
-     * @return Whether the biometric is available
+     * Checks both device biometric support AND validates that the keystore key is valid.
+     * This prevents showing biometric unlock when the key has been invalidated
+     * (e.g., after biometric enrollment changes).
+     * @return Whether the biometric is available and key is valid
      */
     override fun isBiometricAvailable(): Boolean {
-        return _biometricManager.canAuthenticate(
+        // First check if device supports biometrics
+        val deviceSupported = _biometricManager.canAuthenticate(
             BiometricManager.Authenticators.BIOMETRIC_WEAK or
                 BiometricManager.Authenticators.BIOMETRIC_STRONG or
                 BiometricManager.Authenticators.DEVICE_CREDENTIAL,
         ) == BiometricManager.BIOMETRIC_SUCCESS
+
+        if (!deviceSupported) {
+            return false
+        }
+
+        // Check if we have the encrypted key file
+        val keyFile = File(context.filesDir, ENCRYPTED_KEY_FILE)
+        if (!keyFile.exists()) {
+            return false
+        }
+
+        // Validate that the keystore key exists and is not invalidated
+        try {
+            val keyStore = KeyStore.getInstance("AndroidKeyStore")
+            keyStore.load(null)
+
+            // Check if key alias exists
+            if (!keyStore.containsAlias(KEYSTORE_ALIAS)) {
+                // Key doesn't exist - clean up orphaned encrypted key file
+                Log.d(TAG, "Keystore key not found, removing orphaned encrypted key file")
+                keyFile.delete()
+                return false
+            }
+
+            val secretKey = keyStore.getKey(KEYSTORE_ALIAS, null) as? SecretKey
+            if (secretKey == null) {
+                Log.d(TAG, "Failed to retrieve keystore key")
+                keyFile.delete()
+                return false
+            }
+
+            // Try to initialize cipher to detect key invalidation
+            val cipher = Cipher.getInstance(
+                "${KeyProperties.KEY_ALGORITHM_AES}/" +
+                    "${KeyProperties.BLOCK_MODE_GCM}/" +
+                    KeyProperties.ENCRYPTION_PADDING_NONE,
+            )
+
+            // Read IV from encrypted key file for validation
+            val encryptedKeyB64 = keyFile.readText()
+            val combined = Base64.decode(encryptedKeyB64, Base64.NO_WRAP)
+            val byteBuffer = ByteBuffer.wrap(combined)
+            val iv = ByteArray(12)
+            byteBuffer.get(iv)
+            val spec = GCMParameterSpec(128, iv)
+
+            // Attempt to initialize cipher - this will throw KeyPermanentlyInvalidatedException
+            // if biometric enrollment has changed
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, spec)
+
+            // Key is valid
+            return true
+        } catch (e: KeyPermanentlyInvalidatedException) {
+            // Key has been invalidated due to biometric enrollment change
+            Log.w(TAG, "Keystore key permanently invalidated, cleaning up", e)
+            try {
+                val keyStore = KeyStore.getInstance("AndroidKeyStore")
+                keyStore.load(null)
+                keyStore.deleteEntry(KEYSTORE_ALIAS)
+                keyFile.delete()
+            } catch (cleanupError: Exception) {
+                Log.e(TAG, "Error during cleanup of invalidated key", cleanupError)
+            }
+            return false
+        } catch (e: Exception) {
+            // Any other error means biometric is not available
+            Log.e(TAG, "Error validating biometric availability: ${e.message}", e)
+            return false
+        }
     }
 
     /**

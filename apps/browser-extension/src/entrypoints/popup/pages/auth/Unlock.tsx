@@ -61,6 +61,11 @@ const Unlock: React.FC = () => {
   // Password unlock state
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [passwordFailedAttempts, setPasswordFailedAttempts] = useState(0);
+
+  // Brute force protection constants
+  const MAX_PASSWORD_ATTEMPTS = 10;
+  const PASSWORD_WARNING_THRESHOLD = 5;
 
   // PIN unlock state
   const [pin, setPin] = useState('');
@@ -137,6 +142,10 @@ const Unlock: React.FC = () => {
       } else {
         setUnlockMode('password');
       }
+
+      // Load password failed attempts counter
+      const storedAttempts = await LocalPreferencesService.getPasswordUnlockFailedAttempts();
+      setPasswordFailedAttempts(storedAttempts);
 
       // Then check API status
       await checkStatus();
@@ -294,8 +303,10 @@ const Unlock: React.FC = () => {
       // Clear dismiss until
       await LocalPreferencesService.setVaultLockedDismissUntil(0);
 
-      // Reset PIN failed attempts on successful password unlock
+      // Reset PIN and password failed attempts on successful unlock
       await resetFailedAttempts();
+      await LocalPreferencesService.resetPasswordUnlockFailedAttempts();
+      setPasswordFailedAttempts(0);
 
       // Navigate to reinitialize which will call syncVault to sync with server
       navigate('/reinitialize', { replace: true });
@@ -307,13 +318,13 @@ const Unlock: React.FC = () => {
         // Check if it's a decryption failure (E-203): this means wrong password
         const errorCode = extractErrorCode(getErrorMessage(err, ''));
         if (errorCode === AppErrorCode.VAULT_DECRYPT_FAILED) {
-          setError(t('common.errors.wrongPassword'));
+          await handlePasswordFailedAttempt();
         } else {
           // Other error codes, show the formatted message as-is
           setError(getErrorMessage(err, t('common.errors.wrongPassword')));
         }
       } else {
-        setError(t('common.errors.wrongPassword'));
+        await handlePasswordFailedAttempt();
       }
       console.error('Unlock error:', err);
     } finally {
@@ -446,6 +457,35 @@ const Unlock: React.FC = () => {
   };
 
   /**
+   * Handle failed password attempt with brute force protection
+   */
+  const handlePasswordFailedAttempt = async (): Promise<void> => {
+    const newAttempts = passwordFailedAttempts + 1;
+    setPasswordFailedAttempts(newAttempts);
+    await LocalPreferencesService.setPasswordUnlockFailedAttempts(newAttempts);
+
+    const remainingAttempts = MAX_PASSWORD_ATTEMPTS - newAttempts;
+
+    // Clear password field
+    setPassword('');
+
+    if (newAttempts >= MAX_PASSWORD_ATTEMPTS) {
+      // Max attempts reached - logout user
+      setError(t('auth.maxAttemptsReached'));
+      // Delay to let user read the message
+      setTimeout(async () => {
+        await authContext.clearAuthUserInitiated();
+      }, 2000);
+    } else if (newAttempts >= PASSWORD_WARNING_THRESHOLD) {
+      // Show warning about remaining attempts
+      setError(t('auth.passwordAttemptsWarning', { remainingAttempts }));
+    } else {
+      // Show standard incorrect password error
+      setError(t('common.errors.wrongPassword'));
+    }
+  };
+
+  /**
    * Handle logout click - opens the logout confirmation modal.
    */
   const handleLogoutClick = () : void => {
@@ -514,8 +554,10 @@ const Unlock: React.FC = () => {
       // Clear dismiss until
       await LocalPreferencesService.setVaultLockedDismissUntil(0);
 
-      // Reset PIN failed attempts on successful unlock
+      // Reset PIN and password failed attempts on successful unlock
       await resetFailedAttempts();
+      await LocalPreferencesService.resetPasswordUnlockFailedAttempts();
+      setPasswordFailedAttempts(0);
 
       // Navigate to reinitialize which will call syncVault to sync with server
       navigate('/reinitialize', { replace: true });
@@ -671,7 +713,7 @@ const Unlock: React.FC = () => {
           </div>
 
           {/* Error Message */}
-          {error && <AlertMessage type="error" message={error} className="mb-4 text-center" />}
+          {error && <AlertMessage type="error" message={error} className="mb-4" />}
 
           <div className="mb-4">
             <label className="block text-gray-700 dark:text-gray-200 font-medium mb-2" htmlFor="password">
