@@ -4,4 +4,5 @@ using the `AliasVault.UnitTests.ResourceReaderUtility` class.
 
 Index:
 - `AliasClientDb_encrypted_base64_1.0.0` - Encrypted vault blob with client db version 1.0.0 used to test client db upgrade paths. This vault contains two test credentials that are checked in the tests after local client db upgrade.
+- `TestVault.avux` - .Avux file with predetermined set of credentials, used to test if Avux import works as expected.
 - `TestAttachment.txt` - Test attachment file that is uploaded during test.

@@ -174,4 +174,266 @@ public class TestVaultGeneratorTests : BrowserExtensionPlaywrightTest
             Process.Start("explorer.exe", vaultOutputDir);
         }
     }
+
+    /// <summary>
+    /// Creates a comprehensive test vault with all item types and exports it to .avux format.
+    /// This test should be run manually when you need to generate a new .avux test file.
+    /// The generated .avux file can be used for backward compatibility testing.
+    /// </summary>
+    /// <returns>Async task.</returns>
+    [Test]
+    public async Task GenerateComprehensiveAvuxTestFile()
+    {
+        // 1. Create a basic login credential
+        await CreateItemEntry(new Dictionary<string, string>
+        {
+            { "service-name", "Basic Login Test" },
+            { "username", "testuser" },
+            { "password", "testpassword123" },
+            { "service-url-0", "https://example.com" },
+            { "notes", "This is a test note for basic login" },
+        });
+
+        // 2. Create a login credential with 2FA/TOTP
+        await CreateItemEntry(
+            new Dictionary<string, string>
+            {
+                { "service-name", "Login with 2FA" },
+                { "username", "user2fa" },
+                { "password", "password2fa123" },
+            },
+            async () =>
+            {
+                // Add TOTP section
+                await AddFieldSectionAsync("Two-Factor Authentication");
+                await Page.WaitForSelectorAsync("input#totp-name");
+
+                // Fill TOTP fields
+                await Page.FillAsync("input#totp-name", "Test TOTP");
+                await Page.FillAsync("input#totp-secret", "JBSWY3DPEHPK3PXP");
+            });
+
+        // 3. Create a login credential with attachment
+        await CreateItemEntry(
+            new Dictionary<string, string>
+            {
+                { "service-name", "Login with Attachment" },
+                { "username", "userattachment" },
+                { "password", "passwordattachment" },
+            },
+            async () =>
+            {
+                // Add attachments section
+                await AddFieldSectionAsync("Attachments");
+                await Page.WaitForSelectorAsync("input[type='file']");
+
+                // Upload test file
+                var fileInput = Page.Locator("input[type='file']");
+                var fileContent = System.Text.Encoding.UTF8.GetBytes("Test attachment content for .avux export");
+                var tempFilePath = Path.Combine(Path.GetTempPath(), "test-attachment.txt");
+                await File.WriteAllBytesAsync(tempFilePath, fileContent);
+                await fileInput.SetInputFilesAsync(tempFilePath);
+                File.Delete(tempFilePath);
+            });
+
+        // 4. Create a credit card entry
+        await CreateItemEntry(
+            new Dictionary<string, string>
+            {
+                { "service-name", "Test Credit Card" },
+            },
+            async () =>
+            {
+                // Switch to Credit Card item type
+                await Page.ClickAsync("button:has-text('Login')");
+                await Page.ClickAsync("button:has-text('Credit Card')");
+
+                // Wait for credit card fields to appear
+                await Page.WaitForSelectorAsync("input#card-number");
+
+                // Fill credit card fields
+                await Page.FillAsync("input#card-number", "4111111111111111");
+                await Page.FillAsync("input#cardholder-name", "Test Cardholder");
+                await Page.FillAsync("input#expiry-month", "12");
+                await Page.FillAsync("input#expiry-year", "2025");
+                await Page.FillAsync("input#cvv", "123");
+
+                // Add PIN section
+                await AddFieldSectionAsync("PIN");
+                await Page.WaitForSelectorAsync("input#pin");
+                await Page.FillAsync("input#pin", "1234");
+            });
+
+        // 5. Create a note entry
+        await CreateItemEntry(
+            new Dictionary<string, string>
+            {
+                { "service-name", "Test Secure Note" },
+            },
+            async () =>
+            {
+                // Switch to Note item type
+                await Page.ClickAsync("button:has-text('Login')");
+                await Page.ClickAsync("button:has-text('Login')");
+                await Page.ClickAsync("button:has-text('Secure Note')");
+
+                // Wait for notes field
+                await Page.WaitForSelectorAsync("textarea#notes");
+
+                // Fill notes field
+                await Page.FillAsync("textarea#notes", "This is a secure note with important information.");
+            });
+
+        // 6. Create a credential with multiple URLs
+        await CreateItemEntry(
+            new Dictionary<string, string>
+            {
+                { "service-name", "Multi-URL Login" },
+                { "username", "multiurluser" },
+                { "password", "multiurlpass" },
+            },
+            async () =>
+            {
+                // Multi-value inputs have IDs like "service-url-0", "service-url-1", etc.
+                // Fill the first URL
+                await Page.WaitForSelectorAsync("input#service-url-0");
+                await Page.FillAsync("input#service-url-0", "https://app.example.com");
+
+                // Add and fill the second URL
+                await Page.ClickAsync("button#add-service-url");
+                await Page.WaitForSelectorAsync("input#service-url-1");
+                await Page.FillAsync("input#service-url-1", "https://www.example.com");
+
+                // Add and fill the third URL
+                await Page.ClickAsync("button#add-service-url");
+                await Page.WaitForSelectorAsync("input#service-url-2");
+                await Page.FillAsync("input#service-url-2", "https://admin.example.com");
+            });
+
+        // 7. Create a folder and a credential in it
+        await Page.BringToFrontAsync();
+        await NavigateUsingBlazorRouter("items");
+        await WaitForUrlAsync("items", "Find all of your items");
+
+        // Click "New Folder" button
+        await Page.ClickAsync("button:has-text('New Folder')");
+
+        // Wait for modal to appear by waiting for the input field
+        await Page.WaitForSelectorAsync("input#folder-name", new() { State = WaitForSelectorState.Visible });
+
+        // Fill folder name
+        await Page.FillAsync("input#folder-name", "Test Folder");
+
+        // Click the confirm button in the modal (it says "Create" for new folders)
+        await Page.ClickAsync("button:has-text('Create')");
+
+        // Wait for the folder to appear in the list
+        await Page.WaitForSelectorAsync("text=Test Folder");
+
+        // Now create a credential in this folder
+        await CreateItemEntry(
+            new Dictionary<string, string>
+            {
+                { "service-name", "Credential in Folder" },
+                { "username", "folderuser" },
+                { "password", "folderpass" },
+            },
+            async () =>
+            {
+                // Click the folder selector button to open the modal
+                await Page.ClickAsync("button:has-text('No folder')");
+
+                // Wait for the folder modal to appear and click on "Test Folder"
+                await Page.WaitForSelectorAsync("button:has-text('Test Folder')");
+                await Page.ClickAsync("button:has-text('Test Folder')");
+            });
+
+        // Verify all items were created
+        await Page.BringToFrontAsync();
+        await NavigateUsingBlazorRouter("items");
+        await WaitForUrlAsync("items", "Find all of your items");
+
+        var pageContent = await Page.TextContentAsync("body");
+        var expectedItems = new[]
+        {
+            "Basic Login Test",
+            "Login with 2FA",
+            "Login with Attachment",
+            "Test Credit Card",
+            "Test Secure Note",
+            "Multi-URL Login",
+        };
+
+        foreach (var itemName in expectedItems)
+        {
+            Assert.That(pageContent, Does.Contain(itemName), $"Created item '{itemName}' not found in vault");
+        }
+
+        // Export to .avux format
+        await NavigateUsingBlazorRouter("settings/import-export");
+        await WaitForUrlAsync("settings/import-export", "Import / Export");
+
+        // Click the "Export Full Vault (.avux)" button
+        var exportButton = Page.Locator("button").Filter(new() { HasText = "Export Full Vault (.avux)" });
+        await exportButton.ClickAsync();
+
+        // Confirm the export warning
+        await Page.WaitForSelectorAsync("button:has-text('Confirm')");
+        await Page.ClickAsync("button:has-text('Confirm')");
+
+        // Enter password for verification
+        await Page.WaitForSelectorAsync("input[type='password']");
+        await Page.FillAsync("input[type='password']", TestUserPassword);
+        await Page.ClickAsync("button:has-text('Confirm')");
+
+        // Wait for download
+        var downloadPromise = Page.WaitForDownloadAsync();
+        var download = await downloadPromise;
+
+        // Save to output directory
+        var outputDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? string.Empty;
+        var vaultOutputDir = Path.Combine(outputDir, "output");
+        Directory.CreateDirectory(vaultOutputDir);
+
+        var avuxFilePath = Path.Combine(vaultOutputDir, "TestVault.avux");
+        await download.SaveAsAsync(avuxFilePath);
+
+        // Also save to TestData directory for use in CI tests
+        var testDataDir = Path.Combine(
+            Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? string.Empty,
+            "..",
+            "..",
+            "..",
+            "TestData");
+        Directory.CreateDirectory(testDataDir);
+        var testDataAvuxPath = Path.Combine(testDataDir, "TestVault.avux");
+        File.Copy(avuxFilePath, testDataAvuxPath, overwrite: true);
+
+        Console.WriteLine("\n=== AVUX TEST FILE GENERATION COMPLETE ===");
+        Console.WriteLine("A .avux file has been generated with the following items:");
+        Console.WriteLine("1. Basic Login Test - basic login credential with username, password, URL, notes");
+        Console.WriteLine("2. Login with 2FA - login with TOTP/2FA enabled");
+        Console.WriteLine("3. Login with Attachment - login with file attachment");
+        Console.WriteLine("4. Test Credit Card - credit card entry with all fields");
+        Console.WriteLine("5. Test Secure Note - secure note item");
+        Console.WriteLine("6. Multi-URL Login - credential with multiple URLs");
+        Console.WriteLine("7. Credential in Folder - credential organized in 'Test Folder'");
+        Console.WriteLine("\nFiles saved to:");
+        Console.WriteLine($"  - Output directory: {avuxFilePath}");
+        Console.WriteLine($"  - TestData directory: {testDataAvuxPath}");
+        Console.WriteLine("\nThis .avux file can now be used for:");
+        Console.WriteLine("  - Backward compatibility testing");
+        Console.WriteLine("  - CI/CD automated import tests");
+        Console.WriteLine("  - Validation that old exports work with new versions");
+
+        // Open file explorer at the output location
+        if (OperatingSystem.IsMacOS())
+        {
+            Process.Start("open", vaultOutputDir);
+        }
+        else if (OperatingSystem.IsWindows())
+        {
+            Process.Start("explorer.exe", vaultOutputDir);
+        }
+    }
 }

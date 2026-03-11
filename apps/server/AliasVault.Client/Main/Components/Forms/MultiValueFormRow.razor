@@ -18,6 +18,7 @@
             @if (isLastInput)
             {
                 <button type="button"
+                        id="@($"add-{Id}")"
                         @onclick="AddValue"
                         @onclick:preventDefault="true"
                         class="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-gray-400 hover:text-primary-500 dark:hover:text-primary-400 transition-colors">

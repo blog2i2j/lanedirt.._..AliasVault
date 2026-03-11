@@ -27,6 +27,8 @@
       <EmbeddedResource Include="TestData\TestAttachment.txt" />
       <None Remove="TestData\TestImportBitwarden.csv" />
       <EmbeddedResource Include="TestData\TestImportBitwarden.csv" />
+      <None Remove="TestData\TestVault.avux" />
+      <EmbeddedResource Include="TestData\TestVault.avux" />
     </ItemGroup>
 
     <ItemGroup>
