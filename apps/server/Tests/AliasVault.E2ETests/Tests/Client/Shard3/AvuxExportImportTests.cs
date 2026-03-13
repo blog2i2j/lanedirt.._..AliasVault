@@ -152,6 +152,9 @@ public class AvuxExportImportTests : ClientPlaywrightTest
         await VerifySecureNote();
         await VerifyMultiUrlLogin();
         await VerifyCredentialInFolder();
+
+        // Verify that timestamps were preserved and items appear in creation order
+        await VerifyItemsOrderPreserved();
     }
 
     /// <summary>
@@ -324,5 +327,63 @@ public class AvuxExportImportTests : ClientPlaywrightTest
 
         var usernameValue = await Page.Locator("input#login-username").InputValueAsync();
         Assert.That(usernameValue, Is.EqualTo("folderuser"), "Folder credential username should be preserved");
+    }
+
+    /// <summary>
+    /// Verifies that imported items appear in the correct order based on their creation timestamps.
+    /// The web app uses "oldest first" sorting by default, so we verify that the first few items
+    /// appear in the order they were originally created.
+    /// </summary>
+    private async Task VerifyItemsOrderPreserved()
+    {
+        await NavigateUsingBlazorRouter("items");
+        await WaitForUrlAsync("items", "Find all of your items");
+
+        // Wait for items to load
+        await Page.WaitForTimeoutAsync(1000);
+
+        // Get all item cards in the order they appear on the page
+        // Items are displayed in cards with the service name
+        var itemCards = await Page.Locator("[data-testid='item-card'], .item-card, [class*='item']").AllAsync();
+
+        // Get text content from the page to find item positions
+        var pageContent = await Page.TextContentAsync("body");
+
+        // The expected order based on creation timestamps in the test data
+        // These are the first 4 items that were created in the GenerateComprehensiveAvuxTestFile test
+        var expectedOrder = new[]
+        {
+            "Basic Login Test",
+            "Login with 2FA",
+            "Login with Attachment",
+            "Test Credit Card",
+        };
+
+        // Find the positions of each expected item in the page content
+        var positions = new List<(string ItemName, int Position)>();
+        foreach (var itemName in expectedOrder)
+        {
+            var position = pageContent?.IndexOf(itemName) ?? -1;
+            if (position >= 0)
+            {
+                positions.Add((itemName, position));
+            }
+        }
+
+        // Verify we found all expected items
+        Assert.That(positions.Count, Is.EqualTo(expectedOrder.Length), "Not all expected items were found on the page");
+
+        // Verify the items appear in the expected order (oldest first)
+        // Each item should appear before the next one in the list
+        for (int i = 0; i < positions.Count - 1; i++)
+        {
+            var currentItem = positions[i];
+            var nextItem = positions[i + 1];
+
+            var errorMessage = $"Item '{currentItem.ItemName}' should appear before '{nextItem.ItemName}' in oldest-first order. " +
+                $"This indicates that timestamps from the .avux import were not preserved correctly.";
+
+            Assert.That(currentItem.Position, Is.LessThan(nextItem.Position), errorMessage);
+        }
     }
 }
