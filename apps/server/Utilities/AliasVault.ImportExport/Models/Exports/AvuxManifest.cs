@@ -51,4 +51,9 @@ public class AvuxManifest
     /// Gets or sets the list of custom field definitions.
     /// </summary>
     public List<AvuxFieldDefinition> FieldDefinitions { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets the list of logos (deduplicated by source domain).
+    /// </summary>
+    public List<AvuxLogo> Logos { get; set; } = new();
 }

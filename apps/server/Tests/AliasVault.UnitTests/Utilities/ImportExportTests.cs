@@ -5,8 +5,11 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
+#pragma warning disable SA1202 // Elements should be ordered by access
+
 namespace AliasVault.UnitTests.Utilities;
 
+using System.IO.Compression;
 using AliasClientDb;
 using AliasClientDb.Models;
 using AliasVault.ImportExport;
@@ -1439,5 +1442,463 @@ public class ImportExportTests
             CreatedAt = item.CreatedAt,
             UpdatedAt = item.UpdatedAt,
         });
+    }
+
+    /// <summary>
+    /// Test case for exporting vault data to .avux format and verifying structure.
+    /// </summary>
+    /// <returns>Async task.</returns>
+    [Test]
+    public async Task ExportVaultToAvuxFormat()
+    {
+        // Arrange - Create comprehensive vault data
+        var items = new List<Item>
+        {
+            // Login with basic fields
+            CreateTestItem("Basic Login", ItemType.Login, new Dictionary<string, string>
+            {
+                { FieldKey.LoginUsername, "testuser" },
+                { FieldKey.LoginPassword, "testpass" },
+                { FieldKey.LoginUrl, "https://example.com" },
+                { FieldKey.NotesContent, "Test notes" },
+            }),
+
+            // Login with 2FA
+            CreateTestItemWithTotp("Login with 2FA", "user2fa", "pass2fa"),
+
+            // Credit card
+            CreateTestCreditCard(),
+
+            // Note
+            CreateTestNote(),
+
+            // Item with attachment
+            CreateTestItemWithAttachment(),
+        };
+
+        var folders = new List<Folder>
+        {
+            new()
+            {
+                Id = Guid.NewGuid(),
+                Name = "Test Folder",
+                Weight = 0,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+            },
+        };
+
+        var tags = new List<Tag>
+        {
+            new()
+            {
+                Id = Guid.NewGuid(),
+                Name = "Test Tag",
+                Color = "#FF0000",
+                DisplayOrder = 0,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+            },
+        };
+
+        var itemTags = new List<ItemTag>
+        {
+            new()
+            {
+                Id = Guid.NewGuid(),
+                ItemId = items[0].Id,
+                TagId = tags[0].Id,
+            },
+        };
+
+        var fieldDefinitions = new List<FieldDefinition>();
+
+        // Act
+        var avuxBytes = await VaultExportService.ExportToAvuxAsync(
+            items,
+            folders,
+            tags,
+            itemTags,
+            fieldDefinitions,
+            new List<Logo>(),
+            "test@example.com");
+
+        // Assert
+        Assert.That(avuxBytes, Is.Not.Null);
+        Assert.That(avuxBytes.Length, Is.GreaterThan(0));
+
+        // Verify it's a valid ZIP file
+        using var zipStream = new MemoryStream(avuxBytes);
+        using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
+
+        var manifestEntry = archive.GetEntry("manifest.json");
+        Assert.That(manifestEntry, Is.Not.Null, "manifest.json should exist");
+
+        // Verify manifest content
+        using var reader = new StreamReader(manifestEntry.Open());
+        var manifestJson = await reader.ReadToEndAsync();
+        Assert.That(manifestJson, Does.Contain("\"version\""));
+        Assert.That(manifestJson, Does.Contain("\"items\""));
+        Assert.That(manifestJson, Does.Contain("\"folders\""));
+        Assert.That(manifestJson, Does.Contain("Basic Login"));
+        Assert.That(manifestJson, Does.Contain("Test Folder"));
+    }
+
+    /// <summary>
+    /// Test case for importing vault data from .avux format.
+    /// </summary>
+    /// <returns>Async task.</returns>
+    [Test]
+    public async Task ImportVaultFromAvuxFormat()
+    {
+        // Arrange - Create test data and export it
+        var items = new List<Item>
+        {
+            CreateTestItem("Import Test Item", ItemType.Login, new Dictionary<string, string>
+            {
+                { FieldKey.LoginUsername, "importuser" },
+                { FieldKey.LoginPassword, "importpass" },
+                { FieldKey.LoginUrl, "https://import.example.com" },
+            }),
+            CreateTestItemWithTotp("Import 2FA", "user2fa", "pass2fa"),
+            CreateTestCreditCard(),
+        };
+
+        var avuxBytes = await VaultExportService.ExportToAvuxAsync(
+            items,
+            new List<Folder>(),
+            new List<Tag>(),
+            new List<ItemTag>(),
+            new List<FieldDefinition>(),
+            new List<Logo>(),
+            "test@example.com");
+
+        // Act - Import the .avux file
+        var result = await VaultImportService.ImportFromAvuxAsync(avuxBytes);
+
+        // Assert
+        Assert.That(result.Credentials, Has.Count.EqualTo(3));
+        var importedCredentials = result.Credentials;
+
+        var basicLogin = importedCredentials.First(c => c.ServiceName == "Import Test Item");
+        Assert.Multiple(() =>
+        {
+            Assert.That(basicLogin.Username, Is.EqualTo("importuser"));
+            Assert.That(basicLogin.Password, Is.EqualTo("importpass"));
+            Assert.That(basicLogin.ServiceUrls?.FirstOrDefault(), Is.EqualTo("https://import.example.com"));
+        });
+
+        var twoFaLogin = importedCredentials.First(c => c.ServiceName == "Import 2FA");
+        Assert.Multiple(() =>
+        {
+            Assert.That(twoFaLogin.Username, Is.EqualTo("user2fa"));
+            Assert.That(twoFaLogin.Password, Is.EqualTo("pass2fa"));
+            Assert.That(twoFaLogin.TwoFactorSecret, Is.Not.Empty);
+        });
+
+        var creditCard = importedCredentials.First(c => c.ItemType == ImportedItemType.Creditcard);
+        Assert.Multiple(() =>
+        {
+            Assert.That(creditCard.Creditcard, Is.Not.Null);
+            Assert.That(creditCard.Creditcard!.Number, Is.EqualTo("4111111111111111"));
+            Assert.That(creditCard.Creditcard.CardholderName, Is.EqualTo("Test Holder"));
+        });
+    }
+
+    /// <summary>
+    /// Test case for round-trip export and import preserving all data.
+    /// </summary>
+    /// <returns>Async task.</returns>
+    [Test]
+    public async Task AvuxRoundTripPreservesAllData()
+    {
+        // Arrange
+        var originalItem = CreateTestItem("Round Trip Test", ItemType.Login, new Dictionary<string, string>
+        {
+            { FieldKey.LoginUsername, "roundtripuser" },
+            { FieldKey.LoginPassword, "roundtrippass" },
+            { FieldKey.LoginUrl, "https://roundtrip.example.com" },
+            { FieldKey.NotesContent, "Round trip notes" },
+            { FieldKey.AliasFirstName, "John" },
+            { FieldKey.AliasLastName, "Doe" },
+        });
+
+        // Add TOTP
+        originalItem.TotpCodes.Add(new TotpCode
+        {
+            Id = Guid.NewGuid(),
+            ItemId = originalItem.Id,
+            Name = "Round Trip TOTP",
+            SecretKey = "JBSWY3DPEHPK3PXP",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        });
+
+        // Export
+        var avuxBytes = await VaultExportService.ExportToAvuxAsync(
+            new List<Item> { originalItem },
+            new List<Folder>(),
+            new List<Tag>(),
+            new List<ItemTag>(),
+            new List<FieldDefinition>(),
+            new List<Logo>(),
+            "test@example.com");
+
+        // Import
+        var result = await VaultImportService.ImportFromAvuxAsync(avuxBytes);
+
+        // Assert
+        Assert.That(result.Credentials, Has.Count.EqualTo(1));
+
+        var imported = result.Credentials[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(imported.ServiceName, Is.EqualTo("Round Trip Test"));
+            Assert.That(imported.Username, Is.EqualTo("roundtripuser"));
+            Assert.That(imported.Password, Is.EqualTo("roundtrippass"));
+            Assert.That(imported.ServiceUrls?.FirstOrDefault(), Is.EqualTo("https://roundtrip.example.com"));
+            Assert.That(imported.Notes, Is.EqualTo("Round trip notes"));
+            Assert.That(imported.Alias?.FirstName, Is.EqualTo("John"));
+            Assert.That(imported.Alias?.LastName, Is.EqualTo("Doe"));
+            Assert.That(imported.TwoFactorSecret, Is.EqualTo("JBSWY3DPEHPK3PXP"));
+        });
+    }
+
+    /// <summary>
+    /// Test case for exporting and importing vault with logos in .avux format.
+    /// </summary>
+    /// <returns>Async task.</returns>
+    [Test]
+    public async Task ExportAndImportAvuxWithLogos()
+    {
+        // Arrange
+        var items = new List<Item>();
+        var logoId1 = Guid.NewGuid();
+        var logoId2 = Guid.NewGuid();
+
+        var item1 = new Item
+        {
+            Id = Guid.NewGuid(),
+            Name = "GitHub",
+            ItemType = "Login",
+            LogoId = logoId1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+        AddFieldValue(item1, FieldKey.LoginUsername, "testuser");
+        AddFieldValue(item1, FieldKey.LoginPassword, "password123");
+        AddFieldValue(item1, FieldKey.LoginUrl, "https://github.com");
+        items.Add(item1);
+
+        var item2 = new Item
+        {
+            Id = Guid.NewGuid(),
+            Name = "Google",
+            ItemType = "Login",
+            LogoId = logoId2,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+        AddFieldValue(item2, FieldKey.LoginUsername, "user@gmail.com");
+        AddFieldValue(item2, FieldKey.LoginPassword, "pass456");
+        AddFieldValue(item2, FieldKey.LoginUrl, "https://google.com");
+        items.Add(item2);
+
+        // Third item uses same logo as item1 (deduplication test)
+        var item3 = new Item
+        {
+            Id = Guid.NewGuid(),
+            Name = "GitHub Issue Tracker",
+            ItemType = "Login",
+            LogoId = logoId1,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+        AddFieldValue(item3, FieldKey.LoginUsername, "issueuser");
+        AddFieldValue(item3, FieldKey.LoginPassword, "issuepass");
+        items.Add(item3);
+
+        var logos = new List<Logo>
+        {
+            new Logo
+            {
+                Id = logoId1,
+                Source = "github.com",
+                FileData = new byte[] { 1, 2, 3, 4, 5 },
+                MimeType = "image/png",
+                FetchedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+            },
+            new Logo
+            {
+                Id = logoId2,
+                Source = "google.com",
+                FileData = new byte[] { 6, 7, 8, 9, 10 },
+                MimeType = "image/png",
+                FetchedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+            },
+        };
+
+        // Act - Export
+        var zipBytes = await VaultExportService.ExportToAvuxAsync(
+            items,
+            new List<Folder>(),
+            new List<Tag>(),
+            new List<ItemTag>(),
+            new List<FieldDefinition>(),
+            logos,
+            "testuser");
+
+        // Act - Import
+        var result = await VaultImportService.ImportFromAvuxAsync(zipBytes);
+
+        // Assert
+        Assert.That(result.Credentials, Has.Count.EqualTo(3));
+        Assert.That(result.Logos, Has.Count.EqualTo(2), "Should have 2 logos (deduplicated)");
+
+        var credentials = result.Credentials;
+        var logoData = result.Logos;
+
+        // Verify first credential
+        var githubCred = credentials.First(c => c.ServiceName == "GitHub");
+        Assert.Multiple(() =>
+        {
+            Assert.That(githubCred.ServiceName, Is.EqualTo("GitHub"));
+            Assert.That(githubCred.Username, Is.EqualTo("testuser"));
+            Assert.That(githubCred.Password, Is.EqualTo("password123"));
+            Assert.That(githubCred.LogoId, Is.EqualTo(logoId1));
+        });
+
+        // Verify second credential
+        var googleCred = credentials.First(c => c.ServiceName == "Google");
+        Assert.Multiple(() =>
+        {
+            Assert.That(googleCred.ServiceName, Is.EqualTo("Google"));
+            Assert.That(googleCred.Username, Is.EqualTo("user@gmail.com"));
+            Assert.That(googleCred.Password, Is.EqualTo("pass456"));
+            Assert.That(googleCred.LogoId, Is.EqualTo(logoId2));
+        });
+
+        // Verify third credential uses same logo as first (deduplication)
+        var githubIssueCred = credentials.First(c => c.ServiceName == "GitHub Issue Tracker");
+        Assert.That(githubIssueCred.LogoId, Is.EqualTo(logoId1), "Should reuse same logo as GitHub");
+
+        // Verify logo data for logo 1
+        Assert.That(logoData.ContainsKey(logoId1), Is.True, "Logo 1 should be present");
+        var (source1, fileData1) = logoData[logoId1];
+        Assert.Multiple(() =>
+        {
+            Assert.That(source1, Is.EqualTo("github.com"));
+            Assert.That(fileData1, Is.EqualTo(new byte[] { 1, 2, 3, 4, 5 }));
+        });
+
+        // Verify logo data for logo 2
+        Assert.That(logoData.ContainsKey(logoId2), Is.True, "Logo 2 should be present");
+        var (source2, fileData2) = logoData[logoId2];
+        Assert.Multiple(() =>
+        {
+            Assert.That(source2, Is.EqualTo("google.com"));
+            Assert.That(fileData2, Is.EqualTo(new byte[] { 6, 7, 8, 9, 10 }));
+        });
+    }
+
+    /// <summary>
+    /// Helper method to create a test item with specific fields.
+    /// </summary>
+    private static Item CreateTestItem(string name, string itemType, Dictionary<string, string> fields)
+    {
+        var item = new Item
+        {
+            Id = Guid.NewGuid(),
+            Name = name,
+            ItemType = itemType,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+
+        foreach (var field in fields)
+        {
+            AddFieldValue(item, field.Key, field.Value);
+        }
+
+        return item;
+    }
+
+    /// <summary>
+    /// Helper method to create a test item with TOTP.
+    /// </summary>
+    private static Item CreateTestItemWithTotp(string name, string username, string password)
+    {
+        var item = CreateTestItem(name, ItemType.Login, new Dictionary<string, string>
+        {
+            { FieldKey.LoginUsername, username },
+            { FieldKey.LoginPassword, password },
+        });
+
+        item.TotpCodes.Add(new TotpCode
+        {
+            Id = Guid.NewGuid(),
+            ItemId = item.Id,
+            Name = "Test TOTP",
+            SecretKey = "JBSWY3DPEHPK3PXP",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        });
+
+        return item;
+    }
+
+    /// <summary>
+    /// Helper method to create a test credit card.
+    /// </summary>
+    private static Item CreateTestCreditCard()
+    {
+        return CreateTestItem("Test Card", ItemType.CreditCard, new Dictionary<string, string>
+        {
+            { FieldKey.CardNumber, "4111111111111111" },
+            { FieldKey.CardCardholderName, "Test Holder" },
+            { FieldKey.CardExpiryMonth, "12" },
+            { FieldKey.CardExpiryYear, "2025" },
+            { FieldKey.CardCvv, "123" },
+            { FieldKey.CardPin, "1234" },
+        });
+    }
+
+    /// <summary>
+    /// Helper method to create a test note.
+    /// </summary>
+    private static Item CreateTestNote()
+    {
+        return CreateTestItem("Test Note", ItemType.Note, new Dictionary<string, string>
+        {
+            { FieldKey.NotesContent, "This is a test secure note with important information." },
+        });
+    }
+
+    /// <summary>
+    /// Helper method to create a test item with attachment.
+    /// </summary>
+    private static Item CreateTestItemWithAttachment()
+    {
+        var item = CreateTestItem("Item with Attachment", ItemType.Login, new Dictionary<string, string>
+        {
+            { FieldKey.LoginUsername, "attachuser" },
+            { FieldKey.LoginPassword, "attachpass" },
+        });
+
+        item.Attachments.Add(new Attachment
+        {
+            Id = Guid.NewGuid(),
+            ItemId = item.Id,
+            Filename = "test-file.txt",
+            Blob = System.Text.Encoding.UTF8.GetBytes("Test attachment content"),
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        });
+
+        return item;
     }
 }

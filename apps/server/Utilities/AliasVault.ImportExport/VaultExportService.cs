@@ -27,6 +27,7 @@ public static class VaultExportService
     /// <param name="tags">The tags to export.</param>
     /// <param name="itemTags">The item-tag associations to export.</param>
     /// <param name="fieldDefinitions">The custom field definitions to export.</param>
+    /// <param name="logos">The logos to export.</param>
     /// <param name="username">The username creating the export.</param>
     /// <returns>A byte array containing the .avux ZIP file.</returns>
     public static async Task<byte[]> ExportToAvuxAsync(
@@ -35,12 +36,14 @@ public static class VaultExportService
         List<Tag> tags,
         List<ItemTag> itemTags,
         List<FieldDefinition> fieldDefinitions,
+        List<Logo> logos,
         string username)
     {
-        var manifest = CreateManifest(items, folders, tags, itemTags, fieldDefinitions, username);
+        var manifest = CreateManifest(items, folders, tags, itemTags, fieldDefinitions, logos, username);
         var attachmentMap = ExtractAttachments(items);
+        var logoMap = ExtractLogos(logos);
 
-        return await PackageAsZipAsync(manifest, attachmentMap);
+        return await PackageAsZipAsync(manifest, attachmentMap, logoMap);
     }
 
     /// <summary>
@@ -52,6 +55,7 @@ public static class VaultExportService
         List<Tag> tags,
         List<ItemTag> itemTags,
         List<FieldDefinition> fieldDefinitions,
+        List<Logo> logos,
         string username)
     {
         var manifest = new AvuxManifest
@@ -64,6 +68,7 @@ public static class VaultExportService
             Tags = tags.Where(t => !t.IsDeleted).Select(MapTagToAvux).ToList(),
             ItemTags = itemTags.Where(it => !it.IsDeleted).Select(MapItemTagToAvux).ToList(),
             FieldDefinitions = fieldDefinitions.Where(fd => !fd.IsDeleted).Select(MapFieldDefinitionToAvux).ToList(),
+            Logos = logos.Where(l => !l.IsDeleted).Select(MapLogoToAvux).ToList(),
         };
 
         return manifest;
@@ -82,6 +87,7 @@ public static class VaultExportService
             CreatedAt = item.CreatedAt,
             UpdatedAt = item.UpdatedAt,
             FolderId = item.FolderId,
+            LogoId = item.LogoId,
             FieldValues = item.FieldValues
                 .Where(fv => !fv.IsDeleted)
                 .Select(MapFieldValueToAvux)
@@ -224,6 +230,22 @@ public static class VaultExportService
     }
 
     /// <summary>
+    /// Maps a Logo entity to AvuxLogo.
+    /// </summary>
+    private static AvuxLogo MapLogoToAvux(Logo logo)
+    {
+        var relativePath = $"logos/{logo.Source}_{logo.Id}.png";
+        return new AvuxLogo
+        {
+            Id = logo.Id,
+            Source = logo.Source,
+            MimeType = logo.MimeType,
+            FetchedAt = logo.FetchedAt,
+            RelativePath = relativePath,
+        };
+    }
+
+    /// <summary>
     /// Extracts attachments from items and creates a mapping of relative paths to blob data.
     /// </summary>
     private static Dictionary<string, byte[]> ExtractAttachments(List<Item> items)
@@ -243,9 +265,26 @@ public static class VaultExportService
     }
 
     /// <summary>
-    /// Packages the manifest and attachments into a ZIP archive.
+    /// Extracts logos and creates a mapping of relative paths to file data.
+    /// Logos are deduplicated by source domain.
     /// </summary>
-    private static async Task<byte[]> PackageAsZipAsync(AvuxManifest manifest, Dictionary<string, byte[]> attachments)
+    private static Dictionary<string, byte[]> ExtractLogos(List<Logo> logos)
+    {
+        var logoMap = new Dictionary<string, byte[]>();
+
+        foreach (var logo in logos.Where(l => !l.IsDeleted && l.FileData != null))
+        {
+            var relativePath = $"logos/{logo.Source}_{logo.Id}.png";
+            logoMap[relativePath] = logo.FileData;
+        }
+
+        return logoMap;
+    }
+
+    /// <summary>
+    /// Packages the manifest, attachments, and logos into a ZIP archive.
+    /// </summary>
+    private static async Task<byte[]> PackageAsZipAsync(AvuxManifest manifest, Dictionary<string, byte[]> attachments, Dictionary<string, byte[]> logos)
     {
         using var memoryStream = new MemoryStream();
         using (var archive = new ZipArchive(memoryStream, ZipArchiveMode.Create, true))
@@ -270,6 +309,14 @@ public static class VaultExportService
             {
                 var attachmentEntry = archive.CreateEntry(path);
                 using var entryStream = attachmentEntry.Open();
+                await entryStream.WriteAsync(data);
+            }
+
+            // Add logos
+            foreach (var (path, data) in logos)
+            {
+                var logoEntry = archive.CreateEntry(path);
+                using var entryStream = logoEntry.Open();
                 await entryStream.WriteAsync(data);
             }
         }

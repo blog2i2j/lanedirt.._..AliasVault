@@ -65,6 +65,12 @@ public class ImportedCredential
     public byte[]? FaviconBytes { get; set; }
 
     /// <summary>
+    /// Gets or sets the logo ID from .avux import (for deduplication).
+    /// When importing from .avux files, this ID links to logos already in the manifest.
+    /// </summary>
+    public Guid? LogoId { get; set; }
+
+    /// <summary>
     /// Gets or sets the alias information.
     /// </summary>
     public ImportedAlias? Alias { get; set; }

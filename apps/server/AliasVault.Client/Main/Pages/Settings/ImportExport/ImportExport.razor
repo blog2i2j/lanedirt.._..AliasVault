@@ -264,6 +264,18 @@
                 .Where(fd => !fd.IsDeleted)
                 .ToListAsync();
 
+            // Get unique logo IDs from items
+            var logoIds = items
+                .Where(i => i.LogoId.HasValue)
+                .Select(i => i.LogoId!.Value)
+                .Distinct()
+                .ToList();
+
+            // Load logos used by items
+            var logos = await context.Logos
+                .Where(l => !l.IsDeleted && logoIds.Contains(l.Id))
+                .ToListAsync();
+
             var username = await GetUsernameAsync();
 
             // Export to .avux format
@@ -273,6 +285,7 @@
                 tags,
                 itemTags,
                 fieldDefinitions,
+                logos,
                 username);
 
             await JsInteropService.DownloadFileFromStream(

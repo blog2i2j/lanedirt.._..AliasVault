@@ -9,6 +9,7 @@
 @using Microsoft.Extensions.Localization
 @using AliasVault.ImportExport.Importers
 @using AliasVault.ImportExport.Models
+@using AliasVault.ImportExport.Models.Exports
 @using AliasVault.Shared.Models.WebApi.Favicon
 @using AliasClientDb
 @using AliasClientDb.Models
@@ -142,10 +143,13 @@
                             @if (ImportedCredentials.Count > 0)
                             {
                                 <div class="mb-4 space-y-2">
-                                    <label class="flex items-center">
-                                        <input type="checkbox" @bind="ExtractFavicons" class="form-checkbox h-4 w-4 text-primary-600 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700">
-                                        <span class="ml-2 text-gray-700 dark:text-gray-300">@Localizer["ExtractFaviconsLabel"]</span>
-                                    </label>
+                                    @if (!IsAvuxImport)
+                                    {
+                                        <label class="flex items-center">
+                                            <input type="checkbox" @bind="ExtractFavicons" class="form-checkbox h-4 w-4 text-primary-600 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700">
+                                            <span class="ml-2 text-gray-700 dark:text-gray-300">@Localizer["ExtractFaviconsLabel"]</span>
+                                        </label>
+                                    }
                                     @if (DetectedFolderCount > 0)
                                     {
                                         <label class="flex items-center">
@@ -201,7 +205,7 @@
                                 else {
                                     <div class="mb-4">
                                         <p class="mb-4 text-gray-700 dark:text-gray-300">@string.Format(Localizer["ConfirmImportText"], ImportedCredentials.Count)</p>
-                                        @if (ExtractFavicons)
+                                        @if (ExtractFavicons && !IsAvuxImport)
                                         {
                                             <div class="p-4 mb-4 text-amber-700 bg-amber-100 rounded-lg dark:bg-amber-800/30 dark:text-amber-300" role="alert">
                                                 <p>@Localizer["FaviconExtractionNote"]</p>
@@ -257,17 +261,12 @@
     public EventCallback OnImportConfirmed { get; set; }
 
     /// <summary>
-    /// The callback for processing the file (text-based).
-    /// </summary>
-    [Parameter]
-    public Func<string, Task<List<ImportedCredential>>>? ProcessFileCallback { get; set; }
-
-    /// <summary>
     /// The callback for auto-detecting and processing files (accepts filename and bytes).
     /// This callback should determine whether to process as text or binary based on the file extension.
+    /// Returns credentials for CSV files, or full AvuxImportResult for .avux files.
     /// </summary>
     [Parameter]
-    public Func<string, byte[], Task<List<ImportedCredential>>>? ProcessFileWithAutoDetectionCallback { get; set; }
+    public Func<string, byte[], Task<object>>? ProcessFileWithAutoDetectionCallback { get; set; }
 
     /// <summary>
     /// Gets or sets the accepted file types (e.g., ".csv", ".avux").
@@ -313,6 +312,8 @@
     private int TotalCredentialsToSave { get; set; }
     private bool IsSyncingVault { get; set; }
     private Dictionary<string, Guid> ImportSessionLogoIds { get; set; } = new();
+    private Dictionary<Guid, (string Source, byte[] FileData)> AvuxLogos { get; set; } = new();
+    private bool IsAvuxImport { get; set; } = false;
 
     private int DuplicateCredentialsCount { get; set; } = 0;
 
@@ -404,7 +405,8 @@
 
         try
         {
-            if (ExtractFavicons)
+            // Skip favicon extraction for .avux imports (they already have logos)
+            if (ExtractFavicons && !IsAvuxImport)
             {
                 await ExtractFaviconsForCredentials();
                 if (FaviconExtractionCancellation?.Token.IsCancellationRequested == true)
@@ -568,6 +570,9 @@
         // Clear logo tracking for this import session
         ImportSessionLogoIds.Clear();
 
+        // Import logos from .avux first (before processing items)
+        await ImportAvuxLogos();
+
         // Show saving credentials progress
         IsSavingCredentials = true;
         CredentialSaveProgress = 0;
@@ -636,63 +641,153 @@
     }
 
     /// <summary>
+    /// Imports logos from .avux file and creates a mapping of old IDs to new IDs.
+    /// </summary>
+    private async Task ImportAvuxLogos()
+    {
+        if (!IsAvuxImport || AvuxLogos.Count == 0)
+        {
+            return;
+        }
+
+        var context = await DbService.GetDbContextAsync();
+
+        foreach (var (logoId, logoData) in AvuxLogos)
+        {
+            try
+            {
+                // Check if logo already exists by Source
+                var existingLogo = await context.Logos.FirstOrDefaultAsync(l => l.Source == logoData.Source);
+                if (existingLogo != null)
+                {
+                    // Map old ID to existing ID
+                    ImportSessionLogoIds[logoData.Source] = existingLogo.Id;
+                }
+                else
+                {
+                    // Check if a logo with this exact ID already exists
+                    var logoWithSameId = await context.Logos.FirstOrDefaultAsync(l => l.Id == logoId);
+                    if (logoWithSameId != null)
+                    {
+                        // ID conflict - create with new ID
+                        var newLogoId = Guid.NewGuid();
+                        var logo = new Logo
+                        {
+                            Id = newLogoId,
+                            Source = logoData.Source,
+                            FileData = logoData.FileData,
+                            MimeType = "image/png",
+                            FetchedAt = DateTime.UtcNow,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow,
+                        };
+                        context.Logos.Add(logo);
+                        ImportSessionLogoIds[logoData.Source] = newLogoId;
+                    }
+                    else
+                    {
+                        // Use original ID from .avux
+                        var logo = new Logo
+                        {
+                            Id = logoId,
+                            Source = logoData.Source,
+                            FileData = logoData.FileData,
+                            MimeType = "image/png",
+                            FetchedAt = DateTime.UtcNow,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow,
+                        };
+                        context.Logos.Add(logo);
+                        ImportSessionLogoIds[logoData.Source] = logoId;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to import logo with source {Source}", logoData.Source);
+            }
+        }
+
+        // Save all logos at once
+        await context.SaveChangesAsync();
+    }
+
+    /// <summary>
     /// Processes a single item.
     /// </summary>
     /// <param name="item">The item to process.</param>
     private async Task ProcessSingleItem(Item item)
     {
-        var url = ItemService.GetFieldValue(item, FieldKey.LoginUrl);
-        if (!string.IsNullOrEmpty(url))
+        // For .avux imports, map the LogoId using the imported logos
+        if (IsAvuxImport)
         {
-            try
+            var importedCredential = ImportedCredentials.FirstOrDefault(c => c.ServiceName == item.Name);
+            if (importedCredential?.LogoId != null && AvuxLogos.ContainsKey(importedCredential.LogoId.Value))
             {
-                // Extract and normalize domain for deduplication
-                var domain = new Uri(url).Host.ToLowerInvariant();
-                if (domain.StartsWith("www."))
+                var logoData = AvuxLogos[importedCredential.LogoId.Value];
+                if (ImportSessionLogoIds.TryGetValue(logoData.Source, out var mappedLogoId))
                 {
-                    domain = domain[4..];
-                }
-
-                // First check if we already created a logo for this domain in this import session
-                if (ImportSessionLogoIds.TryGetValue(domain, out var sessionLogoId))
-                {
-                    item.LogoId = sessionLogoId;
-                }
-                else
-                {
-                    var context = await DbService.GetDbContextAsync();
-
-                    var existingLogo = await context.Logos.FirstOrDefaultAsync(l => l.Source == domain);
-                    if (existingLogo != null)
-                    {
-                        // Reuse existing logo
-                        item.LogoId = existingLogo.Id;
-                        ImportSessionLogoIds[domain] = existingLogo.Id;
-                    }
-                    else if (ExtractedFavicons.TryGetValue(domain, out var favicon))
-                    {
-                        // Create new logo
-                        var logo = new Logo
-                        {
-                            Id = Guid.NewGuid(),
-                            Source = domain,
-                            FileData = favicon,
-                            MimeType = "image/png",
-                            FetchedAt = DateTime.UtcNow,
-                            CreatedAt = DateTime.UtcNow,
-                            UpdatedAt = DateTime.UtcNow
-                        };
-                        context.Logos.Add(logo);
-                        item.LogoId = logo.Id;
-
-                        // Track this logo for subsequent items with same domain
-                        ImportSessionLogoIds[domain] = logo.Id;
-                    }
+                    item.LogoId = mappedLogoId;
                 }
             }
-            catch
+        }
+        else
+        {
+            // Standard favicon extraction flow
+            var url = ItemService.GetFieldValue(item, FieldKey.LoginUrl);
+            if (!string.IsNullOrEmpty(url))
             {
-                // Invalid URL
+                try
+                {
+                    // Extract and normalize domain for deduplication
+                    var domain = new Uri(url).Host.ToLowerInvariant();
+                    if (domain.StartsWith("www."))
+                    {
+                        domain = domain[4..];
+                    }
+
+                    // First check if we already created a logo for this domain in this import session
+                    if (ImportSessionLogoIds.TryGetValue(domain, out var sessionLogoId))
+                    {
+                        item.LogoId = sessionLogoId;
+                    }
+                    else
+                    {
+                        var context = await DbService.GetDbContextAsync();
+
+                        var existingLogo = await context.Logos.FirstOrDefaultAsync(l => l.Source == domain);
+                        if (existingLogo != null)
+                        {
+                            // Reuse existing logo
+                            item.LogoId = existingLogo.Id;
+                            ImportSessionLogoIds[domain] = existingLogo.Id;
+                        }
+                        else if (ExtractedFavicons.TryGetValue(domain, out var favicon))
+                        {
+                            // Create new logo
+                            var logo = new Logo
+                            {
+                                Id = Guid.NewGuid(),
+                                Source = domain,
+                                FileData = favicon,
+                                MimeType = "image/png",
+                                FetchedAt = DateTime.UtcNow,
+                                CreatedAt = DateTime.UtcNow,
+                                UpdatedAt = DateTime.UtcNow,
+                            };
+                            context.Logos.Add(logo);
+                            item.LogoId = logo.Id;
+
+                            // Track this logo for subsequent items with same domain
+                            ImportSessionLogoIds[domain] = logo.Id;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log error but continue import - favicon is not critical
+                    Logger.LogWarning(ex, "Failed to extract favicon for item {ItemName}", item.Name);
+                }
             }
         }
 
@@ -731,35 +826,47 @@
 
             await using var stream = e.File.OpenReadStream(maxAllowedSize: maxFileSize);
 
-            Task<List<ImportedCredential>> processingTask;
-
-            // Check if we have auto-detection callback first
             if (ProcessFileWithAutoDetectionCallback != null)
             {
-                // Read as binary and let the callback decide how to process
+                // Read file bytes for auto-detection
                 using var memoryStream = new MemoryStream();
                 await stream.CopyToAsync(memoryStream);
                 var fileBytes = memoryStream.ToArray();
-                processingTask = ProcessFileWithAutoDetectionCallback(e.File.Name, fileBytes);
-            }
-            else if (ProcessFileCallback != null)
-            {
-                // Read as text
-                using var reader = new StreamReader(stream);
-                var fileContents = await reader.ReadToEndAsync();
-                processingTask = ProcessFileCallback(fileContents);
+
+                // Call auto-detection callback
+                var processingTask = ProcessFileWithAutoDetectionCallback(e.File.Name, fileBytes);
+                var delayTask = Task.Delay(500);
+                await Task.WhenAll(processingTask, delayTask);
+
+                var result = await processingTask;
+
+                // Handle result based on type
+                if (result is AvuxImportResult avuxResult)
+                {
+                    // .avux import with logos
+                    ImportedCredentials = avuxResult.Credentials;
+                    IsAvuxImport = true;
+
+                    // Store logo data for later use during import
+                    AvuxLogos = avuxResult.Logos;
+                }
+                else if (result is List<ImportedCredential> credentials)
+                {
+                    // CSV import
+                    ImportedCredentials = credentials;
+                    IsAvuxImport = false;
+                }
+                else
+                {
+                    ImportError = "Invalid result type from file processor";
+                    return;
+                }
             }
             else
             {
                 ImportError = "No file processor configured";
                 return;
             }
-
-            var delayTask = Task.Delay(500);
-
-            await Task.WhenAll(processingTask, delayTask);
-
-            ImportedCredentials = await processingTask;
 
             // Detect and remove duplicates before showing the preview
             await DetectAndRemoveDuplicates();

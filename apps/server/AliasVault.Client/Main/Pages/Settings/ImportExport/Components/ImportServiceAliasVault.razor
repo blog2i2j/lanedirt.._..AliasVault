@@ -35,12 +35,13 @@
     }
 
     /// <summary>
-    /// Processes the file with auto-detection based on file extension.
+    /// Processes files with auto-detection based on file extension.
+    /// Returns AvuxImportResult for .avux files, or List of ImportedCredential for CSV files.
     /// </summary>
     /// <param name="filename">The name of the uploaded file.</param>
     /// <param name="fileBytes">The file content as bytes.</param>
-    /// <returns>List of imported credentials.</returns>
-    private static async Task<List<ImportedCredential>> ProcessFile(string filename, byte[] fileBytes)
+    /// <returns>AvuxImportResult for .avux files, or List&lt;ImportedCredential&gt; for CSV files.</returns>
+    private static async Task<object> ProcessFile(string filename, byte[] fileBytes)
     {
         try
         {

@@ -43,6 +43,11 @@ public class AvuxItem
     public Guid? FolderId { get; set; }
 
     /// <summary>
+    /// Gets or sets the logo ID this item uses.
+    /// </summary>
+    public Guid? LogoId { get; set; }
+
+    /// <summary>
     /// Gets or sets the list of field values for this item.
     /// </summary>
     public List<AvuxFieldValue> FieldValues { get; set; } = new();
