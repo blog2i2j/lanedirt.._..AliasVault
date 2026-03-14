@@ -8,6 +8,7 @@
 namespace AliasVault.Client.Main.Models.Validation;
 
 using System.ComponentModel.DataAnnotations;
+using AliasVault.Client.Main.Constants;
 using AliasVault.Client.Resources;
 using AliasVault.Shared.Models.WebApi.PasswordChange;
 
@@ -26,7 +27,7 @@ public class PasswordChangeFormModel : PasswordChangeModel
     /// Gets or sets the new password.
     /// </summary>
     [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordRequired))]
-    [MinLength(10, ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordMinLength))]
+    [MinLength(PasswordStrengthConstants.MinimumGoodPasswordLength, ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordMinLength))]
     public new string NewPassword { get; set; } = null!;
 
     /// <summary>
