@@ -3507,6 +3507,11 @@ video {
   background-color: rgb(21 128 61 / var(--tw-bg-opacity));
 }
 
+.dark\:bg-orange-900:is(.dark *) {
+  --tw-bg-opacity: 1;
+  background-color: rgb(124 45 18 / var(--tw-bg-opacity));
+}
+
 .dark\:bg-opacity-75:is(.dark *) {
   --tw-bg-opacity: 0.75;
 }
