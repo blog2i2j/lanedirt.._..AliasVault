@@ -6,7 +6,9 @@
 @inject GlobalNotificationService GlobalNotificationService
 @inject HttpClient HttpClient
 @inject IStringLocalizerFactory LocalizerFactory
+@inject AliasVault.Client.Services.Crypto.AvexCryptoService AvexCrypto
 @using Microsoft.Extensions.Localization
+@using AliasVault.ImportExport
 @using AliasVault.ImportExport.Importers
 @using AliasVault.ImportExport.Models
 @using AliasVault.ImportExport.Models.Exports
@@ -94,6 +96,53 @@
                                         <Button OnClick="@CloseModal" Color="secondary">@Localizer["CancelButton"]</Button>
                                     </div>
                                 </div>
+                            </div>
+                            break;
+
+                        case ImportStep.PasswordInput:
+                            <div class="max-w-lg mx-auto">
+                                @if (!string.IsNullOrEmpty(ImportError))
+                                {
+                                    <div class="mb-4 p-4 text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800" role="alert">
+                                        @ImportError
+                                    </div>
+                                }
+
+                                @if (IsImporting)
+                                {
+                                    <div class="text-center">
+                                        <LoadingIndicator />
+                                        <p class="mt-4 text-gray-700 dark:text-gray-300">@Localizer["DecryptingFile"]</p>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="mb-4">
+                                        <p class="mb-4 text-gray-700 dark:text-gray-300">@Localizer["EncryptedFilePasswordPrompt"]</p>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                            @Localizer["DecryptionPasswordLabel"]
+                                        </label>
+                                        <input
+                                            type="password"
+                                            @bind="_decryptionPassword"
+                                            @bind:event="oninput"
+                                            @onkeydown="HandlePasswordKeyDown"
+                                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                                            placeholder="@Localizer["DecryptionPasswordPlaceholder"]"
+                                            autofocus />
+                                    </div>
+
+                                    <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                                        <p class="text-xs text-blue-800 dark:text-blue-200">
+                                            @Localizer["DecryptionPasswordHint"]
+                                        </p>
+                                    </div>
+
+                                    <div class="flex justify-end mt-6 space-x-2">
+                                        <Button OnClick="@HandlePreviousStep" Color="secondary">@Localizer["BackButton"]</Button>
+                                        <Button OnClick="@HandleDecryptFile" Color="primary" IsDisabled="@string.IsNullOrWhiteSpace(_decryptionPassword)">@Localizer["DecryptAndContinueButton"]</Button>
+                                    </div>
+                                }
                             </div>
                             break;
 
@@ -232,6 +281,7 @@
     private enum ImportStep
     {
         FileUpload,
+        PasswordInput,
         Preview,
         Confirm
     }
@@ -259,6 +309,13 @@
     /// </summary>
     [Parameter]
     public EventCallback OnImportConfirmed { get; set; }
+
+    /// <summary>
+    /// The callback for processing text-based CSV files (accepts file contents as string).
+    /// Returns List of ImportedCredential.
+    /// </summary>
+    [Parameter]
+    public Func<string, Task<List<ImportedCredential>>>? ProcessFileCallback { get; set; }
 
     /// <summary>
     /// The callback for auto-detecting and processing files (accepts filename and bytes).
@@ -312,10 +369,23 @@
     private int TotalCredentialsToSave { get; set; }
     private bool IsSyncingVault { get; set; }
     private Dictionary<string, Guid> ImportSessionLogoIds { get; set; } = new();
-    private Dictionary<Guid, (string Source, byte[] FileData)> AvuxLogos { get; set; } = new();
-    private bool IsAvuxImport { get; set; } = false;
+    /// <summary>
+    /// Gets or sets the .avux logos for import. Public to allow external setting.
+    /// </summary>
+    public Dictionary<Guid, (string Source, byte[] FileData)> AvuxLogos { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets whether this is an .avux import. Public to allow external setting.
+    /// </summary>
+    public bool IsAvuxImport { get; set; } = false;
 
     private int DuplicateCredentialsCount { get; set; } = 0;
+
+    // Fields for .avex encrypted file handling
+    private string _decryptionPassword = string.Empty;
+    private byte[]? _pendingAvexBytes;
+    private string? _pendingAvexFilename;
+    private bool _requiresPassword = false;
 
     /// <summary>
     /// Sets the imported credentials and continues to the preview step.
@@ -327,6 +397,23 @@
 
         // Continue to step 2.
         await HandleNextStep();
+    }
+
+    /// <summary>
+    /// Sets pending encrypted file data and moves to password input step.
+    /// </summary>
+    /// <param name="encryptedBytes">The encrypted file bytes.</param>
+    /// <param name="filename">The filename.</param>
+    public void SetPendingEncryptedFile(byte[] encryptedBytes, string filename)
+    {
+        _pendingAvexBytes = encryptedBytes;
+        _pendingAvexFilename = filename;
+        _decryptionPassword = string.Empty;
+        _requiresPassword = true;
+        ImportError = null;
+        CurrentStep = ImportStep.PasswordInput;
+        IsImporting = false; // Stop the loading state
+        StateHasChanged();
     }
 
     /// <summary>
@@ -358,6 +445,10 @@
         ImportError = null;
         ImportSuccessMessage = null;
         ImportedCredentials.Clear();
+        _requiresPassword = false;
+        _decryptionPassword = string.Empty;
+        _pendingAvexBytes = null;
+        _pendingAvexFilename = null;
         StateHasChanged();
     }
 
@@ -381,13 +472,108 @@
     /// </summary>
     protected virtual void HandlePreviousStep()
     {
-        if (CurrentStep == ImportStep.Preview)
+        if (CurrentStep == ImportStep.PasswordInput)
         {
             CurrentStep = ImportStep.FileUpload;
+            _decryptionPassword = string.Empty;
+            _pendingAvexBytes = null;
+            _pendingAvexFilename = null;
+            _requiresPassword = false;
+        }
+        else if (CurrentStep == ImportStep.Preview)
+        {
+            // If we came from password input (encrypted file), go back to password
+            if (_pendingAvexBytes != null)
+            {
+                CurrentStep = ImportStep.PasswordInput;
+            }
+            else
+            {
+                CurrentStep = ImportStep.FileUpload;
+            }
         }
         else if (CurrentStep == ImportStep.Confirm)
         {
             CurrentStep = ImportStep.Preview;
+        }
+    }
+
+    /// <summary>
+    /// Handles password keyboard events (Enter to submit, Escape to cancel).
+    /// </summary>
+    private async Task HandlePasswordKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_decryptionPassword))
+        {
+            await HandleDecryptFile();
+        }
+        else if (e.Key == "Escape")
+        {
+            HandlePreviousStep();
+        }
+    }
+
+    /// <summary>
+    /// Handles decrypting the .avex file with the provided password.
+    /// </summary>
+    private async Task HandleDecryptFile()
+    {
+        if (_pendingAvexBytes == null)
+        {
+            return;
+        }
+
+        try
+        {
+            IsImporting = true;
+            ImportError = null;
+            StateHasChanged();
+            await Task.Delay(50);
+
+            // Decrypt the file to .avux bytes using AvexCryptoService
+            var avuxBytes = await AvexCrypto.DecryptAvexAsync(_pendingAvexBytes, _decryptionPassword);
+
+            // Process via the normal file handler as if it was an .avux upload
+            // This ensures consistent handling and avoids EF tracking issues
+            var result = await ProcessFileWithAutoDetectionCallback!("decrypted.avux", avuxBytes);
+
+            if (result is AvuxImportResult avuxResult)
+            {
+                // Store logos
+                IsAvuxImport = true;
+                AvuxLogos = avuxResult.Logos;
+                ImportedCredentials = avuxResult.Credentials;
+            }
+            else
+            {
+                throw new InvalidOperationException("Unexpected result type from .avux processing");
+            }
+
+            // Clear password and encrypted data
+            _decryptionPassword = string.Empty;
+            _pendingAvexBytes = null;
+            _pendingAvexFilename = null;
+            _requiresPassword = false;
+
+            IsImporting = false;
+
+            // Move to preview step
+            await DetectAndRemoveDuplicates();
+            CurrentStep = ImportStep.Preview;
+            StateHasChanged();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("password may be incorrect"))
+        {
+            IsImporting = false;
+            ImportError = Localizer["IncorrectPasswordError"];
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error decrypting .avex file");
+            IsImporting = false;
+            ImportError = Localizer["DecryptionErrorGeneric"];
+            StateHasChanged();
         }
     }
 
@@ -833,7 +1019,15 @@
                 await stream.CopyToAsync(memoryStream);
                 var fileBytes = memoryStream.ToArray();
 
-                // Call auto-detection callback
+                // Check if this is an encrypted .avex file
+                if (e.File.Name.EndsWith(".avex", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Encrypted file - trigger password input step
+                    SetPendingEncryptedFile(fileBytes, e.File.Name);
+                    return; // Password step will handle the rest
+                }
+
+                // Call auto-detection callback for regular files
                 var processingTask = ProcessFileWithAutoDetectionCallback(e.File.Name, fileBytes);
                 var delayTask = Task.Delay(500);
                 await Task.WhenAll(processingTask, delayTask);
@@ -862,16 +1056,35 @@
                     return;
                 }
             }
+            else if (ProcessFileCallback != null)
+            {
+                // Read file as text for text-based CSV processing
+                using var reader = new StreamReader(stream);
+                var fileContents = await reader.ReadToEndAsync();
+
+                // Call text-based callback
+                var processingTask = ProcessFileCallback(fileContents);
+                var delayTask = Task.Delay(500);
+                await Task.WhenAll(processingTask, delayTask);
+
+                ImportedCredentials = await processingTask;
+                IsAvuxImport = false;
+            }
             else
             {
                 ImportError = "No file processor configured";
                 return;
             }
 
-            // Detect and remove duplicates before showing the preview
-            await DetectAndRemoveDuplicates();
-
-            CurrentStep = ImportStep.Preview;
+            // If password is required, the callback will handle setting the step to PasswordInput
+            // So we only proceed to preview if no password is required
+            if (!_requiresPassword)
+            {
+                // Detect and remove duplicates before showing the preview
+                await DetectAndRemoveDuplicates();
+                CurrentStep = ImportStep.Preview;
+            }
+            // else: the step was already set to PasswordInput by SetPendingEncryptedFile()
         }
         catch (Exception ex)
         {
@@ -880,7 +1093,11 @@
         }
         finally
         {
-            IsImporting = false;
+            // Only set IsImporting to false if we're not waiting for password
+            if (!_requiresPassword)
+            {
+                IsImporting = false;
+            }
             StateHasChanged();
         }
     }
