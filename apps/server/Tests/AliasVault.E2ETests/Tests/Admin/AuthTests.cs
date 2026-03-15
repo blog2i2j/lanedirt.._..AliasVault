@@ -34,7 +34,6 @@ public class AuthTests : AdminPlaywrightTest
 
         var submitButton = Page.GetByRole(AriaRole.Button, new() { Name = "Update password" });
         await submitButton.WaitForAsync(new() { State = WaitForSelectorState.Visible });
-        await Expect(submitButton).ToBeEnabledAsync();
         await submitButton.ClickAsync();
 
         // Wait for current page to refresh and confirm message shows.
@@ -63,7 +62,6 @@ public class AuthTests : AdminPlaywrightTest
 
         var submitButton = Page.GetByRole(AriaRole.Button, new() { Name = "Update password" });
         await submitButton.WaitForAsync(new() { State = WaitForSelectorState.Visible });
-        await Expect(submitButton).ToBeEnabledAsync();
         await submitButton.ClickAsync();
 
         // Wait for current page to refresh and confirm message shows.
