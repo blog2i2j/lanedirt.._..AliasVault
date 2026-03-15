@@ -112,6 +112,74 @@ window.cryptoInterop = {
         );
 
         return new Uint8Array(decrypted);
+    },
+    /**
+     * Encrypts byte array using AES-256-GCM
+     * @param {Uint8Array} plainBytes - The bytes to encrypt
+     * @param {Uint8Array} keyBytes - The 32-byte encryption key
+     * @returns {Promise<Uint8Array>} The encrypted data (nonce + ciphertext + tag)
+     */
+    encryptBytes: async function(plainBytes, keyBytes) {
+        checkCryptoAvailable();
+
+        const key = await window.crypto.subtle.importKey(
+            'raw',
+            keyBytes,
+            { name: 'AES-GCM', length: 256 },
+            false,
+            ['encrypt']
+        );
+
+        const nonce = window.crypto.getRandomValues(new Uint8Array(12));
+        const ciphertext = await window.crypto.subtle.encrypt(
+            { name: 'AES-GCM', iv: nonce },
+            key,
+            plainBytes
+        );
+
+        const ciphertextArray = new Uint8Array(ciphertext);
+        const result = new Uint8Array(12 + ciphertextArray.length);
+        result.set(nonce, 0);
+        result.set(ciphertextArray, 12);
+
+        return result;
+    },
+    /**
+     * Decrypts byte array using AES-256-GCM
+     * @param {Uint8Array} encryptedBytes - The encrypted data (nonce + ciphertext + tag)
+     * @param {Uint8Array} keyBytes - The 32-byte encryption key
+     * @returns {Promise<Uint8Array>} The decrypted data
+     */
+    decryptBytesRaw: async function(encryptedBytes, keyBytes) {
+        checkCryptoAvailable();
+
+        const key = await window.crypto.subtle.importKey(
+            'raw',
+            keyBytes,
+            { name: 'AES-GCM', length: 256 },
+            false,
+            ['decrypt']
+        );
+
+        const nonce = encryptedBytes.slice(0, 12);
+        const ciphertextWithTag = encryptedBytes.slice(12);
+
+        const plaintext = await window.crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv: nonce },
+            key,
+            ciphertextWithTag
+        );
+
+        return new Uint8Array(plaintext);
+    },
+    /**
+     * Generates random salt
+     * @param {number} length - The length of the salt in bytes
+     * @returns {Uint8Array} The random salt
+     */
+    generateSalt: function(length) {
+        checkCryptoAvailable();
+        return window.crypto.getRandomValues(new Uint8Array(length));
     }
 };
 

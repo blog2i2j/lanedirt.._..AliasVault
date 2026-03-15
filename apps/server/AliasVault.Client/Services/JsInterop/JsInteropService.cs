@@ -389,6 +389,48 @@ public sealed class JsInteropService(IJSRuntime jsRuntime)
     }
 
     /// <summary>
+    /// Generates a random salt of the specified length.
+    /// </summary>
+    /// <param name="length">Length of salt to generate in bytes.</param>
+    /// <returns>Random salt bytes.</returns>
+    public async Task<byte[]> GenerateSalt(int length)
+    {
+        return await jsRuntime.InvokeAsync<byte[]>("cryptoInterop.generateSalt", length);
+    }
+
+    /// <summary>
+    /// Symmetrically encrypts a byte array using the provided encryption key.
+    /// </summary>
+    /// <param name="plainBytes">Plain bytes to encrypt.</param>
+    /// <param name="encryptionKey">Encryption key bytes.</param>
+    /// <returns>Encrypted bytes.</returns>
+    public async Task<byte[]> SymmetricEncryptBytes(byte[] plainBytes, byte[] encryptionKey)
+    {
+        if (plainBytes == null || plainBytes.Length == 0)
+        {
+            return [];
+        }
+
+        return await jsRuntime.InvokeAsync<byte[]>("cryptoInterop.encryptBytes", plainBytes, encryptionKey);
+    }
+
+    /// <summary>
+    /// Symmetrically decrypts a byte array using the provided encryption key (raw bytes without base64 encoding).
+    /// </summary>
+    /// <param name="encryptedBytes">Encrypted bytes to decrypt.</param>
+    /// <param name="encryptionKey">Encryption key bytes.</param>
+    /// <returns>Decrypted bytes.</returns>
+    public async Task<byte[]> SymmetricDecryptBytesRaw(byte[] encryptedBytes, byte[] encryptionKey)
+    {
+        if (encryptedBytes == null || encryptedBytes.Length == 0)
+        {
+            return [];
+        }
+
+        return await jsRuntime.InvokeAsync<byte[]>("cryptoInterop.decryptBytesRaw", encryptedBytes, encryptionKey);
+    }
+
+    /// <summary>
     /// Gets all available languages for identity generation.
     /// </summary>
     /// <returns>Array of language options.</returns>
