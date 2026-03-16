@@ -8,6 +8,7 @@
 namespace AliasVault.Client.Auth.Models;
 
 using System.ComponentModel.DataAnnotations;
+using AliasVault.Client.Main.Constants;
 using AliasVault.Client.Resources;
 using AliasVault.Shared.Models.Validation;
 
@@ -26,7 +27,7 @@ public class RegisterFormModel
     /// Gets or sets the password.
     /// </summary>
     [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordRequired))]
-    [MinLength(8, ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordMinLengthGeneric))]
+    [MinimumPasswordLength(PasswordStrengthConstants.MinimumGoodPasswordLength, ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordMinLengthGeneric))]
     public string Password { get; set; } = null!;
 
     /// <summary>

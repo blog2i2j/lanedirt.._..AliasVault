@@ -230,19 +230,6 @@
     <value>Once you have exported the file, you can upload it below.</value>
     <comment>Strongbox export instructions part 2</comment>
   </data>
-  <!-- AliasVault .avux -->
-  <data name="AvuxDescription" xml:space="preserve">
-    <value>Import complete AliasVault backup (.avux format)</value>
-    <comment>Description for AliasVault .avux import service</comment>
-  </data>
-  <data name="AvuxInstructions" xml:space="preserve">
-    <value>Use this option to restore a complete vault backup including all items, folders, tags, passkeys, TOTP codes, and attachments from an .avux export file.</value>
-    <comment>AliasVault .avux import instructions</comment>
-  </data>
-  <data name="AvuxFormatTitle" xml:space="preserve">
-    <value>Complete Vault Backup:</value>
-    <comment>Title for .avux format explanation</comment>
-  </data>
   <!-- AliasVault CSV/AVUX/AVEX -->
   <data name="AliasVaultDescription" xml:space="preserve">
     <value>Import from AliasVault backup (.csv, .avux, or .avex)</value>
@@ -255,14 +242,6 @@
   <data name="AliasVaultSupportedFormatsInfo" xml:space="preserve">
     <value>Supports .avex (encrypted), .avux (unencrypted) and CSV (basic) formats.</value>
     <comment>Supported formats information for AliasVault imports</comment>
-  </data>
-  <data name="DecryptImportTitle" xml:space="preserve">
-    <value>Enter Decryption Password</value>
-    <comment>Title for import password modal</comment>
-  </data>
-  <data name="IncorrectPasswordError" xml:space="preserve">
-    <value>Incorrect password. Please try again.</value>
-    <comment>Error message for incorrect decryption password</comment>
   </data>
   <!-- Dropbox -->
   <data name="DropboxDescription" xml:space="preserve">
