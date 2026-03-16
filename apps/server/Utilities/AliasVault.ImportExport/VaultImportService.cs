@@ -20,10 +20,11 @@ public static class VaultImportService
     /// <summary>
     /// Imports vault data from .avux (AliasVault Unencrypted eXport) format.
     /// This parses a ZIP archive containing a manifest.json file, all attachments, and logos.
+    /// Logos are embedded directly into the FaviconBytes property of each credential.
     /// </summary>
     /// <param name="zipBytes">The .avux file as a byte array.</param>
-    /// <returns>An AvuxImportResult containing credentials and logo data.</returns>
-    public static async Task<AvuxImportResult> ImportFromAvuxAsync(byte[] zipBytes)
+    /// <returns>A list of ImportedCredential objects with embedded logo data.</returns>
+    public static async Task<List<ImportedCredential>> ImportFromAvuxAsync(byte[] zipBytes)
     {
         using var zipStream = new MemoryStream(zipBytes);
         using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
@@ -64,24 +65,20 @@ public static class VaultImportService
         // Extract logos
         var logoMap = ExtractLogosFromZip(archive);
 
-        // Convert to ImportedCredential format
-        var credentials = ConvertManifestToImportedCredentials(manifest, attachmentMap, logoMap);
-
-        // Build logo dictionary: ID -> (Source, FileData)
-        var logoData = new Dictionary<Guid, (string Source, byte[] FileData)>();
+        // Build logo ID -> file data lookup
+        var logoDataById = new Dictionary<Guid, byte[]>();
         foreach (var logo in manifest.Logos)
         {
             if (logoMap.TryGetValue(logo.RelativePath, out var fileData))
             {
-                logoData[logo.Id] = (logo.Source, fileData);
+                logoDataById[logo.Id] = fileData;
             }
         }
 
-        return new AvuxImportResult
-        {
-            Credentials = credentials,
-            Logos = logoData,
-        };
+        // Convert to ImportedCredential format with embedded logos
+        var credentials = ConvertManifestToImportedCredentials(manifest, attachmentMap, logoDataById);
+
+        return credentials;
     }
 
     /// <summary>
@@ -128,12 +125,11 @@ public static class VaultImportService
 
     /// <summary>
     /// Converts the manifest and attachments to ImportedCredential objects.
-    /// This maintains compatibility with the existing import flow.
     /// </summary>
     private static List<ImportedCredential> ConvertManifestToImportedCredentials(
         AvuxManifest manifest,
         Dictionary<string, byte[]> attachmentMap,
-        Dictionary<string, byte[]> logoMap)
+        Dictionary<Guid, byte[]> logoDataById)
     {
         var credentials = new List<ImportedCredential>();
         var folderMap = manifest.Folders.ToDictionary(f => f.Id, f => f.Name);
@@ -146,8 +142,12 @@ public static class VaultImportService
                 CreatedAt = item.CreatedAt,
                 UpdatedAt = item.UpdatedAt,
                 ItemType = MapItemType(item.ItemType),
-                LogoId = item.LogoId,
             };
+
+            if (item.LogoId.HasValue && logoDataById.TryGetValue(item.LogoId.Value, out var logoBytes))
+            {
+                credential.FaviconBytes = logoBytes;
+            }
 
             // Get folder path
             if (item.FolderId.HasValue && folderMap.TryGetValue(item.FolderId.Value, out var folderName))
