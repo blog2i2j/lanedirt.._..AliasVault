@@ -243,46 +243,26 @@
     <value>Complete Vault Backup:</value>
     <comment>Title for .avux format explanation</comment>
   </data>
-  <data name="AvuxFormatDescription" xml:space="preserve">
-    <value>Complete backup format (includes passkeys, attachments, custom fields, and all metadata)</value>
-    <comment>Description of what .avux format includes</comment>
-  </data>
   <!-- AliasVault CSV/AVUX/AVEX -->
   <data name="AliasVaultDescription" xml:space="preserve">
     <value>Import from AliasVault backup (.csv, .avux, or .avex)</value>
     <comment>Description for AliasVault import service</comment>
   </data>
   <data name="AliasVaultInstructionsPart1" xml:space="preserve">
-    <value>Import your AliasVault backup from another server or a manual backup.</value>
+    <value>Import your previously created AliasVault backup.</value>
     <comment>AliasVault import instructions</comment>
   </data>
   <data name="AliasVaultSupportedFormatsInfo" xml:space="preserve">
-    <value>Supports CSV (basic), .avux (complete unencrypted), and .avex (encrypted) formats.</value>
+    <value>Supports .avex (encrypted), .avux (unencrypted) and CSV (basic) formats.</value>
     <comment>Supported formats information for AliasVault imports</comment>
-  </data>
-  <data name="CsvFormatDescription" xml:space="preserve">
-    <value>Basic backup format (passwords, usernames, notes, TOTP codes)</value>
-    <comment>Description of CSV format capabilities</comment>
-  </data>
-  <data name="AvexFormatDescription" xml:space="preserve">
-    <value>Encrypted complete backup (password-protected .avux)</value>
-    <comment>Description of .avex format capabilities</comment>
   </data>
   <data name="DecryptImportTitle" xml:space="preserve">
     <value>Enter Decryption Password</value>
     <comment>Title for import password modal</comment>
   </data>
-  <data name="DecryptImportDescription" xml:space="preserve">
-    <value>This file is encrypted. Please enter the password you used when creating the export.</value>
-    <comment>Description for import password modal</comment>
-  </data>
   <data name="IncorrectPasswordError" xml:space="preserve">
     <value>Incorrect password. Please try again.</value>
     <comment>Error message for incorrect decryption password</comment>
-  </data>
-  <data name="DecryptionErrorGeneric" xml:space="preserve">
-    <value>Failed to decrypt the file. Please check that the file is not corrupted and try again.</value>
-    <comment>Generic error message for decryption failure</comment>
   </data>
   <!-- Dropbox -->
   <data name="DropboxDescription" xml:space="preserve">

@@ -166,10 +166,6 @@
     <value>File size exceeds 10MB limit.</value>
     <comment>Error message when file is too large</comment>
   </data>
-  <data name="SupportedFormatsLabel" xml:space="preserve">
-    <value>Supported formats:</value>
-    <comment>Label for the list of supported file formats in the import modal</comment>
-  </data>
   <data name="EncryptedFilePasswordPrompt" xml:space="preserve">
     <value>This file is encrypted. Please enter the password you used when creating the export.</value>
     <comment>Prompt for encrypted file password</comment>
@@ -177,10 +173,6 @@
   <data name="DecryptionPasswordLabel" xml:space="preserve">
     <value>Decryption Password</value>
     <comment>Label for decryption password input</comment>
-  </data>
-  <data name="DecryptionPasswordPlaceholder" xml:space="preserve">
-    <value>Enter the password used to encrypt this export</value>
-    <comment>Placeholder for decryption password input</comment>
   </data>
   <data name="DecryptionPasswordHint" xml:space="preserve">
     <value>This is the password you set when creating the encrypted export (.avex file), not your vault master password.</value>
