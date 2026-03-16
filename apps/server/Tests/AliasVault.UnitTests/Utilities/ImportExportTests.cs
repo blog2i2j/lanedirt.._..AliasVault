@@ -1574,11 +1574,10 @@ public class ImportExportTests
             "test@example.com");
 
         // Act - Import the .avux file
-        var result = await VaultImportService.ImportFromAvuxAsync(avuxBytes);
+        var importedCredentials = await VaultImportService.ImportFromAvuxAsync(avuxBytes);
 
         // Assert
-        Assert.That(result.Credentials, Has.Count.EqualTo(3));
-        var importedCredentials = result.Credentials;
+        Assert.That(importedCredentials, Has.Count.EqualTo(3));
 
         var basicLogin = importedCredentials.First(c => c.ServiceName == "Import Test Item");
         Assert.Multiple(() =>
@@ -1645,12 +1644,12 @@ public class ImportExportTests
             "test@example.com");
 
         // Import
-        var result = await VaultImportService.ImportFromAvuxAsync(avuxBytes);
+        var importedCredentials = await VaultImportService.ImportFromAvuxAsync(avuxBytes);
 
         // Assert
-        Assert.That(result.Credentials, Has.Count.EqualTo(1));
+        Assert.That(importedCredentials, Has.Count.EqualTo(1));
 
-        var imported = result.Credentials[0];
+        var imported = importedCredentials[0];
         Assert.Multiple(() =>
         {
             Assert.That(imported.ServiceName, Is.EqualTo("Round Trip Test"));
@@ -1753,14 +1752,10 @@ public class ImportExportTests
             "testuser");
 
         // Act - Import
-        var result = await VaultImportService.ImportFromAvuxAsync(zipBytes);
+        var credentials = await VaultImportService.ImportFromAvuxAsync(zipBytes);
 
-        // Assert
-        Assert.That(result.Credentials, Has.Count.EqualTo(3));
-        Assert.That(result.Logos, Has.Count.EqualTo(2), "Should have 2 logos (deduplicated)");
-
-        var credentials = result.Credentials;
-        var logoData = result.Logos;
+        // Assert - After refactor, logos are embedded in FaviconBytes property
+        Assert.That(credentials, Has.Count.EqualTo(3));
 
         // Verify first credential
         var githubCred = credentials.First(c => c.ServiceName == "GitHub");
@@ -1769,7 +1764,7 @@ public class ImportExportTests
             Assert.That(githubCred.ServiceName, Is.EqualTo("GitHub"));
             Assert.That(githubCred.Username, Is.EqualTo("testuser"));
             Assert.That(githubCred.Password, Is.EqualTo("password123"));
-            Assert.That(githubCred.LogoId, Is.EqualTo(logoId1));
+            Assert.That(githubCred.FaviconBytes, Is.EqualTo(new byte[] { 1, 2, 3, 4, 5 }), "Logo should be embedded in FaviconBytes");
         });
 
         // Verify second credential
@@ -1779,30 +1774,12 @@ public class ImportExportTests
             Assert.That(googleCred.ServiceName, Is.EqualTo("Google"));
             Assert.That(googleCred.Username, Is.EqualTo("user@gmail.com"));
             Assert.That(googleCred.Password, Is.EqualTo("pass456"));
-            Assert.That(googleCred.LogoId, Is.EqualTo(logoId2));
+            Assert.That(googleCred.FaviconBytes, Is.EqualTo(new byte[] { 6, 7, 8, 9, 10 }), "Logo should be embedded in FaviconBytes");
         });
 
-        // Verify third credential uses same logo as first (deduplication)
+        // Verify third credential uses same logo as first
         var githubIssueCred = credentials.First(c => c.ServiceName == "GitHub Issue Tracker");
-        Assert.That(githubIssueCred.LogoId, Is.EqualTo(logoId1), "Should reuse same logo as GitHub");
-
-        // Verify logo data for logo 1
-        Assert.That(logoData.ContainsKey(logoId1), Is.True, "Logo 1 should be present");
-        var (source1, fileData1) = logoData[logoId1];
-        Assert.Multiple(() =>
-        {
-            Assert.That(source1, Is.EqualTo("github.com"));
-            Assert.That(fileData1, Is.EqualTo(new byte[] { 1, 2, 3, 4, 5 }));
-        });
-
-        // Verify logo data for logo 2
-        Assert.That(logoData.ContainsKey(logoId2), Is.True, "Logo 2 should be present");
-        var (source2, fileData2) = logoData[logoId2];
-        Assert.Multiple(() =>
-        {
-            Assert.That(source2, Is.EqualTo("google.com"));
-            Assert.That(fileData2, Is.EqualTo(new byte[] { 6, 7, 8, 9, 10 }));
-        });
+        Assert.That(githubIssueCred.FaviconBytes, Is.EqualTo(new byte[] { 1, 2, 3, 4, 5 }), "Should have same logo data as GitHub");
     }
 
     /// <summary>

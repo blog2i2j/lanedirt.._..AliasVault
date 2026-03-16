@@ -20,8 +20,6 @@ using System.Globalization;
 /// </summary>
 public static class ItemCsvService
 {
-    private const string CsvVersionIdentifier = "1.7.0";
-
     /// <summary>
     /// Export list of items to CSV file.
     /// </summary>
@@ -35,21 +33,21 @@ public static class ItemCsvService
         {
             var record = new ItemCsvRecord
             {
-                Version = CsvVersionIdentifier,
                 ServiceName = item.Name ?? string.Empty,
+                FolderPath = item.Folder?.Name ?? string.Empty,
                 ServiceUrl = GetFieldValue(item, FieldKey.LoginUrl),
                 Username = GetFieldValue(item, FieldKey.LoginUsername),
                 CurrentPassword = GetFieldValue(item, FieldKey.LoginPassword),
                 AliasEmail = GetFieldValue(item, FieldKey.LoginEmail),
-                Notes = GetFieldValue(item, FieldKey.NotesContent),
+                TwoFactorSecret = item.TotpCodes.FirstOrDefault(t => !t.IsDeleted)?.SecretKey ?? string.Empty,
                 AliasGender = GetFieldValue(item, FieldKey.AliasGender),
                 AliasFirstName = GetFieldValue(item, FieldKey.AliasFirstName),
                 AliasLastName = GetFieldValue(item, FieldKey.AliasLastName),
                 AliasNickName = string.Empty, // NickName is no longer stored as a separate field
                 AliasBirthDate = ParseBirthDate(GetFieldValue(item, FieldKey.AliasBirthdate)),
+                Notes = GetFieldValue(item, FieldKey.NotesContent),
                 CreatedAt = item.CreatedAt,
                 UpdatedAt = item.UpdatedAt,
-                TwoFactorSecret = item.TotpCodes.FirstOrDefault(t => !t.IsDeleted)?.SecretKey ?? string.Empty,
             };
 
             records.Add(record);
@@ -72,7 +70,13 @@ public static class ItemCsvService
     public static async Task<List<ImportedCredential>> ImportItemsFromCsv(string fileContent)
     {
         using var reader = new StringReader(fileContent);
-        using var csv = new CsvReader(reader, new CsvConfiguration(CultureInfo.InvariantCulture));
+        var config = new CsvConfiguration(CultureInfo.InvariantCulture)
+        {
+            // Allow missing headers - fields that don't exist will be skipped
+            HeaderValidated = null,
+            MissingFieldFound = null,
+        };
+        using var csv = new CsvReader(reader, config);
 
         var records = new List<ItemCsvRecord>();
         await foreach (var record in csv.GetRecordsAsync<ItemCsvRecord>())
@@ -83,13 +87,6 @@ public static class ItemCsvService
         if (records.Count == 0)
         {
             throw new InvalidOperationException("No records found in the CSV file.");
-        }
-
-        // Support both 1.5.0 (old format) and 1.7.0 (new format)
-        var version = records[0].Version;
-        if (version != CsvVersionIdentifier && version != "1.5.0")
-        {
-            throw new InvalidOperationException($"Unsupported CSV file version: {version}. Expected 1.5.0 or 1.7.0.");
         }
 
         var credentials = new List<ImportedCredential>();
@@ -117,6 +114,7 @@ public static class ItemCsvService
                 TwoFactorSecret = record.TwoFactorSecret,
                 CreatedAt = record.CreatedAt,
                 UpdatedAt = record.UpdatedAt,
+                FolderPath = string.IsNullOrWhiteSpace(record.FolderPath) ? null : record.FolderPath,
             };
 
             credentials.Add(credential);
@@ -165,9 +163,20 @@ public static class ItemCsvService
 public class ItemCsvRecord
 {
     /// <summary>
-    /// Gets or sets the CSV format version.
+    /// Gets or sets the service name.
     /// </summary>
-    public string Version { get; set; } = "1.7.0";
+    public string ServiceName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the folder path.
+    /// Added in version 1.7.0.
+    /// </summary>
+    public string FolderPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the service URL.
+    /// </summary>
+    public string ServiceUrl { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the username.
@@ -175,19 +184,19 @@ public class ItemCsvRecord
     public string Username { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the notes.
+    /// Gets or sets the current password.
     /// </summary>
-    public string Notes { get; set; } = string.Empty;
+    public string CurrentPassword { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the created timestamp.
+    /// Gets or sets the alias email.
     /// </summary>
-    public DateTime CreatedAt { get; set; } = DateTime.MinValue;
+    public string AliasEmail { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the updated timestamp.
+    /// Gets or sets the two-factor secret.
     /// </summary>
-    public DateTime UpdatedAt { get; set; } = DateTime.MinValue;
+    public string TwoFactorSecret { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the alias gender.
@@ -215,27 +224,17 @@ public class ItemCsvRecord
     public DateTime? AliasBirthDate { get; set; } = null;
 
     /// <summary>
-    /// Gets or sets the alias email.
+    /// Gets or sets the notes.
     /// </summary>
-    public string AliasEmail { get; set; } = string.Empty;
+    public string Notes { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the service name.
+    /// Gets or sets the created timestamp.
     /// </summary>
-    public string ServiceName { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; } = DateTime.MinValue;
 
     /// <summary>
-    /// Gets or sets the service URL.
+    /// Gets or sets the updated timestamp.
     /// </summary>
-    public string ServiceUrl { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the current password.
-    /// </summary>
-    public string CurrentPassword { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the two-factor secret.
-    /// </summary>
-    public string TwoFactorSecret { get; set; } = string.Empty;
+    public DateTime UpdatedAt { get; set; } = DateTime.MinValue;
 }

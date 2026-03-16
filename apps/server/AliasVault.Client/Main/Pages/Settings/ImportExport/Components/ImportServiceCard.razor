@@ -501,16 +501,15 @@
             // This ensures consistent handling and avoids EF tracking issues
             var result = await ProcessFileCallback!("decrypted.avux", avuxBytes);
 
-            if (result is AvuxImportResult avuxResult)
+            if (result is List<ImportedCredential> credentials)
             {
-                // Store logos
-                IsAvuxImport = true;
-                AvuxLogos = avuxResult.Logos;
-                ImportedCredentials = avuxResult.Credentials;
+                IsAvuxImport = false;
+                AvuxLogos = new();
+                ImportedCredentials = credentials;
             }
             else
             {
-                throw new InvalidOperationException("Unexpected result type from .avux processing");
+                throw new InvalidOperationException($"Unexpected result type from .avux processing: {result?.GetType().Name ?? "null"}");
             }
 
             // Clear password and encrypted data
