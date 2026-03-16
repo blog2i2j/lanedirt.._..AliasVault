@@ -11,14 +11,15 @@ using System.Text;
 using System.Text.Json;
 using AliasVault.Cryptography.Client;
 using AliasVault.Cryptography.Server;
+using AliasVault.ImportExport.Constants;
 using AliasVault.ImportExport.Models.Exports;
+using AliasVault.Shared.Core;
 
 /// <summary>
 /// Service for creating encrypted .avex export files.
 /// </summary>
 public static class VaultEncryptedExportService
 {
-    private const string HeaderDelimiter = "\n--- ENCRYPTED PAYLOAD FOLLOWS ---\n";
 
     /// <summary>
     /// Exports vault data to .avex (AliasVault Encrypted eXport) format.
@@ -60,8 +61,8 @@ public static class VaultEncryptedExportService
         // 4. Create the header
         var header = new AvexHeader
         {
-            Format = "avex",
-            Version = "1.0.0",
+            Format = AvexConstants.FormatIdentifier,
+            Version = AvexConstants.FormatVersion,
             Kdf = new KdfParams
             {
                 Type = Defaults.EncryptionType,
@@ -82,6 +83,7 @@ public static class VaultEncryptedExportService
             {
                 ExportedAt = DateTime.UtcNow,
                 ExportedBy = username,
+                AppVersion = AppInfo.GetFullVersion(),
             },
         };
 
@@ -94,7 +96,7 @@ public static class VaultEncryptedExportService
 
         var headerJson = JsonSerializer.Serialize(header, jsonOptions);
         var headerBytes = Encoding.UTF8.GetBytes(headerJson);
-        var delimiterBytes = Encoding.UTF8.GetBytes(HeaderDelimiter);
+        var delimiterBytes = Encoding.UTF8.GetBytes(AvexConstants.HeaderDelimiter);
 
         // 6. Calculate the offset where encrypted data begins
         header.Encryption.EncryptedDataOffset = headerBytes.Length + delimiterBytes.Length;

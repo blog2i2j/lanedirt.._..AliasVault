@@ -10,7 +10,9 @@ namespace AliasVault.Client.Services.Crypto;
 using System.Text;
 using System.Text.Json;
 using AliasVault.Client.Services.JsInterop;
+using AliasVault.ImportExport.Constants;
 using AliasVault.ImportExport.Models.Exports;
+using AliasVault.Shared.Core;
 
 /// <summary>
 /// Provides cryptographic operations for .avex encrypted vault export format.
@@ -18,7 +20,6 @@ using AliasVault.ImportExport.Models.Exports;
 /// </summary>
 public class AvexCryptoService
 {
-    private const string HeaderDelimiter = "\n--- ENCRYPTED PAYLOAD FOLLOWS ---\n";
     private readonly JsInteropService jsInteropService;
 
     /// <summary>
@@ -57,8 +58,8 @@ public class AvexCryptoService
         // 4. Create header
         var header = new AvexHeader
         {
-            Format = "avex",
-            Version = "1.0.0",
+            Format = AvexConstants.FormatIdentifier,
+            Version = AvexConstants.FormatVersion,
             Kdf = new KdfParams
             {
                 Type = AliasVault.Cryptography.Client.Defaults.EncryptionType, // Argon2Id
@@ -79,6 +80,7 @@ public class AvexCryptoService
             {
                 ExportedAt = DateTime.UtcNow,
                 ExportedBy = username,
+                AppVersion = AppInfo.GetFullVersion(),
             },
         };
 
@@ -91,7 +93,7 @@ public class AvexCryptoService
 
         var headerJson = JsonSerializer.Serialize(header, jsonOptions);
         var headerBytes = Encoding.UTF8.GetBytes(headerJson);
-        var delimiterBytes = Encoding.UTF8.GetBytes(HeaderDelimiter);
+        var delimiterBytes = Encoding.UTF8.GetBytes(AvexConstants.HeaderDelimiter);
 
         // 6. Calculate offset
         header.Encryption.EncryptedDataOffset = headerBytes.Length + delimiterBytes.Length;
@@ -121,9 +123,9 @@ public class AvexCryptoService
         var (header, payloadOffset) = ParseAvexHeader(avexBytes);
 
         // 2. Validate version
-        if (header.Version != "1.0.0")
+        if (header.Version != AvexConstants.FormatVersion)
         {
-            throw new InvalidOperationException($"Unsupported .avex version: {header.Version}");
+            throw new InvalidOperationException($"Unsupported .avex version: {header.Version}. Expected {AvexConstants.FormatVersion}.");
         }
 
         // 3. Extract encrypted payload
@@ -163,7 +165,7 @@ public class AvexCryptoService
     /// </summary>
     private static (AvexHeader Header, long PayloadOffset) ParseAvexHeader(byte[] avexBytes)
     {
-        var delimiterBytes = Encoding.UTF8.GetBytes(HeaderDelimiter);
+        var delimiterBytes = Encoding.UTF8.GetBytes(AvexConstants.HeaderDelimiter);
         var delimiterIndex = IndexOf(avexBytes, delimiterBytes);
 
         if (delimiterIndex == -1)
@@ -182,9 +184,9 @@ public class AvexCryptoService
 
         var header = JsonSerializer.Deserialize<AvexHeader>(headerJson, jsonOptions);
 
-        if (header == null || header.Format != "avex")
+        if (header == null || header.Format != AvexConstants.FormatIdentifier)
         {
-            throw new InvalidOperationException("Invalid .avex file: malformed header");
+            throw new InvalidOperationException($"Invalid .avex file: expected format '{AvexConstants.FormatIdentifier}', got '{header?.Format ?? "null"}'");
         }
 
         var payloadOffset = delimiterIndex + delimiterBytes.Length;

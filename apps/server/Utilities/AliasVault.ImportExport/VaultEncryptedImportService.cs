@@ -12,6 +12,7 @@ using System.Text;
 using System.Text.Json;
 using AliasVault.Cryptography.Client;
 using AliasVault.Cryptography.Server;
+using AliasVault.ImportExport.Constants;
 using AliasVault.ImportExport.Models.Exports;
 
 /// <summary>
@@ -19,7 +20,6 @@ using AliasVault.ImportExport.Models.Exports;
 /// </summary>
 public static class VaultEncryptedImportService
 {
-    private const string HeaderDelimiter = "\n--- ENCRYPTED PAYLOAD FOLLOWS ---\n";
 
     /// <summary>
     /// Checks if the provided file bytes represent an .avex encrypted export.
@@ -39,8 +39,8 @@ public static class VaultEncryptedImportService
             var headerLength = Math.Min(500, fileBytes.Length);
             var headerText = Encoding.UTF8.GetString(fileBytes, 0, headerLength);
 
-            return headerText.Contains("\"format\": \"avex\"") ||
-                   headerText.Contains("\"format\":\"avex\"");
+            return headerText.Contains($"\"format\": \"{AvexConstants.FormatIdentifier}\"") ||
+                   headerText.Contains($"\"format\":\"{AvexConstants.FormatIdentifier}\"");
         }
         catch
         {
@@ -70,9 +70,9 @@ public static class VaultEncryptedImportService
         var (header, payloadOffset) = ParseAvexHeader(avexBytes);
 
         // 2. Validate version
-        if (header.Version != "1.0.0")
+        if (header.Version != AvexConstants.FormatVersion)
         {
-            throw new InvalidOperationException($"Unsupported .avex version: {header.Version}. Expected 1.0.0.");
+            throw new InvalidOperationException($"Unsupported .avex version: {header.Version}. Expected {AvexConstants.FormatVersion}.");
         }
 
         // 3. Validate encryption algorithm
@@ -121,7 +121,7 @@ public static class VaultEncryptedImportService
     private static (AvexHeader Header, long PayloadOffset) ParseAvexHeader(byte[] avexBytes)
     {
         // Find the delimiter
-        var delimiterBytes = Encoding.UTF8.GetBytes(HeaderDelimiter);
+        var delimiterBytes = Encoding.UTF8.GetBytes(AvexConstants.HeaderDelimiter);
         var delimiterIndex = IndexOf(avexBytes, delimiterBytes);
 
         if (delimiterIndex == -1)
@@ -147,9 +147,9 @@ public static class VaultEncryptedImportService
             throw new InvalidOperationException("Invalid .avex file: failed to parse header JSON");
         }
 
-        if (header.Format != "avex")
+        if (header.Format != AvexConstants.FormatIdentifier)
         {
-            throw new InvalidOperationException($"Invalid .avex file: expected format 'avex', got '{header.Format}'");
+            throw new InvalidOperationException($"Invalid .avex file: expected format '{AvexConstants.FormatIdentifier}', got '{header.Format}'");
         }
 
         // Calculate payload offset

@@ -7,6 +7,8 @@
 
 namespace AliasVault.ImportExport.Models.Exports;
 
+using AliasVault.ImportExport.Constants;
+
 /// <summary>
 /// Represents the header for an .avex (encrypted export) file.
 /// </summary>
@@ -15,12 +17,12 @@ public class AvexHeader
     /// <summary>
     /// Gets or sets the file format identifier.
     /// </summary>
-    public string Format { get; set; } = "avex";
+    public string Format { get; set; } = AvexConstants.FormatIdentifier;
 
     /// <summary>
-    /// Gets or sets the format version.
+    /// Gets or sets the .avex container format version (not the app version).
     /// </summary>
-    public string Version { get; set; } = "1.0.0";
+    public string Version { get; set; } = AvexConstants.FormatVersion;
 
     /// <summary>
     /// Gets or sets the key derivation function parameters.
@@ -89,4 +91,10 @@ public class AvexMetadata
     /// Gets or sets the username who created the export.
     /// </summary>
     public string ExportedBy { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the AliasVault application version that created this export.
+    /// This helps with troubleshooting and understanding which version generated the export.
+    /// </summary>
+    public string? AppVersion { get; set; }
 }
