@@ -165,9 +165,9 @@
             return;
         }
 
-        // For encrypted export, show export password modal directly (no master password verification needed)
-        _exportPasswordError = string.Empty;
-        _showExportPasswordModal = true;
+        // For all export methods, require master password confirmation for security
+        _passwordError = string.Empty;
+        _showPasswordConfirmation = true;
         StateHasChanged();
     }
 
@@ -191,7 +191,17 @@
             {
                 case PasswordVerificationResult.Success:
                     GlobalLoadingSpinner.Hide();
-                    await HandleExportConfirmed();
+                    // For encrypted export, show export password modal after master password verification
+                    if (_currentExportType == ExportType.Avex)
+                    {
+                        _exportPasswordError = string.Empty;
+                        _showExportPasswordModal = true;
+                        StateHasChanged();
+                    }
+                    else
+                    {
+                        await HandleExportConfirmed();
+                    }
                     break;
 
                 case PasswordVerificationResult.InvalidPassword:
