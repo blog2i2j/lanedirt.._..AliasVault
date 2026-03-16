@@ -22,12 +22,29 @@ public class MinimumPasswordLengthAttribute : ValidationAttribute
     public MinimumPasswordLengthAttribute(int minimumLength)
     {
         MinimumLength = minimumLength;
+        DevelopmentMinimumLength = null;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MinimumPasswordLengthAttribute"/> class with different lengths for development and production.
+    /// </summary>
+    /// <param name="minimumLength">The minimum required password length for production.</param>
+    /// <param name="developmentMinimumLength">The minimum required password length for development.</param>
+    public MinimumPasswordLengthAttribute(int minimumLength, int developmentMinimumLength)
+    {
+        MinimumLength = minimumLength;
+        DevelopmentMinimumLength = developmentMinimumLength;
     }
 
     /// <summary>
     /// Gets the minimum required password length.
     /// </summary>
     public int MinimumLength { get; }
+
+    /// <summary>
+    /// Gets the minimum required password length for development environment (optional).
+    /// </summary>
+    public int? DevelopmentMinimumLength { get; }
 
     /// <inheritdoc />
     public override bool IsValid(object? value)
@@ -37,7 +54,7 @@ public class MinimumPasswordLengthAttribute : ValidationAttribute
             return false;
         }
 
-        return password.Length >= MinimumLength;
+        return password.Length >= GetEffectiveMinimumLength();
     }
 
     /// <inheritdoc />
@@ -48,11 +65,26 @@ public class MinimumPasswordLengthAttribute : ValidationAttribute
             return ValidationResult.Success;
         }
 
+        var effectiveMinLength = GetEffectiveMinimumLength();
+
         // Format the error message with the minimum password length
         var errorMessage = string.Format(
             ErrorMessage ?? "Password must be at least {0} characters long.",
-            MinimumLength);
+            effectiveMinLength);
 
         return new ValidationResult(errorMessage);
+    }
+
+    /// <summary>
+    /// Gets the effective minimum length based on the current environment.
+    /// </summary>
+    /// <returns>The minimum length to use for validation.</returns>
+    private int GetEffectiveMinimumLength()
+    {
+#if DEBUG
+        return DevelopmentMinimumLength ?? MinimumLength;
+#else
+        return MinimumLength;
+#endif
     }
 }

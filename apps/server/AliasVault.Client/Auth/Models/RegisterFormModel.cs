@@ -27,7 +27,7 @@ public class RegisterFormModel
     /// Gets or sets the password.
     /// </summary>
     [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordRequired))]
-    [MinimumPasswordLength(PasswordStrengthConstants.MinimumGoodPasswordLength, ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordMinLengthGeneric))]
+    [MinimumPasswordLength(PasswordStrengthConstants.MinimumGoodPasswordLength, 8, ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordMinLengthGeneric))]
     public string Password { get; set; } = null!;
 
     /// <summary>
