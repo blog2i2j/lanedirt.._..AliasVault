@@ -1104,18 +1104,80 @@
 
     /// <summary>
     /// Detects and removes duplicates from the import list, and also detects folders.
+    /// Duplicates are identified by matching title, folder path, username, password, and notes (when present).
+    /// For each field: if both items have values, they must match; if both are null/empty, they match; otherwise no match.
     /// </summary>
     private async Task DetectAndRemoveDuplicates()
     {
-        var existingItems = await ItemService.LoadAllAsync();
+        var context = await DbService.GetDbContextAsync();
+
+        // Load all items with folder navigation included
+        var existingItems = await context.Items
+            .Include(x => x.FieldValues.Where(fv => !fv.IsDeleted))
+                .ThenInclude(fv => fv.FieldDefinition)
+            .Include(x => x.Folder)
+            .Where(x => !x.IsDeleted && x.DeletedAt == null)
+            .ToListAsync();
+
         var duplicates = ImportedCredentials.Where(imported =>
             existingItems.Any(existing =>
-                existing.Name != null && existing.Name.Equals(imported.ServiceName, StringComparison.OrdinalIgnoreCase) &&
-                ItemService.GetFieldValue(existing, FieldKey.LoginUsername) != null &&
-                ItemService.GetFieldValue(existing, FieldKey.LoginUsername)!.Equals(imported.Username, StringComparison.OrdinalIgnoreCase) &&
-                ItemService.GetFieldValue(existing, FieldKey.LoginPassword) != null &&
-                ItemService.GetFieldValue(existing, FieldKey.LoginPassword)!.Equals(imported.Password, StringComparison.OrdinalIgnoreCase)
-            )).ToList();
+            {
+                // Title must match (case-insensitive)
+                if (existing.Name == null || !existing.Name.Equals(imported.ServiceName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                // Folder path must match (case-insensitive)
+                var existingFolderPath = existing.Folder?.Name ?? string.Empty;
+                var importedFolderPath = imported.FolderPath ?? string.Empty;
+                if (!existingFolderPath.Equals(importedFolderPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                // Helper function to compare nullable fields
+                bool FieldsMatch(string? existingValue, string? importedValue)
+                {
+                    bool existingHasValue = !string.IsNullOrEmpty(existingValue);
+                    bool importedHasValue = !string.IsNullOrEmpty(importedValue);
+
+                    // If both have values, they must match (case-insensitive)
+                    if (existingHasValue && importedHasValue)
+                    {
+                        return existingValue!.Equals(importedValue, StringComparison.OrdinalIgnoreCase);
+                    }
+
+                    // If both are empty/null, they match
+                    if (!existingHasValue && !importedHasValue)
+                    {
+                        return true;
+                    }
+
+                    // If only one has a value, they don't match
+                    return false;
+                }
+
+                // Username must match
+                if (!FieldsMatch(ItemService.GetFieldValue(existing, FieldKey.LoginUsername), imported.Username))
+                {
+                    return false;
+                }
+
+                // Password must match
+                if (!FieldsMatch(ItemService.GetFieldValue(existing, FieldKey.LoginPassword), imported.Password))
+                {
+                    return false;
+                }
+
+                // Notes must match
+                if (!FieldsMatch(ItemService.GetFieldValue(existing, FieldKey.NotesContent), imported.Notes))
+                {
+                    return false;
+                }
+
+                return true;
+            })).ToList();
 
         DuplicateCredentialsCount = duplicates.Count;
 
