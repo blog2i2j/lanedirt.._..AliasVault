@@ -117,7 +117,7 @@ public class ImportExportTests
             Assert.That(aliasVaultCredential.Password, Is.EqualTo("toor"));
         });
 
-        // Test entry with multiple URLs (TutaNota3)
+        // Test entry with multiple URLs (TutaNota3) and URL-encoded TOTP URI
         var multiUrlCredential = importedCredentials.First(c => c.ServiceName == "TutaNota3");
         Assert.Multiple(() =>
         {
@@ -127,6 +127,7 @@ public class ImportExportTests
             Assert.That(multiUrlCredential.ServiceUrls[1], Is.EqualTo("https://app.aliasvault.net"));
             Assert.That(multiUrlCredential.ServiceUrls[2], Is.EqualTo("https://downloads.aliasvault.net"));
             Assert.That(multiUrlCredential.Username, Is.EqualTo("avtest3@tutamail.com"));
+            Assert.That(multiUrlCredential.TwoFactorSecret, Is.EqualTo("otpauth://totp/Test%20name%3Atest%40test.org?secret=PLW4SB3PQ7MKVXY2MXF4NEXS6Y&issuer=Alias%20Vault"));
         });
 
         // Verify multiple URLs get converted to multiple FieldValues
@@ -141,6 +142,15 @@ public class ImportExportTests
             Assert.That(urlFieldValues[0].Weight, Is.EqualTo(0));
             Assert.That(urlFieldValues[1].Weight, Is.EqualTo(1));
             Assert.That(urlFieldValues[2].Weight, Is.EqualTo(2));
+        });
+
+        // Verify TOTP code name is properly URL-decoded when converting from otpauth URI
+        var multiUrlItemTotpCode = multiUrlItem.TotpCodes.FirstOrDefault();
+        Assert.That(multiUrlItemTotpCode, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            Assert.That(multiUrlItemTotpCode!.SecretKey, Is.EqualTo("PLW4SB3PQ7MKVXY2MXF4NEXS6Y"));
+            Assert.That(multiUrlItemTotpCode.Name, Is.EqualTo("Alias Vault: Test name:test@test.org"), "TOTP name should be URL-decoded from the otpauth URI");
         });
     }
 
