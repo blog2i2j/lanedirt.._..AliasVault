@@ -182,8 +182,8 @@ Are you sure you want to continue?</value>
     <value>Choose a strong, unique password to encrypt this export. This password is required to decrypt the export. If you lose this password, you will not be able to recover the exported data.</value>
     <comment>Description for export password modal with security warning</comment>
   </data>
-  <data name="ExportEncryptedSuccessMessage" xml:space="preserve">
-    <value>Your encrypted vault has been exported successfully.</value>
-    <comment>Success message after encrypted export completes</comment>
+  <data name="ExportSuccessMessage" xml:space="preserve">
+    <value>Your vault has been exported successfully.</value>
+    <comment>Success message after vault export completes</comment>
   </data>
 </root>

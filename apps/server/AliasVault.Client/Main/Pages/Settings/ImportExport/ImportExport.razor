@@ -286,6 +286,8 @@
                 // Invoke JavaScript to initiate the download with date and username in filename
                 await JsInteropService.DownloadFileFromStream($"{await GetExportFileName("csv")}", memoryStream.ToArray());
             }
+
+            GlobalNotificationService.AddSuccessMessage(Localizer["ExportSuccessMessage"], true);
         }
         catch (Exception ex)
         {
@@ -303,6 +305,8 @@
             await JsInteropService.DownloadFileFromStream(
                 $"{await GetExportFileName("avux")}",
                 avuxBytes);
+
+            GlobalNotificationService.AddSuccessMessage(Localizer["ExportSuccessMessage"], true);
         }
         catch (Exception ex)
         {
@@ -392,9 +396,7 @@
                 $"{await GetExportFileName("avex")}",
                 avexBytes);
 
-            GlobalNotificationService.AddSuccessMessage(
-                Localizer["ExportEncryptedSuccessMessage"],
-                true);
+            GlobalNotificationService.AddSuccessMessage(Localizer["ExportSuccessMessage"], true);
         }
         catch (Exception ex)
         {
