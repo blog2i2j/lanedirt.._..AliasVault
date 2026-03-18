@@ -295,10 +295,10 @@
     /// <summary>
     /// The callback for processing files (accepts filename and bytes).
     /// This callback should determine whether to process as text or binary based on the file extension.
-    /// Returns either a List&lt;ImportedCredential&gt; or an AvuxImportResult for .avux files.
+    /// Returns a List&lt;ImportedCredential&gt; with optional FaviconBytes embedded for .avux files.
     /// </summary>
     [Parameter]
-    public Func<string, byte[], Task<object>>? ProcessFileCallback { get; set; }
+    public Func<string, byte[], Task<List<ImportedCredential>>>? ProcessFileCallback { get; set; }
 
     /// <summary>
     /// Gets or sets the accepted file types (e.g., ".csv", ".avux").
@@ -346,10 +346,6 @@
     private byte[]? _pendingAvexBytes;
     private string? _pendingAvexFilename;
     private bool _requiresPassword = false;
-
-    // Fields for .avux import handling
-    private bool IsAvuxImport { get; set; } = false;
-    private Dictionary<Guid, (string Source, byte[] FileData)> AvuxLogos { get; set; } = new();
 
     /// <summary>
     /// Sets the imported credentials and continues to the preview step.
@@ -499,18 +495,7 @@
 
             // Process via the normal file handler as if it was an .avux upload
             // This ensures consistent handling and avoids EF tracking issues
-            var result = await ProcessFileCallback!("decrypted.avux", avuxBytes);
-
-            if (result is List<ImportedCredential> credentials)
-            {
-                IsAvuxImport = false;
-                AvuxLogos = new();
-                ImportedCredentials = credentials;
-            }
-            else
-            {
-                throw new InvalidOperationException($"Unexpected result type from .avux processing: {result?.GetType().Name ?? "null"}");
-            }
+            ImportedCredentials = await ProcessFileCallback!("decrypted.avux", avuxBytes);
 
             // Clear password and encrypted data
             _decryptionPassword = string.Empty;
@@ -981,27 +966,7 @@
             var delayTask = Task.Delay(500);
             await Task.WhenAll(processingTask, delayTask);
 
-            var result = await processingTask;
-
-            // Handle different result types
-            if (result is AvuxImportResult avuxResult)
-            {
-                // .avux file with logos
-                IsAvuxImport = true;
-                AvuxLogos = avuxResult.Logos;
-                ImportedCredentials = avuxResult.Credentials;
-            }
-            else if (result is List<ImportedCredential> credentials)
-            {
-                // Regular import
-                IsAvuxImport = false;
-                AvuxLogos = new();
-                ImportedCredentials = credentials;
-            }
-            else
-            {
-                throw new InvalidOperationException($"Unexpected result type: {result?.GetType().Name ?? "null"}");
-            }
+            ImportedCredentials = await processingTask;
 
             // If password is required, the callback will handle setting the step to PasswordInput
             // So we only proceed to preview if no password is required
