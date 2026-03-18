@@ -60,10 +60,6 @@
   </resheader>
 
   <!-- Password validation messages -->
-  <data name="PasswordMinLength" xml:space="preserve">
-    <value>The new password must be at least {0} characters long.</value>
-    <comment>Error message for password minimum length validation. {0} is the minimum password length.</comment>
-  </data>
   <data name="PasswordsDoNotMatch" xml:space="preserve">
     <value>The new passwords do not match.</value>
     <comment>Error message when password confirmation doesn't match</comment>

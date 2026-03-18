@@ -285,7 +285,7 @@ public abstract class ClientPlaywrightTest : PlaywrightTest
             formValues["email"] = localPart;
         }
 
-        // Check if notes field is specified. For Login items, notes is now a separate section that needs to be added.
+        // Check if notes field is specified, if so, add it as a separate section.
         if (formValues != null && formValues.ContainsKey("notes") && !string.IsNullOrEmpty(formValues["notes"]))
         {
             // Add the Notes section via the + menu

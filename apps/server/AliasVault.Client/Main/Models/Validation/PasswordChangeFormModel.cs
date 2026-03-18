@@ -28,7 +28,7 @@ public class PasswordChangeFormModel : PasswordChangeModel
     /// Gets or sets the new password.
     /// </summary>
     [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordRequired))]
-    [MinimumPasswordLength(PasswordStrengthConstants.MinimumGoodPasswordLength, ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordMinLength))]
+    [MinimumPasswordLength(PasswordStrengthConstants.MinimumGoodPasswordLength, ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordMinLengthGeneric))]
     public new string NewPassword { get; set; } = null!;
 
     /// <summary>
