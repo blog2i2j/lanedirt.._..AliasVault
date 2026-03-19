@@ -35,6 +35,11 @@ using Microsoft.EntityFrameworkCore;
 public class TestVaultGeneratorTests : BrowserExtensionPlaywrightTest
 {
     /// <summary>
+    /// Gets the test password used for .avex encryption.
+    /// </summary>
+    private const string TestAvexPassword = "testexportpass123";
+
+    /// <summary>
     /// Gets or sets user email (override).
     /// </summary>
     protected override string TestUserUsername { get; set; } = "testvault@example.local";
@@ -176,13 +181,13 @@ public class TestVaultGeneratorTests : BrowserExtensionPlaywrightTest
     }
 
     /// <summary>
-    /// Creates a comprehensive test vault with all item types and exports it to .avux format.
-    /// This test should be run manually when you need to generate a new .avux test file.
-    /// The generated .avux file can be used for backward compatibility testing.
+    /// Creates a test vault with all item types and exports it to .avux/.avex format.
+    /// This test should be run manually when you need to generate a new .avux/.avex test file.
+    /// The generated .avux and .avex files can be used for backward compatibility testing.
     /// </summary>
     /// <returns>Async task.</returns>
     [Test]
-    public async Task GenerateComprehensiveAvuxTestFile()
+    public async Task GenerateAvuxAvexTestFile()
     {
         // 1. Create a basic login credential
         await CreateItemEntry(new Dictionary<string, string>
@@ -190,7 +195,7 @@ public class TestVaultGeneratorTests : BrowserExtensionPlaywrightTest
             { "service-name", "Basic Login Test" },
             { "username", "testuser" },
             { "password", "testpassword123" },
-            { "service-url-0", "https://example.com" },
+            { "service-url-0", "https://google.com" },
             { "notes", "This is a test note for basic login" },
         });
 
@@ -373,17 +378,21 @@ public class TestVaultGeneratorTests : BrowserExtensionPlaywrightTest
         await NavigateUsingBlazorRouter("settings/import-export");
         await WaitForUrlAsync("settings/import-export", "Import / Export");
 
-        // Click the "Export Full Vault (.avux)" button
-        var exportButton = Page.Locator("button").Filter(new() { HasText = "Export Full Vault (.avux)" });
+        // Click the "Export unencrypted vault (.avux)" button
+        var exportButton = Page.Locator("button").Filter(new() { HasText = "Export unencrypted vault (.avux)" });
         await exportButton.ClickAsync();
 
-        // Confirm the export warning
-        await Page.WaitForSelectorAsync("button:has-text('Confirm')");
+        // Confirm the export warning in the confirmation modal
+        await Page.WaitForSelectorAsync("button:has-text('Confirm')", new() { State = WaitForSelectorState.Visible });
         await Page.ClickAsync("button:has-text('Confirm')");
 
+        // Wait for the password confirmation modal to appear
+        await Page.WaitForSelectorAsync("input[type='password']", new() { State = WaitForSelectorState.Visible });
+
         // Enter password for verification
-        await Page.WaitForSelectorAsync("input[type='password']");
         await Page.FillAsync("input[type='password']", TestUserPassword);
+
+        // Click the confirm button in the password modal
         await Page.ClickAsync("button:has-text('Confirm')");
 
         // Wait for download
@@ -409,8 +418,57 @@ public class TestVaultGeneratorTests : BrowserExtensionPlaywrightTest
         var testDataAvuxPath = Path.Combine(testDataDir, "TestVault.avux");
         File.Copy(avuxFilePath, testDataAvuxPath, overwrite: true);
 
-        Console.WriteLine("\n=== AVUX TEST FILE GENERATION COMPLETE ===");
-        Console.WriteLine("A .avux file has been generated with the following items:");
+        // Now export the same vault as .avex (encrypted)
+        Console.WriteLine("\n=== Starting .avex (encrypted) export ===");
+
+        // Navigate back to import/export page
+        await Page.BringToFrontAsync();
+        await NavigateUsingBlazorRouter("settings/import-export");
+        await WaitForUrlAsync("settings/import-export", "Import / Export");
+
+        // Click the "Export encrypted vault (.avex)" button
+        var exportAvexButton = Page.Locator("button").Filter(new() { HasText = "Export encrypted vault (.avex)" });
+        await exportAvexButton.ClickAsync();
+
+        // Confirm the export warning in the confirmation modal
+        await Page.WaitForSelectorAsync("button:has-text('Confirm')", new() { State = WaitForSelectorState.Visible });
+        await Page.ClickAsync("button:has-text('Confirm')");
+
+        // Wait for the master password confirmation modal to appear
+        await Page.WaitForSelectorAsync("input[type='password']", new() { State = WaitForSelectorState.Visible });
+
+        // Enter master password for verification
+        await Page.FillAsync("input[type='password']", TestUserPassword);
+
+        // Click the confirm button in the master password modal
+        await Page.ClickAsync("button:has-text('Confirm')");
+
+        // Wait for the export password modal to appear
+        await Page.WaitForSelectorAsync("input#exportPassword", new() { State = WaitForSelectorState.Visible, Timeout = 10000 });
+
+        // Enter export password
+        await Page.FillAsync("input#exportPassword", TestAvexPassword);
+
+        // Enter export password confirmation
+        await Page.FillAsync("input#confirmExportPassword", TestAvexPassword);
+
+        // Click the "Create Encrypted Export" button in the export password modal
+        await Page.ClickAsync("button:has-text('Create Encrypted Export')");
+
+        // Wait for download
+        var avexDownloadPromise = Page.WaitForDownloadAsync();
+        var avexDownload = await avexDownloadPromise;
+
+        // Save .avex to output directory
+        var avexFilePath = Path.Combine(vaultOutputDir, "TestVault.avex");
+        await avexDownload.SaveAsAsync(avexFilePath);
+
+        // Also save to TestData directory
+        var testDataAvexPath = Path.Combine(testDataDir, "TestVault.avex");
+        File.Copy(avexFilePath, testDataAvexPath, overwrite: true);
+
+        Console.WriteLine("\n=== AVUX AND AVEX TEST FILE GENERATION COMPLETE ===");
+        Console.WriteLine("Both .avux and .avex files have been generated with the following items:");
         Console.WriteLine("1. Basic Login Test - basic login credential with username, password, URL, notes");
         Console.WriteLine("2. Login with 2FA - login with TOTP/2FA enabled");
         Console.WriteLine("3. Login with Attachment - login with file attachment");
@@ -419,11 +477,16 @@ public class TestVaultGeneratorTests : BrowserExtensionPlaywrightTest
         Console.WriteLine("6. Multi-URL Login - credential with multiple URLs");
         Console.WriteLine("7. Credential in Folder - credential organized in 'Test Folder'");
         Console.WriteLine("\nFiles saved to:");
-        Console.WriteLine($"  - Output directory: {avuxFilePath}");
-        Console.WriteLine($"  - TestData directory: {testDataAvuxPath}");
-        Console.WriteLine("\nThis .avux file can now be used for:");
+        Console.WriteLine($"  - Output directory (.avux): {avuxFilePath}");
+        Console.WriteLine($"  - Output directory (.avex): {avexFilePath}");
+        Console.WriteLine($"  - TestData directory (.avux): {testDataAvuxPath}");
+        Console.WriteLine($"  - TestData directory (.avex): {testDataAvexPath}");
+        Console.WriteLine("\nTest Credentials:");
+        Console.WriteLine($"  - Master Password: {TestUserPassword}");
+        Console.WriteLine($"  - .avex Export Password: {TestAvexPassword}");
+        Console.WriteLine("\nThese files can now be used for:");
         Console.WriteLine("  - Backward compatibility testing");
-        Console.WriteLine("  - CI/CD automated import tests");
+        Console.WriteLine("  - CI/CD automated import tests (.avux unencrypted, .avex encrypted)");
         Console.WriteLine("  - Validation that old exports work with new versions");
 
         // Open file explorer at the output location

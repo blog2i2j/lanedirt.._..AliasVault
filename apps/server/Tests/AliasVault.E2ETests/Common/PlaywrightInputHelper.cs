@@ -88,6 +88,21 @@ public class PlaywrightInputHelper(IPage page)
             // If fieldValues dictionary is provided and the inputId is found in it, fill the input with the value.
             if (inputId is not null && fieldValues is not null && fieldValues.TryGetValue(inputId, out var fieldValue))
             {
+                // For service-url fields, check if the input already contains a prefilled "https://"
+                // If it does, and our value also starts with "https://", clear the field first to avoid "https://https://..." duplication
+                // Playwright's FillAsync doesn't clear the field by default if there's already a value
+                if (inputId.StartsWith("service-url-"))
+                {
+                    var currentValue = await input.InputValueAsync();
+
+                    // If the current value is just "https://" (the prefill) and our value starts with "https://",
+                    // we need to clear first, otherwise FillAsync appends and we get "https://https://..."
+                    if (!string.IsNullOrEmpty(currentValue) && currentValue == "https://" && fieldValue.StartsWith("https://"))
+                    {
+                        await input.ClearAsync();
+                    }
+                }
+
                 await input.FillAsync(fieldValue);
             }
         }
