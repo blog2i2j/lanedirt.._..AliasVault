@@ -3,6 +3,7 @@
 @inject ItemService ItemService
 @inject ILogger<ImportExport> Logger
 @inject ConfirmModalService ConfirmModalService
+@inject AliasVault.Client.Services.Crypto.AvexCryptoService AvexCrypto
 @using Microsoft.Extensions.Localization
 @using AliasVault.RazorComponents.Services
 @using AliasVault.Client.Main.Pages.Settings.ImportExport.Components
@@ -10,6 +11,8 @@
 @using AliasVault.Client.Services.Auth
 @using AliasVault.Client.Services.Auth.Enums
 @using AliasVault.ImportExport
+@using Microsoft.EntityFrameworkCore
+@using AliasClientDb
 
 <LayoutPageTitle>@Localizer["PageTitle"]</LayoutPageTitle>
 
@@ -25,6 +28,7 @@
         @((MarkupString)Localizer["ImportSectionDescription"].Value)
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <ImportServiceAliasVault />
         <ImportService1Password />
         <ImportServiceBitwarden />
         <ImportServiceChrome />
@@ -40,22 +44,51 @@
         <ImportServiceProtonPass />
         <ImportServiceRoboform />
         <ImportServiceStrongbox />
-        <ImportServiceAliasVault />
         <ImportServiceGenericCsv />
     </div>
 </div>
 
 <div class="p-4 mx-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
     <h3 class="mb-4 text-xl font-semibold dark:text-white">@Localizer["ExportSectionTitle"]</h3>
-    <div class="mb-4">
-        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            @Localizer["ExportSectionDescription"]
-        </p>
-        <div>
-            <Button OnClick="@(() => ShowExportConfirmation(ExportType.Csv))">@Localizer["ExportCsvButton"]</Button>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+        @Localizer["ExportSectionDescription"]
+    </p>
+
+    <div class="space-y-3">
+        <!-- Encrypted Export (.avex) - Recommended -->
+        <div class="flex items-center justify-between p-3 border-2 border-orange-200 dark:border-orange-800 rounded-lg bg-orange-50 dark:bg-orange-900/20">
+            <div class="flex-1 min-w-0 mr-4">
+                <div class="flex items-center gap-2 mb-1">
+                    <h4 class="text-sm font-semibold text-gray-900 dark:text-white">@Localizer["ExportAvexTitle"]</h4>
+                    <span class="px-1.5 py-0.5 text-xs font-medium text-orange-700 dark:text-orange-300 bg-orange-100 dark:bg-orange-900 rounded">@Localizer["RecommendedLabel"]</span>
+                </div>
+                <p class="text-xs text-gray-600 dark:text-gray-300">
+                    @Localizer["ExportAvexDescription"]
+                </p>
+            </div>
+            <Button OnClick="@(() => ShowExportEncryptedConfirmation())">@Localizer["ExportAvexButton"]</Button>
         </div>
-        <div class="mt-6">
-            <Button OnClick="@(() => ShowExportConfirmation(ExportType.Sqlite))">@Localizer["ExportSqliteButton"]</Button>
+
+        <!-- Unencrypted Export (.avux) -->
+        <div class="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+            <div class="flex-1 min-w-0 mr-4">
+                <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-1">@Localizer["ExportAvuxTitle"]</h4>
+                <p class="text-xs text-gray-600 dark:text-gray-300">
+                    @Localizer["ExportAvuxDescription"]
+                </p>
+            </div>
+            <Button OnClick="@(() => ShowExportConfirmation(ExportType.Avux))">@Localizer["ExportAvuxButton"]</Button>
+        </div>
+
+        <!-- CSV Export -->
+        <div class="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+            <div class="flex-1 min-w-0 mr-4">
+                <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-1">@Localizer["ExportCsvTitle"]</h4>
+                <p class="text-xs text-gray-600 dark:text-gray-300">
+                    @Localizer["ExportCsvDescription"]
+                </p>
+            </div>
+            <Button OnClick="@(() => ShowExportConfirmation(ExportType.Csv))">@Localizer["ExportCsvButton"]</Button>
         </div>
     </div>
 </div>
@@ -70,17 +103,28 @@
     OnPasswordSubmitted="@HandlePasswordSubmitted"
     OnClose="@ClosePasswordConfirmation" />
 
+<ExportPasswordModal
+    IsOpen="@_showExportPasswordModal"
+    Title="@Localizer["ExportEncryptedPasswordTitle"]"
+    Description="@Localizer["ExportEncryptedPasswordDescription"]"
+    ErrorMessage="@_exportPasswordError"
+    OnPasswordSubmitted="@HandleExportPasswordSubmitted"
+    OnClose="@CloseExportPasswordModal" />
+
 @code {
     private string _username = string.Empty;
     private bool _showPasswordConfirmation;
     private string _passwordError = string.Empty;
+    private bool _showExportPasswordModal;
+    private string _exportPasswordError = string.Empty;
     private IStringLocalizer Localizer => LocalizerFactory.Create("Pages.Main.Settings.ImportExport.ImportExport", "AliasVault.Client");
     private ExportType _currentExportType;
 
     private enum ExportType
     {
         Csv,
-        Sqlite
+        Avux,
+        Avex
     }
 
     /// <inheritdoc />
@@ -110,6 +154,23 @@
         StateHasChanged();
     }
 
+    private async Task ShowExportEncryptedConfirmation()
+    {
+        _currentExportType = ExportType.Avex;
+        var confirmMessage = Localizer["ExportEncryptedWarningMessage"];
+
+        var result = await ConfirmModalService.ShowConfirmation(Localizer["ExportConfirmTitle"], confirmMessage, SharedLocalizer["Confirm"], SharedLocalizer["Cancel"]);
+        if (!result)
+        {
+            return;
+        }
+
+        // For all export methods, require master password confirmation for security
+        _passwordError = string.Empty;
+        _showPasswordConfirmation = true;
+        StateHasChanged();
+    }
+
     /// <summary>
     /// Handles the password submission - verifies password and proceeds with export.
     /// </summary>
@@ -130,7 +191,17 @@
             {
                 case PasswordVerificationResult.Success:
                     GlobalLoadingSpinner.Hide();
-                    await HandleExportConfirmed();
+                    // For encrypted export, show export password modal after master password verification
+                    if (_currentExportType == ExportType.Avex)
+                    {
+                        _exportPasswordError = string.Empty;
+                        _showExportPasswordModal = true;
+                        StateHasChanged();
+                    }
+                    else
+                    {
+                        await HandleExportConfirmed();
+                    }
                     break;
 
                 case PasswordVerificationResult.InvalidPassword:
@@ -169,6 +240,23 @@
         StateHasChanged();
     }
 
+    private async Task HandleExportPasswordSubmitted(string exportPassword)
+    {
+        // Close modal first
+        _showExportPasswordModal = false;
+        _exportPasswordError = string.Empty;
+        StateHasChanged();
+
+        await ExportVaultAvex(exportPassword);
+    }
+
+    private void CloseExportPasswordModal()
+    {
+        _showExportPasswordModal = false;
+        _exportPasswordError = string.Empty;
+        StateHasChanged();
+    }
+
     private async Task HandleExportConfirmed()
     {
         switch (_currentExportType)
@@ -176,29 +264,11 @@
             case ExportType.Csv:
                 await ExportVaultCsv();
                 break;
-            case ExportType.Sqlite:
-                await ExportVaultSqlite();
+            case ExportType.Avux:
+                await ExportVaultAvux();
                 break;
-        }
-    }
-
-    private async Task ExportVaultSqlite()
-    {
-        try
-        {
-            // Decode the base64 string to a byte array.
-            byte[] fileBytes = Convert.FromBase64String(await DbService.ExportSqliteToBase64Async());
-
-            // Create a memory stream from the byte array.
-            using (MemoryStream memoryStream = new MemoryStream(fileBytes))
-            {
-                // Invoke JavaScript to initiate the download.
-                await JsInteropService.DownloadFileFromStream($"{await GetExportFileName("sqlite")}", memoryStream.ToArray());
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error downloading file");
+            case ExportType.Avex:
+                break;
         }
     }
 
@@ -216,10 +286,128 @@
                 // Invoke JavaScript to initiate the download with date and username in filename
                 await JsInteropService.DownloadFileFromStream($"{await GetExportFileName("csv")}", memoryStream.ToArray());
             }
+
+            GlobalNotificationService.AddSuccessMessage(Localizer["ExportSuccessMessage"], true);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error downloading file");
+        }
+    }
+
+    private async Task ExportVaultAvux()
+    {
+        GlobalLoadingSpinner.Show(Localizer["ExportingVaultMessage"]);
+        try
+        {
+            var avuxBytes = await GenerateAvuxBytesAsync();
+
+            await JsInteropService.DownloadFileFromStream(
+                $"{await GetExportFileName("avux")}",
+                avuxBytes);
+
+            GlobalNotificationService.AddSuccessMessage(Localizer["ExportSuccessMessage"], true);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error exporting vault to .avux format");
+            GlobalNotificationService.AddErrorMessage(
+                SharedLocalizer["ErrorGeneric"],
+                true);
+        }
+        finally
+        {
+            GlobalLoadingSpinner.Hide();
+        }
+    }
+
+    /// <summary>
+    /// Generates .avux bytes from the current vault data.
+    /// This is used by both .avux export (unencrypted) and .avex export (encrypted).
+    /// </summary>
+    private async Task<byte[]> GenerateAvuxBytesAsync()
+    {
+        var context = await DbService.GetDbContextAsync();
+
+        // Load all vault entities with their related data
+        var items = await context.Items
+            .Where(i => !i.IsDeleted && i.DeletedAt == null)
+            .Include(i => i.FieldValues)
+            .Include(i => i.Attachments)
+            .Include(i => i.TotpCodes)
+            .Include(i => i.Passkeys)
+            .ToListAsync();
+
+        var folders = await context.Folders
+            .Where(f => !f.IsDeleted)
+            .ToListAsync();
+
+        var tags = await context.Tags
+            .Where(t => !t.IsDeleted)
+            .ToListAsync();
+
+        var itemTags = await context.ItemTags
+            .Where(it => !it.IsDeleted)
+            .ToListAsync();
+
+        var fieldDefinitions = await context.FieldDefinitions
+            .Where(fd => !fd.IsDeleted)
+            .ToListAsync();
+
+        // Get unique logo IDs from items
+        var logoIds = items
+            .Where(i => i.LogoId.HasValue)
+            .Select(i => i.LogoId!.Value)
+            .Distinct()
+            .ToList();
+
+        // Load logos used by items
+        var logos = await context.Logos
+            .Where(l => !l.IsDeleted && logoIds.Contains(l.Id))
+            .ToListAsync();
+
+        var username = await GetUsernameAsync();
+
+        // Export to .avux format
+        return await VaultExportService.ExportToAvuxAsync(
+            items,
+            folders,
+            tags,
+            itemTags,
+            fieldDefinitions,
+            logos,
+            username);
+    }
+
+    private async Task ExportVaultAvex(string exportPassword)
+    {
+        GlobalLoadingSpinner.Show(Localizer["ExportingVaultMessage"]);
+        try
+        {
+            var avuxBytes = await GenerateAvuxBytesAsync();
+
+            var username = await GetUsernameAsync();
+            var avexBytes = await AvexCrypto.EncryptToAvexAsync(
+                avuxBytes,
+                exportPassword,
+                username);
+
+            await JsInteropService.DownloadFileFromStream(
+                $"{await GetExportFileName("avex")}",
+                avexBytes);
+
+            GlobalNotificationService.AddSuccessMessage(Localizer["ExportSuccessMessage"], true);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error exporting vault to .avex format");
+            GlobalNotificationService.AddErrorMessage(
+                SharedLocalizer["ErrorGeneric"],
+                true);
+        }
+        finally
+        {
+            GlobalLoadingSpinner.Hide();
         }
     }
 

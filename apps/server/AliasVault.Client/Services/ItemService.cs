@@ -182,16 +182,14 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
 
         var currentDateTime = DateTime.UtcNow;
         item.Id = Guid.NewGuid();
-        item.CreatedAt = currentDateTime;
-        item.UpdatedAt = currentDateTime;
+        SetInsertTimestamps(item, currentDateTime);
 
         // Set timestamps on all field values and their FieldDefinitions
         foreach (var fv in item.FieldValues)
         {
             fv.Id = Guid.NewGuid();
             fv.ItemId = item.Id;
-            fv.CreatedAt = currentDateTime;
-            fv.UpdatedAt = currentDateTime;
+            SetInsertTimestamps(fv, currentDateTime);
 
             // If this field value has a new FieldDefinition (custom field), ensure its timestamps are set
             if (fv.FieldDefinition != null)
@@ -215,16 +213,21 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
         foreach (var attachment in item.Attachments)
         {
             attachment.ItemId = item.Id;
-            attachment.CreatedAt = currentDateTime;
-            attachment.UpdatedAt = currentDateTime;
+            SetInsertTimestamps(attachment, currentDateTime);
         }
 
         // Set timestamps on TOTP codes
         foreach (var totpCode in item.TotpCodes)
         {
             totpCode.ItemId = item.Id;
-            totpCode.CreatedAt = currentDateTime;
-            totpCode.UpdatedAt = currentDateTime;
+            SetInsertTimestamps(totpCode, currentDateTime);
+        }
+
+        // Set timestamps on passkeys
+        foreach (var passkey in item.Passkeys)
+        {
+            passkey.ItemId = item.Id;
+            SetInsertTimestamps(passkey, currentDateTime);
         }
 
         // Create history records for fields with EnableHistory=true
@@ -1281,96 +1284,6 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
     }
 
     /// <summary>
-    /// Extract favicon from service URL if available. If successful, links the item to the logo.
-    /// Checks for existing logo first to avoid unnecessary API calls (deduplication).
-    /// If URL is empty or just the placeholder, clears any existing logo from the item.
-    /// </summary>
-    /// <param name="item">The Item to extract the favicon for.</param>
-    /// <returns>Task.</returns>
-    private async Task ExtractFaviconAsync(Item item)
-    {
-        // Try to extract favicon from service URL
-        var url = GetFieldValue(item, FieldKey.LoginUrl);
-        if (url != null && !string.IsNullOrEmpty(url) && url != DefaultServiceUrl)
-        {
-            try
-            {
-                // Extract and normalize domain for deduplication
-                var domain = new Uri(url).Host.ToLowerInvariant();
-                if (domain.StartsWith("www."))
-                {
-                    domain = domain[4..];
-                }
-
-                var context = await dbService.GetDbContextAsync();
-
-                // Check if logo already exists for this source (deduplication)
-                var existingLogo = await context.Logos.FirstOrDefaultAsync(l => l.Source == domain);
-
-                if (existingLogo != null)
-                {
-                    // Reuse existing logo - no need to fetch
-                    item.LogoId = existingLogo.Id;
-                    return;
-                }
-
-                // No existing logo - fetch from API
-                var apiReturn = await httpClient.GetFromJsonAsync<FaviconExtractModel>($"v1/Favicon/Extract?url={Uri.EscapeDataString(url)}");
-                if (apiReturn?.Image is not null)
-                {
-                    // Create new logo
-                    var newLogo = new Logo
-                    {
-                        Id = Guid.NewGuid(),
-                        Source = domain,
-                        FileData = apiReturn.Image,
-                        MimeType = "image/png",
-                        FetchedAt = DateTime.UtcNow,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow,
-                    };
-                    context.Logos.Add(newLogo);
-                    item.LogoId = newLogo.Id;
-                }
-            }
-            catch
-            {
-                // Ignore favicon extraction errors
-            }
-        }
-        else
-        {
-            // URL is empty or just the placeholder - clear any existing logo
-            item.LogoId = null;
-        }
-    }
-
-    /// <summary>
-    /// Gets the effective identity generator language to use.
-    /// If user has explicitly set a language preference, use that.
-    /// Otherwise, intelligently match the UI language to an available identity generator language.
-    /// Falls back to "en" if no match is found.
-    /// </summary>
-    /// <returns>The identity generator language code to use.</returns>
-    private async Task<string> GetEffectiveIdentityLanguageAsync()
-    {
-        var explicitLanguage = dbService.Settings.DefaultIdentityLanguage;
-
-        // If user has explicitly set a language preference, use it
-        if (!string.IsNullOrWhiteSpace(explicitLanguage))
-        {
-            return explicitLanguage;
-        }
-
-        // Otherwise, try to match UI language to an identity generator language
-        var uiLanguage = dbService.Settings.AppLanguage;
-        var mappedLanguage = await jsInteropService.MapUiLanguageToIdentityLanguageAsync(uiLanguage);
-
-        // Return the mapped language, or fall back to "en" if no match found
-        return mappedLanguage ?? "en";
-    }
-
-    /// <summary>
     /// Track field history for fields with EnableHistory=true.
     /// Compares old values with new values and creates history records.
     ///
@@ -1384,9 +1297,7 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
     /// <param name="newItem">The new item with updated field values.</param>
     /// <param name="updateDateTime">The timestamp for updates.</param>
     /// <returns>Task.</returns>
-#pragma warning disable SA1204 // Static members should appear before non-static members
     private static async Task TrackFieldHistoryAsync(AliasClientDbContext context, Item existingItem, Item newItem, DateTime updateDateTime)
-#pragma warning restore SA1204
     {
         // Maximum number of history records to keep per field
         const int MaxFieldHistoryRecords = 10;
@@ -1526,5 +1437,114 @@ public sealed class ItemService(HttpClient httpClient, DbService dbService, Conf
                 record.UpdatedAt = updateDateTime;
             }
         }
+    }
+
+    /// <summary>
+    /// Sets timestamps on an entity during insert only if they're not already set.
+    /// This preserves timestamps from imported data while setting defaults for new entities.
+    /// </summary>
+    /// <param name="entity">The entity to set timestamps on (must have CreatedAt and UpdatedAt properties).</param>
+    /// <param name="currentDateTime">The default timestamp to use if not already set.</param>
+    private static void SetInsertTimestamps(dynamic entity, DateTime currentDateTime)
+    {
+        if (entity.CreatedAt == default(DateTime))
+        {
+            entity.CreatedAt = currentDateTime;
+        }
+
+        if (entity.UpdatedAt == default(DateTime))
+        {
+            entity.UpdatedAt = currentDateTime;
+        }
+    }
+
+    /// <summary>
+    /// Extract favicon from service URL if available. If successful, links the item to the logo.
+    /// Checks for existing logo first to avoid unnecessary API calls (deduplication).
+    /// If URL is empty or just the placeholder, clears any existing logo from the item.
+    /// </summary>
+    /// <param name="item">The Item to extract the favicon for.</param>
+    /// <returns>Task.</returns>
+    private async Task ExtractFaviconAsync(Item item)
+    {
+        // Try to extract favicon from service URL
+        var url = GetFieldValue(item, FieldKey.LoginUrl);
+        if (url != null && !string.IsNullOrEmpty(url) && url != DefaultServiceUrl)
+        {
+            try
+            {
+                // Extract and normalize domain for deduplication
+                var domain = new Uri(url).Host.ToLowerInvariant();
+                if (domain.StartsWith("www."))
+                {
+                    domain = domain[4..];
+                }
+
+                var context = await dbService.GetDbContextAsync();
+
+                // Check if logo already exists for this source (deduplication)
+                var existingLogo = await context.Logos.FirstOrDefaultAsync(l => l.Source == domain);
+
+                if (existingLogo != null)
+                {
+                    // Reuse existing logo - no need to fetch
+                    item.LogoId = existingLogo.Id;
+                    return;
+                }
+
+                // No existing logo - fetch from API
+                var apiReturn = await httpClient.GetFromJsonAsync<FaviconExtractModel>($"v1/Favicon/Extract?url={Uri.EscapeDataString(url)}");
+                if (apiReturn?.Image is not null)
+                {
+                    // Create new logo
+                    var newLogo = new Logo
+                    {
+                        Id = Guid.NewGuid(),
+                        Source = domain,
+                        FileData = apiReturn.Image,
+                        MimeType = "image/png",
+                        FetchedAt = DateTime.UtcNow,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
+                    };
+                    context.Logos.Add(newLogo);
+                    item.LogoId = newLogo.Id;
+                }
+            }
+            catch
+            {
+                // Ignore favicon extraction errors
+            }
+        }
+        else
+        {
+            // URL is empty or just the placeholder - clear any existing logo
+            item.LogoId = null;
+        }
+    }
+
+    /// <summary>
+    /// Gets the effective identity generator language to use.
+    /// If user has explicitly set a language preference, use that.
+    /// Otherwise, intelligently match the UI language to an available identity generator language.
+    /// Falls back to "en" if no match is found.
+    /// </summary>
+    /// <returns>The identity generator language code to use.</returns>
+    private async Task<string> GetEffectiveIdentityLanguageAsync()
+    {
+        var explicitLanguage = dbService.Settings.DefaultIdentityLanguage;
+
+        // If user has explicitly set a language preference, use it
+        if (!string.IsNullOrWhiteSpace(explicitLanguage))
+        {
+            return explicitLanguage;
+        }
+
+        // Otherwise, try to match UI language to an identity generator language
+        var uiLanguage = dbService.Settings.AppLanguage;
+        var mappedLanguage = await jsInteropService.MapUiLanguageToIdentityLanguageAsync(uiLanguage);
+
+        // Return the mapped language, or fall back to "en" if no match found
+        return mappedLanguage ?? "en";
     }
 }

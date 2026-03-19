@@ -29,10 +29,11 @@ public class AuthTests : AdminPlaywrightTest
 
         // Fill in the form.
         await Page.Locator("input[id='old-password']").FillAsync("incorrect-old-password");
-        await Page.Locator("input[id='new-password']").FillAsync("newnewnew");
-        await Page.Locator("input[id='confirm-password']").FillAsync("newnewnew");
+        await Page.Locator("input[id='new-password']").FillAsync("newnewnewnew");
+        await Page.Locator("input[id='confirm-password']").FillAsync("newnewnewnew");
 
         var submitButton = Page.GetByRole(AriaRole.Button, new() { Name = "Update password" });
+        await submitButton.WaitForAsync(new() { State = WaitForSelectorState.Visible });
         await submitButton.ClickAsync();
 
         // Wait for current page to refresh and confirm message shows.
@@ -56,10 +57,11 @@ public class AuthTests : AdminPlaywrightTest
 
         // Fill in the form.
         await Page.Locator("input[id='old-password']").FillAsync("password");
-        await Page.Locator("input[id='new-password']").FillAsync("newnewnew");
-        await Page.Locator("input[id='confirm-password']").FillAsync("newnewnew");
+        await Page.Locator("input[id='new-password']").FillAsync("newnewnewnew");
+        await Page.Locator("input[id='confirm-password']").FillAsync("newnewnewnew");
 
         var submitButton = Page.GetByRole(AriaRole.Button, new() { Name = "Update password" });
+        await submitButton.WaitForAsync(new() { State = WaitForSelectorState.Visible });
         await submitButton.ClickAsync();
 
         // Wait for current page to refresh and confirm message shows.
@@ -69,7 +71,7 @@ public class AuthTests : AdminPlaywrightTest
         Assert.That(pageContent, Does.Contain("Your password has been changed."), "No success message shown after successfully changing password.");
 
         // Set new password for next tests.
-        TestUserPassword = "newnewnew";
+        TestUserPassword = "newnewnewnew";
 
         // Logout.
         await Logout();

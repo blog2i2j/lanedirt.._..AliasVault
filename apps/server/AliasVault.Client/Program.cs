@@ -9,6 +9,7 @@ using System.Globalization;
 using AliasVault.Client;
 using AliasVault.Client.Main.Services;
 using AliasVault.Client.Providers;
+using AliasVault.Client.Services.Crypto;
 using AliasVault.Client.Services.JsInterop.RustCore;
 using AliasVault.RazorComponents.Services;
 using AliasVault.Shared.Core;
@@ -100,6 +101,7 @@ builder.Services.AddScoped<ConfirmModalService>();
 builder.Services.AddScoped<QuickCreateStateService>();
 builder.Services.AddScoped<LanguageService>();
 builder.Services.AddScoped<RustCoreService>();
+builder.Services.AddScoped<AvexCryptoService>();
 
 builder.Services.AddAuthorizationCore();
 builder.Services.AddBlazoredLocalStorage();

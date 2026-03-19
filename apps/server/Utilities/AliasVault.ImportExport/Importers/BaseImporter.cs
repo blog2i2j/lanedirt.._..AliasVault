@@ -7,14 +7,14 @@
 
 namespace AliasVault.ImportExport.Importers;
 
+using System.Globalization;
+using System.Text.RegularExpressions;
 using AliasClientDb;
 using AliasClientDb.Models;
 using AliasVault.ImportExport.Models;
 using AliasVault.TotpGenerator;
 using CsvHelper;
 using CsvHelper.Configuration;
-using System.Globalization;
-using System.Text.RegularExpressions;
 
 /// <summary>
 /// Generic import logic.
@@ -251,6 +251,45 @@ public static class BaseImporter
                     // 2FA extraction failed, log the error and continue with the next item
                     // so the import doesn't fail due to failed 2FA extraction.
                     Console.WriteLine($"Error importing TOTP code: {ex.Message}");
+                }
+            }
+
+            // Add passkeys if present
+            if (importedCredential.Passkeys != null)
+            {
+                foreach (var passkey in importedCredential.Passkeys)
+                {
+                    // Use the GUID from the import if available, otherwise generate a new one
+                    var passkeyId = passkey.Id ?? Guid.NewGuid();
+
+                    item.Passkeys.Add(new Passkey
+                    {
+                        Id = passkeyId,
+                        RpId = passkey.RpId,
+                        UserHandle = passkey.UserHandle ?? Array.Empty<byte>(),
+                        PublicKey = passkey.PublicKey,
+                        PrivateKey = passkey.PrivateKey,
+                        PrfKey = passkey.PrfKey,
+                        DisplayName = passkey.DisplayName,
+                        CreatedAt = createdAt,
+                        UpdatedAt = updatedAt,
+                    });
+                }
+            }
+
+            // Add attachments if present
+            if (importedCredential.Attachments != null)
+            {
+                foreach (var attachment in importedCredential.Attachments)
+                {
+                    item.Attachments.Add(new Attachment
+                    {
+                        Id = Guid.NewGuid(),
+                        Filename = attachment.Filename,
+                        Blob = attachment.Blob,
+                        CreatedAt = createdAt,
+                        UpdatedAt = updatedAt,
+                    });
                 }
             }
 

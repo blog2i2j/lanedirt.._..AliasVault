@@ -322,12 +322,12 @@ else
                                     <EditFormRow Id="expiry-year" Label="@Localizer["ExpiryYearLabel"]" Placeholder="YYYY" @bind-Value="Obj.GetField(FieldKey.CardExpiryYear)!.Value"></EditFormRow>
                                 </div>
                                 <div class="col-span-6 sm:col-span-3">
-                                    <EditPasswordFormRow Id="card-cvv" Label="@Localizer["CardCvvLabel"]" @bind-Value="Obj.GetField(FieldKey.CardCvv)!.Value" ShowPassword="false" ShowGenerateButtons="false"></EditPasswordFormRow>
+                                    <EditPasswordFormRow Id="cvv" Label="@Localizer["CardCvvLabel"]" @bind-Value="Obj.GetField(FieldKey.CardCvv)!.Value" ShowPassword="false" ShowGenerateButtons="false"></EditPasswordFormRow>
                                 </div>
                                 @if (ShouldShowField(FieldKey.CardPin))
                                 {
                                     <div class="col-span-6 sm:col-span-3 relative">
-                                        <EditPasswordFormRow Id="card-pin" Label="@Localizer["CardPinLabel"]" @bind-Value="Obj.GetField(FieldKey.CardPin)!.Value" ShowPassword="false"></EditPasswordFormRow>
+                                        <EditPasswordFormRow Id="pin" Label="@Localizer["CardPinLabel"]" @bind-Value="Obj.GetField(FieldKey.CardPin)!.Value" ShowPassword="false"></EditPasswordFormRow>
                                         @if (CanRemoveField(FieldKey.CardPin))
                                         {
                                             <button type="button" @onclick="() => RemoveOptionalField(FieldKey.CardPin)" @onclick:preventDefault="true"

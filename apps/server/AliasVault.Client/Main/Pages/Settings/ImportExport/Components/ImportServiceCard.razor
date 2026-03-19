@@ -6,14 +6,18 @@
 @inject GlobalNotificationService GlobalNotificationService
 @inject HttpClient HttpClient
 @inject IStringLocalizerFactory LocalizerFactory
+@inject AliasVault.Client.Services.Crypto.AvexCryptoService AvexCrypto
 @using Microsoft.Extensions.Localization
+@using AliasVault.ImportExport
 @using AliasVault.ImportExport.Importers
 @using AliasVault.ImportExport.Models
+@using AliasVault.ImportExport.Models.Exports
 @using AliasVault.Shared.Models.WebApi.Favicon
 @using AliasClientDb
 @using AliasClientDb.Models
+@using AliasVault.Client.Auth.Components
 
-<div @onclick="OpenImportModal" class="flex flex-col p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors duration-200">
+<div @onclick="OpenImportModal" data-import-service="@ServiceName" class="flex flex-col p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors duration-200">
     <div class="flex items-center">
         <div class="w-12 h-12 mr-3 flex-shrink-0 rounded-md flex items-center justify-center">
             @if (!string.IsNullOrEmpty(LogoUrl))
@@ -73,7 +77,7 @@
                                     @ChildContent
                                     <div class="mb-4 bg-amber-50 border border-amber-400 dark:bg-amber-800/30 dark:border-amber-500/50 rounded-lg p-4">
                                         <p class="mb-4 text-gray-700 dark:text-gray-200">@string.Format(Localizer["UploadExportFileText"], ServiceName)</p>
-                                        <InputFile OnChange="HandleFileUpload" class="text-gray-700 dark:text-gray-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-primary-900/40 dark:file:text-primary-300 dark:hover:file:bg-primary-800/60" />
+                                        <InputFile OnChange="HandleFileUpload" accept="@AcceptedFileTypes" class="text-gray-700 dark:text-gray-200 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-primary-900/40 dark:file:text-primary-300 dark:hover:file:bg-primary-800/60" />
                                     </div>
                                     <div class="flex justify-end mt-6 space-x-2">
                                         <Button OnClick="@CloseModal" Color="secondary">@Localizer["CancelButton"]</Button>
@@ -82,11 +86,56 @@
                             </div>
                             break;
 
+                        case ImportStep.PasswordInput:
+                            <div class="max-w-lg mx-auto">
+                                @if (!string.IsNullOrEmpty(ImportError))
+                                {
+                                    <div class="mb-4 p-4 text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800" role="alert">
+                                        @ImportError
+                                    </div>
+                                }
+
+                                @if (IsImporting)
+                                {
+                                    <div class="text-center">
+                                        <LoadingIndicator />
+                                        <p class="mt-4 text-gray-700 dark:text-gray-300">@Localizer["DecryptingFile"]</p>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="mb-4">
+                                        <p class="mb-4 text-gray-700 dark:text-gray-300">@Localizer["EncryptedFilePasswordPrompt"]</p>
+                                        <label for="decryptionPassword" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                            @Localizer["DecryptionPasswordLabel"]
+                                        </label>
+                                        <PasswordInputField
+                                            Id="decryptionPassword"
+                                            @bind-Value="_decryptionPassword"
+                                            Placeholder=""
+                                            @onkeydown="HandlePasswordKeyDown"
+                                            autofocus="true" />
+                                    </div>
+
+                                    <div class="mb-4 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+                                        <p class="text-xs text-orange-800 dark:text-orange-200">
+                                            @Localizer["DecryptionPasswordHint"]
+                                        </p>
+                                    </div>
+
+                                    <div class="flex justify-end mt-6 space-x-2">
+                                        <Button OnClick="@HandlePreviousStep" Color="secondary">@Localizer["BackButton"]</Button>
+                                        <Button OnClick="@HandleDecryptFile" Color="primary" IsDisabled="@string.IsNullOrWhiteSpace(_decryptionPassword)">@Localizer["DecryptAndContinueButton"]</Button>
+                                    </div>
+                                }
+                            </div>
+                            break;
+
                         case ImportStep.Preview:
                             <div class="mb-4">
                                 @if (DuplicateCredentialsCount > 0)
                                 {
-                                    <div class="p-4 mb-4 text-blue-700 bg-blue-100 rounded-lg dark:bg-blue-800/30 dark:text-blue-300" role="alert">
+                                    <div class="p-4 mb-4 text-gray-700 bg-gray-100 rounded-lg dark:bg-gray-700/50 dark:text-gray-300" role="alert">
                                         <p>@string.Format(Localizer["DuplicateCredentialsWarning"], DuplicateCredentialsCount)</p>
                                     </div>
                                 }
@@ -214,6 +263,7 @@
     private enum ImportStep
     {
         FileUpload,
+        PasswordInput,
         Preview,
         Confirm
     }
@@ -243,10 +293,18 @@
     public EventCallback OnImportConfirmed { get; set; }
 
     /// <summary>
-    /// The callback for processing the file.
+    /// The callback for processing files (accepts filename and bytes).
+    /// This callback should determine whether to process as text or binary based on the file extension.
+    /// Returns a List&lt;ImportedCredential&gt; with optional FaviconBytes embedded for .avux files.
     /// </summary>
     [Parameter]
-    public Func<string, Task<List<ImportedCredential>>> ProcessFileCallback { get; set; } = null!;
+    public Func<string, byte[], Task<List<ImportedCredential>>>? ProcessFileCallback { get; set; }
+
+    /// <summary>
+    /// Gets or sets the accepted file types (e.g., ".csv", ".avux").
+    /// </summary>
+    [Parameter]
+    public string AcceptedFileTypes { get; set; } = string.Empty;
 
     private bool IsModalOpen { get; set; } = false;
     private bool IsImporting { get; set; } = false;
@@ -283,6 +341,12 @@
 
     private int DuplicateCredentialsCount { get; set; } = 0;
 
+    // Fields for .avex encrypted file handling
+    private string _decryptionPassword = string.Empty;
+    private byte[]? _pendingAvexBytes;
+    private string? _pendingAvexFilename;
+    private bool _requiresPassword = false;
+
     /// <summary>
     /// Sets the imported credentials and continues to the preview step.
     /// </summary>
@@ -293,6 +357,23 @@
 
         // Continue to step 2.
         await HandleNextStep();
+    }
+
+    /// <summary>
+    /// Sets pending encrypted file data and moves to password input step.
+    /// </summary>
+    /// <param name="encryptedBytes">The encrypted file bytes.</param>
+    /// <param name="filename">The filename.</param>
+    public void SetPendingEncryptedFile(byte[] encryptedBytes, string filename)
+    {
+        _pendingAvexBytes = encryptedBytes;
+        _pendingAvexFilename = filename;
+        _decryptionPassword = string.Empty;
+        _requiresPassword = true;
+        ImportError = null;
+        CurrentStep = ImportStep.PasswordInput;
+        IsImporting = false; // Stop the loading state
+        StateHasChanged();
     }
 
     /// <summary>
@@ -324,6 +405,10 @@
         ImportError = null;
         ImportSuccessMessage = null;
         ImportedCredentials.Clear();
+        _requiresPassword = false;
+        _decryptionPassword = string.Empty;
+        _pendingAvexBytes = null;
+        _pendingAvexFilename = null;
         StateHasChanged();
     }
 
@@ -347,13 +432,96 @@
     /// </summary>
     protected virtual void HandlePreviousStep()
     {
-        if (CurrentStep == ImportStep.Preview)
+        if (CurrentStep == ImportStep.PasswordInput)
         {
             CurrentStep = ImportStep.FileUpload;
+            _decryptionPassword = string.Empty;
+            _pendingAvexBytes = null;
+            _pendingAvexFilename = null;
+            _requiresPassword = false;
+        }
+        else if (CurrentStep == ImportStep.Preview)
+        {
+            // If we came from password input (encrypted file), go back to password
+            if (_pendingAvexBytes != null)
+            {
+                CurrentStep = ImportStep.PasswordInput;
+            }
+            else
+            {
+                CurrentStep = ImportStep.FileUpload;
+            }
         }
         else if (CurrentStep == ImportStep.Confirm)
         {
             CurrentStep = ImportStep.Preview;
+        }
+    }
+
+    /// <summary>
+    /// Handles password keyboard events (Enter to submit, Escape to cancel).
+    /// </summary>
+    private async Task HandlePasswordKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_decryptionPassword))
+        {
+            await HandleDecryptFile();
+        }
+        else if (e.Key == "Escape")
+        {
+            HandlePreviousStep();
+        }
+    }
+
+    /// <summary>
+    /// Handles decrypting the .avex file with the provided password.
+    /// </summary>
+    private async Task HandleDecryptFile()
+    {
+        if (_pendingAvexBytes == null)
+        {
+            return;
+        }
+
+        try
+        {
+            IsImporting = true;
+            ImportError = null;
+            StateHasChanged();
+            await Task.Delay(50);
+
+            // Decrypt the file to .avux bytes using AvexCryptoService
+            var avuxBytes = await AvexCrypto.DecryptAvexAsync(_pendingAvexBytes, _decryptionPassword);
+
+            // Process via the normal file handler as if it was an .avux upload
+            // This ensures consistent handling and avoids EF tracking issues
+            ImportedCredentials = await ProcessFileCallback!("decrypted.avux", avuxBytes);
+
+            // Clear password and encrypted data
+            _decryptionPassword = string.Empty;
+            _pendingAvexBytes = null;
+            _pendingAvexFilename = null;
+            _requiresPassword = false;
+
+            IsImporting = false;
+
+            // Move to preview step
+            await DetectAndRemoveDuplicates();
+            CurrentStep = ImportStep.Preview;
+            StateHasChanged();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("password may be incorrect"))
+        {
+            IsImporting = false;
+            ImportError = Localizer["IncorrectPasswordError"];
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error decrypting .avex file");
+            IsImporting = false;
+            ImportError = Localizer["DecryptionErrorGeneric"];
+            StateHasChanged();
         }
     }
 
@@ -371,6 +539,7 @@
 
         try
         {
+            // Extract favicons for credentials that don't already have them
             if (ExtractFavicons)
             {
                 await ExtractFaviconsForCredentials();
@@ -432,7 +601,10 @@
         FaviconExtractionCancellation = new CancellationTokenSource();
         StateHasChanged();
 
-        var credentialsWithUrls = ImportedCredentials.Where(c => c.ServiceUrls?.FirstOrDefault() != null).ToList();
+        // Only extract favicons for credentials that don't already have them and have URLs
+        var credentialsWithUrls = ImportedCredentials
+            .Where(c => c.FaviconBytes == null && c.ServiceUrls?.FirstOrDefault() != null)
+            .ToList();
 
         // Group credentials by normalized domain to avoid duplicate fetches
         var processedDomains = new HashSet<string>();
@@ -603,63 +775,135 @@
     }
 
     /// <summary>
-    /// Processes a single item.
+    /// Processes a single item and handles logo/favicon assignment.
     /// </summary>
     /// <param name="item">The item to process.</param>
     private async Task ProcessSingleItem(Item item)
     {
-        var url = ItemService.GetFieldValue(item, FieldKey.LoginUrl);
-        if (!string.IsNullOrEmpty(url))
-        {
-            try
-            {
-                // Extract and normalize domain for deduplication
-                var domain = new Uri(url).Host.ToLowerInvariant();
-                if (domain.StartsWith("www."))
-                {
-                    domain = domain[4..];
-                }
+        // Find the corresponding imported credential
+        var importedCredential = ImportedCredentials.FirstOrDefault(c => c.ServiceName == item.Name);
 
-                // First check if we already created a logo for this domain in this import session
-                if (ImportSessionLogoIds.TryGetValue(domain, out var sessionLogoId))
+        // Check if the credential has embedded favicon bytes (from .avux or other sources)
+        if (importedCredential?.FaviconBytes != null)
+        {
+            // Get URL domain for deduplication key
+            var url = ItemService.GetFieldValue(item, FieldKey.LoginUrl);
+            string domain;
+
+            if (!string.IsNullOrEmpty(url))
+            {
+                try
                 {
-                    item.LogoId = sessionLogoId;
+                    domain = new Uri(url).Host.ToLowerInvariant();
+                    if (domain.StartsWith("www."))
+                    {
+                        domain = domain[4..];
+                    }
+                }
+                catch
+                {
+                    // Invalid URL, use item name as fallback
+                    domain = (item.Name ?? "unknown").ToLowerInvariant();
+                }
+            }
+            else
+            {
+                // No URL, use item name as fallback
+                domain = (item.Name ?? "unknown").ToLowerInvariant();
+            }
+
+            // Check if we already created a logo for this domain in this import session
+            if (ImportSessionLogoIds.TryGetValue(domain, out var sessionLogoId))
+            {
+                item.LogoId = sessionLogoId;
+            }
+            else
+            {
+                var context = await DbService.GetDbContextAsync();
+
+                // Check if logo already exists by source
+                var existingLogo = await context.Logos.FirstOrDefaultAsync(l => l.Source == domain);
+                if (existingLogo != null)
+                {
+                    item.LogoId = existingLogo.Id;
+                    ImportSessionLogoIds[domain] = existingLogo.Id;
                 }
                 else
                 {
-                    var context = await DbService.GetDbContextAsync();
-
-                    var existingLogo = await context.Logos.FirstOrDefaultAsync(l => l.Source == domain);
-                    if (existingLogo != null)
+                    // Create new logo from embedded bytes
+                    var logo = new AliasClientDb.Logo
                     {
-                        // Reuse existing logo
-                        item.LogoId = existingLogo.Id;
-                        ImportSessionLogoIds[domain] = existingLogo.Id;
-                    }
-                    else if (ExtractedFavicons.TryGetValue(domain, out var favicon))
-                    {
-                        // Create new logo
-                        var logo = new Logo
-                        {
-                            Id = Guid.NewGuid(),
-                            Source = domain,
-                            FileData = favicon,
-                            MimeType = "image/png",
-                            FetchedAt = DateTime.UtcNow,
-                            CreatedAt = DateTime.UtcNow,
-                            UpdatedAt = DateTime.UtcNow
-                        };
-                        context.Logos.Add(logo);
-                        item.LogoId = logo.Id;
-
-                        // Track this logo for subsequent items with same domain
-                        ImportSessionLogoIds[domain] = logo.Id;
-                    }
+                        Id = Guid.NewGuid(),
+                        Source = domain,
+                        FileData = importedCredential.FaviconBytes,
+                        MimeType = "image/png",
+                        FetchedAt = DateTime.UtcNow,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
+                    };
+                    context.Logos.Add(logo);
+                    item.LogoId = logo.Id;
+                    ImportSessionLogoIds[domain] = logo.Id;
                 }
             }
-            catch
+        }
+        else
+        {
+            // No embedded favicon - try to use extracted favicons
+            var url = ItemService.GetFieldValue(item, FieldKey.LoginUrl);
+            if (!string.IsNullOrEmpty(url))
             {
-                // Invalid URL
+                try
+                {
+                    // Extract and normalize domain for deduplication
+                    var domain = new Uri(url).Host.ToLowerInvariant();
+                    if (domain.StartsWith("www."))
+                    {
+                        domain = domain[4..];
+                    }
+
+                    // First check if we already created a logo for this domain in this import session
+                    if (ImportSessionLogoIds.TryGetValue(domain, out var sessionLogoId))
+                    {
+                        item.LogoId = sessionLogoId;
+                    }
+                    else
+                    {
+                        var context = await DbService.GetDbContextAsync();
+
+                        var existingLogo = await context.Logos.FirstOrDefaultAsync(l => l.Source == domain);
+                        if (existingLogo != null)
+                        {
+                            // Reuse existing logo
+                            item.LogoId = existingLogo.Id;
+                            ImportSessionLogoIds[domain] = existingLogo.Id;
+                        }
+                        else if (ExtractedFavicons.TryGetValue(domain, out var favicon))
+                        {
+                            // Create new logo from extracted favicon
+                            var logo = new AliasClientDb.Logo
+                            {
+                                Id = Guid.NewGuid(),
+                                Source = domain,
+                                FileData = favicon,
+                                MimeType = "image/png",
+                                FetchedAt = DateTime.UtcNow,
+                                CreatedAt = DateTime.UtcNow,
+                                UpdatedAt = DateTime.UtcNow,
+                            };
+                            context.Logos.Add(logo);
+                            item.LogoId = logo.Id;
+
+                            // Track this logo for subsequent items with same domain
+                            ImportSessionLogoIds[domain] = logo.Id;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Log error but continue import - favicon is not critical
+                    Logger.LogWarning(ex, "Failed to process favicon for item {ItemName}", item.Name);
+                }
             }
         }
 
@@ -688,28 +932,51 @@
             IsImporting = true;
             StateHasChanged();
 
-            // Limit file size to 10MB
-            if (e.File.Size > 10 * 1024 * 1024)
+            // Limit file size to 50MB (increased for binary files with attachments)
+            var maxFileSize = 50 * 1024 * 1024;
+            if (e.File.Size > maxFileSize)
             {
                 ImportError = Localizer["ImportErrorFileTooLarge"];
                 return;
             }
 
-            await using var stream = e.File.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
-            using var reader = new StreamReader(stream);
-            var fileContents = await reader.ReadToEndAsync();
+            await using var stream = e.File.OpenReadStream(maxAllowedSize: maxFileSize);
 
-            var processingTask = ProcessFileCallback(fileContents);
+            if (ProcessFileCallback == null)
+            {
+                ImportError = "No file processor configured";
+                return;
+            }
+
+            // Read file bytes
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            var fileBytes = memoryStream.ToArray();
+
+            // Check if this is an encrypted .avex file
+            if (e.File.Name.EndsWith(".avex", StringComparison.OrdinalIgnoreCase))
+            {
+                // Encrypted file - trigger password input step
+                SetPendingEncryptedFile(fileBytes, e.File.Name);
+                return; // Password step will handle the rest
+            }
+
+            // Call callback for file processing
+            var processingTask = ProcessFileCallback(e.File.Name, fileBytes);
             var delayTask = Task.Delay(500);
-
             await Task.WhenAll(processingTask, delayTask);
 
             ImportedCredentials = await processingTask;
 
-            // Detect and remove duplicates before showing the preview
-            await DetectAndRemoveDuplicates();
-
-            CurrentStep = ImportStep.Preview;
+            // If password is required, the callback will handle setting the step to PasswordInput
+            // So we only proceed to preview if no password is required
+            if (!_requiresPassword)
+            {
+                // Detect and remove duplicates before showing the preview
+                await DetectAndRemoveDuplicates();
+                CurrentStep = ImportStep.Preview;
+            }
+            // else: the step was already set to PasswordInput by SetPendingEncryptedFile()
         }
         catch (Exception ex)
         {
@@ -718,25 +985,91 @@
         }
         finally
         {
-            IsImporting = false;
+            // Only set IsImporting to false if we're not waiting for password
+            if (!_requiresPassword)
+            {
+                IsImporting = false;
+            }
             StateHasChanged();
         }
     }
 
     /// <summary>
     /// Detects and removes duplicates from the import list, and also detects folders.
+    /// Duplicates are identified by matching title, folder path, username, password, and notes (when present).
+    /// For each field: if both items have values, they must match; if both are null/empty, they match; otherwise no match.
     /// </summary>
     private async Task DetectAndRemoveDuplicates()
     {
-        var existingItems = await ItemService.LoadAllAsync();
+        var context = await DbService.GetDbContextAsync();
+
+        // Load all items with folder navigation included
+        var existingItems = await context.Items
+            .Include(x => x.FieldValues.Where(fv => !fv.IsDeleted))
+                .ThenInclude(fv => fv.FieldDefinition)
+            .Include(x => x.Folder)
+            .Where(x => !x.IsDeleted && x.DeletedAt == null)
+            .ToListAsync();
+
         var duplicates = ImportedCredentials.Where(imported =>
             existingItems.Any(existing =>
-                existing.Name != null && existing.Name.Equals(imported.ServiceName, StringComparison.OrdinalIgnoreCase) &&
-                ItemService.GetFieldValue(existing, FieldKey.LoginUsername) != null &&
-                ItemService.GetFieldValue(existing, FieldKey.LoginUsername)!.Equals(imported.Username, StringComparison.OrdinalIgnoreCase) &&
-                ItemService.GetFieldValue(existing, FieldKey.LoginPassword) != null &&
-                ItemService.GetFieldValue(existing, FieldKey.LoginPassword)!.Equals(imported.Password, StringComparison.OrdinalIgnoreCase)
-            )).ToList();
+            {
+                // Title must match (case-insensitive)
+                if (existing.Name == null || !existing.Name.Equals(imported.ServiceName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                // Folder path must match (case-insensitive)
+                var existingFolderPath = existing.Folder?.Name ?? string.Empty;
+                var importedFolderPath = imported.FolderPath ?? string.Empty;
+                if (!existingFolderPath.Equals(importedFolderPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                // Helper function to compare nullable fields
+                bool FieldsMatch(string? existingValue, string? importedValue)
+                {
+                    bool existingHasValue = !string.IsNullOrEmpty(existingValue);
+                    bool importedHasValue = !string.IsNullOrEmpty(importedValue);
+
+                    // If both have values, they must match (case-insensitive)
+                    if (existingHasValue && importedHasValue)
+                    {
+                        return existingValue!.Equals(importedValue, StringComparison.OrdinalIgnoreCase);
+                    }
+
+                    // If both are empty/null, they match
+                    if (!existingHasValue && !importedHasValue)
+                    {
+                        return true;
+                    }
+
+                    // If only one has a value, they don't match
+                    return false;
+                }
+
+                // Username must match
+                if (!FieldsMatch(ItemService.GetFieldValue(existing, FieldKey.LoginUsername), imported.Username))
+                {
+                    return false;
+                }
+
+                // Password must match
+                if (!FieldsMatch(ItemService.GetFieldValue(existing, FieldKey.LoginPassword), imported.Password))
+                {
+                    return false;
+                }
+
+                // Notes must match
+                if (!FieldsMatch(ItemService.GetFieldValue(existing, FieldKey.NotesContent), imported.Notes))
+                {
+                    return false;
+                }
+
+                return true;
+            })).ToList();
 
         DuplicateCredentialsCount = duplicates.Count;
 

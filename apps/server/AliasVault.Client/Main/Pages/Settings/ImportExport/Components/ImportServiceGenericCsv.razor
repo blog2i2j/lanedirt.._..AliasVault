@@ -36,8 +36,9 @@
 @code {
     private IStringLocalizer Localizer => LocalizerFactory.Create("Components.Main.Settings.ImportExport.ImportServices", "AliasVault.Client");
 
-    private static async Task<List<ImportedCredential>> ProcessFile(string fileContents)
+    private static async Task<List<ImportedCredential>> ProcessFile(string filename, byte[] fileBytes)
     {
+        var fileContents = System.Text.Encoding.UTF8.GetString(fileBytes);
         return await GenericCsvImporter.ImportFromCsvAsync(fileContents);
     }
 

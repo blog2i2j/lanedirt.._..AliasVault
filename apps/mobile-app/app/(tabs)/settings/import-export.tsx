@@ -22,21 +22,21 @@ import NativeVaultManager from '@/specs/NativeVaultManager';
  * CSV record for Credential objects (matching server format).
  */
 interface ICredentialCsvRecord {
-  Version: string;
+  ServiceName: string;
+  FolderPath: string;
+  ServiceUrl: string;
   Username: string;
-  Notes: string;
-  CreatedAt: string;
-  UpdatedAt: string;
+  CurrentPassword: string;
+  AliasEmail: string;
+  TwoFactorSecret: string;
   AliasGender: string;
   AliasFirstName: string;
   AliasLastName: string;
   AliasNickName: string;
   AliasBirthDate: string;
-  AliasEmail: string;
-  ServiceName: string;
-  ServiceUrl: string;
-  CurrentPassword: string;
-  TwoFactorSecret: string;
+  Notes: string;
+  CreatedAt: string;
+  UpdatedAt: string;
 }
 
 /**
@@ -106,43 +106,43 @@ export default function ImportExportScreen(): React.ReactNode {
       const nickName = getFieldValue(item, 'alias.nickname') ?? '';
 
       const record: ICredentialCsvRecord = {
-        Version: '1.5.0',
+        ServiceName: credential.ServiceName ?? '',
+        FolderPath: item.FolderPath ?? '',
+        ServiceUrl: credential.ServiceUrl ?? '',
         Username: credential.Username ?? '',
-        Notes: credential.Notes ?? '',
-        CreatedAt: formatDate(item.CreatedAt),
-        UpdatedAt: formatDate(item.UpdatedAt),
+        CurrentPassword: credential.Password ?? '',
+        AliasEmail: credential.Alias?.Email ?? '',
+        TwoFactorSecret: totpSecret,
         AliasGender: credential.Alias?.Gender ?? '',
         AliasFirstName: credential.Alias?.FirstName ?? '',
         AliasLastName: credential.Alias?.LastName ?? '',
         AliasNickName: nickName,
         AliasBirthDate: credential.Alias?.BirthDate ? formatDate(credential.Alias.BirthDate) : '',
-        AliasEmail: credential.Alias?.Email ?? '',
-        ServiceName: credential.ServiceName ?? '',
-        ServiceUrl: credential.ServiceUrl ?? '',
-        CurrentPassword: credential.Password ?? '',
-        TwoFactorSecret: totpSecret
+        Notes: credential.Notes ?? '',
+        CreatedAt: formatDate(item.CreatedAt),
+        UpdatedAt: formatDate(item.UpdatedAt)
       };
 
       records.push(record);
     }
 
-    // Generate CSV header
+    // Generate CSV header (matching server format)
     const headers = [
-      'Version',
+      'ServiceName',
+      'FolderPath',
+      'ServiceUrl',
       'Username',
-      'Notes',
-      'CreatedAt',
-      'UpdatedAt',
+      'CurrentPassword',
+      'AliasEmail',
+      'TwoFactorSecret',
       'AliasGender',
       'AliasFirstName',
       'AliasLastName',
       'AliasNickName',
       'AliasBirthDate',
-      'AliasEmail',
-      'ServiceName',
-      'ServiceUrl',
-      'CurrentPassword',
-      'TwoFactorSecret'
+      'Notes',
+      'CreatedAt',
+      'UpdatedAt'
     ];
 
     /**
@@ -164,21 +164,21 @@ export default function ImportExportScreen(): React.ReactNode {
 
     for (const record of records) {
       const values = [
-        record.Version,
+        escapeCsvValue(record.ServiceName),
+        escapeCsvValue(record.FolderPath),
+        escapeCsvValue(record.ServiceUrl),
         escapeCsvValue(record.Username),
-        escapeCsvValue(record.Notes),
-        record.CreatedAt,
-        record.UpdatedAt,
+        escapeCsvValue(record.CurrentPassword),
+        record.AliasEmail,
+        escapeCsvValue(record.TwoFactorSecret),
         record.AliasGender,
         record.AliasFirstName,
         record.AliasLastName,
         record.AliasNickName,
         record.AliasBirthDate,
-        record.AliasEmail,
-        escapeCsvValue(record.ServiceName),
-        escapeCsvValue(record.ServiceUrl),
-        escapeCsvValue(record.CurrentPassword),
-        escapeCsvValue(record.TwoFactorSecret)
+        escapeCsvValue(record.Notes),
+        record.CreatedAt,
+        record.UpdatedAt
       ];
       csvLines.push(values.join(','));
     }

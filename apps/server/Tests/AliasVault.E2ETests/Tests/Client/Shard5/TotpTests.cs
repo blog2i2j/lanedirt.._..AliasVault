@@ -36,8 +36,8 @@ public class TotpTests : ClientPlaywrightTest
                 await AddFieldSectionAsync("Two-Factor Authentication");
 
                 // Fill in the TOTP code details (form is already visible)
-                var nameInput = Page.Locator("input[id='name']");
-                var secretKeyInput = Page.Locator("input[id='secretKey']");
+                var nameInput = Page.Locator("input[id='totp-name']");
+                var secretKeyInput = Page.Locator("input[id='totp-secret']");
 
                 await nameInput.FillAsync("Test TOTP");
                 await secretKeyInput.FillAsync("JBSWY3DPEHPK3PXP"); // Example secret key
@@ -78,8 +78,8 @@ public class TotpTests : ClientPlaywrightTest
                 await AddFieldSectionAsync("Two-Factor Authentication");
 
                 // Fill in the TOTP code details (form is already visible)
-                await Page.Locator("input[id='name']").FillAsync("TOTP to Delete");
-                await Page.Locator("input[id='secretKey']").FillAsync("JBSWY3DPEHPK3PXP");
+                await Page.Locator("input[id='totp-name']").FillAsync("TOTP to Delete");
+                await Page.Locator("input[id='totp-secret']").FillAsync("JBSWY3DPEHPK3PXP");
 
                 // Submit the TOTP form
                 await Page.Locator("button[id='save-totp-code']").ClickAsync();

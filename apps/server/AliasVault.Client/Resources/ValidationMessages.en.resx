@@ -58,25 +58,21 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  
+
   <!-- Password validation messages -->
-  <data name="PasswordMinLength" xml:space="preserve">
-    <value>The new password must be at least 10 characters long.</value>
-    <comment>Error message for password minimum length validation</comment>
-  </data>
   <data name="PasswordsDoNotMatch" xml:space="preserve">
     <value>The new passwords do not match.</value>
     <comment>Error message when password confirmation doesn't match</comment>
   </data>
   <data name="PasswordMinLengthGeneric" xml:space="preserve">
-    <value>Password must be at least 10 characters long.</value>
-    <comment>Generic error message for password minimum length validation</comment>
+    <value>Password must be at least {0} characters long.</value>
+    <comment>Generic error message for password minimum length validation. {0} is the minimum password length.</comment>
   </data>
   <data name="PasswordsDoNotMatchGeneric" xml:space="preserve">
     <value>Passwords do not match.</value>
     <comment>Generic error message when passwords don't match</comment>
   </data>
-  
+
   <!-- Required field validation messages -->
   <data name="UsernameRequired" xml:space="preserve">
     <value>Username is required</value>
@@ -98,7 +94,7 @@
     <value>This field is required</value>
     <comment>Generic error message when a field is required</comment>
   </data>
-  
+
   <!-- Terms and conditions -->
   <data name="MustAcceptTerms" xml:space="preserve">
     <value>You must accept the terms and conditions.</value>

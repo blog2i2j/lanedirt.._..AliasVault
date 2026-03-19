@@ -35,13 +35,25 @@ public static class TotpHelper
                 if (string.IsNullOrWhiteSpace(name))
                 {
                     // The label is everything after 'totp/' and before '?'
-                    var label = uri.AbsolutePath.TrimStart('/');
+                    var label = System.Web.HttpUtility.UrlDecode(uri.AbsolutePath.TrimStart('/'));
 
-                    // If the label contains ':', take the part after it
-                    name = label.Contains(':') ? label.Split(':')[1] : label;
+                    // Check if there's an issuer in the query params
+                    var issuer = queryParams["issuer"];
+
+                    // If the label contains ':', it might be in the format "issuer:account"
+                    // Only split if there's no issuer in query params (to avoid splitting account names with colons)
+                    if (label.Contains(':') && string.IsNullOrWhiteSpace(issuer))
+                    {
+                        // Split on the first colon only
+                        var colonIndex = label.IndexOf(':');
+                        name = label.Substring(colonIndex + 1);
+                    }
+                    else
+                    {
+                        name = label;
+                    }
 
                     // If there's an issuer in the query params, use it as a prefix
-                    var issuer = queryParams["issuer"];
                     if (!string.IsNullOrWhiteSpace(issuer))
                     {
                         name = $"{issuer}: {name}";

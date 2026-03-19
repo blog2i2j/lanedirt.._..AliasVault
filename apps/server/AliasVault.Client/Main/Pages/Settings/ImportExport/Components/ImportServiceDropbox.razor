@@ -1,6 +1,7 @@
 @using AliasVault.ImportExport.Models
 @using AliasVault.ImportExport.Importers
 @using Microsoft.Extensions.Localization
+@using System.Text
 @inject NavigationManager NavigationManager
 @inject GlobalNotificationService GlobalNotificationService
 @inject IStringLocalizerFactory LocalizerFactory
@@ -18,8 +19,9 @@
 @code {
     private IStringLocalizer Localizer => LocalizerFactory.Create("Components.Main.Settings.ImportExport.ImportServices", "AliasVault.Client");
 
-    private static async Task<List<ImportedCredential>> ProcessFile(string fileContents)
+    private static async Task<List<ImportedCredential>> ProcessFile(string filename, byte[] fileBytes)
     {
+        var fileContents = Encoding.UTF8.GetString(fileBytes);
         return await DropboxImporter.ImportFromCsvAsync(fileContents);
     }
 }

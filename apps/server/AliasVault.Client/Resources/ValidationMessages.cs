@@ -21,11 +21,6 @@ public static class ValidationMessages
     private static readonly ResourceManager ResourceManager = new("AliasVault.Client.Resources.ValidationMessages", typeof(ValidationMessages).Assembly);
 
     /// <summary>
-    /// Gets the error message for password minimum length validation.
-    /// </summary>
-    public static string PasswordMinLength => GetResourceValue("PasswordMinLength");
-
-    /// <summary>
     /// Gets the error message when password confirmation doesn't match.
     /// </summary>
     public static string PasswordsDoNotMatch => GetResourceValue("PasswordsDoNotMatch");
