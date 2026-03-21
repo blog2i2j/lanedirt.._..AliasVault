@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 
 import type { Item } from '@/utils/dist/core/models/vault';
 import { FieldKey } from '@/utils/dist/core/models/vault';
+import { truncateFolderPath } from '@/utils/folderUtils';
 
 import ItemIcon from './ItemIcon';
 
@@ -64,6 +65,18 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, showFolderPath = false, searc
     return returnValue.length > 33 ? returnValue.slice(0, 30) + '...' : returnValue;
   };
 
+  /**
+   * Get formatted folder path for display, truncating if needed.
+   */
+  const getFormattedFolderPath = (folderPath: string): string => {
+    if (!folderPath) {
+      return '';
+    }
+    const segments = folderPath.split(' > ');
+    const truncated = truncateFolderPath(segments, 3);
+    return truncated.join(' > ');
+  };
+
   return (
     <li>
       <button
@@ -82,7 +95,9 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, showFolderPath = false, searc
             <p className="font-medium text-gray-900 dark:text-white">
               {showFolderPath && item.FolderPath ? (
                 <>
-                  <span className="text-gray-500 dark:text-gray-400 text-sm">{item.FolderPath} &gt; </span>
+                  <span className="text-gray-500 dark:text-gray-400 text-sm" title={item.FolderPath}>
+                    {getFormattedFolderPath(item.FolderPath)} &gt;{' '}
+                  </span>
                   {getItemName(item)}
                 </>
               ) : (

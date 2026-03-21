@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import DeleteFolderModal from '@/entrypoints/popup/components/Folders/DeleteFolderModal';
+import FolderBreadcrumb from '@/entrypoints/popup/components/Folders/FolderBreadcrumb';
 import FolderModal from '@/entrypoints/popup/components/Folders/FolderModal';
 import HeaderButton from '@/entrypoints/popup/components/HeaderButton';
 import { HeaderIconType } from '@/entrypoints/popup/components/Icons/HeaderIcons';
@@ -19,6 +20,7 @@ import { useVaultMutate } from '@/entrypoints/popup/hooks/useVaultMutate';
 import { useVaultSync } from '@/entrypoints/popup/hooks/useVaultSync';
 import { PopoutUtility } from '@/entrypoints/popup/utils/PopoutUtility';
 
+import type { Folder } from '@/utils/db/repositories/FolderRepository';
 import type { CredentialSortOrder } from '@/utils/db/repositories/SettingsRepository';
 import type { Item, ItemType } from '@/utils/dist/core/models/vault';
 import { ItemTypes } from '@/utils/dist/core/models/vault';
@@ -218,6 +220,7 @@ const ItemsList: React.FC = () => {
 
   /**
    * Handle save folder.
+   * Creates folder in current location (root or inside current folder).
    */
   const handleSaveFolder = useCallback(async (folderName: string) : Promise<void> => {
     if (!dbContext?.sqliteClient) {
@@ -226,6 +229,7 @@ const ItemsList: React.FC = () => {
     }
 
     await executeVaultMutationAsync(async () => {
+      // Create folder in current location (currentFolderId = null means root)
       await dbContext.sqliteClient!.folders.create(folderName, currentFolderId);
     });
 
@@ -429,11 +433,13 @@ const ItemsList: React.FC = () => {
   }, [navigate]);
 
   /**
-   * Get folders with item counts (only for root level when not searching)
+   * Get folders with item counts.
+   * - At root level: show only root folders (ParentFolderId IS NULL)
+   * - Inside a folder: show only direct subfolders (ParentFolderId = currentFolderId)
    */
   const getFoldersWithCounts = (): FolderWithCount[] => {
-    if (currentFolderId || searchTerm) {
-      return [];
+    if (searchTerm) {
+      return []; // Don't show folders when searching
     }
 
     if (!dbContext?.sqliteClient) {
@@ -442,6 +448,20 @@ const ItemsList: React.FC = () => {
 
     // Get all folders directly from the database
     const allFolders = dbContext.sqliteClient.folders.getAll();
+
+    // Filter folders based on current location
+    const relevantFolders = allFolders.filter((folder: Folder) => {
+      if (currentFolderId) {
+        // Inside a folder: show only direct children
+        return folder.ParentFolderId === currentFolderId;
+      } else {
+        /*
+         * At root: show only root-level folders
+         * Check for both null and undefined since SQLite might return either
+         */
+        return folder.ParentFolderId === null || folder.ParentFolderId === undefined;
+      }
+    });
 
     // Count items per folder
     const folderCounts = new Map<string, number>();
@@ -452,7 +472,7 @@ const ItemsList: React.FC = () => {
     });
 
     // Build result with counts
-    const result = allFolders.map((folder: { Id: string; Name: string }) => ({
+    const result = relevantFolders.map((folder: Folder) => ({
       id: folder.Id,
       name: folder.Name,
       itemCount: folderCounts.get(folder.Id) || 0
@@ -564,6 +584,9 @@ const ItemsList: React.FC = () => {
 
   return (
     <div>
+      {/* Breadcrumb navigation - only show when inside a folder */}
+      <FolderBreadcrumb folderId={currentFolderId} refreshKey={folderRefreshKey} />
+
       <div className="flex justify-between items-center gap-2 mb-4">
         <div className="relative min-w-0 flex-1 flex items-center gap-2">
           <button
@@ -833,7 +856,7 @@ const ItemsList: React.FC = () => {
             </p>
           </div>
         </>
-      ) : filteredItems.length === 0 && folders.length === 0 && !hasItemsInFoldersOnly ? (
+      ) : filteredItems.length === 0 && folders.length === 0 && !hasItemsInFoldersOnly && !currentFolderId ? (
         <div className="text-gray-500 dark:text-gray-400 space-y-3 mb-10">
           {/* Show filter/search-specific messages only when actively filtering or searching */}
           {(filterType !== 'all' || searchTerm) && (
@@ -884,12 +907,6 @@ const ItemsList: React.FC = () => {
               </div>
             </>
           )}
-          {/* Show help text when inside an empty folder */}
-          {currentFolderId && (
-            <p className="text-sm">
-              {t('items.emptyFolderHint')}
-            </p>
-          )}
         </div>
       ) : hasItemsInFoldersOnly && filteredItems.length === 0 && !currentFolderId && !searchTerm ? (
         /* Show message when all items are in folders and we're at root level */
@@ -922,8 +939,10 @@ const ItemsList: React.FC = () => {
         </>
       ) : (
         <>
-          {/* Folders as inline pills (only show at root level when not searching and showFolders is enabled) */}
-          {!currentFolderId && !searchTerm && showFolders && (
+          {/* Folders as inline pills - show when not searching */}
+          {/* At root: show only if showFolders is enabled */}
+          {/* Inside folder: always show subfolders and create button */}
+          {!searchTerm && (currentFolderId || showFolders) && (
             <div className="flex flex-wrap items-center gap-2 mb-4">
               {folders.map(folder => (
                 <FolderPill
@@ -970,6 +989,13 @@ const ItemsList: React.FC = () => {
                 />
               ))}
             </ul>
+          )}
+
+          {/* Show help text when inside an empty folder with no items */}
+          {currentFolderId && sortedItems.length === 0 && !searchTerm && (
+            <div className="text-gray-500 dark:text-gray-400 text-sm mb-4">
+              <p>{t('items.emptyFolderHint')}</p>
+            </div>
           )}
 
           {/* Clear filter/search pills at bottom of list when filtering or searching */}
