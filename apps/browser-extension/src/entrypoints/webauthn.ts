@@ -23,6 +23,14 @@ export default defineUnlistedScript(() => {
   }
   (window as any).__aliasVaultWebAuthnIntercepted = true;
 
+  /*
+   * Check if navigator.credentials API is available
+   * Some pages (iframes, non-secure contexts, older browsers) may not have this API
+   */
+  if (!navigator.credentials) {
+    return;
+  }
+
   // Get the original implementations from the reservation script or bind directly
   const queue = (window as any).__aliasVaultWebAuthnQueue;
   const originalCreate = queue?.originalCreate || navigator.credentials.create.bind(navigator.credentials);
