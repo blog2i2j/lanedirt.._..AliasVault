@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { buildFolderTree, type FolderTreeNode } from '@/utils/folderUtils';
+import { buildFolderTree, getFolderIdPath, type FolderTreeNode } from '@/utils/folderUtils';
 
 type Folder = {
   Id: string;
@@ -39,6 +39,22 @@ const ItemNameInput: React.FC<ItemNameInputProps> = ({
 
   // Build folder tree
   const folderTree = useMemo(() => buildFolderTree(folders), [folders]);
+
+  /**
+   * Automatically expand parent folders when a folder is pre-selected.
+   * This ensures the selected folder is visible in the tree when the modal opens.
+   */
+  useEffect(() => {
+    if (selectedFolderId && folders.length > 0) {
+      const fullPath = getFolderIdPath(selectedFolderId, folders);
+      if (fullPath.length > 0) {
+        // Expand all folders in the path including the selected folder if it has children.
+        setExpandedFolders(new Set(fullPath));
+      }
+    } else {
+      setExpandedFolders(new Set());
+    }
+  }, [selectedFolderId, folders]);
 
   /**
    * Toggle folder expansion in tree view.
