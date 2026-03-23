@@ -2,8 +2,10 @@ import type { Folder } from './db/repositories/FolderRepository';
 
 /**
  * Maximum allowed folder nesting depth.
+ * Structure: Root (0) > Level 1 (1) > Level 2 (2) > Level 3 (3) > Level 4 (4)
+ * Folders at depth 4 cannot have subfolders.
  */
-export const MAX_FOLDER_DEPTH = 5;
+export const MAX_FOLDER_DEPTH = 4;
 
 /**
  * Folder tree node with hierarchical structure.

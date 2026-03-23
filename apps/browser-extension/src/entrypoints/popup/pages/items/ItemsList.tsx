@@ -24,6 +24,7 @@ import type { Folder } from '@/utils/db/repositories/FolderRepository';
 import type { CredentialSortOrder } from '@/utils/db/repositories/SettingsRepository';
 import type { Item, ItemType } from '@/utils/dist/core/models/vault';
 import { ItemTypes } from '@/utils/dist/core/models/vault';
+import { canHaveSubfolders } from '@/utils/folderUtils';
 import { LocalPreferencesService } from '@/utils/LocalPreferencesService';
 
 import { useMinDurationLoading } from '@/hooks/useMinDurationLoading';
@@ -569,6 +570,21 @@ const ItemsList: React.FC = () => {
   const folders = getFoldersWithCounts();
 
   /**
+   * Check if the current folder can have subfolders (not at max depth).
+   * At root level (currentFolderId = null), we can always create folders.
+   */
+  const canCreateSubfolder = useMemo(() => {
+    if (!currentFolderId) {
+      return true; // Root level, always allowed
+    }
+    if (!dbContext?.sqliteClient) {
+      return false;
+    }
+    const allFolders = dbContext.sqliteClient.folders.getAll();
+    return canHaveSubfolders(currentFolderId, allFolders);
+  }, [currentFolderId, dbContext?.sqliteClient]);
+
+  /**
    * Check if all items are in folders (no items at root level but items exist in folders).
    * This is used to show a helpful message when the user has imported credentials that were all in folders.
    */
@@ -911,28 +927,32 @@ const ItemsList: React.FC = () => {
       ) : hasItemsInFoldersOnly && filteredItems.length === 0 && !currentFolderId && !searchTerm ? (
         /* Show message when all items are in folders and we're at root level */
         <>
-          {/* Folders as inline pills */}
-          <div className="flex flex-wrap items-center gap-2 mb-4">
-            {folders.map(folder => (
-              <FolderPill
-                key={folder.id}
-                folder={folder}
-                onClick={() => handleFolderClick(folder.id, folder.name)}
-              />
-            ))}
-            <button
-              onClick={handleAddFolder}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-full transition-colors focus:outline-none text-gray-500 dark:text-gray-400 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-gray-100 dark:hover:bg-gray-700/50"
-            >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-              </svg>
-              <svg className="w-3 h-3 -ml-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-            </button>
-          </div>
+          {/* Folders as inline pills - only render wrapper if there are folders OR if we can create subfolders */}
+          {(folders.length > 0 || canCreateSubfolder) && (
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              {folders.map(folder => (
+                <FolderPill
+                  key={folder.id}
+                  folder={folder}
+                  onClick={() => handleFolderClick(folder.id, folder.name)}
+                />
+              ))}
+              {canCreateSubfolder && (
+                <button
+                  onClick={handleAddFolder}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-full transition-colors focus:outline-none text-gray-500 dark:text-gray-400 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-gray-100 dark:hover:bg-gray-700/50"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  </svg>
+                  <svg className="w-3 h-3 -ml-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          )}
           <div className="text-gray-500 dark:text-gray-400 text-sm">
             <p>{t('items.allItemsInFolders')}</p>
           </div>
@@ -942,7 +962,8 @@ const ItemsList: React.FC = () => {
           {/* Folders as inline pills - show when not searching */}
           {/* At root: show only if showFolders is enabled */}
           {/* Inside folder: always show subfolders and create button */}
-          {!searchTerm && (currentFolderId || showFolders) && (
+          {/* Only render wrapper if there are folders OR if we can create subfolders */}
+          {!searchTerm && (currentFolderId || showFolders) && (folders.length > 0 || canCreateSubfolder) && (
             <div className="flex flex-wrap items-center gap-2 mb-4">
               {folders.map(folder => (
                 <FolderPill
@@ -951,29 +972,31 @@ const ItemsList: React.FC = () => {
                   onClick={() => handleFolderClick(folder.id, folder.name)}
                 />
               ))}
-              <button
-                onClick={handleAddFolder}
-                className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-full transition-colors focus:outline-none ${
-                  folders.length > 0
-                    ? 'text-gray-500 dark:text-gray-400 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-gray-100 dark:hover:bg-gray-700/50'
-                    : 'text-gray-400 dark:text-gray-500 border border-dashed border-gray-300 dark:border-gray-600 hover:border-orange-400 dark:hover:border-orange-500 hover:text-orange-600 dark:hover:text-orange-400'
-                }`}
-              >
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                </svg>
-                <svg className="w-3 h-3 -ml-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <line x1="12" y1="5" x2="12" y2="19" />
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
-                {folders.length === 0 && (
-                  /**
-                   * Only show text when there are no folders yet
-                   * if there are folders we hide the text to save on UI space
-                   */
-                  <span>{t('items.newFolder')}</span>
-                )}
-              </button>
+              {canCreateSubfolder && (
+                <button
+                  onClick={handleAddFolder}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-full transition-colors focus:outline-none ${
+                    folders.length > 0
+                      ? 'text-gray-500 dark:text-gray-400 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                      : 'text-gray-400 dark:text-gray-500 border border-dashed border-gray-300 dark:border-gray-600 hover:border-orange-400 dark:hover:border-orange-500 hover:text-orange-600 dark:hover:text-orange-400'
+                  }`}
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  </svg>
+                  <svg className="w-3 h-3 -ml-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  {folders.length === 0 && (
+                    /**
+                     * Only show text when there are no folders yet
+                     * if there are folders we hide the text to save on UI space
+                     */
+                    <span>{t('items.newFolder')}</span>
+                  )}
+                </button>
+              )}
             </div>
           )}
 

@@ -18,11 +18,6 @@ type FolderBreadcrumbProps = {
    */
   folderId: string | null | undefined;
   /**
-   * Optional refresh key to force re-computation of breadcrumbs
-   * (e.g., when folder is renamed).
-   */
-  refreshKey?: number;
-  /**
    * Optional root path to navigate to when clicking the root breadcrumb.
    * Defaults to '/items'.
    */
@@ -40,7 +35,6 @@ type FolderBreadcrumbProps = {
  */
 const FolderBreadcrumb: React.FC<FolderBreadcrumbProps> = ({
   folderId,
-  refreshKey = 0,
   rootPath = '/items',
   rootLabel,
 }) => {
