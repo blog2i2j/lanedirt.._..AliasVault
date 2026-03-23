@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 
+import FolderBreadcrumb from '@/entrypoints/popup/components/Folders/FolderBreadcrumb';
 import HeaderButton from '@/entrypoints/popup/components/HeaderButton';
 import { HeaderIconType } from '@/entrypoints/popup/components/Icons/HeaderIcons';
 import {
@@ -118,6 +119,9 @@ const ItemDetails: React.FC = (): React.ReactElement => {
 
   return (
     <div className="space-y-4">
+      {/* Folder breadcrumb navigation */}
+      <FolderBreadcrumb folderId={item.FolderId} />
+
       {/* Header with name, logo, and URLs */}
       <div className="flex justify-between items-start">
         <div className="flex items-start gap-3">
