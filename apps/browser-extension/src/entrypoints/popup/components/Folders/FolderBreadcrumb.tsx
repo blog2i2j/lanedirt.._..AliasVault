@@ -80,9 +80,10 @@ const FolderBreadcrumb: React.FC<FolderBreadcrumbProps> = ({
 
   /*
    * Don't render anything if:
-   * - No breadcrumbs AND we're on the root page (would just show redundant "Items")
+   * 1. No folderId provided (item/view is at root level) - saves UI space
+   * 2. No breadcrumbs AND we're on the root page (would just show redundant "Items")
    */
-  if (breadcrumbs.length === 0 && isOnRootPage) {
+  if (!folderId || (breadcrumbs.length === 0 && isOnRootPage)) {
     return null;
   }
 
