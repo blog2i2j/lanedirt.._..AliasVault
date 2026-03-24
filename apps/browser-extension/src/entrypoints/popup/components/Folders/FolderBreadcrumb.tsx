@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -72,6 +72,32 @@ const FolderBreadcrumb: React.FC<FolderBreadcrumbProps> = ({
     return fullPath;
   }, [folderId, dbContext?.sqliteClient, location.pathname]);
 
+  /**
+   * Handle breadcrumb navigation.
+   * Uses navigate with negative delta to go back in history when clicking a parent folder.
+   * This properly cleans up the history stack instead of adding duplicate entries.
+   */
+  const handleBreadcrumbClick = useCallback((targetPath: string, targetIndex: number) => {
+    /*
+     * Calculate how many steps back we need to go.
+     * targetIndex is the position in the breadcrumb array (0 = root, 1 = first folder, etc.)
+     * Current location is at (breadcrumbs.length) in the hierarchy.
+     *
+     * If we're on folder hierarchy: Root > A > B > C
+     * - Breadcrumbs shown: [Root, A, B] (C is current, not shown)
+     * - Click "A" (index 1): need to go back (breadcrumbs.length - targetIndex) = 2 steps
+     */
+    const stepsBack = breadcrumbs.length - targetIndex;
+
+    if (stepsBack > 0) {
+      // Go back in history to clean up the stack
+      navigate(-stepsBack);
+    } else {
+      // Fallback to direct navigation with replace
+      navigate(targetPath, { replace: true });
+    }
+  }, [navigate, breadcrumbs.length]);
+
   /*
    * Check if we're currently on the root items page.
    * Match both /items and /items/ (with or without trailing slash)
@@ -100,7 +126,7 @@ const FolderBreadcrumb: React.FC<FolderBreadcrumbProps> = ({
         </span>
       ) : (
         <button
-          onClick={() => navigate(rootPath)}
+          onClick={() => handleBreadcrumbClick(rootPath, -1)}
           className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors flex-shrink-0 flex items-center gap-1"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -109,7 +135,7 @@ const FolderBreadcrumb: React.FC<FolderBreadcrumbProps> = ({
           {rootLabelText}
         </button>
       )}
-      {breadcrumbs.map((crumb) => {
+      {breadcrumbs.map((crumb, index) => {
         const crumbPath = `/items/folder/${crumb.id}`;
 
         return (
@@ -118,7 +144,7 @@ const FolderBreadcrumb: React.FC<FolderBreadcrumbProps> = ({
               <polyline points="9 6 15 12 9 18" />
             </svg>
             <button
-              onClick={() => navigate(crumbPath)}
+              onClick={() => handleBreadcrumbClick(crumbPath, index)}
               className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors truncate"
               title={crumb.name}
             >

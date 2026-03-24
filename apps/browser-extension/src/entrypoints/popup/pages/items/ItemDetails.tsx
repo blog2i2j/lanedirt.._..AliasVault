@@ -33,7 +33,7 @@ const ItemDetails: React.FC = (): React.ReactElement => {
   const dbContext = useDb();
   const [item, setItem] = useState<Item | null>(null);
   const { setIsInitialLoading } = useLoading();
-  const { setHeaderButtons } = useHeaderButtons();
+  const { setHeaderButtons, setBackButtonTitle } = useHeaderButtons();
 
   /**
    * Open the item details in a new expanded popup.
@@ -100,6 +100,27 @@ const ItemDetails: React.FC = (): React.ReactElement => {
   useEffect((): (() => void) => {
     return () => setHeaderButtons(null);
   }, [setHeaderButtons]);
+
+  // Set back button title based on item's folder
+  useEffect(() => {
+    if (item && dbContext?.sqliteClient) {
+      if (item.FolderId) {
+        // Item is in a folder - show folder name
+        const allFolders = dbContext.sqliteClient.folders.getAll();
+        const folder = allFolders.find(f => f.Id === item.FolderId);
+        if (folder) {
+          setBackButtonTitle(folder.Name);
+        } else {
+          setBackButtonTitle(t('items.title'));
+        }
+      } else {
+        // Item is at root - show "Items"
+        setBackButtonTitle(t('items.title'));
+      }
+    }
+
+    return () => setBackButtonTitle(null);
+  }, [item, dbContext?.sqliteClient, setBackButtonTitle, t]);
 
   if (!item) {
     return <div>{t('common.loading')}</div>;

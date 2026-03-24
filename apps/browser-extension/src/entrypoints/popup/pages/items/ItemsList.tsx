@@ -119,7 +119,7 @@ const ItemsList: React.FC = () => {
   const navigate = useNavigate();
   const { syncVault } = useVaultSync();
   const { executeVaultMutationAsync } = useVaultMutate();
-  const { setHeaderButtons } = useHeaderButtons();
+  const { setHeaderButtons, setBackButtonTitle } = useHeaderButtons();
   const [items, setItems] = useState<Item[]>([]);
   // Initialize searchTerm from URL query parameter (restored from back navigation or popup restore)
   const [searchTerm, setSearchTerm] = useState(() => {
@@ -369,6 +369,32 @@ const ItemsList: React.FC = () => {
     setHeaderButtons(headerButtonsJSX);
     return () => setHeaderButtons(null);
   }, [setHeaderButtons, handleAddItem, t]);
+
+  // Set back button title for folder view
+  useEffect(() => {
+    if (folderIdParam && dbContext?.sqliteClient) {
+      const allFolders = dbContext.sqliteClient.folders.getAll();
+      const currentFolder = allFolders.find(f => f.Id === folderIdParam);
+
+      if (currentFolder && currentFolder.ParentFolderId) {
+        // Has parent folder - show parent folder name
+        const parentFolder = allFolders.find(f => f.Id === currentFolder.ParentFolderId);
+        if (parentFolder) {
+          setBackButtonTitle(parentFolder.Name);
+        } else {
+          setBackButtonTitle(t('items.title'));
+        }
+      } else if (currentFolder) {
+        // Root folder - show "Items"
+        setBackButtonTitle(t('items.title'));
+      } else {
+        // Folder not found - fallback to "Items"
+        setBackButtonTitle(t('items.title'));
+      }
+    }
+
+    return () => setBackButtonTitle(null);
+  }, [folderIdParam, dbContext?.sqliteClient, setBackButtonTitle, t]);
 
   /**
    * Load items list on mount and on sqlite client change.

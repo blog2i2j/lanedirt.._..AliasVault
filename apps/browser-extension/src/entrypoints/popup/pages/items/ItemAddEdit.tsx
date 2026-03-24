@@ -82,7 +82,7 @@ const ItemAddEdit: React.FC = () => {
   const folderIdParam = searchParams.get('folderId');
 
   const { executeVaultMutationAsync } = useVaultMutate();
-  const { setHeaderButtons } = useHeaderButtons();
+  const { setHeaderButtons, setBackButtonTitle } = useHeaderButtons();
   const { setIsInitialLoading } = useLoading();
   const { generateAlias, generateRandomEmailPrefix, lastGeneratedValues } = useAliasGenerator();
   const { detectService } = useServiceDetection();
@@ -1017,6 +1017,28 @@ const ItemAddEdit: React.FC = () => {
 
     return (): void => setHeaderButtons(null);
   }, [setHeaderButtons, isEditMode, t, handleSave, isSaving]);
+
+  // Set back button title dynamically
+  useEffect(() => {
+    if (isEditMode) {
+      // Edit mode: back button goes to item details
+      setBackButtonTitle(t('items.itemDetails'));
+    } else if (folderIdParam && dbContext?.sqliteClient) {
+      // Create mode with folder: back button goes to folder
+      const allFolders = dbContext.sqliteClient.folders.getAll();
+      const folder = allFolders.find(f => f.Id === folderIdParam);
+      if (folder) {
+        setBackButtonTitle(folder.Name);
+      } else {
+        setBackButtonTitle(t('items.title'));
+      }
+    } else {
+      // Create mode at root: back button goes to Items
+      setBackButtonTitle(t('items.title'));
+    }
+
+    return (): void => setBackButtonTitle(null);
+  }, [setBackButtonTitle, isEditMode, folderIdParam, dbContext?.sqliteClient, t]);
 
   /**
    * Render a field input based on field type.
