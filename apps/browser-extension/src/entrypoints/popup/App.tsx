@@ -197,14 +197,14 @@ const App: React.FC = () => {
     { path: '/emails', element: <EmailsList />, showBackButton: false },
     { path: '/emails/:id', element: <EmailDetails />, showBackButton: true, title: t('emails.title') },
     { path: '/settings', element: <Settings />, showBackButton: false },
-    { path: '/settings/unlock-method', element: <VaultUnlockSettings />, showBackButton: true, title: t('settings.unlockMethod.title') },
-    { path: '/settings/autofill', element: <AutofillSettings />, showBackButton: true, title: t('settings.autofillSettings') },
-    { path: '/settings/context-menu', element: <ContextMenuSettings />, showBackButton: true, title: t('settings.contextMenuSettings') },
-    { path: '/settings/clipboard', element: <ClipboardSettings />, showBackButton: true, title: t('settings.clipboardSettings') },
-    { path: '/settings/language', element: <LanguageSettings />, showBackButton: true, title: t('settings.language') },
-    { path: '/settings/auto-lock', element: <AutoLockSettings />, showBackButton: true, title: t('settings.autoLockTimeout') },
-    { path: '/settings/passkeys', element: <PasskeySettings />, showBackButton: true, title: t('settings.passkeySettings') },
-    { path: '/settings/identity-generator', element: <IdentityGeneratorSettings />, showBackButton: true, title: t('settings.identityGenerator') },
+    { path: '/settings/unlock-method', element: <VaultUnlockSettings />, showBackButton: true, title: t('common.settings') },
+    { path: '/settings/autofill', element: <AutofillSettings />, showBackButton: true, title: t('common.settings') },
+    { path: '/settings/context-menu', element: <ContextMenuSettings />, showBackButton: true, title: t('common.settings') },
+    { path: '/settings/clipboard', element: <ClipboardSettings />, showBackButton: true, title: t('common.settings') },
+    { path: '/settings/language', element: <LanguageSettings />, showBackButton: true, title: t('common.settings') },
+    { path: '/settings/auto-lock', element: <AutoLockSettings />, showBackButton: true, title: t('common.settings') },
+    { path: '/settings/passkeys', element: <PasskeySettings />, showBackButton: true, title: t('common.settings') },
+    { path: '/settings/identity-generator', element: <IdentityGeneratorSettings />, showBackButton: true, title: t('common.settings') },
   ], [t]);
 
   useEffect(() => {

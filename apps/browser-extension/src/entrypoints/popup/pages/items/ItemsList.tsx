@@ -393,7 +393,7 @@ const ItemsList: React.FC = () => {
       }
     }
 
-    return () => setBackButtonTitle(null);
+    return (): void => setBackButtonTitle(null);
   }, [folderIdParam, dbContext?.sqliteClient, setBackButtonTitle, t]);
 
   /**

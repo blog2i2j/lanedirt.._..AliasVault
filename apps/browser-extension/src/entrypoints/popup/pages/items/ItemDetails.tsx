@@ -119,7 +119,7 @@ const ItemDetails: React.FC = (): React.ReactElement => {
       }
     }
 
-    return () => setBackButtonTitle(null);
+    return (): void => setBackButtonTitle(null);
   }, [item, dbContext?.sqliteClient, setBackButtonTitle, t]);
 
   if (!item) {
