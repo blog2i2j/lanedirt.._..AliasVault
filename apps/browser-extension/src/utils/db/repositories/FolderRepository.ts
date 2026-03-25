@@ -76,6 +76,23 @@ const FolderQueries = {
     WHERE FolderId = ? AND IsDeleted = 0 AND DeletedAt IS NULL`,
 
   /**
+   * Get all child folder IDs (direct children only).
+   */
+  GET_CHILD_FOLDER_IDS: `
+    SELECT Id
+    FROM Folders
+    WHERE ParentFolderId = ? AND IsDeleted = 0`,
+
+  /**
+   * Update parent folder for child folders.
+   */
+  UPDATE_PARENT_FOLDER: `
+    UPDATE Folders
+    SET ParentFolderId = ?,
+        UpdatedAt = ?
+    WHERE ParentFolderId = ?`,
+
+  /**
    * Move item to folder.
    */
   MOVE_ITEM: `
@@ -159,8 +176,33 @@ export class FolderRepository extends BaseRepository {
   }
 
   /**
+   * Get all child folder IDs recursively.
+   * @param folderId - The parent folder ID
+   * @returns Array of all descendant folder IDs
+   */
+  private getAllChildFolderIds(folderId: string): string[] {
+    const directChildren = this.client.executeQuery<{ Id: string }>(
+      FolderQueries.GET_CHILD_FOLDER_IDS,
+      [folderId]
+    );
+
+    const allChildIds: string[] = [];
+
+    for (const child of directChildren) {
+      allChildIds.push(child.Id);
+      // Recursively get all descendants
+      const descendants = this.getAllChildFolderIds(child.Id);
+      allChildIds.push(...descendants);
+    }
+
+    return allChildIds;
+  }
+
+  /**
    * Delete a folder (soft delete).
-   * Note: Items in the folder will have their FolderId set to NULL.
+   * Recursively handles child folders and items:
+   * - All items in this folder and child folders are moved to root (FolderId = NULL)
+   * - All child folders are moved to the parent of the deleted folder
    * @param folderId - The ID of the folder to delete
    * @returns The number of rows updated
    */
@@ -168,8 +210,29 @@ export class FolderRepository extends BaseRepository {
     return this.withTransaction(async () => {
       const currentDateTime = this.now();
 
-      // Remove folder reference from all items in this folder
+      // Get the parent folder of the folder being deleted
+      const folder = this.getById(folderId);
+      const targetParentId = folder?.ParentFolderId || null;
+
+      // Get all child folder IDs recursively
+      const allChildFolderIds = this.getAllChildFolderIds(folderId);
+
+      // Move all items in this folder and all child folders to root
       this.client.executeUpdate(FolderQueries.CLEAR_ITEMS_FOLDER, [
+        currentDateTime,
+        folderId
+      ]);
+
+      for (const childFolderId of allChildFolderIds) {
+        this.client.executeUpdate(FolderQueries.CLEAR_ITEMS_FOLDER, [
+          currentDateTime,
+          childFolderId
+        ]);
+      }
+
+      // Move direct child folders to the parent of the deleted folder
+      this.client.executeUpdate(FolderQueries.UPDATE_PARENT_FOLDER, [
+        targetParentId,
         currentDateTime,
         folderId
       ]);
@@ -184,7 +247,9 @@ export class FolderRepository extends BaseRepository {
 
   /**
    * Delete a folder and all items within it (soft delete both folder and items).
-   * Items are moved to "Recently Deleted" (trash).
+   * Recursively handles child folders:
+   * - All items in this folder and child folders are moved to "Recently Deleted" (trash)
+   * - All child folders are also deleted
    * @param folderId - The ID of the folder to delete
    * @returns The number of items trashed
    */
@@ -192,20 +257,42 @@ export class FolderRepository extends BaseRepository {
     return this.withTransaction(async () => {
       const currentDateTime = this.now();
 
-      // Move all items in this folder to trash and clear FolderId
-      const itemsDeleted = this.client.executeUpdate(FolderQueries.TRASH_ITEMS_IN_FOLDER, [
+      // Get all child folder IDs recursively
+      const allChildFolderIds = this.getAllChildFolderIds(folderId);
+
+      let totalItemsDeleted = 0;
+
+      // Move all items in this folder to trash
+      totalItemsDeleted += this.client.executeUpdate(FolderQueries.TRASH_ITEMS_IN_FOLDER, [
         currentDateTime,
         currentDateTime,
         folderId
       ]);
 
-      // Soft delete the folder
+      // Move all items in child folders to trash
+      for (const childFolderId of allChildFolderIds) {
+        totalItemsDeleted += this.client.executeUpdate(FolderQueries.TRASH_ITEMS_IN_FOLDER, [
+          currentDateTime,
+          currentDateTime,
+          childFolderId
+        ]);
+      }
+
+      // Soft delete all child folders
+      for (const childFolderId of allChildFolderIds) {
+        this.client.executeUpdate(FolderQueries.SOFT_DELETE, [
+          currentDateTime,
+          childFolderId
+        ]);
+      }
+
+      // Soft delete the parent folder
       this.client.executeUpdate(FolderQueries.SOFT_DELETE, [
         currentDateTime,
         folderId
       ]);
 
-      return itemsDeleted;
+      return totalItemsDeleted;
     });
   }
 

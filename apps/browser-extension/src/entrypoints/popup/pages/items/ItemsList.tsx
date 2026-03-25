@@ -463,6 +463,7 @@ const ItemsList: React.FC = () => {
    * Get folders with item counts.
    * - At root level: show only root folders (ParentFolderId IS NULL)
    * - Inside a folder: show only direct subfolders (ParentFolderId = currentFolderId)
+   * - Counts include items in the folder AND all subfolders recursively
    */
   const getFoldersWithCounts = (): FolderWithCount[] => {
     if (searchTerm) {
@@ -490,23 +491,70 @@ const ItemsList: React.FC = () => {
       }
     });
 
-    // Count items per folder
-    const folderCounts = new Map<string, number>();
+    // Count items per folder (direct items only)
+    const directFolderCounts = new Map<string, number>();
     items.forEach((item: Item) => {
       if (item.FolderId) {
-        folderCounts.set(item.FolderId, (folderCounts.get(item.FolderId) || 0) + 1);
+        directFolderCounts.set(item.FolderId, (directFolderCounts.get(item.FolderId) || 0) + 1);
       }
     });
 
-    // Build result with counts
+    /**
+     * Recursively count items in a folder and all its subfolders.
+     * @param folderId - The folder ID to count items for
+     * @returns Total count of items in this folder and all descendant folders
+     */
+    const getRecursiveItemCount = (folderId: string): number => {
+      // Start with direct items in this folder
+      let count = directFolderCounts.get(folderId) || 0;
+
+      // Add counts from all child folders recursively
+      const childFolderIds = getAllChildFolderIds(folderId);
+      for (const childId of childFolderIds) {
+        count += directFolderCounts.get(childId) || 0;
+      }
+
+      return count;
+    };
+
+    // Build result with recursive counts
     const result = relevantFolders.map((folder: Folder) => ({
       id: folder.Id,
       name: folder.Name,
-      itemCount: folderCounts.get(folder.Id) || 0
+      itemCount: getRecursiveItemCount(folder.Id)
     })).sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name));
 
     return result;
   };
+
+  /**
+   * Get all child folder IDs recursively for a given folder.
+   * @param folderId - The parent folder ID to get children for
+   * @returns Array of all descendant folder IDs
+   */
+  const getAllChildFolderIds = useCallback((folderId: string): string[] => {
+    if (!dbContext?.sqliteClient) {
+      return [];
+    }
+
+    const allFolders = dbContext.sqliteClient.folders.getAll();
+    const childIds: string[] = [];
+
+    /**
+     * Recursively find all child folders.
+     * @param parentId - The parent folder ID
+     */
+    const findChildren = (parentId: string): void => {
+      const children = allFolders.filter(f => f.ParentFolderId === parentId);
+      for (const child of children) {
+        childIds.push(child.Id);
+        findChildren(child.Id); // Recursively find descendants
+      }
+    };
+
+    findChildren(folderId);
+    return childIds;
+  }, [dbContext]);
 
   /**
    * Filter items based on current view (folder, search, filter type)
@@ -594,6 +642,25 @@ const ItemsList: React.FC = () => {
   }, [filteredItems, sortOrder]);
 
   const folders = getFoldersWithCounts();
+
+  /**
+   * Calculate total item count including items in current folder and all child folders.
+   * Used for the delete folder modal to show accurate count.
+   */
+  const totalItemCountInFolderTree = useMemo(() => {
+    if (!currentFolderId) {
+      return filteredItems.length;
+    }
+
+    // Get all child folder IDs
+    const childFolderIds = getAllChildFolderIds(currentFolderId);
+    const allFolderIds = [currentFolderId, ...childFolderIds];
+
+    // Count items in current folder and all child folders
+    return items.filter(item =>
+      item.FolderId && allFolderIds.includes(item.FolderId)
+    ).length;
+  }, [currentFolderId, items, getAllChildFolderIds, filteredItems.length]);
 
   /**
    * Check if the current folder can have subfolders (not at max depth).
@@ -1105,7 +1172,7 @@ const ItemsList: React.FC = () => {
         onClose={() => setShowDeleteFolderModal(false)}
         onDeleteFolderOnly={handleDeleteFolderOnly}
         onDeleteFolderAndContents={handleDeleteFolderAndContents}
-        itemCount={filteredItems.length}
+        itemCount={totalItemCountInFolderTree}
       />
     </div>
   );

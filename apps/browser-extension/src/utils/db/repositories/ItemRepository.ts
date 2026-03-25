@@ -298,14 +298,12 @@ export class ItemRepository extends BaseRepository {
   public getRecentlyDeleted(): ItemWithDeletedAt[] {
     let itemRows: (ItemRow & { DeletedAt: string })[];
     try {
-      // Need a modified query that includes DeletedAt in the SELECT
       const query = `
-        SELECT DISTINCT
+        SELECT
           i.Id,
           i.Name,
           i.ItemType,
           i.FolderId,
-          f.Name as FolderPath,
           l.FileData as Logo,
           i.DeletedAt,
           CASE WHEN EXISTS (SELECT 1 FROM Passkeys pk WHERE pk.ItemId = i.Id AND pk.IsDeleted = 0) THEN 1 ELSE 0 END as HasPasskey,
@@ -315,7 +313,6 @@ export class ItemRepository extends BaseRepository {
           i.UpdatedAt
         FROM Items i
         LEFT JOIN Logos l ON i.LogoId = l.Id
-        LEFT JOIN Folders f ON i.FolderId = f.Id
         WHERE i.IsDeleted = 0 AND i.DeletedAt IS NOT NULL
         ORDER BY i.DeletedAt DESC`;
 
