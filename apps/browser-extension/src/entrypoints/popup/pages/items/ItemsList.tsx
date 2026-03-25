@@ -627,7 +627,7 @@ const ItemsList: React.FC = () => {
   return (
     <div>
       {/* Breadcrumb navigation - only show when inside a folder */}
-      <FolderBreadcrumb folderId={currentFolderId} refreshKey={folderRefreshKey} />
+      <FolderBreadcrumb folderId={currentFolderId} />
 
       <div className="flex justify-between items-center gap-2 mb-4">
         <div className="relative min-w-0 flex-1 flex items-center gap-2">

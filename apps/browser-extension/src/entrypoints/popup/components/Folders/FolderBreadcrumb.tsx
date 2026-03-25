@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 import { useDb } from '@/entrypoints/popup/context/DbContext';
+import { useNavigationHistory } from '@/entrypoints/popup/hooks/useNavigationHistory';
 
 import { getFolderPath, getFolderIdPath } from '@/utils/folderUtils';
 
@@ -43,6 +44,7 @@ const FolderBreadcrumb: React.FC<FolderBreadcrumbProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const dbContext = useDb();
+  const { findStepsBack } = useNavigationHistory();
 
   /**
    * Compute breadcrumb trail based on current folder.
@@ -73,30 +75,20 @@ const FolderBreadcrumb: React.FC<FolderBreadcrumbProps> = ({
   }, [folderId, dbContext?.sqliteClient, location.pathname]);
 
   /**
-   * Handle breadcrumb navigation.
-   * Uses navigate with negative delta to go back in history when clicking a parent folder.
-   * This properly cleans up the history stack instead of adding duplicate entries.
+   * Handle breadcrumb navigation with history management.
    */
-  const handleBreadcrumbClick = useCallback((targetPath: string, targetIndex: number) => {
-    /*
-     * Calculate how many steps back we need to go.
-     * targetIndex is the position in the breadcrumb array (0 = root, 1 = first folder, etc.)
-     * Current location is at (breadcrumbs.length) in the hierarchy.
-     *
-     * If we're on folder hierarchy: Root > A > B > C
-     * - Breadcrumbs shown: [Root, A, B] (C is current, not shown)
-     * - Click "A" (index 1): need to go back (breadcrumbs.length - targetIndex) = 2 steps
-     */
-    const stepsBack = breadcrumbs.length - targetIndex;
+  const handleBreadcrumbClick = useCallback((targetPath: string) => {
+    // Check if the target path exists in our navigation history
+    const stepsBack = findStepsBack(targetPath);
 
-    if (stepsBack > 0) {
-      // Go back in history to clean up the stack
+    if (stepsBack !== null && stepsBack > 0) {
+      // Path is in history - go back to it, removing all entries after it
       navigate(-stepsBack);
     } else {
-      // Fallback to direct navigation with replace
-      navigate(targetPath, { replace: true });
+      // Path not in history - navigate forward, adding it to the stack
+      navigate(targetPath);
     }
-  }, [navigate, breadcrumbs.length]);
+  }, [navigate, findStepsBack]);
 
   /*
    * Check if we're currently on the root items page.
@@ -126,7 +118,7 @@ const FolderBreadcrumb: React.FC<FolderBreadcrumbProps> = ({
         </span>
       ) : (
         <button
-          onClick={() => handleBreadcrumbClick(rootPath, -1)}
+          onClick={() => handleBreadcrumbClick(rootPath)}
           className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors flex-shrink-0 flex items-center gap-1"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,7 +127,7 @@ const FolderBreadcrumb: React.FC<FolderBreadcrumbProps> = ({
           {rootLabelText}
         </button>
       )}
-      {breadcrumbs.map((crumb, index) => {
+      {breadcrumbs.map((crumb) => {
         const crumbPath = `/items/folder/${crumb.id}`;
 
         return (
@@ -144,7 +136,7 @@ const FolderBreadcrumb: React.FC<FolderBreadcrumbProps> = ({
               <polyline points="9 6 15 12 9 18" />
             </svg>
             <button
-              onClick={() => handleBreadcrumbClick(crumbPath, index)}
+              onClick={() => handleBreadcrumbClick(crumbPath)}
               className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors truncate"
               title={crumb.name}
             >
