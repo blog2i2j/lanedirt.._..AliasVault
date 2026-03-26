@@ -265,6 +265,14 @@ export class ItemQueries {
       AND fv.IsDeleted = 0
       AND i.IsDeleted = 0
       AND i.DeletedAt IS NULL`;
+
+  /**
+   * Get item-level fields for change detection during updates.
+   */
+  public static readonly GET_ITEM_FIELDS = `
+    SELECT Name, ItemType, FolderId, LogoId
+    FROM Items
+    WHERE Id = ?`;
 }
 
 /**
@@ -406,5 +414,65 @@ export class FieldHistoryQueries {
   public static readonly SOFT_DELETE = `
     UPDATE FieldHistories
     SET IsDeleted = 1, UpdatedAt = ?
+    WHERE Id = ?`;
+}
+
+/**
+ * SQL query constants for TotpCode operations.
+ */
+export class TotpCodeQueries {
+  /**
+   * Get existing TOTP codes for an item.
+   */
+  public static readonly GET_BY_ITEM_ID = `
+    SELECT Id, Name, SecretKey
+    FROM TotpCodes
+    WHERE ItemId = ? AND IsDeleted = 0`;
+
+  /**
+   * Insert a new TOTP code.
+   */
+  public static readonly INSERT = `
+    INSERT INTO TotpCodes (Id, Name, SecretKey, ItemId, CreatedAt, UpdatedAt, IsDeleted)
+    VALUES (?, ?, ?, ?, ?, ?, ?)`;
+
+  /**
+   * Update an existing TOTP code.
+   */
+  public static readonly UPDATE = `
+    UPDATE TotpCodes
+    SET Name = ?,
+        SecretKey = ?,
+        UpdatedAt = ?
+    WHERE Id = ?`;
+
+  /**
+   * Soft delete a TOTP code.
+   */
+  public static readonly SOFT_DELETE = `
+    UPDATE TotpCodes
+    SET IsDeleted = 1,
+        UpdatedAt = ?
+    WHERE Id = ?`;
+}
+
+/**
+ * SQL query constants for Attachment operations.
+ */
+export class AttachmentQueries {
+  /**
+   * Insert a new attachment.
+   */
+  public static readonly INSERT = `
+    INSERT INTO Attachments (Id, Filename, Blob, ItemId, CreatedAt, UpdatedAt, IsDeleted)
+    VALUES (?, ?, ?, ?, ?, ?, ?)`;
+
+  /**
+   * Soft delete an attachment.
+   */
+  public static readonly SOFT_DELETE = `
+    UPDATE Attachments
+    SET IsDeleted = 1,
+        UpdatedAt = ?
     WHERE Id = ?`;
 }

@@ -1,4 +1,5 @@
 import { BaseRepository } from '../BaseRepository';
+import { FolderQueries } from '../queries/FolderQueries';
 
 /**
  * Folder entity type.
@@ -9,98 +10,6 @@ export type Folder = {
   ParentFolderId: string | null;
   Weight: number;
 }
-
-/**
- * SQL query constants for Folder operations.
- */
-const FolderQueries = {
-  /**
-   * Get all active folders.
-   */
-  GET_ALL: `
-    SELECT Id, Name, ParentFolderId, Weight
-    FROM Folders
-    WHERE IsDeleted = 0
-    ORDER BY Weight, Name`,
-
-  /**
-   * Get folder by ID.
-   */
-  GET_BY_ID: `
-    SELECT Id, Name, ParentFolderId
-    FROM Folders
-    WHERE Id = ? AND IsDeleted = 0`,
-
-  /**
-   * Insert a new folder.
-   */
-  INSERT: `
-    INSERT INTO Folders (Id, Name, ParentFolderId, Weight, IsDeleted, CreatedAt, UpdatedAt)
-    VALUES (?, ?, ?, 0, 0, ?, ?)`,
-
-  /**
-   * Update folder name.
-   */
-  UPDATE_NAME: `
-    UPDATE Folders
-    SET Name = ?,
-        UpdatedAt = ?
-    WHERE Id = ?`,
-
-  /**
-   * Soft delete folder.
-   */
-  SOFT_DELETE: `
-    UPDATE Folders
-    SET IsDeleted = 1,
-        UpdatedAt = ?
-    WHERE Id = ?`,
-
-  /**
-   * Clear folder reference from items.
-   */
-  CLEAR_ITEMS_FOLDER: `
-    UPDATE Items
-    SET FolderId = NULL,
-        UpdatedAt = ?
-    WHERE FolderId = ?`,
-
-  /**
-   * Trash items in folder.
-   */
-  TRASH_ITEMS_IN_FOLDER: `
-    UPDATE Items
-    SET DeletedAt = ?,
-        UpdatedAt = ?,
-        FolderId = NULL
-    WHERE FolderId = ? AND IsDeleted = 0 AND DeletedAt IS NULL`,
-
-  /**
-   * Get all child folder IDs (direct children only).
-   */
-  GET_CHILD_FOLDER_IDS: `
-    SELECT Id
-    FROM Folders
-    WHERE ParentFolderId = ? AND IsDeleted = 0`,
-
-  /**
-   * Update parent folder for child folders.
-   */
-  UPDATE_PARENT_FOLDER: `
-    UPDATE Folders
-    SET ParentFolderId = ?,
-        UpdatedAt = ?
-    WHERE ParentFolderId = ?`,
-
-  /**
-   * Move item to folder.
-   */
-  MOVE_ITEM: `
-    UPDATE Items
-    SET FolderId = ?,
-        UpdatedAt = ?
-    WHERE Id = ?`
-};
 
 /**
  * Repository for Folder CRUD operations.

@@ -8,7 +8,9 @@ import {
   ItemQueries,
   FieldValueQueries,
   FieldDefinitionQueries,
-  FieldHistoryQueries
+  FieldHistoryQueries,
+  TotpCodeQueries,
+  AttachmentQueries
 } from '../queries/ItemQueries';
 
 import type { LogoRepository } from './LogoRepository';
@@ -183,7 +185,7 @@ export class ItemRepository extends BaseRepository {
         ItemType: number;
         FolderId: string | null;
         LogoId: string | null;
-      }>(`SELECT Name, ItemType, FolderId, LogoId FROM Items WHERE Id = ?`, [item.Id])[0];
+      }>(ItemQueries.GET_ITEM_FIELDS, [item.Id])[0];
 
       if (existing) {
         const nameChanged = (item.Name ?? null) !== existing.Name;
@@ -754,8 +756,7 @@ export class ItemRepository extends BaseRepository {
   private insertTotpCodes(itemId: string, totpCodes: TotpCode[], currentDateTime: string): void {
     for (const totpCode of totpCodes) {
       this.client.executeUpdate(
-        `INSERT INTO TotpCodes (Id, Name, SecretKey, ItemId, CreatedAt, UpdatedAt, IsDeleted)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        TotpCodeQueries.INSERT,
         [
           totpCode.Id || this.generateId(),
           totpCode.Name,
@@ -783,7 +784,7 @@ export class ItemRepository extends BaseRepository {
       Id: string;
       Name: string;
       SecretKey: string;
-    }>(`SELECT Id, Name, SecretKey FROM TotpCodes WHERE ItemId = ? AND IsDeleted = 0`, [itemId]);
+    }>(TotpCodeQueries.GET_BY_ITEM_ID, [itemId]);
 
     const existingByIdMap = new Map(existingTotpCodes.map(tc => [tc.Id, tc]));
 
@@ -793,7 +794,7 @@ export class ItemRepository extends BaseRepository {
       if (totpCode.IsDeleted) {
         if (wasOriginal) {
           this.client.executeUpdate(
-            `UPDATE TotpCodes SET IsDeleted = 1, UpdatedAt = ? WHERE Id = ?`,
+            TotpCodeQueries.SOFT_DELETE,
             [currentDateTime, totpCode.Id]
           );
         }
@@ -802,14 +803,13 @@ export class ItemRepository extends BaseRepository {
         const existing = existingByIdMap.get(totpCode.Id);
         if (existing && (existing.Name !== totpCode.Name || existing.SecretKey !== totpCode.SecretKey)) {
           this.client.executeUpdate(
-            `UPDATE TotpCodes SET Name = ?, SecretKey = ?, UpdatedAt = ? WHERE Id = ?`,
+            TotpCodeQueries.UPDATE,
             [totpCode.Name, totpCode.SecretKey, currentDateTime, totpCode.Id]
           );
         }
       } else {
         this.client.executeUpdate(
-          `INSERT INTO TotpCodes (Id, Name, SecretKey, ItemId, CreatedAt, UpdatedAt, IsDeleted)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          TotpCodeQueries.INSERT,
           [
             totpCode.Id || this.generateId(),
             totpCode.Name,
@@ -834,8 +834,7 @@ export class ItemRepository extends BaseRepository {
         : new Uint8Array(attachment.Blob);
 
       this.client.executeUpdate(
-        `INSERT INTO Attachments (Id, Filename, Blob, ItemId, CreatedAt, UpdatedAt, IsDeleted)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        AttachmentQueries.INSERT,
         [
           attachment.Id || this.generateId(),
           attachment.Filename,
@@ -865,7 +864,7 @@ export class ItemRepository extends BaseRepository {
     for (const originalId of originalIds) {
       if (!currentAttachmentIds.has(originalId)) {
         this.client.executeUpdate(
-          `UPDATE Attachments SET IsDeleted = 1, UpdatedAt = ? WHERE Id = ?`,
+          AttachmentQueries.SOFT_DELETE,
           [currentDateTime, originalId]
         );
       }
@@ -878,7 +877,7 @@ export class ItemRepository extends BaseRepository {
       if (attachment.IsDeleted) {
         if (wasOriginal) {
           this.client.executeUpdate(
-            `UPDATE Attachments SET IsDeleted = 1, UpdatedAt = ? WHERE Id = ?`,
+            AttachmentQueries.SOFT_DELETE,
             [currentDateTime, attachment.Id]
           );
         }
@@ -888,8 +887,7 @@ export class ItemRepository extends BaseRepository {
           : new Uint8Array(attachment.Blob);
 
         this.client.executeUpdate(
-          `INSERT INTO Attachments (Id, Filename, Blob, ItemId, CreatedAt, UpdatedAt, IsDeleted)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          AttachmentQueries.INSERT,
           [
             attachment.Id || this.generateId(),
             attachment.Filename,
