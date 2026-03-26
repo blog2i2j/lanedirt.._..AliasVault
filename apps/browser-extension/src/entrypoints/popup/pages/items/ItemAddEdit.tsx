@@ -377,6 +377,12 @@ const ItemAddEdit: React.FC = () => {
         } else {
           // Load persisted form values normally
           await loadPersistedValues();
+
+          // Also override the FolderId with the current URL param (if any).
+          setItem(prev => prev ? {
+            ...prev,
+            FolderId: folderIdParam || null
+          } : prev);
         }
 
         setLocalLoading(false);
