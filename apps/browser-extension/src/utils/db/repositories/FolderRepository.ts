@@ -110,7 +110,7 @@ export class FolderRepository extends BaseRepository {
   /**
    * Delete a folder (soft delete).
    * Recursively handles child folders and items:
-   * - All items in this folder and child folders are moved to root (FolderId = NULL)
+   * - All items in this folder and child folders are moved to the parent folder (or root if no parent)
    * - All child folders are moved to the parent of the deleted folder
    * @param folderId - The ID of the folder to delete
    * @returns The number of rows updated
@@ -126,17 +126,35 @@ export class FolderRepository extends BaseRepository {
       // Get all child folder IDs recursively
       const allChildFolderIds = this.getAllChildFolderIds(folderId);
 
-      // Move all items in this folder and all child folders to root
-      this.client.executeUpdate(FolderQueries.CLEAR_ITEMS_FOLDER, [
-        currentDateTime,
-        folderId
-      ]);
+      // Move all items in this folder and all child folders to the parent folder (or root if no parent)
+      if (targetParentId) {
+        // Has parent: move items to parent folder
+        this.client.executeUpdate(FolderQueries.MOVE_ITEMS_TO_FOLDER, [
+          targetParentId,
+          currentDateTime,
+          folderId
+        ]);
 
-      for (const childFolderId of allChildFolderIds) {
+        for (const childFolderId of allChildFolderIds) {
+          this.client.executeUpdate(FolderQueries.MOVE_ITEMS_TO_FOLDER, [
+            targetParentId,
+            currentDateTime,
+            childFolderId
+          ]);
+        }
+      } else {
+        // No parent: move items to root (NULL)
         this.client.executeUpdate(FolderQueries.CLEAR_ITEMS_FOLDER, [
           currentDateTime,
-          childFolderId
+          folderId
         ]);
+
+        for (const childFolderId of allChildFolderIds) {
+          this.client.executeUpdate(FolderQueries.CLEAR_ITEMS_FOLDER, [
+            currentDateTime,
+            childFolderId
+          ]);
+        }
       }
 
       // Move direct child folders to the parent of the deleted folder

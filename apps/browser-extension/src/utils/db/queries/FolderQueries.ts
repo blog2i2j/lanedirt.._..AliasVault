@@ -46,11 +46,20 @@ export class FolderQueries {
     WHERE Id = ?`;
 
   /**
-   * Clear folder reference from items.
+   * Clear folder reference from items (set to NULL).
    */
   public static readonly CLEAR_ITEMS_FOLDER = `
     UPDATE Items
     SET FolderId = NULL,
+        UpdatedAt = ?
+    WHERE FolderId = ?`;
+
+  /**
+   * Move items to a different folder.
+   */
+  public static readonly MOVE_ITEMS_TO_FOLDER = `
+    UPDATE Items
+    SET FolderId = ?,
         UpdatedAt = ?
     WHERE FolderId = ?`;
 

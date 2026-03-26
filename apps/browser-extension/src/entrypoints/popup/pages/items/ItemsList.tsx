@@ -247,6 +247,11 @@ const ItemsList: React.FC = () => {
       return;
     }
 
+    // Get the current folder to determine parent before deletion
+    const allFolders = dbContext.sqliteClient.folders.getAll();
+    const currentFolder = allFolders.find(f => f.Id === currentFolderId);
+    const parentFolderId = currentFolder?.ParentFolderId ?? null;
+
     await executeVaultMutationAsync(async () => {
       await dbContext.sqliteClient!.folders.delete(currentFolderId);
     });
@@ -257,8 +262,12 @@ const ItemsList: React.FC = () => {
     const deletedCount = dbContext.sqliteClient!.items.getRecentlyDeletedCount();
     setRecentlyDeletedCount(deletedCount);
 
-    // Navigate back to root
-    navigate('/items');
+    // Navigate to parent folder if it exists, otherwise root
+    if (parentFolderId) {
+      navigate(`/items/folder/${parentFolderId}`);
+    } else {
+      navigate('/items');
+    }
   }, [dbContext, currentFolderId, executeVaultMutationAsync, navigate]);
 
   /**
@@ -268,6 +277,11 @@ const ItemsList: React.FC = () => {
     if (!dbContext?.sqliteClient || !currentFolderId) {
       return;
     }
+
+    // Get the current folder to determine parent before deletion
+    const allFolders = dbContext.sqliteClient.folders.getAll();
+    const currentFolder = allFolders.find(f => f.Id === currentFolderId);
+    const parentFolderId = currentFolder?.ParentFolderId ?? null;
 
     await executeVaultMutationAsync(async () => {
       await dbContext.sqliteClient!.folders.deleteWithContents(currentFolderId);
@@ -279,8 +293,12 @@ const ItemsList: React.FC = () => {
     const deletedCount = dbContext.sqliteClient!.items.getRecentlyDeletedCount();
     setRecentlyDeletedCount(deletedCount);
 
-    // Navigate back to root
-    navigate('/items');
+    // Navigate to parent folder if it exists, otherwise root
+    if (parentFolderId) {
+      navigate(`/items/folder/${parentFolderId}`);
+    } else {
+      navigate('/items');
+    }
   }, [dbContext, currentFolderId, executeVaultMutationAsync, navigate]);
 
   /**
