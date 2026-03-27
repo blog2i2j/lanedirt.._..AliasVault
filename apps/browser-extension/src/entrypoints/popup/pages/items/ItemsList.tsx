@@ -24,7 +24,7 @@ import type { Folder } from '@/utils/db/repositories/FolderRepository';
 import type { CredentialSortOrder } from '@/utils/db/repositories/SettingsRepository';
 import type { Item, ItemType } from '@/utils/dist/core/models/vault';
 import { ItemTypes } from '@/utils/dist/core/models/vault';
-import { canHaveSubfolders } from '@/utils/folderUtils';
+import { canHaveSubfolders, getFolderPath } from '@/utils/folderUtils';
 import { LocalPreferencesService } from '@/utils/LocalPreferencesService';
 
 import { useMinDurationLoading } from '@/hooks/useMinDurationLoading';
@@ -156,6 +156,16 @@ const ItemsList: React.FC = () => {
     const folder = folders.find((f: { Id: string; Name: string }) => f.Id === currentFolderId);
     return folder?.Name ?? null;
   }, [currentFolderId, dbContext?.sqliteClient, folderRefreshKey]);
+
+  // Get current folder's full path (for relative path computation in search results)
+  const currentFolderPath = useMemo(() => {
+    if (!currentFolderId || !dbContext?.sqliteClient) {
+      return null;
+    }
+    const folders = dbContext.sqliteClient.folders.getAll();
+    const path = getFolderPath(currentFolderId, folders);
+    return path.length > 0 ? path : null;
+  }, [currentFolderId, dbContext?.sqliteClient]);
 
   /**
    * Loading state with minimum duration for more fluid UX.
@@ -580,8 +590,21 @@ const ItemsList: React.FC = () => {
   const filteredItems = items.filter((item: Item) => {
     // Filter by current folder (if in folder view)
     if (currentFolderId !== null) {
-      if (item.FolderId !== currentFolderId) {
-        return false;
+      // When searching inside a folder, include items in subfolders too
+      if (searchTerm) {
+        // Get all child folder IDs recursively
+        const childFolderIds = getAllChildFolderIds(currentFolderId);
+        const allFolderIds = [currentFolderId, ...childFolderIds];
+
+        // Item must be in current folder or any subfolder
+        if (!item.FolderId || !allFolderIds.includes(item.FolderId)) {
+          return false;
+        }
+      } else {
+        // When not searching, only show direct items (not items in subfolders)
+        if (item.FolderId !== currentFolderId) {
+          return false;
+        }
       }
     } else if (!searchTerm && showFolders) {
       /*
@@ -1120,6 +1143,7 @@ const ItemsList: React.FC = () => {
                   item={item}
                   showFolderPath={!!searchTerm && !!item.FolderPath}
                   searchTerm={searchTerm}
+                  currentFolderPath={currentFolderPath}
                 />
               ))}
             </ul>

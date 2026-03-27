@@ -5,40 +5,14 @@
 export class ItemQueries {
   /**
    * Base SELECT for items with common fields.
-   * Includes LEFT JOIN to Logos and recursive CTE for full folder paths.
-   * Builds hierarchical folder paths like "Work > Projects > AliasVault".
+   * Includes LEFT JOIN to Logos. Folder paths are computed in the repository layer.
    */
   public static readonly BASE_SELECT = `
-    WITH RECURSIVE FolderPath AS (
-      -- Base case: root folders (no parent)
-      SELECT
-        Id,
-        Name,
-        ParentFolderId,
-        Name as Path,
-        0 as Depth
-      FROM Folders
-      WHERE ParentFolderId IS NULL AND IsDeleted = 0
-
-      UNION ALL
-
-      -- Recursive case: child folders
-      SELECT
-        f.Id,
-        f.Name,
-        f.ParentFolderId,
-        fp.Path || ' > ' || f.Name as Path,
-        fp.Depth + 1 as Depth
-      FROM Folders f
-      INNER JOIN FolderPath fp ON f.ParentFolderId = fp.Id
-      WHERE f.IsDeleted = 0 AND fp.Depth < 10
-    )
     SELECT DISTINCT
       i.Id,
       i.Name,
       i.ItemType,
       i.FolderId,
-      fp.Path as FolderPath,
       l.FileData as Logo,
       CASE WHEN EXISTS (SELECT 1 FROM Passkeys pk WHERE pk.ItemId = i.Id AND pk.IsDeleted = 0) THEN 1 ELSE 0 END as HasPasskey,
       CASE WHEN EXISTS (SELECT 1 FROM Attachments att WHERE att.ItemId = i.Id AND att.IsDeleted = 0) THEN 1 ELSE 0 END as HasAttachment,
@@ -46,8 +20,7 @@ export class ItemQueries {
       i.CreatedAt,
       i.UpdatedAt
     FROM Items i
-    LEFT JOIN Logos l ON i.LogoId = l.Id
-    LEFT JOIN FolderPath fp ON i.FolderId = fp.Id`;
+    LEFT JOIN Logos l ON i.LogoId = l.Id`;
 
   /**
    * Get all active items (not deleted, not in trash).
@@ -78,8 +51,6 @@ export class ItemQueries {
 
   /**
    * Get all recently deleted items (in trash).
-   * Note: Trashed items have FolderId = NULL (severed from folder structure),
-   * so we don't need the recursive CTE for folder paths.
    */
   public static readonly GET_RECENTLY_DELETED = `
     SELECT
@@ -87,7 +58,6 @@ export class ItemQueries {
       i.Name,
       i.ItemType,
       i.FolderId,
-      NULL as FolderPath,
       l.FileData as Logo,
       CASE WHEN EXISTS (SELECT 1 FROM Passkeys pk WHERE pk.ItemId = i.Id AND pk.IsDeleted = 0) THEN 1 ELSE 0 END as HasPasskey,
       CASE WHEN EXISTS (SELECT 1 FROM Attachments att WHERE att.ItemId = i.Id AND att.IsDeleted = 0) THEN 1 ELSE 0 END as HasAttachment,

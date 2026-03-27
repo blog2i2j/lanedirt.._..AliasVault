@@ -12,6 +12,7 @@ type ItemCardProps = {
   item: Item;
   showFolderPath?: boolean;
   searchTerm?: string;
+  currentFolderPath?: string[] | null;
 };
 
 /**
@@ -21,7 +22,7 @@ type ItemCardProps = {
  * It allows the user to navigate to the item details page when clicked.
  *
  */
-const ItemCard: React.FC<ItemCardProps> = ({ item, showFolderPath = false, searchTerm = '' }) => {
+const ItemCard: React.FC<ItemCardProps> = ({ item, showFolderPath = false, searchTerm = '', currentFolderPath = null }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
@@ -66,14 +67,36 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, showFolderPath = false, searc
   };
 
   /**
-   * Get formatted folder path for display, truncating if needed.
+   * Get formatted folder path for display, relative to current folder if applicable.
+   * When searching inside a folder, shows path relative to that folder instead of full path from root.
+   * @param folderPath - Full folder path from root as array (e.g., ["Work", "Projects", "Sub"])
+   * @param currentFolderPath - Current folder's full path as array (e.g., ["Work", "Projects"])
+   * @returns Relative path string with truncation if needed
    */
-  const getFormattedFolderPath = (folderPath: string): string => {
-    if (!folderPath) {
+  const getFormattedFolderPath = (folderPath: string[], currentFolderPath?: string[]): string => {
+    if (!folderPath || folderPath.length === 0) {
       return '';
     }
-    const segments = folderPath.split(' > ');
-    const truncated = truncateFolderPath(segments, 3);
+
+    let segmentsToDisplay = folderPath;
+
+    // If we're inside a folder while searching, show relative path
+    if (currentFolderPath && currentFolderPath.length > 0) {
+      // Check if item is in a subfolder of current folder
+      const isInSubfolder = currentFolderPath.every((segment, index) => folderPath[index] === segment);
+
+      if (isInSubfolder) {
+        if (folderPath.length === currentFolderPath.length) {
+          // Item is directly in current folder - don't show any path
+          return '';
+        }
+        // Item is in a subfolder - show relative path (remove current folder prefix)
+        segmentsToDisplay = folderPath.slice(currentFolderPath.length);
+      }
+      // else: Item is in a different branch - show full path
+    }
+
+    const truncated = truncateFolderPath(segmentsToDisplay, 3);
     return truncated.join(' > ');
   };
 
@@ -93,11 +116,16 @@ const ItemCard: React.FC<ItemCardProps> = ({ item, showFolderPath = false, searc
         <div className="text-left flex-1">
           <div className="flex items-center gap-1.5">
             <p className="font-medium text-gray-900 dark:text-white">
-              {showFolderPath && item.FolderPath ? (
+              {showFolderPath && item.FolderPath && item.FolderPath.length > 0 ? (
                 <>
-                  <span className="text-gray-500 dark:text-gray-400 text-sm" title={item.FolderPath}>
-                    {getFormattedFolderPath(item.FolderPath)} &gt;{' '}
-                  </span>
+                  {(() : React.ReactNode => {
+                    const relativePath = getFormattedFolderPath(item.FolderPath, currentFolderPath || undefined);
+                    return relativePath ? (
+                      <span className="text-gray-500 dark:text-gray-400 text-sm" title={item.FolderPath.join(' > ')}>
+                        {relativePath} &gt;{' '}
+                      </span>
+                    ) : null;
+                  })()}
                   {getItemName(item)}
                 </>
               ) : (

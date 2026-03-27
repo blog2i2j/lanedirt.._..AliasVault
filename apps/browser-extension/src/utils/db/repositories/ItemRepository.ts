@@ -1,5 +1,6 @@
 import type { Item, ItemField, Attachment, TotpCode, FieldHistory } from '@/utils/dist/core/models/vault';
 import { FieldKey, MAX_FIELD_HISTORY_RECORDS } from '@/utils/dist/core/models/vault';
+import { getFolderPath } from '@/utils/folderUtils';
 
 import { BaseRepository, type IDatabaseClient } from '../BaseRepository';
 import { FieldMapper, type FieldRow } from '../mappers/FieldMapper';
@@ -13,6 +14,7 @@ import {
   AttachmentQueries
 } from '../queries/ItemQueries';
 
+import type { Folder } from './FolderRepository';
 import type { LogoRepository } from './LogoRepository';
 
 /**
@@ -30,6 +32,42 @@ export class ItemRepository extends BaseRepository {
     private logoRepository: LogoRepository
   ) {
     super(client);
+  }
+
+  /**
+   * Build folder paths for all folders using the shared utility.
+   * Returns a map of FolderId -> path array.
+   * @returns Map of folder ID to path array
+   */
+  private buildFolderPaths(): Map<string, string[]> {
+    const folderPathMap = new Map<string, string[]>();
+
+    try {
+      // Get all folders from database
+      const folders = this.client.executeQuery<Folder>(
+        'SELECT Id, Name, ParentFolderId, Weight FROM Folders WHERE IsDeleted = 0'
+      );
+
+      if (folders.length === 0) {
+        return folderPathMap;
+      }
+
+      // Use shared utility to build paths for all folders
+      for (const folder of folders) {
+        const path = getFolderPath(folder.Id, folders);
+        if (path.length > 0) {
+          folderPathMap.set(folder.Id, path);
+        }
+      }
+
+      return folderPathMap;
+    } catch (error) {
+      // Folders table may not exist in older vault versions
+      if (error instanceof Error && error.message.includes('no such table')) {
+        return folderPathMap;
+      }
+      throw error;
+    }
   }
 
   /**
@@ -68,7 +106,10 @@ export class ItemRepository extends BaseRepository {
     );
     const tagsByItem = ItemMapper.groupTagsByItem(tagRows);
 
-    return ItemMapper.mapRows(itemRows, fieldsByItem, tagsByItem);
+    // Build folder paths
+    const folderPaths = this.buildFolderPaths();
+
+    return ItemMapper.mapRows(itemRows, fieldsByItem, tagsByItem, folderPaths);
   }
 
   /**
@@ -96,7 +137,14 @@ export class ItemRepository extends BaseRepository {
     );
     const tags = ItemMapper.mapTagRows(tagRows);
 
-    return ItemMapper.mapRow(results[0], fields, tags);
+    // Get folder path if item is in a folder
+    let folderPath: string[] | undefined;
+    if (results[0].FolderId) {
+      const folderPaths = this.buildFolderPaths();
+      folderPath = folderPaths.get(results[0].FolderId);
+    }
+
+    return ItemMapper.mapRow(results[0], fields, tags, folderPath);
   }
 
   /**
@@ -339,7 +387,14 @@ export class ItemRepository extends BaseRepository {
     );
     const fieldsByItem = FieldMapper.processFieldRows(fieldRows);
 
-    return itemRows.map(row => ItemMapper.mapDeletedItemRow(row, fieldsByItem.get(row.Id) || []));
+    // Build folder paths
+    const folderPaths = this.buildFolderPaths();
+
+    return itemRows.map(row => ItemMapper.mapDeletedItemRow(
+      row,
+      fieldsByItem.get(row.Id) || [],
+      row.FolderId ? folderPaths.get(row.FolderId) : undefined
+    ));
   }
 
   /**
