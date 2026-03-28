@@ -403,7 +403,6 @@
     "clipboardSettings": "Clipboard Settings",
     "contextMenuSettings": "Context Menu Settings",
     "passkeySettings": "Passkey Settings",
-    "contextMenu": "Context Menu",
     "contextMenuEnabled": "Context menu is enabled",
     "contextMenuDisabled": "Context menu is disabled",
     "contextMenuDescription": "Right-click on input fields to access AliasVault options",
