@@ -104,7 +104,8 @@ const Header: React.FC<HeaderProps> = ({
 
     // If logged in, navigate to items.
     if (app.isLoggedIn) {
-      navigate('/items');
+      // Navigate to items list and reset filters (if any).
+      navigate('/items', { state: { resetFilters: true } });
     } else {
       // If not logged in, navigate to index.
       navigate('/');
