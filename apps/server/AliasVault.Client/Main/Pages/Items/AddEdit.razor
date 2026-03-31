@@ -468,12 +468,9 @@ else
     {
         await base.OnInitializedAsync();
 
-        if (EditMode)
-        {
-            BreadcrumbItems.Add(new BreadcrumbItem { DisplayName = Localizer["ViewItemBreadcrumb"], Url = $"/items/{Id}" });
-            BreadcrumbItems.Add(new BreadcrumbItem { DisplayName = Localizer["EditItemBreadcrumb"] });
-        }
-        else
+        // In edit mode, we'll build breadcrumbs after loading the item in LoadExistingCredential
+        // so we can include folder breadcrumbs
+        if (!EditMode)
         {
             BreadcrumbItems.Add(new BreadcrumbItem { DisplayName = Localizer["AddNewItemBreadcrumb"] });
         }
@@ -902,6 +899,15 @@ else
         }
 
         Obj = ItemEdit.FromEntity(item);
+
+        // Build breadcrumbs with folder hierarchy
+        if (Obj.FolderId.HasValue)
+        {
+            await BuildFolderBreadcrumbsAsync(Obj.FolderId.Value);
+        }
+
+        BreadcrumbItems.Add(new BreadcrumbItem { DisplayName = Localizer["ViewItemBreadcrumb"], Url = $"/items/{Id}" });
+        BreadcrumbItems.Add(new BreadcrumbItem { DisplayName = Localizer["EditItemBreadcrumb"] });
 
         // Track initially visible fields
         foreach (var fieldDef in SystemFieldRegistry.GetFieldsForItemType(Obj.ItemType))
