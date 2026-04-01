@@ -15,6 +15,15 @@ import { ModalWrapper } from '@/components/common/ModalWrapper';
 type Folder = {
   Id: string;
   Name: string;
+  ParentFolderId?: string | null;
+  Weight?: number;
+};
+
+type FolderTreeNode = Folder & {
+  children: FolderTreeNode[];
+  depth: number;
+  path: string[];
+  indentedName: string;
 };
 
 interface IFolderSelectorProps {
@@ -38,7 +47,108 @@ export const FolderSelector: React.FC<IFolderSelectorProps> = ({
   const colors = useColors();
   const [showModal, setShowModal] = useState(false);
 
+  /**
+   * Build a hierarchical tree from flat array of folders.
+   */
+  const buildFolderTree = useCallback((folders: Folder[]): FolderTreeNode[] => {
+    const folderMap = new Map<string, FolderTreeNode>();
+
+    // Initialize all folders as tree nodes
+    folders.forEach(folder => {
+      folderMap.set(folder.Id, {
+        ...folder,
+        children: [],
+        depth: 0,
+        path: [],
+        indentedName: folder.Name,
+      });
+    });
+
+    // Build the tree structure
+    const rootFolders: FolderTreeNode[] = [];
+
+    folders.forEach(folder => {
+      const node = folderMap.get(folder.Id)!;
+
+      if (!folder.ParentFolderId) {
+        // Root folder
+        node.depth = 0;
+        node.path = [folder.Id];
+        node.indentedName = folder.Name;
+        rootFolders.push(node);
+      } else {
+        // Child folder
+        const parent = folderMap.get(folder.ParentFolderId);
+        if (parent) {
+          node.depth = parent.depth + 1;
+          node.path = [...parent.path, folder.Id];
+          node.indentedName = '  '.repeat(node.depth) + folder.Name;
+          parent.children.push(node);
+        } else {
+          // Parent not found - treat as root
+          node.depth = 0;
+          node.path = [folder.Id];
+          node.indentedName = folder.Name;
+          rootFolders.push(node);
+        }
+      }
+    });
+
+    return rootFolders;
+  }, []);
+
+  /**
+   * Flatten folder tree for display.
+   */
+  const flattenTree = useCallback((tree: FolderTreeNode[]): FolderTreeNode[] => {
+    const result: FolderTreeNode[] = [];
+
+    const traverse = (nodes: FolderTreeNode[]): void => {
+      nodes.forEach(node => {
+        result.push(node);
+        traverse(node.children);
+      });
+    };
+
+    traverse(tree);
+    return result;
+  }, []);
+
+  const folderTree = buildFolderTree(folders);
+  const flatFolders = flattenTree(folderTree);
+
   const selectedFolder = folders.find(f => f.Id === selectedFolderId);
+
+  /**
+   * Get folder path for display in button.
+   */
+  const getSelectedFolderPath = useCallback((): string => {
+    if (!selectedFolderId) {
+      return t('items.folders.noFolder');
+    }
+
+    const folder = flatFolders.find(f => f.Id === selectedFolderId);
+    if (!folder) {
+      return selectedFolder?.Name || t('items.folders.noFolder');
+    }
+
+    // Build path from root to current folder
+    const pathNames: string[] = [];
+    let currentId: string | null = selectedFolderId;
+    let iterations = 0;
+
+    while (currentId && iterations < 5) {
+      const current = folders.find(f => f.Id === currentId);
+      if (!current) {
+        break;
+      }
+      pathNames.unshift(current.Name);
+      currentId = current.ParentFolderId || null;
+      iterations++;
+    }
+
+    return pathNames.join(' > ');
+  }, [selectedFolderId, selectedFolder, flatFolders, folders, t]);
 
   /**
    * Handle folder selection.
@@ -155,8 +265,8 @@ export const FolderSelector: React.FC<IFolderSelectorProps> = ({
           )}
         </TouchableOpacity>
 
-        {/* Folder options */}
-        {folders.map(folder => (
+        {/* Folder options (hierarchical) */}
+        {flatFolders.map(folder => (
           <TouchableOpacity
             key={folder.Id}
             style={[
@@ -165,8 +275,9 @@ export const FolderSelector: React.FC<IFolderSelectorProps> = ({
             ]}
             onPress={() => handleSelectFolder(folder.Id)}
           >
+            <View style={{ width: folder.depth * 16 }} />
             <MaterialIcons
-              name="folder"
+              name={folder.children.length > 0 ? "folder" : "folder-open"}
               size={22}
               color={selectedFolderId === folder.Id ? colors.tint : colors.textMuted}
             />
@@ -202,7 +313,7 @@ export const FolderSelector: React.FC<IFolderSelectorProps> = ({
           color={selectedFolderId ? colors.tint : colors.textMuted}
         />
         <Text style={styles.buttonText} numberOfLines={1}>
-          {selectedFolder ? selectedFolder.Name : t('items.folders.noFolder')}
+          {getSelectedFolderPath()}
         </Text>
         <MaterialIcons
           name="keyboard-arrow-down"
