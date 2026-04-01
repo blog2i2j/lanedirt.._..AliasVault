@@ -109,9 +109,10 @@ export class FolderRepository extends BaseRepository {
 
   /**
    * Delete a folder (soft delete).
-   * Recursively handles child folders and items:
-   * - All items in this folder and child folders are moved to the parent folder (or root if no parent)
-   * - All child folders are moved to the parent of the deleted folder
+   * Handles child folders and items:
+   * - Items in this folder only are moved to the parent folder (or root if no parent)
+   * - Items in child folders stay in their respective folders (since child folders are moved to parent)
+   * - All direct child folders are moved to the parent of the deleted folder
    * @param folderId - The ID of the folder to delete
    * @returns The number of rows updated
    */
@@ -123,10 +124,7 @@ export class FolderRepository extends BaseRepository {
       const folder = this.getById(folderId);
       const targetParentId = folder?.ParentFolderId || null;
 
-      // Get all child folder IDs recursively
-      const allChildFolderIds = this.getAllChildFolderIds(folderId);
-
-      // Move all items in this folder and all child folders to the parent folder (or root if no parent)
+      // Move only items in this folder to the parent folder (or root if no parent)
       if (targetParentId) {
         // Has parent: move items to parent folder
         this.client.executeUpdate(FolderQueries.MOVE_ITEMS_TO_FOLDER, [
@@ -134,27 +132,12 @@ export class FolderRepository extends BaseRepository {
           currentDateTime,
           folderId
         ]);
-
-        for (const childFolderId of allChildFolderIds) {
-          this.client.executeUpdate(FolderQueries.MOVE_ITEMS_TO_FOLDER, [
-            targetParentId,
-            currentDateTime,
-            childFolderId
-          ]);
-        }
       } else {
         // No parent: move items to root (NULL)
         this.client.executeUpdate(FolderQueries.CLEAR_ITEMS_FOLDER, [
           currentDateTime,
           folderId
         ]);
-
-        for (const childFolderId of allChildFolderIds) {
-          this.client.executeUpdate(FolderQueries.CLEAR_ITEMS_FOLDER, [
-            currentDateTime,
-            childFolderId
-          ]);
-        }
       }
 
       // Move direct child folders to the parent of the deleted folder

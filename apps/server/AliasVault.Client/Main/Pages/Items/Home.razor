@@ -321,7 +321,7 @@ else
     OnDeleteFolderOnly="DeleteFolderOnlyAsync"
     OnDeleteFolderAndContents="DeleteFolderAndContentsAsync"
     FolderName="@CurrentFolderName"
-    ItemCount="@FilteredAndSortedItems.Count()" />
+    ItemCount="@CurrentFolderItemCount" />
 
 @code {
     private IStringLocalizer Localizer => LocalizerFactory.Create("Pages.Main.Items.Home", "AliasVault.Client");
@@ -391,6 +391,25 @@ else
     /// Gets or sets the current folder name (when in folder view).
     /// </summary>
     private string CurrentFolderName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets the total item count in the current folder tree (includes items in all subfolders recursively).
+    /// Used for the delete folder modal to determine if "delete with contents" option should be shown.
+    /// </summary>
+    private int CurrentFolderItemCount
+    {
+        get
+        {
+            if (!FolderId.HasValue)
+            {
+                return FilteredAndSortedItems.Count();
+            }
+
+            // Find the current folder in the Folders list and return its recursive count
+            var currentFolder = Folders.FirstOrDefault(f => f.Id == FolderId.Value);
+            return currentFolder?.ItemCount ?? 0;
+        }
+    }
 
     /// <summary>
     /// Gets or sets whether the settings dropdown is shown.
@@ -889,16 +908,28 @@ else
     }
 
     /// <summary>
-    /// Delete the current folder only (move items to root).
+    /// Delete the current folder only (move items to parent folder).
     /// </summary>
     private async Task DeleteFolderOnlyAsync()
     {
         if (FolderId.HasValue)
         {
+            // Get the parent folder ID before deletion
+            var folder = await FolderService.GetByIdAsync(FolderId.Value);
+            var parentFolderId = folder?.ParentFolderId;
+
             var success = await FolderService.DeleteAsync(FolderId.Value);
             if (success)
             {
-                NavigationManager.NavigateTo("/items");
+                // Navigate to parent folder if it exists, otherwise root
+                if (parentFolderId.HasValue)
+                {
+                    NavigationManager.NavigateTo($"/items/folder/{parentFolderId.Value}");
+                }
+                else
+                {
+                    NavigationManager.NavigateTo("/items");
+                }
             }
             else
             {
@@ -914,10 +945,22 @@ else
     {
         if (FolderId.HasValue)
         {
+            // Get the parent folder ID before deletion
+            var folder = await FolderService.GetByIdAsync(FolderId.Value);
+            var parentFolderId = folder?.ParentFolderId;
+
             var success = await FolderService.DeleteWithContentsAsync(FolderId.Value);
             if (success)
             {
-                NavigationManager.NavigateTo("/items");
+                // Navigate to parent folder if it exists, otherwise root
+                if (parentFolderId.HasValue)
+                {
+                    NavigationManager.NavigateTo($"/items/folder/{parentFolderId.Value}");
+                }
+                else
+                {
+                    NavigationManager.NavigateTo("/items");
+                }
             }
             else
             {

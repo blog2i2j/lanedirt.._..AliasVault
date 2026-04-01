@@ -233,6 +233,7 @@ public sealed class FolderService(DbService dbService)
         foreach (var item in itemsInFolders)
         {
             item.DeletedAt = currentDateTime;
+            item.FolderId = null;
             item.UpdatedAt = currentDateTime;
         }
 
