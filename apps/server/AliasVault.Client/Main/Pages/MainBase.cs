@@ -209,8 +209,9 @@ public abstract class MainBase : OwningComponentBase
     /// This helper method recursively builds folder breadcrumbs from the given folder up to the root.
     /// </summary>
     /// <param name="folderId">The folder ID to build breadcrumbs for.</param>
+    /// <param name="makeLastClickable">Whether the last folder (current page) should be clickable. Default is true for navigation to items within folders, false when on the folder page itself.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    protected async Task BuildFolderBreadcrumbsAsync(Guid folderId)
+    protected async Task BuildFolderBreadcrumbsAsync(Guid folderId, bool makeLastClickable = true)
     {
         // Load all folders to build the path
         var foldersWithCounts = await FolderService.GetAllWithCountsAsync();
@@ -232,19 +233,20 @@ public abstract class MainBase : OwningComponentBase
             return;
         }
 
-        // Get localized "Folder" text
-        var folderLabel = SharedLocalizer["Folder"];
-
         // Add breadcrumb for each folder in the path (from root to current)
-        foreach (var currentFolderId in folderIdPath)
+        for (int i = 0; i < folderIdPath.Count; i++)
         {
+            var currentFolderId = folderIdPath[i];
             var folder = allFolders.FirstOrDefault(f => f.Id == currentFolderId);
             if (folder != null)
             {
+                bool isLastFolder = i == folderIdPath.Count - 1;
+                bool shouldBeClickable = !isLastFolder || makeLastClickable;
+
                 BreadcrumbItems.Add(new BreadcrumbItem
                 {
-                    DisplayName = $"{folderLabel}: {folder.Name}",
-                    Url = $"/items/folder/{folder.Id}",
+                    DisplayName = folder.Name,
+                    Url = shouldBeClickable ? $"/items/folder/{folder.Id}" : null,
                 });
             }
         }

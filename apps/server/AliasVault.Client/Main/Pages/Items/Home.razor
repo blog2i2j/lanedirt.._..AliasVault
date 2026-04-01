@@ -945,8 +945,9 @@ else
             CurrentFolderName = folder?.Name ?? string.Empty;
 
             // Build breadcrumbs for folder hierarchy using shared helper
+            // Make last folder non-clickable since we're on that folder page
             BreadcrumbItems.RemoveAll(b => !b.ShowHomeIcon);
-            AddFolderBreadcrumbs(FolderId, AllFolders, Localizer["Items"], includeCurrentFolder: true);
+            await BuildFolderBreadcrumbsAsync(FolderId.Value, makeLastClickable: false);
         }
         else
         {
