@@ -101,7 +101,7 @@ public class ImportTests : ClientPlaywrightTest
         Console.WriteLine($"Page contains 'Business': {debugContent.Contains("Business")}");
 
         // Navigate to Work folder.
-        await Page.ClickAsync("text=Work"});
+        await Page.ClickAsync("text=Work");
         await Page.WaitForSelectorAsync("text=Projects");
 
         // Verify Projects subfolder exists inside Work.
