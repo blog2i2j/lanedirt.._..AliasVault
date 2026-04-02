@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
-import React, { useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
@@ -104,42 +104,39 @@ export const FolderBreadcrumb: React.FC<FolderBreadcrumbProps> = ({
   const router = useRouter();
   const dbContext = useDb();
   const colors = useColors();
+  const [breadcrumbs, setBreadcrumbs] = useState<Breadcrumb[]>([]);
 
   /**
-   * Compute breadcrumb trail based on current folder.
+   * Load breadcrumb trail based on current folder.
    * Optionally excludes the current folder (to avoid duplication with page title).
    */
-  const breadcrumbs = useMemo((): Breadcrumb[] => {
-    if (!folderId || !dbContext?.sqliteClient) {
-      return [];
-    }
-
-    try {
-      const allFolders = dbContext.sqliteClient.folders.getAll();
-
-      // Ensure allFolders is an array
-      if (!Array.isArray(allFolders)) {
-        console.warn('folders.getAll() did not return an array:', allFolders);
-        return [];
+  useEffect(() => {
+    const loadBreadcrumbs = async () => {
+      if (!folderId || !dbContext?.sqliteClient) {
+        setBreadcrumbs([]);
+        return;
       }
 
-      const folderNames = getFolderPath(folderId, allFolders);
-      const folderIds = getFolderIdPath(folderId, allFolders);
-      let fullPath = folderNames.map((name, index) => ({
-        name,
-        id: folderIds[index]
-      }));
+      try {
+        const allFolders = await dbContext.sqliteClient.folders.getAll();
+        const folderNames = getFolderPath(folderId, allFolders);
+        const folderIds = getFolderIdPath(folderId, allFolders);
 
-      // If requested, exclude the current folder from breadcrumbs
-      if (excludeCurrentFolder && fullPath.length > 0) {
-        fullPath = fullPath.slice(0, -1); // Remove last item (current folder)
+        let fullPath = folderNames.map((name, index) => ({name, id: folderIds[index]}));
+
+        // If requested, exclude the current folder from breadcrumbs
+        if (excludeCurrentFolder && fullPath.length > 0) {
+          fullPath = fullPath.slice(0, -1); // Remove last item (current folder)
+        }
+
+        setBreadcrumbs(fullPath);
+      } catch (error) {
+        console.error('[FolderBreadcrumb] Error building breadcrumbs:', error);
+        setBreadcrumbs([]);
       }
+    };
 
-      return fullPath;
-    } catch (error) {
-      console.error('Error building breadcrumbs:', error);
-      return [];
-    }
+    loadBreadcrumbs();
   }, [folderId, dbContext?.sqliteClient, excludeCurrentFolder]);
 
   /**
@@ -156,8 +153,11 @@ export const FolderBreadcrumb: React.FC<FolderBreadcrumbProps> = ({
     router.push('/(tabs)/items');
   }, [router]);
 
-  // Don't render anything if no folderId provided
-  if (!folderId || breadcrumbs.length === 0) {
+  /*
+   * Don't render anything if:
+   * 1. No folderId provided (item is at root level) - saves UI space
+   */
+  if (!folderId) {
     return null;
   }
 
@@ -174,9 +174,9 @@ export const FolderBreadcrumb: React.FC<FolderBreadcrumbProps> = ({
     rootButton: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
+      gap: 3,
       paddingVertical: 4,
-      paddingHorizontal: 6,
+      paddingHorizontal: 4,
       borderRadius: 4,
     },
     rootText: {
@@ -185,12 +185,12 @@ export const FolderBreadcrumb: React.FC<FolderBreadcrumbProps> = ({
       fontWeight: '500',
     },
     chevron: {
-      marginHorizontal: 4,
+      marginHorizontal: 2,
       color: colors.textMuted,
     },
     breadcrumbButton: {
       paddingVertical: 4,
-      paddingHorizontal: 6,
+      paddingHorizontal: 4,
       borderRadius: 4,
     },
     breadcrumbText: {
