@@ -175,8 +175,12 @@ export const FolderSelectorModal: React.FC<IFolderSelectorModalProps> = ({
   const styles = StyleSheet.create({
     chevronButton: {
       padding: 4,
-      marginLeft: 8,
       borderRadius: 4,
+    },
+    chevronContainer: {
+      width: 26,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     closeButton: {
       padding: 4,
@@ -185,7 +189,7 @@ export const FolderSelectorModal: React.FC<IFolderSelectorModalProps> = ({
       top: 0,
     },
     folderIcon: {
-      marginLeft: 8,
+      marginLeft: 4,
     },
     folderOption: {
       alignItems: 'center',
@@ -247,28 +251,30 @@ export const FolderSelectorModal: React.FC<IFolderSelectorModalProps> = ({
           {/* Indentation */}
           <View style={{ width: depth * 20 }} />
 
-          {/* Expand/collapse chevron */}
-          {hasChildren ? (
-            <TouchableOpacity
-              onPress={(e) => {
-                e.stopPropagation();
-                toggleFolder(node.Id);
-              }}
-              style={styles.chevronButton}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <MaterialIcons
-                name="chevron-right"
-                size={18}
-                color={colors.textMuted}
-                style={{
-                  transform: [{ rotate: isExpanded ? '90deg' : '0deg' }],
+          {/* Expand/collapse chevron - fixed width container */}
+          <View style={styles.chevronContainer}>
+            {hasChildren ? (
+              <TouchableOpacity
+                onPress={(e) => {
+                  e.stopPropagation();
+                  toggleFolder(node.Id);
                 }}
-              />
-            </TouchableOpacity>
-          ) : (
-            <View style={{ width: 18, marginLeft: 8 }} />
-          )}
+                style={styles.chevronButton}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <MaterialIcons
+                  name="chevron-right"
+                  size={18}
+                  color={colors.textMuted}
+                  style={{
+                    transform: [{ rotate: isExpanded ? '90deg' : '0deg' }],
+                  }}
+                />
+              </TouchableOpacity>
+            ) : (
+              <View style={{ width: 18 }} />
+            )}
+          </View>
 
           {/* Folder icon */}
           <MaterialIcons
