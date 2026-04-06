@@ -24,7 +24,7 @@ import type { Folder } from '@/utils/db/repositories/FolderRepository';
 import type { CredentialSortOrder } from '@/utils/db/repositories/SettingsRepository';
 import type { Item, ItemType } from '@/utils/dist/core/models/vault';
 import { ItemTypes } from '@/utils/dist/core/models/vault';
-import { canHaveSubfolders, getFolderPath } from '@/utils/folderUtils';
+import { canHaveSubfolders, getDescendantFolderIds, getFolderPath, getRecursiveItemCount } from '@/utils/folderUtils';
 import { LocalPreferencesService } from '@/utils/LocalPreferencesService';
 
 import { useMinDurationLoading } from '@/hooks/useMinDurationLoading';
@@ -532,12 +532,12 @@ const ItemsList: React.FC = () => {
      * @param folderId - The folder ID to count items for
      * @returns Total count of items in this folder and all descendant folders
      */
-    const getRecursiveItemCount = (folderId: string): number => {
+    const getRecursiveItemCountLocal = (folderId: string): number => {
       // Start with direct items in this folder
       let count = directFolderCounts.get(folderId) || 0;
 
       // Add counts from all child folders recursively
-      const childFolderIds = getAllChildFolderIds(folderId);
+      const childFolderIds = getDescendantFolderIds(folderId, allFolders);
       for (const childId of childFolderIds) {
         count += directFolderCounts.get(childId) || 0;
       }
@@ -549,40 +549,11 @@ const ItemsList: React.FC = () => {
     const result = relevantFolders.map((folder: Folder) => ({
       id: folder.Id,
       name: folder.Name,
-      itemCount: getRecursiveItemCount(folder.Id)
+      itemCount: getRecursiveItemCountLocal(folder.Id)
     })).sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name));
 
     return result;
   };
-
-  /**
-   * Get all child folder IDs recursively for a given folder.
-   * @param folderId - The parent folder ID to get children for
-   * @returns Array of all descendant folder IDs
-   */
-  const getAllChildFolderIds = useCallback((folderId: string): string[] => {
-    if (!dbContext?.sqliteClient) {
-      return [];
-    }
-
-    const allFolders = dbContext.sqliteClient.folders.getAll();
-    const childIds: string[] = [];
-
-    /**
-     * Recursively find all child folders.
-     * @param parentId - The parent folder ID
-     */
-    const findChildren = (parentId: string): void => {
-      const children = allFolders.filter(f => f.ParentFolderId === parentId);
-      for (const child of children) {
-        childIds.push(child.Id);
-        findChildren(child.Id); // Recursively find descendants
-      }
-    };
-
-    findChildren(folderId);
-    return childIds;
-  }, [dbContext]);
 
   /**
    * Filter items based on current view (folder, search, filter type)
@@ -593,7 +564,8 @@ const ItemsList: React.FC = () => {
       // When searching inside a folder, include items in subfolders too
       if (searchTerm) {
         // Get all child folder IDs recursively
-        const childFolderIds = getAllChildFolderIds(currentFolderId);
+        const allFolders = dbContext?.sqliteClient?.folders.getAll() || [];
+        const childFolderIds = getDescendantFolderIds(currentFolderId, allFolders);
         const allFolderIds = [currentFolderId, ...childFolderIds];
 
         // Item must be in current folder or any subfolder
@@ -689,19 +661,13 @@ const ItemsList: React.FC = () => {
    * Used for the delete folder modal to show accurate count.
    */
   const totalItemCountInFolderTree = useMemo(() => {
-    if (!currentFolderId) {
+    if (!currentFolderId || !dbContext?.sqliteClient) {
       return filteredItems.length;
     }
 
-    // Get all child folder IDs
-    const childFolderIds = getAllChildFolderIds(currentFolderId);
-    const allFolderIds = [currentFolderId, ...childFolderIds];
-
-    // Count items in current folder and all child folders
-    return items.filter(item =>
-      item.FolderId && allFolderIds.includes(item.FolderId)
-    ).length;
-  }, [currentFolderId, items, getAllChildFolderIds, filteredItems.length]);
+    const allFolders = dbContext.sqliteClient.folders.getAll();
+    return getRecursiveItemCount(currentFolderId, items, allFolders);
+  }, [currentFolderId, items, dbContext?.sqliteClient, filteredItems.length]);
 
   /**
    * Check if the current folder can have subfolders (not at max depth).

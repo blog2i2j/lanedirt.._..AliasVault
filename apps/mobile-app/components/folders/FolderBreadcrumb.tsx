@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
-import type { Folder } from '@/utils/db/repositories/FolderRepository';
+import { getFolderIdPath, getFolderPath } from '@/utils/folderUtils';
 import { useColors } from '@/hooks/useColorScheme';
 import { useDb } from '@/context/DbContext';
 
@@ -31,64 +31,6 @@ type FolderBreadcrumbProps = {
    */
   excludeCurrentFolder?: boolean;
 };
-
-/**
- * Get the full path of folder names from root to the specified folder.
- * @param folderId - The folder ID
- * @param folders - Flat array of all folders
- * @returns Array of folder names from root to current folder, or empty array if not found
- */
-function getFolderPath(folderId: string | null, folders: Folder[]): string[] {
-  if (!folderId) {
-    return [];
-  }
-
-  const path: string[] = [];
-  let currentId: string | null = folderId;
-  let iterations = 0;
-
-  // Build path by traversing up to root
-  while (currentId && iterations < 5) {
-    const folder = folders.find(f => f.Id === currentId);
-    if (!folder) {
-      break;
-    }
-    path.unshift(folder.Name); // Add to beginning of array
-    currentId = folder.ParentFolderId;
-    iterations++;
-  }
-
-  return path;
-}
-
-/**
- * Get the full path of folder IDs from root to the specified folder.
- * @param folderId - The folder ID
- * @param folders - Flat array of all folders
- * @returns Array of folder IDs from root to current folder, or empty array if not found
- */
-function getFolderIdPath(folderId: string | null, folders: Folder[]): string[] {
-  if (!folderId) {
-    return [];
-  }
-
-  const path: string[] = [];
-  let currentId: string | null = folderId;
-  let iterations = 0;
-
-  // Build path by traversing up to root
-  while (currentId && iterations < 5) {
-    const folder = folders.find(f => f.Id === currentId);
-    if (!folder) {
-      break;
-    }
-    path.unshift(folder.Id); // Add to beginning of array
-    currentId = folder.ParentFolderId;
-    iterations++;
-  }
-
-  return path;
-}
 
 /**
  * Displays a breadcrumb navigation trail for folder hierarchy.

@@ -12,6 +12,7 @@ import type { CredentialSortOrder } from '@/utils/db/repositories/SettingsReposi
 import type { Item, ItemType } from '@/utils/dist/core/models/vault';
 import { getFieldValue, FieldKey, ItemTypes } from '@/utils/dist/core/models/vault';
 import emitter from '@/utils/EventEmitter';
+import { canHaveSubfolders, getRecursiveItemCount } from '@/utils/folderUtils';
 import { HapticsUtility } from '@/utils/HapticsUtility';
 import { VaultAuthenticationError } from '@/utils/types/errors/VaultAuthenticationError';
 
@@ -89,6 +90,7 @@ export default function FolderViewScreen(): React.ReactNode {
   const [folder, setFolder] = useState<Folder | null>(null);
   const [subfolders, setSubfolders] = useState<FolderWithCount[]>([]);
   const [canCreateSubfolder, setCanCreateSubfolder] = useState(false);
+  const [allFolders, setAllFolders] = useState<Folder[]>([]);
   // No minimum loading delay for folder view since data is already in memory
   const [isLoadingItems, setIsLoadingItems] = useState(false);
   const [refreshing, setRefreshing] = useMinDurationLoading(false, 200);
@@ -186,38 +188,16 @@ export default function FolderViewScreen(): React.ReactNode {
   const sortedItems = useSortedItems(filteredItems, sortOrder);
 
   /**
-   * Get folder depth in the hierarchy.
+   * Calculate total item count including all items in current folder and all child folders recursively.
+   * Used for the delete folder modal to show accurate count.
    */
-  function getFolderDepth(folderId: string | null, folders: Folder[]): number | null {
-    if (!folderId) {
-      return null;
+  const totalItemCountInFolderTree = useMemo(() => {
+    if (!folderId || allFolders.length === 0) {
+      return 0;
     }
 
-    const folderItem = folders.find(f => f.Id === folderId);
-    if (!folderItem) {
-      return null;
-    }
-
-    let depth = 0;
-    let currentId: string | null = folderId;
-
-    // Traverse up to root, counting levels
-    while (currentId) {
-      const current = folders.find(f => f.Id === currentId);
-      if (!current || !current.ParentFolderId) {
-        break;
-      }
-      depth++;
-      currentId = current.ParentFolderId;
-
-      // Prevent infinite loops
-      if (depth > 4) {
-        break;
-      }
-    }
-
-    return depth;
-  }
+    return getRecursiveItemCount(folderId, itemsList, allFolders);
+  }, [folderId, allFolders, itemsList]);
 
   /**
    * Load items in this folder, subfolders, and folder details.
@@ -244,37 +224,17 @@ export default function FolderViewScreen(): React.ReactNode {
       // Get subfolders (direct children only)
       const childFolders = folders.filter((f: Folder) => f.ParentFolderId === folderId);
 
-      /**
-       * Calculate recursive item count for a folder including all subfolders.
-       * @param parentFolderId - The parent folder ID to count items for
-       * @returns Total count of items in the folder and all subfolders
-       */
-      const getRecursiveItemCount = (parentFolderId: string): number => {
-        // Get items directly in this folder
-        const directItems = items.filter((item: Item) => item.FolderId === parentFolderId);
-
-        // Get all child folders
-        const children = folders.filter((f: Folder) => f.ParentFolderId === parentFolderId);
-
-        // Recursively count items in child folders
-        const childItemCount = children.reduce((count, child) => {
-          return count + getRecursiveItemCount(child.Id);
-        }, 0);
-
-        return directItems.length + childItemCount;
-      };
-
       const subfoldersWithCounts: FolderWithCount[] = childFolders.map((f) => ({
         id: f.Id,
         name: f.Name,
-        itemCount: getRecursiveItemCount(f.Id),
+        itemCount: getRecursiveItemCount(f.Id, items, folders),
       }));
 
       setSubfolders(subfoldersWithCounts);
+      setAllFolders(folders);
 
       // Calculate if we can create subfolders (check depth)
-      const depth = getFolderDepth(folderId, folders);
-      setCanCreateSubfolder(depth !== null && depth < 4);
+      setCanCreateSubfolder(canHaveSubfolders(folderId, folders));
 
       setSortOrder(savedSortOrder);
       setIsLoadingItems(false);
@@ -1034,7 +994,7 @@ export default function FolderViewScreen(): React.ReactNode {
         onClose={() => setShowDeleteFolderModal(false)}
         onDeleteFolderOnly={handleDeleteFolderOnly}
         onDeleteFolderAndContents={handleDeleteFolderAndContents}
-        itemCount={itemsList.length}
+        itemCount={totalItemCountInFolderTree}
       />
     </ThemedContainer>
   );
