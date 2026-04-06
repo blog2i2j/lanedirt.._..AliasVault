@@ -23,6 +23,7 @@ import { useVaultMutate } from '@/hooks/useVaultMutate';
 import { useVaultSync } from '@/hooks/useVaultSync';
 
 import { DeleteFolderModal } from '@/components/folders/DeleteFolderModal';
+import { FolderBreadcrumb } from '@/components/folders/FolderBreadcrumb';
 import { FolderModal } from '@/components/folders/FolderModal';
 import { FolderPill } from '@/components/folders/FolderPill';
 import { ItemCard } from '@/components/items/ItemCard';
@@ -827,6 +828,12 @@ export default function FolderViewScreen(): React.ReactNode {
   const renderListHeader = (): React.ReactNode => {
     return (
       <ThemedView>
+        {/* Folder breadcrumb navigation */}
+        <FolderBreadcrumb
+          folderId={folderId}
+          excludeCurrentFolder={true}
+        />
+
         {/* Subfolder pills (shown when not searching) */}
         {!searchQuery && subfolders.length > 0 && (
           <View style={styles.folderPillsContainer}>
