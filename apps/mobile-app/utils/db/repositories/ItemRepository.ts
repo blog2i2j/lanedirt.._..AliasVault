@@ -2,42 +2,10 @@ import type { Item, ItemField, TotpCode, Attachment, FieldHistory } from '@/util
 import { FieldKey, MAX_FIELD_HISTORY_RECORDS } from '@/utils/dist/core/models/vault';
 
 import { BaseRepository } from '../BaseRepository';
-import { ItemQueries, FieldValueQueries, FieldDefinitionQueries, FieldHistoryQueries } from '../queries/ItemQueries';
+import { ItemQueries, FieldValueQueries, FieldDefinitionQueries, FieldHistoryQueries, TagQueries } from '../queries/ItemQueries';
 import { FieldMapper, type FieldRow } from '../mappers/FieldMapper';
 import { ItemMapper, type ItemRow, type TagRow, type ItemWithDeletedAt } from '../mappers/ItemMapper';
 import type { LogoRepository } from './LogoRepository';
-
-/**
- * SQL query constants for Item-related tag operations.
- */
-const TagQueries = {
-  /**
-   * Get tags for multiple items.
-   */
-  GET_TAGS_FOR_ITEMS: (itemCount: number): string => {
-    const placeholders = Array(itemCount).fill('?').join(',');
-    return `
-      SELECT it.ItemId, t.Id, t.Name, t.Color
-      FROM ItemTags it
-      INNER JOIN Tags t ON it.TagId = t.Id
-      WHERE it.ItemId IN (${placeholders})
-        AND it.IsDeleted = 0
-        AND t.IsDeleted = 0
-      ORDER BY t.DisplayOrder`;
-  },
-
-  /**
-   * Get tags for a single item.
-   */
-  GET_TAGS_FOR_ITEM: `
-    SELECT t.Id, t.Name, t.Color
-    FROM ItemTags it
-    INNER JOIN Tags t ON it.TagId = t.Id
-    WHERE it.ItemId = ?
-      AND it.IsDeleted = 0
-      AND t.IsDeleted = 0
-    ORDER BY t.DisplayOrder`
-};
 
 /**
  * Repository for Item CRUD operations.
@@ -138,7 +106,7 @@ export class ItemRepository extends BaseRepository {
     // 4. Fetch tags for all items
     let tagsByItem = new Map<string, { Id: string; Name: string; Color?: string }[]>();
     if (await this.tableExists('ItemTags')) {
-      const tagQuery = TagQueries.GET_TAGS_FOR_ITEMS(itemIds.length);
+      const tagQuery = TagQueries.getTagsForItems(itemIds.length);
       const tagRows = await this.client.executeQuery<TagRow>(tagQuery, itemIds);
       tagsByItem = ItemMapper.groupTagsByItem(tagRows);
     }

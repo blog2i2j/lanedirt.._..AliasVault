@@ -365,3 +365,37 @@ export class FieldHistoryQueries {
     SET IsDeleted = 1, UpdatedAt = ?
     WHERE Id = ?`;
 }
+
+/**
+ * SQL query constants for Tag operations.
+ */
+export class TagQueries {
+  /**
+   * Get tags for multiple items.
+   * @param itemCount - Number of items (for placeholder generation)
+   * @returns Query with placeholders
+   */
+  public static getTagsForItems(itemCount: number): string {
+    const placeholders = Array(itemCount).fill('?').join(',');
+    return `
+      SELECT it.ItemId, t.Id, t.Name, t.Color
+      FROM ItemTags it
+      INNER JOIN Tags t ON it.TagId = t.Id
+      WHERE it.ItemId IN (${placeholders})
+        AND it.IsDeleted = 0
+        AND t.IsDeleted = 0
+      ORDER BY t.DisplayOrder`;
+  }
+
+  /**
+   * Get tags for a single item.
+   */
+  public static readonly GET_TAGS_FOR_ITEM = `
+    SELECT t.Id, t.Name, t.Color
+    FROM ItemTags it
+    INNER JOIN Tags t ON it.TagId = t.Id
+    WHERE it.ItemId = ?
+      AND it.IsDeleted = 0
+      AND t.IsDeleted = 0
+    ORDER BY t.DisplayOrder`;
+}

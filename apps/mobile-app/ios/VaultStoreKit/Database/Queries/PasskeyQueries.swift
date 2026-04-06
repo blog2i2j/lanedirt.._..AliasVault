@@ -179,4 +179,24 @@ public struct LogoQueries {
             UpdatedAt = ?
         WHERE Id = ?
         """
+
+    /// Get logo ID by source.
+    public static let getBySource = """
+        SELECT Id, IsDeleted FROM Logos WHERE Source = ? LIMIT 1
+        """
+
+    /// Restore a soft-deleted logo.
+    public static let restore = """
+        UPDATE Logos SET IsDeleted = 0, UpdatedAt = ? WHERE Id = ?
+        """
+
+    /// Get logo ID from an item.
+    public static let getLogoIdFromItem = """
+        SELECT LogoId FROM Items WHERE Id = ?
+        """
+
+    /// Update item logo ID.
+    public static let updateItemLogoId = """
+        UPDATE Items SET LogoId = ?, UpdatedAt = ? WHERE Id = ?
+        """
 }
