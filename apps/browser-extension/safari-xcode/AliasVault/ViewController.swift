@@ -42,7 +42,7 @@ class ViewController: NSViewController, WKNavigationDelegate, WKScriptMessageHan
 
         SFSafariApplication.showPreferencesForExtension(withIdentifier: extensionBundleIdentifier) { error in
             DispatchQueue.main.async {
-                if let error = error {
+                if let _ = error {
                     // Show manual instructions in case opening the preferences fails due to restricted permissions.
                     let alert = NSAlert()
                     alert.messageText = "Safari Extensions Settings"
