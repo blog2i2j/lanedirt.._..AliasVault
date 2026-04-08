@@ -6,6 +6,7 @@ import { StyleSheet, View, TouchableOpacity } from 'react-native';
 
 import type { Item } from '@/utils/dist/core/models/vault';
 import { getFieldValue } from '@/utils/dist/core/models/vault';
+import { VaultUnlockHelper } from '@/utils/VaultUnlockHelper';
 
 import { useColors } from '@/hooks/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -16,7 +17,6 @@ import { ThemedScrollView } from '@/components/themed/ThemedScrollView';
 import { ThemedText } from '@/components/themed/ThemedText';
 import { useDb } from '@/context/DbContext';
 import { useDialog } from '@/context/DialogContext';
-import NativeVaultManager from '@/specs/NativeVaultManager';
 
 /**
  * CSV record for Item objects (matching server ItemCsvRecord format).
@@ -111,8 +111,10 @@ export default function ImportExportScreen(): React.ReactNode {
       const totpCodes = await dbContext.sqliteClient?.settings.getTotpCodesForItem(item.Id) ?? [];
       const totpSecret = totpCodes.length > 0 ? totpCodes[0].SecretKey : '';
 
-      // Build folder path (hierarchical with "/" separator)
-      // FolderPath is an array like ["Work", "Projects", "Active"]
+      /*
+       * Build folder path (hierarchical with "/" separator)
+       * FolderPath is an array like ["Work", "Projects", "Active"]
+       */
       const folderPath = item.FolderPath?.join('/') ?? '';
 
       // Get field values using the same FieldKey constants as server
@@ -224,7 +226,7 @@ export default function ImportExportScreen(): React.ReactNode {
            * Request password authentication using native unlock screen
            * Only allow password method (no biometric or PIN) for sensitive export operation
            */
-          const authenticated = await NativeVaultManager.authenticateUser(
+          const authenticated = await VaultUnlockHelper.authenticateForAction(
             t('settings.exportConfirmTitle'),
             t('settings.passwordConfirm.exportDescription'),
             ['password'], // Only allow password authentication
