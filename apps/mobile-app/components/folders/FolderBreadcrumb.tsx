@@ -85,14 +85,14 @@ export const FolderBreadcrumb: React.FC<FolderBreadcrumbProps> = ({
    * Handle breadcrumb navigation.
    */
   const handleBreadcrumbClick = useCallback((folderId: string) => {
-    router.push(`/(tabs)/items/folder/${folderId}`);
+    router.dismissTo(`/(tabs)/items/folder/${folderId}`);
   }, [router]);
 
   /**
    * Handle root breadcrumb click (navigate to items list).
    */
   const handleRootClick = useCallback(() => {
-    router.push('/(tabs)/items');
+    router.dismissTo('/(tabs)/items');
   }, [router]);
 
   /*
