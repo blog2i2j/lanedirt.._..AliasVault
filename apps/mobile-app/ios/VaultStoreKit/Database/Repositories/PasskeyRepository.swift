@@ -391,10 +391,7 @@ public class PasskeyRepository: BaseRepository {
         now: String
     ) throws {
         // Get current logo ID from item
-        let itemResults = try client.executeQuery(
-            "SELECT LogoId FROM Items WHERE Id = ?",
-            params: [itemId]
-        )
+        let itemResults = try client.executeQuery(LogoQueries.getLogoIdFromItem, params: [itemId])
 
         let logoDataParam = "av-base64-to-blob:\(logo.base64EncodedString())"
 
@@ -411,10 +408,7 @@ public class PasskeyRepository: BaseRepository {
             let newLogoId = try getOrCreateLogo(source: source, logoData: logo, now: now)
 
             // Update item with new logo ID
-            try client.executeUpdate(
-                "UPDATE Items SET LogoId = ?, UpdatedAt = ? WHERE Id = ?",
-                params: [newLogoId, now, itemId]
-            )
+            try client.executeUpdate(LogoQueries.updateItemLogoId, params: [newLogoId, now, itemId])
         }
     }
 
@@ -484,10 +478,7 @@ public class PasskeyRepository: BaseRepository {
     /// - Returns: The logo ID (existing or newly created)
     private func getOrCreateLogo(source: String, logoData: Data, now: String) throws -> String {
         // Check if a logo for this source already exists
-        let existingLogos = try client.executeQuery(
-            "SELECT Id, IsDeleted FROM Logos WHERE Source = ? LIMIT 1",
-            params: [source]
-        )
+        let existingLogos = try client.executeQuery(LogoQueries.getBySource, params: [source])
 
         if let existingLogo = existingLogos.first,
            let existingLogoId = existingLogo["Id"] as? String {
@@ -495,10 +486,7 @@ public class PasskeyRepository: BaseRepository {
 
             // Sanity check: restore if soft-deleted
             if isDeleted {
-                try client.executeUpdate(
-                    "UPDATE Logos SET IsDeleted = 0, UpdatedAt = ? WHERE Id = ?",
-                    params: [now, existingLogoId]
-                )
+                try client.executeUpdate(LogoQueries.restore, params: [now, existingLogoId])
             }
             return existingLogoId
         }

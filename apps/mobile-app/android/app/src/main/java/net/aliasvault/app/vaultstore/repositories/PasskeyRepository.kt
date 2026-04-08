@@ -9,6 +9,8 @@ import net.aliasvault.app.vaultstore.models.FieldKey
 import net.aliasvault.app.vaultstore.models.Item
 import net.aliasvault.app.vaultstore.models.Passkey
 import net.aliasvault.app.vaultstore.passkey.PasskeyHelper
+import net.aliasvault.app.vaultstore.queries.LogoQueries
+import net.aliasvault.app.vaultstore.queries.PasskeyQueries
 import java.util.Calendar
 import java.util.Date
 import java.util.TimeZone
@@ -49,13 +51,7 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
         }
 
         val results = executeQuery(
-            """
-            SELECT Id, ItemId, RpId, UserHandle, PublicKey, PrivateKey, PrfKey,
-                   DisplayName, CreatedAt, UpdatedAt, IsDeleted
-            FROM Passkeys
-            WHERE Id = ? AND IsDeleted = 0
-            LIMIT 1
-            """.trimIndent(),
+            PasskeyQueries.GET_BY_CREDENTIAL_ID,
             arrayOf(credentialIdString.uppercase()),
         )
 
@@ -69,13 +65,7 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
      */
     fun getForItem(itemId: UUID): List<Passkey> {
         val results = executeQuery(
-            """
-            SELECT Id, ItemId, RpId, UserHandle, PublicKey, PrivateKey, PrfKey,
-                   DisplayName, CreatedAt, UpdatedAt, IsDeleted
-            FROM Passkeys
-            WHERE ItemId = ? AND IsDeleted = 0
-            ORDER BY CreatedAt DESC
-            """.trimIndent(),
+            PasskeyQueries.GET_BY_ITEM_ID,
             arrayOf(itemId.toString().uppercase()),
         )
 
@@ -88,17 +78,7 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
      * @return List of Passkey objects
      */
     fun getForRpId(rpId: String): List<Passkey> {
-        val results = executeQuery(
-            """
-            SELECT Id, ItemId, RpId, UserHandle, PublicKey, PrivateKey, PrfKey,
-                   DisplayName, CreatedAt, UpdatedAt, IsDeleted
-            FROM Passkeys
-            WHERE RpId = ? AND IsDeleted = 0
-            ORDER BY CreatedAt DESC
-            """.trimIndent(),
-            arrayOf(rpId),
-        )
-
+        val results = executeQuery(PasskeyQueries.GET_BY_RP_ID, arrayOf(rpId))
         return results.mapNotNull { parsePasskeyRow(it) }
     }
 
@@ -108,17 +88,7 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
      * @return Passkey object or null if not found
      */
     fun getById(passkeyId: UUID): Passkey? {
-        val results = executeQuery(
-            """
-            SELECT Id, ItemId, RpId, UserHandle, PublicKey, PrivateKey, PrfKey,
-                   DisplayName, CreatedAt, UpdatedAt, IsDeleted
-            FROM Passkeys
-            WHERE Id = ? AND IsDeleted = 0
-            LIMIT 1
-            """.trimIndent(),
-            arrayOf(passkeyId.toString().uppercase()),
-        )
-
+        val results = executeQuery(PasskeyQueries.GET_BY_ID, arrayOf(passkeyId.toString().uppercase()))
         return results.firstOrNull()?.let { parsePasskeyRow(it) }
     }
 
@@ -134,13 +104,7 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
         val publicKeyString = String(passkey.publicKey, Charsets.UTF_8)
         val privateKeyString = String(passkey.privateKey, Charsets.UTF_8)
 
-        val statement = db.compileStatement(
-            """
-            INSERT INTO Passkeys (Id, ItemId, RpId, UserHandle, PublicKey, PrivateKey, PrfKey,
-                                 DisplayName, CreatedAt, UpdatedAt, IsDeleted)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """.trimIndent(),
-        )
+        val statement = db.compileStatement(PasskeyQueries.INSERT)
         statement.use {
             it.bindString(1, passkey.id.toString().uppercase())
             it.bindString(2, passkey.parentItemId.toString().uppercase()) // Note: still called parentItemId but references ItemId
@@ -196,10 +160,7 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
 
             // Create the Item
             executeUpdate(
-                """
-                INSERT INTO Items (Id, Name, ItemType, LogoId, FolderId, CreatedAt, UpdatedAt, IsDeleted, DeletedAt)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """.trimIndent(),
+                PasskeyQueries.CREATE_ITEM,
                 arrayOf(
                     itemId.toString().uppercase(),
                     displayName,
@@ -216,10 +177,7 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
             // Insert URL field value
             if (rpId.isNotEmpty()) {
                 executeUpdate(
-                    """
-                    INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """.trimIndent(),
+                    PasskeyQueries.INSERT_FIELD_VALUE,
                     arrayOf(
                         generateId(),
                         itemId.toString().uppercase(),
@@ -237,10 +195,7 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
             // Insert username field value if provided
             if (userName != null) {
                 executeUpdate(
-                    """
-                    INSERT INTO FieldValues (Id, ItemId, FieldDefinitionId, FieldKey, Value, Weight, CreatedAt, UpdatedAt, IsDeleted)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """.trimIndent(),
+                    PasskeyQueries.INSERT_FIELD_VALUE,
                     arrayOf(
                         generateId(),
                         itemId.toString().uppercase(),
@@ -301,31 +256,19 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
 
             val itemId = oldPasskey.parentItemId
 
-            // Update the item's name
-            executeUpdate(
-                "UPDATE Items SET UpdatedAt = ? WHERE Id = ?",
-                arrayOf(timestamp, itemId.toString().uppercase()),
-            )
+            // Update the item's timestamp
+            executeUpdate(PasskeyQueries.UPDATE_ITEM_TIMESTAMP, arrayOf(timestamp, itemId.toString().uppercase()))
 
             if (logo != null) {
                 val source = newPasskey.rpId.lowercase().replace("www.", "")
-                val itemResults = executeQuery(
-                    "SELECT LogoId FROM Items WHERE Id = ?",
-                    arrayOf(itemId.toString().uppercase()),
-                )
+                val itemResults = executeQuery(PasskeyQueries.GET_LOGO_ID_FROM_ITEM, arrayOf(itemId.toString().uppercase()))
                 val existingLogoId = itemResults.firstOrNull()?.get("LogoId") as? String
 
                 if (existingLogoId != null) {
-                    executeUpdate(
-                        "UPDATE Logos SET FileData = ?, UpdatedAt = ? WHERE Id = ?",
-                        arrayOf(logo, timestamp, existingLogoId),
-                    )
+                    executeUpdate(LogoQueries.UPDATE_FILE_DATA, arrayOf(logo, timestamp, existingLogoId))
                 } else {
                     val newLogoId = getOrCreateLogo(source, logo, timestamp)
-                    executeUpdate(
-                        "UPDATE Items SET LogoId = ?, UpdatedAt = ? WHERE Id = ?",
-                        arrayOf(newLogoId, timestamp, itemId.toString().uppercase()),
-                    )
+                    executeUpdate(LogoQueries.UPDATE_ITEM_LOGO_ID, arrayOf(newLogoId, timestamp, itemId.toString().uppercase()))
                 }
             }
 
@@ -367,36 +310,22 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
                 val source = rpId.lowercase().replace("www.", "")
 
                 // Check if item already has a logo
-                val itemResults = executeQuery(
-                    "SELECT LogoId FROM Items WHERE Id = ?",
-                    arrayOf(itemId.toString().uppercase()),
-                )
-
+                val itemResults = executeQuery(PasskeyQueries.GET_LOGO_ID_FROM_ITEM, arrayOf(itemId.toString().uppercase()))
                 val existingLogoId = itemResults.firstOrNull()?.get("LogoId") as? String
 
                 if (existingLogoId != null) {
                     // Update existing logo
-                    executeUpdate(
-                        "UPDATE Logos SET FileData = ?, UpdatedAt = ? WHERE Id = ?",
-                        arrayOf(logo, timestamp, existingLogoId),
-                    )
+                    executeUpdate(LogoQueries.UPDATE_FILE_DATA, arrayOf(logo, timestamp, existingLogoId))
                 } else {
                     // Create or reuse logo with unique source check
                     val newLogoId = getOrCreateLogo(source, logo, timestamp)
-
                     // Link logo to item
-                    executeUpdate(
-                        "UPDATE Items SET LogoId = ?, UpdatedAt = ? WHERE Id = ?",
-                        arrayOf(newLogoId, timestamp, itemId.toString().uppercase()),
-                    )
+                    executeUpdate(LogoQueries.UPDATE_ITEM_LOGO_ID, arrayOf(newLogoId, timestamp, itemId.toString().uppercase()))
                 }
             }
 
             // Update item's UpdatedAt timestamp
-            executeUpdate(
-                "UPDATE Items SET UpdatedAt = ? WHERE Id = ?",
-                arrayOf(timestamp, itemId.toString().uppercase()),
-            )
+            executeUpdate(PasskeyQueries.UPDATE_ITEM_TIMESTAMP, arrayOf(timestamp, itemId.toString().uppercase()))
 
             // Create the passkey with the existing item ID
             val passkeyToInsert = passkey.copy(
@@ -428,22 +357,8 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
     ): List<PasskeyWithCredentialInfo> {
         val db = database.dbConnection ?: return emptyList()
 
-        val query = """
-            SELECT p.Id, p.ItemId, p.RpId, p.UserHandle, p.PublicKey, p.PrivateKey, p.PrfKey,
-                   p.DisplayName, p.CreatedAt, p.UpdatedAt, p.IsDeleted,
-                   i.Name,
-                   fv_username.Value as Username
-            FROM Passkeys p
-            INNER JOIN Items i ON p.ItemId = i.Id
-            LEFT JOIN FieldValues fv_username ON fv_username.ItemId = i.Id
-                AND fv_username.FieldKey = ?
-                AND fv_username.IsDeleted = 0
-            WHERE p.RpId = ? AND p.IsDeleted = 0 AND i.IsDeleted = 0 AND i.DeletedAt IS NULL
-            ORDER BY p.CreatedAt DESC
-        """.trimIndent()
-
         val results = mutableListOf<PasskeyWithCredentialInfo>()
-        val cursor = db.query(query, arrayOf(FieldKey.LOGIN_USERNAME, rpId))
+        val cursor = db.query(PasskeyQueries.GET_WITH_CREDENTIAL_INFO, arrayOf(FieldKey.LOGIN_USERNAME, rpId))
 
         cursor.use {
             while (it.moveToNext()) {
@@ -484,40 +399,10 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
     fun getAllItemsWithoutPasskey(): List<ItemWithCredentialInfo> {
         val db = database.dbConnection ?: return emptyList()
 
-        val query = """
-            SELECT i.Id, i.Name, i.CreatedAt, i.UpdatedAt,
-                   GROUP_CONCAT(DISTINCT fv_url.Value) as Urls,
-                   fv_username.Value as Username,
-                   fv_password.Value as Password
-            FROM Items i
-            LEFT JOIN FieldValues fv_url ON fv_url.ItemId = i.Id
-                AND fv_url.FieldKey = ?
-                AND fv_url.IsDeleted = 0
-            LEFT JOIN FieldValues fv_username ON fv_username.ItemId = i.Id
-                AND fv_username.FieldKey = ?
-                AND fv_username.IsDeleted = 0
-            LEFT JOIN FieldValues fv_password ON fv_password.ItemId = i.Id
-                AND fv_password.FieldKey = ?
-                AND fv_password.IsDeleted = 0
-            WHERE i.IsDeleted = 0
-                AND i.DeletedAt IS NULL
-                AND i.ItemType = 'Login'
-                AND NOT EXISTS (
-                    SELECT 1 FROM Passkeys p
-                    WHERE p.ItemId = i.Id AND p.IsDeleted = 0
-                )
-            GROUP BY i.Id
-            ORDER BY i.UpdatedAt DESC
-        """.trimIndent()
-
         val results = mutableListOf<ItemWithCredentialInfo>()
         val cursor = db.query(
-            query,
-            arrayOf(
-                FieldKey.LOGIN_URL,
-                FieldKey.LOGIN_USERNAME,
-                FieldKey.LOGIN_PASSWORD,
-            ),
+            PasskeyQueries.GET_ALL_ITEMS_WITHOUT_PASSKEY,
+            arrayOf(FieldKey.LOGIN_URL, FieldKey.LOGIN_USERNAME, FieldKey.LOGIN_PASSWORD),
         )
 
         cursor.use {
@@ -594,27 +479,8 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
     fun getAllWithItems(): List<PasskeyWithItem> {
         val db = database.dbConnection ?: return emptyList()
 
-        val query = """
-            SELECT
-                p.Id, p.ItemId, p.RpId, p.UserHandle, p.PublicKey, p.PrivateKey, p.PrfKey,
-                p.DisplayName, p.CreatedAt as PasskeyCreatedAt, p.UpdatedAt as PasskeyUpdatedAt, p.IsDeleted as PasskeyIsDeleted,
-                i.Id as ItemId, i.Name, i.CreatedAt as ItemCreatedAt, i.UpdatedAt as ItemUpdatedAt,
-                fv_username.Value as Username,
-                fv_email.Value as Email
-            FROM Passkeys p
-            INNER JOIN Items i ON p.ItemId = i.Id
-            LEFT JOIN FieldValues fv_username ON fv_username.ItemId = i.Id
-                AND fv_username.FieldKey = ?
-                AND fv_username.IsDeleted = 0
-            LEFT JOIN FieldValues fv_email ON fv_email.ItemId = i.Id
-                AND fv_email.FieldKey = ?
-                AND fv_email.IsDeleted = 0
-            WHERE p.IsDeleted = 0 AND i.IsDeleted = 0 AND i.DeletedAt IS NULL
-            ORDER BY p.CreatedAt DESC
-        """.trimIndent()
-
         val results = mutableListOf<PasskeyWithItem>()
-        val cursor = db.query(query, arrayOf(FieldKey.LOGIN_USERNAME, FieldKey.LOGIN_EMAIL))
+        val cursor = db.query(PasskeyQueries.GET_ALL_WITH_ITEMS, arrayOf(FieldKey.LOGIN_USERNAME, FieldKey.LOGIN_EMAIL))
 
         cursor.use {
             while (it.moveToNext()) {
@@ -673,10 +539,7 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
      */
     private fun getOrCreateLogo(source: String, logoData: ByteArray, timestamp: String): String {
         // Check if a logo for this source already exists
-        val existingLogos = executeQuery(
-            "SELECT Id, IsDeleted FROM Logos WHERE Source = ? LIMIT 1",
-            arrayOf(source),
-        )
+        val existingLogos = executeQuery(LogoQueries.GET_BY_SOURCE, arrayOf(source))
 
         val existingLogo = existingLogos.firstOrNull()
         if (existingLogo != null) {
@@ -685,10 +548,7 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
 
             // Sanity check: restore if soft-deleted
             if (isDeleted) {
-                executeUpdate(
-                    "UPDATE Logos SET IsDeleted = 0, UpdatedAt = ? WHERE Id = ?",
-                    arrayOf(timestamp, existingLogoId),
-                )
+                executeUpdate(LogoQueries.RESTORE, arrayOf(timestamp, existingLogoId))
             }
             return existingLogoId
         }
@@ -696,20 +556,8 @@ class PasskeyRepository(database: VaultDatabase) : BaseRepository(database) {
         // Create new logo entry
         val logoId = generateId()
         executeUpdate(
-            """
-            INSERT INTO Logos (Id, Source, FileData, MimeType, FetchedAt, CreatedAt, UpdatedAt, IsDeleted)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """.trimIndent(),
-            arrayOf(
-                logoId,
-                source,
-                logoData,
-                "image/png",
-                null,
-                timestamp,
-                timestamp,
-                0,
-            ),
+            LogoQueries.INSERT,
+            arrayOf(logoId, source, logoData, "image/png", null, timestamp, timestamp, 0),
         )
 
         return logoId

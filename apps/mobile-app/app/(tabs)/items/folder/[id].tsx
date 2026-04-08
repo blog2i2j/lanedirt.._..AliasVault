@@ -12,6 +12,7 @@ import type { CredentialSortOrder } from '@/utils/db/repositories/SettingsReposi
 import type { Item, ItemType } from '@/utils/dist/core/models/vault';
 import { getFieldValue, FieldKey, ItemTypes } from '@/utils/dist/core/models/vault';
 import emitter from '@/utils/EventEmitter';
+import { canHaveSubfolders, getRecursiveItemCount } from '@/utils/folderUtils';
 import { HapticsUtility } from '@/utils/HapticsUtility';
 import { VaultAuthenticationError } from '@/utils/types/errors/VaultAuthenticationError';
 
@@ -23,7 +24,9 @@ import { useVaultMutate } from '@/hooks/useVaultMutate';
 import { useVaultSync } from '@/hooks/useVaultSync';
 
 import { DeleteFolderModal } from '@/components/folders/DeleteFolderModal';
+import { FolderBreadcrumb } from '@/components/folders/FolderBreadcrumb';
 import { FolderModal } from '@/components/folders/FolderModal';
+import { FolderPill } from '@/components/folders/FolderPill';
 import { ItemCard } from '@/components/items/ItemCard';
 import { SortMenu } from '@/components/items/SortMenu';
 import { ThemedContainer } from '@/components/themed/ThemedContainer';
@@ -34,6 +37,8 @@ import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
 import { useApp } from '@/context/AppContext';
 import { useDb } from '@/context/DbContext';
 import { useDialog } from '@/context/DialogContext';
+
+import type { FolderWithCount } from '@/components/folders/FolderPill';
 
 /**
  * Filter types for the items list.
@@ -83,6 +88,9 @@ export default function FolderViewScreen(): React.ReactNode {
 
   const [itemsList, setItemsList] = useState<Item[]>([]);
   const [folder, setFolder] = useState<Folder | null>(null);
+  const [subfolders, setSubfolders] = useState<FolderWithCount[]>([]);
+  const [canCreateSubfolder, setCanCreateSubfolder] = useState(false);
+  const [allFolders, setAllFolders] = useState<Folder[]>([]);
   // No minimum loading delay for folder view since data is already in memory
   const [isLoadingItems, setIsLoadingItems] = useState(false);
   const [refreshing, setRefreshing] = useMinDurationLoading(false, 200);
@@ -99,6 +107,7 @@ export default function FolderViewScreen(): React.ReactNode {
   // Folder modals
   const [showEditFolderModal, setShowEditFolderModal] = useState(false);
   const [showDeleteFolderModal, setShowDeleteFolderModal] = useState(false);
+  const [showCreateSubfolderModal, setShowCreateSubfolderModal] = useState(false);
 
   const authContext = useApp();
   const dbContext = useDb();
@@ -179,7 +188,19 @@ export default function FolderViewScreen(): React.ReactNode {
   const sortedItems = useSortedItems(filteredItems, sortOrder);
 
   /**
-   * Load items in this folder and folder details.
+   * Calculate total item count including all items in current folder and all child folders recursively.
+   * Used for the delete folder modal to show accurate count.
+   */
+  const totalItemCountInFolderTree = useMemo(() => {
+    if (!folderId || allFolders.length === 0) {
+      return 0;
+    }
+
+    return getRecursiveItemCount(folderId, itemsList, allFolders);
+  }, [folderId, allFolders, itemsList]);
+
+  /**
+   * Load items in this folder, subfolders, and folder details.
    */
   const loadItems = useCallback(async (): Promise<void> => {
     if (!folderId) {
@@ -199,6 +220,22 @@ export default function FolderViewScreen(): React.ReactNode {
       // Find this folder
       const currentFolder = folders.find((f: Folder) => f.Id === folderId);
       setFolder(currentFolder || null);
+
+      // Get subfolders (direct children only)
+      const childFolders = folders.filter((f: Folder) => f.ParentFolderId === folderId);
+
+      const subfoldersWithCounts: FolderWithCount[] = childFolders.map((f) => ({
+        id: f.Id,
+        name: f.Name,
+        itemCount: getRecursiveItemCount(f.Id, items, folders),
+      }));
+
+      setSubfolders(subfoldersWithCounts);
+      setAllFolders(folders);
+
+      // Calculate if we can create subfolders (check depth)
+      setCanCreateSubfolder(canHaveSubfolders(folderId, folders));
+
       setSortOrder(savedSortOrder);
       setIsLoadingItems(false);
     } catch (err) {
@@ -406,6 +443,31 @@ export default function FolderViewScreen(): React.ReactNode {
     });
   }, [folderId, router, navigate]);
 
+  /**
+   * Handle subfolder click - navigate to subfolder view.
+   */
+  const handleSubfolderClick = useCallback((subfolderId: string) => {
+    navigate(() => {
+      router.push(`/(tabs)/items/folder/${subfolderId}`);
+      HapticsUtility.impact();
+    });
+  }, [router, navigate]);
+
+  /**
+   * Create a new subfolder.
+   */
+  const handleCreateSubfolder = useCallback(async (name: string) => {
+    if (!folderId) {
+      return;
+    }
+
+    await executeVaultMutation(async () => {
+      await dbContext.sqliteClient!.folders.create(name, folderId);
+    });
+    await loadItems();
+    setShowCreateSubfolderModal(false);
+  }, [dbContext.sqliteClient, folderId, executeVaultMutation, loadItems]);
+
   // Header styles (stable, not dependent on colors) - prefixed with _ as styles are inlined in useEffect
   const _headerStyles = StyleSheet.create({
     headerButton: {
@@ -583,6 +645,29 @@ export default function FolderViewScreen(): React.ReactNode {
       color: colors.primarySurfaceText,
       fontSize: 24,
     },
+    // Subfolder pills styles
+    folderPillsContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 16,
+    },
+    newFolderButton: {
+      alignItems: 'center',
+      backgroundColor: colors.accentBackground,
+      borderColor: colors.accentBorder,
+      borderRadius: 20,
+      borderStyle: 'dashed',
+      borderWidth: 1,
+      flexDirection: 'row',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    newFolderButtonText: {
+      color: colors.textMuted,
+      fontSize: 14,
+    },
   });
 
   /**
@@ -698,11 +783,52 @@ export default function FolderViewScreen(): React.ReactNode {
   };
 
   /**
-   * Render the list header with filter, sort button, and search.
+   * Render the list header with subfolders, filter, sort button, and search.
    */
   const renderListHeader = (): React.ReactNode => {
     return (
       <ThemedView>
+        {/* Folder breadcrumb navigation */}
+        <FolderBreadcrumb
+          folderId={folderId}
+          excludeCurrentFolder={true}
+        />
+
+        {/* Subfolder pills (shown when not searching) */}
+        {!searchQuery && subfolders.length > 0 && (
+          <View style={styles.folderPillsContainer}>
+            {subfolders.map((subfolder) => (
+              <FolderPill
+                key={subfolder.id}
+                folder={subfolder}
+                onPress={() => handleSubfolderClick(subfolder.id)}
+              />
+            ))}
+            {canCreateSubfolder && (
+              <TouchableOpacity
+                style={styles.newFolderButton}
+                onPress={() => setShowCreateSubfolderModal(true)}
+              >
+                <MaterialIcons name="create-new-folder" size={16} color={colors.textMuted} />
+                <Text style={styles.newFolderButtonText}>{t('items.folders.newFolder')}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* Create subfolder button (when no subfolders exist) */}
+        {!searchQuery && subfolders.length === 0 && canCreateSubfolder && (
+          <View style={styles.folderPillsContainer}>
+            <TouchableOpacity
+              style={styles.newFolderButton}
+              onPress={() => setShowCreateSubfolderModal(true)}
+            >
+              <MaterialIcons name="create-new-folder" size={16} color={colors.textMuted} />
+              <Text style={styles.newFolderButtonText}>{t('items.folders.newFolder')}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Header row with filter dropdown and sort button */}
         <View style={styles.headerRow}>
           {/* Filter button */}
@@ -856,12 +982,19 @@ export default function FolderViewScreen(): React.ReactNode {
         initialName={folder?.Name || ''}
         mode="edit"
       />
+      <FolderModal
+        isOpen={showCreateSubfolderModal}
+        onClose={() => setShowCreateSubfolderModal(false)}
+        onSave={handleCreateSubfolder}
+        initialName=""
+        mode="create"
+      />
       <DeleteFolderModal
         isOpen={showDeleteFolderModal}
         onClose={() => setShowDeleteFolderModal(false)}
         onDeleteFolderOnly={handleDeleteFolderOnly}
         onDeleteFolderAndContents={handleDeleteFolderAndContents}
-        itemCount={itemsList.length}
+        itemCount={totalItemCountInFolderTree}
       />
     </ThemedContainer>
   );
