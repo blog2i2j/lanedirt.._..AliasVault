@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { StyleSheet, View, TouchableOpacity } from 'react-native';
 
 import type { Item } from '@/utils/dist/core/models/vault';
-import { getFieldValue, itemToCredential } from '@/utils/dist/core/models/vault';
+import { getFieldValue } from '@/utils/dist/core/models/vault';
 
 import { useColors } from '@/hooks/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -19,9 +19,10 @@ import { useDialog } from '@/context/DialogContext';
 import NativeVaultManager from '@/specs/NativeVaultManager';
 
 /**
- * CSV record for Credential objects (matching server format).
+ * CSV record for Item objects (matching server ItemCsvRecord format).
+ * Must match the column order and types from AliasVault.ImportExport.ItemCsvService.
  */
-interface ICredentialCsvRecord {
+interface IItemCsvRecord {
   ServiceName: string;
   FolderPath: string;
   ServiceUrl: string;
@@ -85,40 +86,63 @@ export default function ImportExportScreen(): React.ReactNode {
   };
 
   /**
+   * Helper to extract a single string value from field (handles string | string[] return type).
+   */
+  const getFieldValueAsString = (item: Item, fieldKey: string): string => {
+    const value = getFieldValue(item, fieldKey);
+    if (Array.isArray(value)) {
+      return value[0] ?? '';
+    }
+    return value ?? '';
+  };
+
+  /**
    * Convert items to CSV format.
+   * Matches the server's ItemCsvService.ExportItemsToCsv format.
    */
   const itemsToCsv = async (items: Item[]): Promise<string> => {
-    const records: ICredentialCsvRecord[] = [];
+    const records: IItemCsvRecord[] = [];
 
-    // Get all items with their TOTP codes
+    /*
+     * Get all items with their TOTP codes
+     */
     for (const item of items) {
       // Get TOTP codes for this item
       const totpCodes = await dbContext.sqliteClient?.settings.getTotpCodesForItem(item.Id) ?? [];
       const totpSecret = totpCodes.length > 0 ? totpCodes[0].SecretKey : '';
 
-      // Convert item to credential format for backward compatibility with CSV export
-      const credential = itemToCredential(item);
+      // Build folder path (hierarchical with "/" separator)
+      // FolderPath is an array like ["Work", "Projects", "Active"]
+      const folderPath = item.FolderPath?.join('/') ?? '';
 
-      /*
-       * Get nickname from item fields (not in Credential type but needed for CSV)
-       * Note: AliasNickname is not a standard FieldKey, use string literal
-       */
-      const nickName = getFieldValue(item, 'alias.nickname') ?? '';
+      // Get field values using the same FieldKey constants as server
+      const serviceUrl = getFieldValueAsString(item, 'login.url');
+      const username = getFieldValueAsString(item, 'login.username');
+      const password = getFieldValueAsString(item, 'login.password');
+      const aliasEmail = getFieldValueAsString(item, 'login.email');
+      const aliasGender = getFieldValueAsString(item, 'alias.gender');
+      const aliasFirstName = getFieldValueAsString(item, 'alias.firstName');
+      const aliasLastName = getFieldValueAsString(item, 'alias.lastName');
+      const aliasBirthdate = getFieldValueAsString(item, 'alias.birthdate');
+      const notes = getFieldValueAsString(item, 'notes.content');
 
-      const record: ICredentialCsvRecord = {
-        ServiceName: credential.ServiceName ?? '',
-        FolderPath: item.FolderPath ?? '',
-        ServiceUrl: credential.ServiceUrl ?? '',
-        Username: credential.Username ?? '',
-        CurrentPassword: credential.Password ?? '',
-        AliasEmail: credential.Alias?.Email ?? '',
+      // Parse birthdate to formatted string (server expects MM/DD/YYYY format in CSV)
+      const formattedBirthDate = aliasBirthdate ? formatDate(aliasBirthdate) : '';
+
+      const record: IItemCsvRecord = {
+        ServiceName: item.Name ?? '',
+        FolderPath: folderPath,
+        ServiceUrl: serviceUrl,
+        Username: username,
+        CurrentPassword: password,
+        AliasEmail: aliasEmail,
         TwoFactorSecret: totpSecret,
-        AliasGender: credential.Alias?.Gender ?? '',
-        AliasFirstName: credential.Alias?.FirstName ?? '',
-        AliasLastName: credential.Alias?.LastName ?? '',
-        AliasNickName: nickName,
-        AliasBirthDate: credential.Alias?.BirthDate ? formatDate(credential.Alias.BirthDate) : '',
-        Notes: credential.Notes ?? '',
+        AliasGender: aliasGender,
+        AliasFirstName: aliasFirstName,
+        AliasLastName: aliasLastName,
+        AliasNickName: '', // NickName is no longer stored as a separate field
+        AliasBirthDate: formattedBirthDate,
+        Notes: notes,
         CreatedAt: formatDate(item.CreatedAt),
         UpdatedAt: formatDate(item.UpdatedAt)
       };
@@ -169,16 +193,16 @@ export default function ImportExportScreen(): React.ReactNode {
         escapeCsvValue(record.ServiceUrl),
         escapeCsvValue(record.Username),
         escapeCsvValue(record.CurrentPassword),
-        record.AliasEmail,
+        escapeCsvValue(record.AliasEmail),
         escapeCsvValue(record.TwoFactorSecret),
-        record.AliasGender,
-        record.AliasFirstName,
-        record.AliasLastName,
-        record.AliasNickName,
-        record.AliasBirthDate,
+        escapeCsvValue(record.AliasGender),
+        escapeCsvValue(record.AliasFirstName),
+        escapeCsvValue(record.AliasLastName),
+        escapeCsvValue(record.AliasNickName),
+        escapeCsvValue(record.AliasBirthDate),
         escapeCsvValue(record.Notes),
-        record.CreatedAt,
-        record.UpdatedAt
+        escapeCsvValue(record.CreatedAt),
+        escapeCsvValue(record.UpdatedAt)
       ];
       csvLines.push(values.join(','));
     }
