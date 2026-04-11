@@ -25,7 +25,6 @@
     "closePopup": "Close this popup",
     "browseVault": "Browse vault contents",
     "autoCloseUnlockPopup": "Auto-close on future sign ins",
-    "closingIn": "Closing in {{seconds}}s...",
     "connectingTo": "Bağlanıyor",
     "switchAccounts": "Switch accounts?",
     "loginWithMobile": "Log in using Mobile App",
@@ -178,8 +177,7 @@
     "savePrompt": {
       "title": "Save to AliasVault?",
       "neverForThisSite": "Never for this site",
-      "addUrlTitle": "Add URL to credential?",
-      "addUrl": "Add URL"
+      "addUrlTitle": "Add URL to credential?"
     }
   },
   "items": {
@@ -201,7 +199,6 @@
     "folder": "Folder",
     "welcomeTitle": "Welcome to AliasVault!",
     "welcomeDescription": "To use the AliasVault browser extension: navigate to a website and use the AliasVault autofill popup to create a new credential.",
-    "noPasskeysFound": "No passkeys have been created yet. Passkeys are created by visiting a website that offers passkeys as an authentication method.",
     "noMatchingItems": "No items match the selected filter.",
     "noMatchingItemsSearch": "No items matching \"{{search}}\"",
     "noMatchingItemsWithFilter": "No {{filter}} items matching \"{{search}}\"",
@@ -211,7 +208,7 @@
     "allItemsInFolders": "All your items are organized in folders. Click a folder above to view your credentials, or use the search to find specific items.",
     "deleteFolder": "Delete Folder",
     "deleteFolderKeepItems": "Delete folder only",
-    "deleteFolderKeepItemsDescription": "Items will be moved back to the main list.",
+    "deleteFolderKeepItemsDescription": "Items will be moved to the parent folder.",
     "deleteFolderAndItems": "Delete folder and all items",
     "deleteFolderAndItemsDescription": "{{count}} item(s) will be moved to Recently Deleted.",
     "filters": {
@@ -329,6 +326,7 @@
     "noEmails": "No emails found",
     "noEmailsDescription": "Özel e-posta adreslerinize henüz bir e-posta gelmedi. Yeni bir e-posta aldığınızda burada görünecektir.",
     "offlineMessage": "Çevrimdışısınız. E-postalarınızı yüklemek için lütfen internet bağlantısı sağlayın.",
+    "loadMore": "Load More ({{count}} remaining)",
     "dateFormat": {
       "justNow": "biraz önce",
       "minutesAgo_single": "{{count}} dakika önce",
@@ -350,7 +348,6 @@
     "openWebApp": "Open web app",
     "lock": "Lock",
     "globalSettings": "Global Settings",
-    "autofillPopup": "Autofill popup",
     "activeOnAllSites": "Active on all sites (unless disabled below)",
     "disabledOnAllSites": "Disabled on all sites",
     "rightClickContextMenu": "Right-click context menu",
@@ -361,12 +358,9 @@
     "autofillMatchingUrlSubdomain": "URL + subdomain",
     "autofillMatchingUrlExact": "Exact URL domain only",
     "siteSpecificSettings": "Site-Specific Settings",
-    "autofillPopupOn": "Autofill popup on: ",
     "enabledForThisSite": "Enabled for this site",
     "disabledForThisSite": "Disabled for this site",
-    "temporarilyDisabledUntil": "Temporarily disabled until ",
     "resetAllSiteSettings": "Reset all site-specific settings",
-    "autofillPopupDescription": "Show the autofill popup when login fields are detected.",
     "disabledSites": "Disabled sites",
     "disabledSitesDescription": "Sites where the autofill popup will not appear.",
     "clearAllDisabledSites": "Clear all disabled sites",
@@ -390,7 +384,7 @@
     "autoLockTimeoutHelp": "Kasa, yalnızca belirtilen süre boyunca herhangi bir işlem yapılmadığında (otomatik doldurma kullanılmadığında veya uzantı açılmadığında) kilitlenecektir. Ancak, bu ayardan bağımsız olarak tarayıcı kapatıldığında her zaman kilitlenir.",
     "autoLockNever": "Asla",
     "autoLock15Seconds": "15 saniye",
-    "autoLock30Seconds": "30 seconds",
+    "autoLock30Seconds": "30 saniye",
     "autoLock1Minute": "1 dakika",
     "autoLock5Minutes": "5 dakika",
     "autoLock15Minutes": "15 dakika",
@@ -404,7 +398,6 @@
     "clipboardSettings": "Clipboard Settings",
     "contextMenuSettings": "Context Menu Settings",
     "passkeySettings": "Passkey Settings",
-    "contextMenu": "Context Menu",
     "contextMenuEnabled": "Context menu is enabled",
     "contextMenuDisabled": "Context menu is disabled",
     "contextMenuDescription": "Right-click on input fields to access AliasVault options",
@@ -440,6 +433,12 @@
         "female": "Kadın"
       }
     },
+    "credentialAutofill": "Credential autofill",
+    "credentialAutofillDescription": "Show autofill popup when username/password fields are detected",
+    "totpAutofill": "2FA code autofill",
+    "totpAutofillDescription": "Show autofill popup when 2FA code fields are detected",
+    "autoCopyTotpOnAutofill": "Auto-copy 2FA to clipboard",
+    "autoCopyTotpOnAutofillDescription": "Automatically copy the first 2FA code to clipboard after autofilling credentials",
     "loginSave": {
       "title": "Save Login Prompt",
       "description": "Show a prompt to save login credentials when you submit a login form on a website.",

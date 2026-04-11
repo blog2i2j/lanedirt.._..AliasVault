@@ -71,7 +71,7 @@
     <comment>Title for delete folder only option</comment>
   </data>
   <data name="DeleteFolderOnlyDescription" xml:space="preserve">
-    <value>Elemente in diesem Ordner werden in das Stammverzeichnis verschoben</value>
+    <value>Elemente werden in den übergeordneten Ordner verschoben</value>
     <comment>Description for delete folder only option</comment>
   </data>
   <data name="DeleteFolderAndContentsTitle" xml:space="preserve">

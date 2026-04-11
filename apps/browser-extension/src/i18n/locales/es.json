@@ -25,7 +25,6 @@
     "closePopup": "Cerrar esta ventana emergente",
     "browseVault": "Navegar en el contenido de la bóveda",
     "autoCloseUnlockPopup": "Auto-cerrar en futuros inicios de sesión",
-    "closingIn": "Cerrando en {{seconds}}...",
     "connectingTo": "Conectando con",
     "switchAccounts": "¿Cambiar de cuenta?",
     "loginWithMobile": "Iniciar sesión con la aplicación móvil",
@@ -178,8 +177,7 @@
     "savePrompt": {
       "title": "¿Guardar en AliasVault?",
       "neverForThisSite": "Nunca para este sitio",
-      "addUrlTitle": "¿Añadir URL a la credencial?",
-      "addUrl": "Añadir URL"
+      "addUrlTitle": "¿Añadir URL a la credencial?"
     }
   },
   "items": {
@@ -201,7 +199,6 @@
     "folder": "Folder",
     "welcomeTitle": "¡Bienvenido a AliasVault!",
     "welcomeDescription": "Para utilizar la extensión del navegador AliasVault: vaya a un sitio web y utilice la ventana de autocompletado de AliasVault para crear una nueva credencial.",
-    "noPasskeysFound": "No se han creado llaves de acceso todavía. Las llaves se crean visitando un sitio web que ofrece llaves de acceso como método de autenticación.",
     "noMatchingItems": "No hay elementos que coincidan con el filtro.",
     "noMatchingItemsSearch": "No hay elementos que coincidan con \"{{search}}\"",
     "noMatchingItemsWithFilter": "No hay elementos {{filter}} que coincidan con \"{{search}}\"",
@@ -211,7 +208,7 @@
     "allItemsInFolders": "Todos sus elementos están organizados en carpetas. Haga clic en una carpeta para ver sus credenciales o utilice la búsqueda para encontrar elementos específicos.",
     "deleteFolder": "Borrar carpeta",
     "deleteFolderKeepItems": "Eliminar solo la carpeta",
-    "deleteFolderKeepItemsDescription": "Los elementos se moverán de nuevo a la lista principal.",
+    "deleteFolderKeepItemsDescription": "Los elementos se moverán a la carpeta principal.",
     "deleteFolderAndItems": "Eliminar carpeta y todos los elementos",
     "deleteFolderAndItemsDescription": "{{count}} elemento(s) serán movidos a Borrados Recientemente.",
     "filters": {
@@ -329,6 +326,7 @@
     "noEmails": "No se han encontrado correos electrónicos",
     "noEmailsDescription": "No has recibido ningún correo electrónico en tus direcciones privadas todavía. Cuando recibas un nuevo correo electrónico, aparecerá aquí.",
     "offlineMessage": "Está desconectado. Por favor, conéctese a Internet para cargar sus correos electrónicos.",
+    "loadMore": "Cargar más ({{count}} restantes)",
     "dateFormat": {
       "justNow": "ahora mismo",
       "minutesAgo_single": "Hace {{count}} min",
@@ -350,7 +348,6 @@
     "openWebApp": "Abrir la aplicación web",
     "lock": "Bloquear",
     "globalSettings": "Ajustes globales",
-    "autofillPopup": "Ventana de autorrellenado",
     "activeOnAllSites": "Activo en todos los sitios (a menos que se deshabilite debajo)",
     "disabledOnAllSites": "Deshabilitado en todos los sitios",
     "rightClickContextMenu": "Menú contextual del clic derecho",
@@ -361,12 +358,9 @@
     "autofillMatchingUrlSubdomain": "URL + subdominio",
     "autofillMatchingUrlExact": "Solo URL exacta",
     "siteSpecificSettings": "Ajustes específicos del sitio",
-    "autofillPopupOn": "Ventana de autorrelleno ",
     "enabledForThisSite": "Habilitado para este sitio",
     "disabledForThisSite": "Deshabilitado para este sitio",
-    "temporarilyDisabledUntil": "Deshabilitado temporalmente hasta ",
     "resetAllSiteSettings": "Reiniciar todos los ajustes específicos del sitio",
-    "autofillPopupDescription": "Mostrar el popup de autorrelleno cuando se detectan los campos de inicio de sesión.",
     "disabledSites": "Sitios desactivados",
     "disabledSitesDescription": "Sitios donde el popup de autorrelleno no aparecerá.",
     "clearAllDisabledSites": "Borrar todos los sitios desactivados",
@@ -390,7 +384,7 @@
     "autoLockTimeoutHelp": "La bóveda sólo se bloqueará después del período especificado de inactividad (no se abrirá el uso de autocompletado o la ventana emergente). La bóveda siempre se bloqueará cuando el navegador esté cerrado, independientemente de esta configuración.",
     "autoLockNever": "Nunca",
     "autoLock15Seconds": "15 segundos",
-    "autoLock30Seconds": "30 seconds",
+    "autoLock30Seconds": "30 segundos",
     "autoLock1Minute": "1 minuto",
     "autoLock5Minutes": "5 minutos",
     "autoLock15Minutes": "15 minutos",
@@ -404,7 +398,6 @@
     "clipboardSettings": "Ajustes del portapapeles",
     "contextMenuSettings": "Ajustes del menú contextual",
     "passkeySettings": "Ajustes de llaves de acceso",
-    "contextMenu": "Menú Contextual",
     "contextMenuEnabled": "El menú contextual está activado",
     "contextMenuDisabled": "El menú contextual está desactivado",
     "contextMenuDescription": "Haga clic derecho en los campos de entrada para acceder a las opciones de AliasVault",
@@ -440,6 +433,12 @@
         "female": "Mujer"
       }
     },
+    "credentialAutofill": "Autorrelleno de credenciales",
+    "credentialAutofillDescription": "Mostrar ventana emergente de autorrelleno cuando se detectan campos de nombre de usuario/contraseña",
+    "totpAutofill": "Codigo 2FA de autorelleno",
+    "totpAutofillDescription": "Mostrar ventana emergente de autorrelleno cuando se detectan campos de código 2FA",
+    "autoCopyTotpOnAutofill": "Auto-copiar 2FA al portapapeles",
+    "autoCopyTotpOnAutofillDescription": "Copiar automáticamente el primer código 2FA al portapapeles después de rellenar automáticamente las credenciales",
     "loginSave": {
       "title": "Guardar registro",
       "description": "Mostrar un mensaje para guardar las credenciales de inicio de sesión cuando envíe un formulario de inicio de sesión en un sitio web.",

@@ -25,13 +25,12 @@
     "closePopup": "Sluit deze popup",
     "browseVault": "Bekijk vault inhoud",
     "autoCloseUnlockPopup": "Automatisch sluiten bij toekomstige logins",
-    "closingIn": "Sluiten in {{seconds}}s...",
     "connectingTo": "Verbinden met",
     "switchAccounts": "Wisselen van account?",
     "loginWithMobile": "Log in via de mobiele app",
     "unlockWithMobile": "Ontgrendel met mobiele app",
     "scanQrCode": "Scan deze QR-code met de AliasVault mobiele app om in te loggen en je kluis te ontgrendelen.",
-    "passwordAttemptsWarning": "Onjuist wachtwoord. Je wordt uitgelogd als je het verkeerde wachtwoord {{remainingAttempts}} vaker invult.",
+    "passwordAttemptsWarning": "Onjuist wachtwoord. Je wordt uitgelogd als je het verkeerde wachtwoord {{remainingAttempts}} keer vaker invult.",
     "maxAttemptsReached": "Te veel mislukte ontgrendel pogingen. Je bent uitgelogd om veiligheidsredenen."
   },
   "menu": {
@@ -178,8 +177,7 @@
     "savePrompt": {
       "title": "Opslaan in AliasVault?",
       "neverForThisSite": "Nooit voor deze site",
-      "addUrlTitle": "URL naar inloggegevens toevoegen?",
-      "addUrl": "URL toevoegen"
+      "addUrlTitle": "URL naar inloggegevens toevoegen?"
     }
   },
   "items": {
@@ -201,7 +199,6 @@
     "folder": "Map",
     "welcomeTitle": "Welkom bij AliasVault!",
     "welcomeDescription": "Om de AliasVault browser extensie te gebruiken: navigeer naar een website en gebruik de AliasVault autofill popup om nieuwe credentials aan te maken.",
-    "noPasskeysFound": "Er zijn nog geen passkeys aangemaakt. Passkeys worden gemaakt door een website te bezoeken die passkeys als een authenticatiemethode biedt.",
     "noMatchingItems": "Geen items gevonden die overeenkomen met het geselecteerde filter.",
     "noMatchingItemsSearch": "Geen items die overeenkomen met \"{{search}}\"",
     "noMatchingItemsWithFilter": "Geen {{filter}} items die overeenkomen met \"{{search}}\"",
@@ -211,7 +208,7 @@
     "allItemsInFolders": "Al je items zijn georganiseerd in mappen. Klik op een map hierboven om je gegevens te bekijken, of gebruik de zoekopdracht om specifieke items te vinden.",
     "deleteFolder": "Map verwijderen",
     "deleteFolderKeepItems": "Verwijder alleen map",
-    "deleteFolderKeepItemsDescription": "Items zullen terug worden verplaatst naar de hoofdlijst.",
+    "deleteFolderKeepItemsDescription": "Items zullen worden verplaatst naar de bovenliggende map.",
     "deleteFolderAndItems": "Verwijder map en alle items",
     "deleteFolderAndItemsDescription": "{{count}} item(s) zullen worden verplaatst naar recent verwijderd.",
     "filters": {
@@ -329,6 +326,7 @@
     "noEmails": "Geen e-mails gevonden",
     "noEmailsDescription": "Je hebt nog geen e-mails ontvangen op je privé e-mailadressen. Wanneer je een nieuwe e-mail ontvangt, zal deze hier verschijnen.",
     "offlineMessage": "Je bent offline. Maak verbinding met het internet om je e-mails te laden.",
+    "loadMore": "Meer laden ({{count}} resterend)",
     "dateFormat": {
       "justNow": "zojuist",
       "minutesAgo_single": "{{count}} min geleden",
@@ -350,7 +348,6 @@
     "openWebApp": "Web-app openen",
     "lock": "Vergrendelen",
     "globalSettings": "Globale Instellingen",
-    "autofillPopup": "Autofill popup",
     "activeOnAllSites": "Actief voor alle sites (tenzij hieronder uitgeschakeld)",
     "disabledOnAllSites": "Uitgeschakeld op alle sites",
     "rightClickContextMenu": "Rechtermuisknop menu",
@@ -361,12 +358,9 @@
     "autofillMatchingUrlSubdomain": "URL + subdomein",
     "autofillMatchingUrlExact": "Exacte URL-domein",
     "siteSpecificSettings": "Site-specifieke Instellingen",
-    "autofillPopupOn": "Autofill popup op: ",
     "enabledForThisSite": "Ingeschakeld voor deze site",
     "disabledForThisSite": "Uitgeschakeld voor deze site",
-    "temporarilyDisabledUntil": "Tijdelijk uitgeschakeld tot ",
     "resetAllSiteSettings": "Alle site-specifieke instellingen resetten",
-    "autofillPopupDescription": "Toon de autofill popup wanneer login velden worden gedetecteerd.",
     "disabledSites": "Uitgeschakelde sites",
     "disabledSitesDescription": "Websites waar de autofill popup niet verschijnt.",
     "clearAllDisabledSites": "Alle uitgeschakelde sites wissen",
@@ -404,7 +398,6 @@
     "clipboardSettings": "Klembord instellingen",
     "contextMenuSettings": "Context menu instellingen",
     "passkeySettings": "Passkey instellingen",
-    "contextMenu": "Context menu",
     "contextMenuEnabled": "Context menu is ingeschakeld",
     "contextMenuDisabled": "Context menu is uitgeschakeld",
     "contextMenuDescription": "Klik met de rechtermuisknop op invoervelden om AliasVault opties te zien",
@@ -440,6 +433,12 @@
         "female": "Vrouwelijk"
       }
     },
+    "credentialAutofill": "Automatisch invullen van inloggegevens",
+    "credentialAutofillDescription": "Automatisch invullen popup weergeven wanneer gebruikersnaam/wachtwoord velden worden gedetecteerd",
+    "totpAutofill": "Automatisch invullen van 2FA code",
+    "totpAutofillDescription": "Automatisch invullen popup tonen wanneer 2FA code-velden worden gedetecteerd",
+    "autoCopyTotpOnAutofill": "2FA automatisch naar klembord kopiëren",
+    "autoCopyTotpOnAutofillDescription": "Automatisch de eerste 2FA-code kopiëren naar het klembord na het invullen van de inloggegevens",
     "loginSave": {
       "title": "Inloggegevens opslaan",
       "description": "Toon een melding om inloggegevens op te slaan wanneer je inlogt op een website.",

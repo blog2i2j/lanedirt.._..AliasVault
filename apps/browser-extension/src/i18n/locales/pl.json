@@ -25,7 +25,6 @@
     "closePopup": "Zamknij to okno.",
     "browseVault": "Przeglądaj zawartość sejfu",
     "autoCloseUnlockPopup": "Automatyczne zamykanie przyszłych logowań",
-    "closingIn": "Zamknięcie w {{seconds}}s...",
     "connectingTo": "Łączenie z",
     "switchAccounts": "Przełącz konto",
     "loginWithMobile": "Zaloguj się za pomocą aplikacji mobilnej",
@@ -178,8 +177,7 @@
     "savePrompt": {
       "title": "Zapisać w AliasVault?",
       "neverForThisSite": "Nigdy dla tej strony",
-      "addUrlTitle": "Dodaj nowe dane logowania?",
-      "addUrl": "Dodaj adres URL"
+      "addUrlTitle": "Dodaj nowe dane logowania?"
     }
   },
   "items": {
@@ -201,7 +199,6 @@
     "folder": "Katalog",
     "welcomeTitle": "Witamy w AliasVault!",
     "welcomeDescription": "Aby skorzystać z rozszerzenia przeglądarki AliasVault - przejdź do strony internetowej i użyj okienka autozupelniania, aby utworzyć nowa tożsamość.",
-    "noPasskeysFound": "Nie utworzono jeszcze żadnych kluczy dostępu. Klucze dostępu tworzy się, odwiedzając stronę internetową, która oferuje klucze dostępu jako metodę uwierzytelniania.",
     "noMatchingItems": "Żaden element nie pasuje do wybranego filtra.",
     "noMatchingItemsSearch": "Nie znaleziono żadnych elementów pasujących do „{{search}}”",
     "noMatchingItemsWithFilter": "Brak elementów {{filter}} pasujących do „{{search}}”",
@@ -211,7 +208,7 @@
     "allItemsInFolders": "Wszystkie Twoje elementy są uporządkowane w folderach. Kliknij folder powyżej, aby wyświetlić swoje dane logowania, lub skorzystaj z wyszukiwarki, aby znaleźć konkretne elementy.",
     "deleteFolder": "Usuń folder",
     "deleteFolderKeepItems": "Usuń tylko folder",
-    "deleteFolderKeepItemsDescription": "Elementy zostaną przeniesione z powrotem do listy głównej.",
+    "deleteFolderKeepItemsDescription": "Items will be moved to the parent folder.",
     "deleteFolderAndItems": "Usuń folder i wszystkie elementy",
     "deleteFolderAndItemsDescription": "{{count}} element(ów) zostaną przeniesione do Ostatnio usunięte.",
     "filters": {
@@ -329,6 +326,7 @@
     "noEmails": "Nie znaleziono wiadomości e-mail",
     "noEmailsDescription": "Nie otrzymałeś jeszcze żadnych wiadomości e-mail na prywatne adresy e-mail. Kiedy otrzymasz nowy e-mail, pojawi się on tutaj.",
     "offlineMessage": "Jesteś offline. Połącz się z Internetem, aby załadować wiadomości e-mail.",
+    "loadMore": "Load More ({{count}} remaining)",
     "dateFormat": {
       "justNow": "w tej chwili",
       "minutesAgo_single": "{{count}} minut temu",
@@ -350,7 +348,6 @@
     "openWebApp": "Otwórz aplikację internetową",
     "lock": "Zablokuj",
     "globalSettings": "Ustawienia ogólne",
-    "autofillPopup": "Okno autouzupełniania",
     "activeOnAllSites": "Aktywne we wszystkich witrynach (chyba że jest wyłączone)",
     "disabledOnAllSites": "Wyłączone na wszystkich witrynach",
     "rightClickContextMenu": "Aktywacja menu kontekstowego",
@@ -361,12 +358,9 @@
     "autofillMatchingUrlSubdomain": "Adres URL + subdomena",
     "autofillMatchingUrlExact": "Dokładna domena adresu URL",
     "siteSpecificSettings": "Ustawienia dotyczące witryny",
-    "autofillPopupOn": "Wyskakujące okno autouzupełniania: ",
     "enabledForThisSite": "Włączone dla tej witryny",
     "disabledForThisSite": "Wyłączone dla tej witryny",
-    "temporarilyDisabledUntil": "Tymczasowo nieaktywne do ",
     "resetAllSiteSettings": "Zresetuj wszystkie ustawienia witryny",
-    "autofillPopupDescription": "Pokaż wyskakujące okienko autouzupełniania po wykryciu pól logowania.",
     "disabledSites": "Wyłączone witryny",
     "disabledSitesDescription": "Witryny, w których okienko autouzupełniania nie będzie wyświetlane.",
     "clearAllDisabledSites": "Usuń wszystkie wyłączone witryny",
@@ -390,7 +384,7 @@
     "autoLockTimeoutHelp": "Sejf zostanie zablokowany dopiero po określonym okresie nieaktywności (żadne użycie autouzupełniania lub okienko rozszerzenia nie zostało otwarte). Sejf zostanie zablokowany, gdy przeglądarka zostanie zamknięta, niezależnie od tego ustawienia.",
     "autoLockNever": "Nigdy",
     "autoLock15Seconds": "15 sekund",
-    "autoLock30Seconds": "30 seconds",
+    "autoLock30Seconds": "30 sekund",
     "autoLock1Minute": "1 minuta",
     "autoLock5Minutes": "5 minut",
     "autoLock15Minutes": "15 minut",
@@ -404,7 +398,6 @@
     "clipboardSettings": "Ustawienia schowka",
     "contextMenuSettings": "Ustawienia menu kontekstowego",
     "passkeySettings": "Ustawienia kluczy dostępu",
-    "contextMenu": "Menu kontekstowe",
     "contextMenuEnabled": "Menu kontekstowe jest włączone",
     "contextMenuDisabled": "Menu kontekstowe jest wyłączone",
     "contextMenuDescription": "Kliknij prawym przyciskiem myszy na pola wejściowe, aby uzyskać dostęp do opcji AliasVault",
@@ -440,6 +433,12 @@
         "female": "Kobieta"
       }
     },
+    "credentialAutofill": "Credential autofill",
+    "credentialAutofillDescription": "Show autofill popup when username/password fields are detected",
+    "totpAutofill": "2FA code autofill",
+    "totpAutofillDescription": "Show autofill popup when 2FA code fields are detected",
+    "autoCopyTotpOnAutofill": "Auto-copy 2FA to clipboard",
+    "autoCopyTotpOnAutofillDescription": "Automatically copy the first 2FA code to clipboard after autofilling credentials",
     "loginSave": {
       "title": "Zapisz monit logowania",
       "description": "Pokaż monit o zapisanie danych logowania podczas przesyłania formularza logowania na stronie internetowej.",

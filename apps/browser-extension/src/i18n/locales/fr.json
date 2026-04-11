@@ -25,7 +25,6 @@
     "closePopup": "Fermer cette popup",
     "browseVault": "Parcourir le contenu du coffre",
     "autoCloseUnlockPopup": "Fermeture automatique lors des connexions futures",
-    "closingIn": "Fermeture dans {{seconds}}s...",
     "connectingTo": "Connexion à",
     "switchAccounts": "Changer de compte ?",
     "loginWithMobile": "Se connecter à l'aide de l'application mobile",
@@ -178,8 +177,7 @@
     "savePrompt": {
       "title": "Enregistrer dans AliasVault?",
       "neverForThisSite": "Jamais pour ce site",
-      "addUrlTitle": "Ajouter l'URL à l'identifiant?",
-      "addUrl": "Ajouter l’URL"
+      "addUrlTitle": "Ajouter l'URL à l'identifiant?"
     }
   },
   "items": {
@@ -201,7 +199,6 @@
     "folder": "Dossier",
     "welcomeTitle": "Bienvenue dans AliasVault !",
     "welcomeDescription": "Pour utiliser l'extension de navigateur AliasVault : accédez à un site web et utilisez la fenêtre de saisie automatique AliasVault pour créer un nouvel identifiant.",
-    "noPasskeysFound": "Aucune clé d'accès n'a encore été créée. Les clés d'accès sont créés en visitant un site Web qui propose des clés d'accès comme méthode d'authentification.",
     "noMatchingItems": "Aucun élément ne correspond au filtre sélectionné.",
     "noMatchingItemsSearch": "Aucun élément correspondant à \"{{search}}\"",
     "noMatchingItemsWithFilter": "Aucun élément {{filter}} correspondant à \"{{search}}\"",
@@ -211,7 +208,7 @@
     "allItemsInFolders": "Tous vos éléments sont organisés dans des dossiers. Appuyez sur un dossier ci-dessus pour voir vos identifiants, ou utilisez la recherche pour trouver des éléments spécifiques.",
     "deleteFolder": "Supprimer le dossier",
     "deleteFolderKeepItems": "Supprimer le dossier uniquement",
-    "deleteFolderKeepItemsDescription": "Les éléments seront déplacés dans la liste principale.",
+    "deleteFolderKeepItemsDescription": "Les éléments seront déplacés dans le dossier parent.",
     "deleteFolderAndItems": "Supprimer le dossier et tous les éléments",
     "deleteFolderAndItemsDescription": "{{count}} élément(s) vont être déplacés vers Récemment supprimés.",
     "filters": {
@@ -329,6 +326,7 @@
     "noEmails": "Aucun email trouvé",
     "noEmailsDescription": "Vous n'avez pas encore reçu d'emails dans vos adresses email privées. Quand vous recevez un nouvel email, il apparaîtra ici.",
     "offlineMessage": "Vous êtes déconnecté. Veuillez vous connecter à internet pour charger vos e-mails.",
+    "loadMore": "Charger plus ({{count}} restants)",
     "dateFormat": {
       "justNow": "maintenant",
       "minutesAgo_single": "Il y a {{count}} minute",
@@ -350,7 +348,6 @@
     "openWebApp": "Ouvrir l’application web",
     "lock": "Verrouiller",
     "globalSettings": "Paramètres généraux",
-    "autofillPopup": "Remplissage automatique de la popup",
     "activeOnAllSites": "Activé sur tous les sites (sauf si désactivé ci-dessous)",
     "disabledOnAllSites": "Désactivé sur tous les sites",
     "rightClickContextMenu": "Clic-droit sur le menu contextuel",
@@ -361,12 +358,9 @@
     "autofillMatchingUrlSubdomain": "URL + sous-domaine",
     "autofillMatchingUrlExact": "Domaine d'URL exact uniquement",
     "siteSpecificSettings": "Paramètres spécifiques au site",
-    "autofillPopupOn": "Popup de saisie automatique sur:  ",
     "enabledForThisSite": "Activé pour ce site",
     "disabledForThisSite": "Désactivé pour ce site",
-    "temporarilyDisabledUntil": "Temporairement désactivé jusqu'au ",
     "resetAllSiteSettings": "Réinitialiser tous les paramètres spécifiques au site",
-    "autofillPopupDescription": "Afficher la fenêtre de saisie automatique lorsque les champs de connexion sont détectés.",
     "disabledSites": "Sites désactivés",
     "disabledSitesDescription": "Les sites où la fenêtre de saisie automatique n'apparaîtra pas.",
     "clearAllDisabledSites": "Effacer tous les sites désactivés",
@@ -404,7 +398,6 @@
     "clipboardSettings": "Paramètres du presse-papiers",
     "contextMenuSettings": "Paramètres du menu contextuel",
     "passkeySettings": "Paramètres de la clé d'accès",
-    "contextMenu": "Menu contextuel",
     "contextMenuEnabled": "Le menu contextuel est activé",
     "contextMenuDisabled": "Le menu contextuel est désactivé",
     "contextMenuDescription": "Faites un clic droit sur les champs de saisie pour accéder aux options d'AliasVault",
@@ -440,6 +433,12 @@
         "female": "Femme"
       }
     },
+    "credentialAutofill": "Remplissage automatique des identifiants",
+    "credentialAutofillDescription": "Afficher la popup de saisie automatique lorsque les champs nom d'utilisateur/mot de passe sont détectés",
+    "totpAutofill": "Remplissage automatique du code 2FA",
+    "totpAutofillDescription": "Afficher la popup de saisie automatique lorsque des champs de code 2FA sont détectés",
+    "autoCopyTotpOnAutofill": "Copie automatique du code 2FA dans le presse-papiers",
+    "autoCopyTotpOnAutofillDescription": "Copier automatiquement le premier code 2FA dans le presse-papiers après le remplissage automatique des identifiants",
     "loginSave": {
       "title": "Enregistrer l'invite de connexion",
       "description": "Afficher une invite pour enregistrer les identifiants de connexion lorsque vous soumettez un formulaire de connexion sur un site Web.",
