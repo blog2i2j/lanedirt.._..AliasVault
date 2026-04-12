@@ -23,9 +23,36 @@ fi
 # Build Android app in release mode
 # ------------------------------------------
 
+echo "Build type:"
+echo "  1) AAB - Android App Bundle (default, for Play Store upload)"
+echo "  2) APK - Android Package (for direct installation)"
+read -r -p "Enter choice [1/2, default=1]: " BUILD_CHOICE
+
+case "$BUILD_CHOICE" in
+  2)
+    BUILD_TASK="assembleRelease"
+    OUTPUT_DIR="$SCRIPT_DIR/app/build/outputs/apk/release"
+    ;;
+  *)
+    BUILD_TASK="bundleRelease"
+    OUTPUT_DIR="$SCRIPT_DIR/app/build/outputs/bundle/release"
+    ;;
+esac
+
+VERSION=$(grep 'versionName' "$SCRIPT_DIR/app/build.gradle" | sed 's/.*versionName[[:space:]]*"\(.*\)".*/\1/')
+
 pushd "$SCRIPT_DIR" > /dev/null
-./gradlew bundleRelease
+./gradlew "$BUILD_TASK"
 popd > /dev/null
 
-# Open directory that should contain the .aab file if build was successful
-open "$SCRIPT_DIR/app/build/outputs/bundle/release"
+# Rename output file to include version number
+if [ "$BUILD_TASK" = "assembleRelease" ]; then
+  ORIGINAL="$OUTPUT_DIR/app-release.apk"
+  RENAMED="$OUTPUT_DIR/aliasvault-${VERSION}-android.apk"
+  if [ -f "$ORIGINAL" ]; then
+    mv "$ORIGINAL" "$RENAMED"
+  fi
+fi
+
+# Open directory that should contain the build output if build was successful
+open "$OUTPUT_DIR"
