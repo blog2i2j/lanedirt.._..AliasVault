@@ -1,5 +1,8 @@
 source 'https://rubygems.org'
 
+# connection_pool 3.x requires Ruby >= 3.2; jekyll/jekyll:4.2.2 (docs/Dockerfile) uses Ruby 3.1.
+gem "connection_pool", "< 3"
+
 # gem "jekyll", "~> 4.3.2"
 gem "just-the-docs"
 
