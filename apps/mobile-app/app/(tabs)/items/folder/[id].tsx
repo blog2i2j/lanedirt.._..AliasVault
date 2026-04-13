@@ -447,10 +447,7 @@ export default function FolderViewScreen(): React.ReactNode {
    * Handle subfolder click - navigate to subfolder view.
    */
   const handleSubfolderClick = useCallback((subfolderId: string) => {
-    navigate(() => {
-      router.push(`/(tabs)/items/folder/${subfolderId}`);
-      HapticsUtility.impact();
-    });
+    navigate(() => router.push(`/(tabs)/items/folder/${subfolderId}`));
   }, [router, navigate]);
 
   /**
