@@ -16,6 +16,7 @@ using AliasVault.SmtpService.Handlers;
 using AliasVault.SmtpService.Workers;
 using AliasVault.WorkerStatus.ServiceExtensions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using SmtpServer;
 using SmtpServer.Storage;
 
@@ -40,6 +41,12 @@ config.SmtpTlsEnabled = tlsEnabled;
 
 var certPath = Environment.GetEnvironmentVariable("SMTP_CERTIFICATES_PATH") ?? "/certificates/smtp";
 config.SmtpCertificatesPath = certPath;
+
+var advertisedHostname = Environment.GetEnvironmentVariable("SMTP_ADVERTISED_HOSTNAME");
+if (string.IsNullOrWhiteSpace(advertisedHostname))
+{
+    advertisedHostname = "aliasvault";
+}
 
 // Check if TLS is requested but certificates are not available, if so, fallback to non-TLS mode.
 var tlsAvailable = false;
@@ -70,8 +77,10 @@ builder.Services.AddSingleton(
     {
         // Use SmtpServerWorker logger so logs appear in the database (it's in the allowed sources list).
         var logger = provider.GetRequiredService<ILogger<SmtpServerWorker>>();
+        var configuration = provider.GetRequiredService<IConfiguration>();
+        logger.LogInformation("SMTP advertised hostname (banner / EHLO): {AdvertisedHostname}", advertisedHostname);
         var options = new SmtpServerOptionsBuilder()
-            .ServerName("aliasvault");
+            .ServerName(advertisedHostname);
 
         if (tlsAvailable && loadedCertificate != null)
         {

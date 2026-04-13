@@ -1300,6 +1300,24 @@ update_env_var() {
     printf "  ${GREEN}> $key has been set in $ENV_FILE.${NC}\n"
 }
 
+# Prompt for SMTP_ADVERTISED_HOSTNAME (banner / EHLO). Empty value defaults to "aliasvault" at runtime.
+prompt_smtp_advertised_hostname() {
+    local current
+    current=$(grep "^SMTP_ADVERTISED_HOSTNAME=" "$ENV_FILE" 2>/dev/null | cut -d'=' -f2- | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+    printf "\n${CYAN}Enter SMTP advertised hostname (banner / EHLO)${NC}\n"
+    printf "This is shown to other mail servers when they connect, setting it can improve email deliverability.\n"
+    printf "Example: mail.example.com. Leave blank to default to \"aliasvault\" (which is fine for general use).\n"
+    if [ -n "$current" ]; then
+        printf "Current value: ${CYAN}${current}${NC}\n"
+    fi
+    read -r -p "Hostname: " user_in
+
+    local trimmed
+    trimmed=$(echo "$user_in" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    update_env_var "SMTP_ADVERTISED_HOSTNAME" "$trimmed"
+}
+
 # Helper function to write secrets to files instead of .env
 write_secret_to_file() {
     local secret_name=$1
@@ -2181,6 +2199,8 @@ handle_email_configuration() {
                     break
                 fi
             done
+
+            prompt_smtp_advertised_hostname
 
             # Update .env file and restart
             if ! update_env_var "PRIVATE_EMAIL_DOMAINS" "$new_domains"; then
@@ -3342,6 +3362,11 @@ check_and_populate_env() {
     if ! grep -q "^SMTP_TLS_PORT=" "$ENV_FILE" || [ -z "$(grep "^SMTP_TLS_PORT=" "$ENV_FILE" | cut -d '=' -f2)" ]; then
         update_env_var "SMTP_TLS_PORT" "587"
         printf "  Set SMTP_TLS_PORT\n"
+    fi
+
+    # SMTP_ADVERTISED_HOSTNAME
+    if ! grep -q "^SMTP_ADVERTISED_HOSTNAME=" "$ENV_FILE" 2>/dev/null; then
+        update_env_var "SMTP_ADVERTISED_HOSTNAME" ""
     fi
 }
 

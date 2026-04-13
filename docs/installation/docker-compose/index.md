@@ -189,6 +189,21 @@ Important: DNS propagation can take up to 24-48 hours. During this time, email d
 
 If you encounter any issues, feel free to join the [Discord chat](https://discord.gg/DsaXMTEtpF) to get help from other users and maintainers.
 
+### Optional: SMTP advertised hostname
+
+When you expose SMTP (ports 25 and 587), remote clients see a **hostname** in the SMTP **banner** and **EHLO** responses. This value defaults to `aliasvault` which works fine for general email deliverability, but some diagnostic tools may check that this name is consistent with **reverse DNS (PTR)** with your email MX record.
+
+If you wish to set this value, update the `docker-compose.yml` file:
+
+```bash
+# ...
+    environment:
+      SMTP_ADVERTISED_HOSTNAME: "mail.yourdomain1.com"
+# ...
+```
+
+Restart the container after changing this value.
+
 ### Optional: SMTP TLS (STARTTLS)
 
 By default, SMTP TLS is disabled (`SMTP_TLS_ENABLED: "false"`). This does NOT significantly impact email deliverability: most email providers will still deliver to your server. However, if you want to enable TLS for SMTP connections:

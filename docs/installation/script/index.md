@@ -163,8 +163,9 @@ After setting up your DNS, continue with configuring AliasVault to let it know w
   ./install.sh configure-email
   ````
 2. Follow the interactive prompts to:
-    - Configure your domain(s)
-    - Restart required services
+    1. Configure your domain(s)
+    2. Set the SMTP advertised hostname to your main domain (helps with improving deliverability)
+    3. Restart required services
 
 3. Once configured, you can:
    - Create new aliases in the AliasVault client
