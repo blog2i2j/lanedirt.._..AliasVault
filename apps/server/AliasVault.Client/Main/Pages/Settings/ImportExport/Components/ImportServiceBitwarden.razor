@@ -23,7 +23,22 @@
 
     private static async Task<List<ImportedCredential>> ProcessFile(string filename, byte[] fileBytes)
     {
-        var fileContents = Encoding.UTF8.GetString(fileBytes);
-        return await BitwardenImporter.ImportFromCsvAsync(fileContents);
+        var extension = Path.GetExtension(filename).ToLowerInvariant();
+
+        switch (extension)
+        {
+            case ".zip":
+                // Binary .zip file with attachments
+                var zipImporter = new BitwardenZipImporter();
+                return await zipImporter.ImportFromArchiveAsync(fileBytes);
+
+            case ".csv":
+                // Text CSV file
+                var fileContents = Encoding.UTF8.GetString(fileBytes);
+                return await BitwardenImporter.ImportFromCsvAsync(fileContents);
+
+            default:
+                throw new InvalidOperationException($"Unsupported file extension: {extension}");
+        }
     }
 }

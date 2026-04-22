@@ -1030,10 +1030,12 @@
             return;
         }
 
-        // Only show zip warning if this importer doesn't support .zip files
-        if (e.File.Name.EndsWith(".zip") && !AcceptedFileExtensions.Any(ext => ext.Equals(".zip", StringComparison.OrdinalIgnoreCase)))
+        // Validate file extension against accepted extensions
+        var fileExtension = Path.GetExtension(e.File.Name);
+        if (!AcceptedFileExtensions.Any(ext => ext.Equals(fileExtension, StringComparison.OrdinalIgnoreCase)))
         {
-            ImportError = Localizer["ImportErrorZipFile"];
+            var supportedFormats = string.Join(", ", AcceptedFileExtensions);
+            ImportError = Localizer["ImportErrorUnsupportedFormat", supportedFormats];
             return;
         }
 
