@@ -1030,7 +1030,8 @@
             return;
         }
 
-        if (e.File.Name.EndsWith(".zip"))
+        // Only show zip warning if this importer doesn't support .zip files
+        if (e.File.Name.EndsWith(".zip") && !AcceptedFileExtensions.Any(ext => ext.Equals(".zip", StringComparison.OrdinalIgnoreCase)))
         {
             ImportError = Localizer["ImportErrorZipFile"];
             return;
