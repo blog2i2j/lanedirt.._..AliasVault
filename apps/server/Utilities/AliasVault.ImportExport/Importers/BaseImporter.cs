@@ -293,6 +293,47 @@ public static class BaseImporter
                 }
             }
 
+            // Add custom fields if present
+            if (importedCredential.CustomFields != null)
+            {
+                foreach (var customField in importedCredential.CustomFields)
+                {
+                    if (string.IsNullOrWhiteSpace(customField.Value))
+                    {
+                        continue;
+                    }
+
+                    // Create a FieldDefinition for this custom field
+                    var fieldDefinition = new FieldDefinition
+                    {
+                        Id = Guid.NewGuid(),
+                        Label = customField.Key,
+                        FieldType = "Text", // Default to Text type for all custom fields
+                        IsMultiValue = false,
+                        IsHidden = false,
+                        EnableHistory = false,
+                        Weight = 0,
+                        ApplicableToTypes = null, // Applicable to all types
+                        CreatedAt = createdAt,
+                        UpdatedAt = updatedAt,
+                    };
+
+                    // Create a FieldValue that references this definition
+                    item.FieldValues.Add(new FieldValue
+                    {
+                        Id = Guid.NewGuid(),
+                        ItemId = item.Id,
+                        FieldDefinition = fieldDefinition,
+                        FieldDefinitionId = fieldDefinition.Id,
+                        FieldKey = null, // Custom fields don't use FieldKey
+                        Value = customField.Value,
+                        Weight = 0,
+                        CreatedAt = createdAt,
+                        UpdatedAt = updatedAt,
+                    });
+                }
+            }
+
             items.Add(item);
         }
 

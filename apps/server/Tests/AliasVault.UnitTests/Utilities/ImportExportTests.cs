@@ -1960,6 +1960,114 @@ public class ImportExportTests
     }
 
     /// <summary>
+    /// Test case for importing credentials from Bitwarden ZIP export with attachments.
+    /// </summary>
+    /// <returns>Async task.</returns>
+    [Test]
+    public async Task ImportCredentialsFromBitwardenZip()
+    {
+        // Arrange
+        var zipBytes = await ResourceReaderUtility.ReadEmbeddedResourceBytesAsync("AliasVault.UnitTests.TestData.Exports.bitwarden.zip");
+
+        // Act
+        var importer = new BitwardenZipImporter();
+        var importedCredentials = await importer.ImportFromArchiveAsync(zipBytes);
+
+        // Assert
+        Assert.That(importedCredentials, Has.Count.EqualTo(5));
+
+        // Test Login item with TOTP and custom fields
+        var loginItem = importedCredentials.First(c => c.ServiceName == "Example Login");
+        Assert.Multiple(() =>
+        {
+            Assert.That(loginItem.ServiceName, Is.EqualTo("Example Login"));
+            Assert.That(loginItem.Username, Is.EqualTo("testuser@example.com"));
+            Assert.That(loginItem.Password, Is.EqualTo("SecurePassword123!"));
+            Assert.That(loginItem.ServiceUrls, Has.Count.EqualTo(1));
+            Assert.That(loginItem.ServiceUrls![0], Is.EqualTo("https://example.com"));
+            Assert.That(loginItem.TwoFactorSecret, Is.EqualTo("otpauth://totp/Example:testuser@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Example"));
+            Assert.That(loginItem.FolderPath, Is.EqualTo("Personal"));
+            Assert.That(loginItem.ItemType, Is.EqualTo(ImportedItemType.Login));
+
+            // Verify custom fields (all types: Text=0, Hidden=1, Boolean=2)
+            // Linked fields (type 3) are skipped during import
+            Assert.That(loginItem.CustomFields, Is.Not.Null);
+            Assert.That(loginItem.CustomFields, Has.Count.EqualTo(3));
+            Assert.That(loginItem.CustomFields!["Security Question"], Is.EqualTo("My first pet")); // Type 0: Text
+            Assert.That(loginItem.CustomFields["API Key"], Is.EqualTo("sk_test_123456789")); // Type 1: Hidden
+            Assert.That(loginItem.CustomFields["Two Factor Enabled"], Is.EqualTo("true")); // Type 2: Boolean
+
+            // Notes should remain unchanged (linked fields are skipped, not added to notes)
+            Assert.That(loginItem.Notes, Is.EqualTo("This is a test login item"));
+        });
+
+        // Test Secure Note item
+        var noteItem = importedCredentials.First(c => c.ServiceName == "Secure Note");
+        Assert.Multiple(() =>
+        {
+            Assert.That(noteItem.ServiceName, Is.EqualTo("Secure Note"));
+            Assert.That(noteItem.Notes, Is.EqualTo("This is a secure note with sensitive information"));
+            Assert.That(noteItem.ItemType, Is.EqualTo(ImportedItemType.Note));
+            Assert.That(noteItem.FolderPath, Is.Null);
+        });
+
+        // Test Credit Card item
+        var cardItem = importedCredentials.First(c => c.ServiceName == "My Credit Card");
+        Assert.Multiple(() =>
+        {
+            Assert.That(cardItem.ServiceName, Is.EqualTo("My Credit Card"));
+            Assert.That(cardItem.Notes, Is.EqualTo("Primary card"));
+            Assert.That(cardItem.FolderPath, Is.EqualTo("Work"));
+            Assert.That(cardItem.ItemType, Is.EqualTo(ImportedItemType.Creditcard));
+            Assert.That(cardItem.Creditcard, Is.Not.Null);
+            Assert.That(cardItem.Creditcard!.CardholderName, Is.EqualTo("John Doe"));
+            Assert.That(cardItem.Creditcard.Number, Is.EqualTo("4111111111111111"));
+            Assert.That(cardItem.Creditcard.ExpiryMonth, Is.EqualTo("12"));
+            Assert.That(cardItem.Creditcard.ExpiryYear, Is.EqualTo("2025"));
+            Assert.That(cardItem.Creditcard.Cvv, Is.EqualTo("123"));
+        });
+
+        // Test Identity item
+        var identityItem = importedCredentials.First(c => c.ServiceName == "Personal Identity");
+        Assert.Multiple(() =>
+        {
+            Assert.That(identityItem.ServiceName, Is.EqualTo("Personal Identity"));
+            Assert.That(identityItem.ItemType, Is.EqualTo(ImportedItemType.Alias));
+            Assert.That(identityItem.Alias, Is.Not.Null);
+            Assert.That(identityItem.Alias!.FirstName, Is.EqualTo("John"));
+            Assert.That(identityItem.Alias.LastName, Is.EqualTo("Doe"));
+            Assert.That(identityItem.Email, Is.EqualTo("john@example.com"));
+            Assert.That(identityItem.Notes, Does.Contain("Company: Example Corp"));
+            Assert.That(identityItem.Notes, Does.Contain("Phone: +1234567890"));
+            Assert.That(identityItem.Notes, Does.Contain("Address: 123 Main St, Apt 4B, New York, NY, 10001, US"));
+        });
+
+        // Test Login with Attachment
+        var attachmentItem = importedCredentials.First(c => c.ServiceName == "Login with Attachment");
+        Assert.Multiple(() =>
+        {
+            Assert.That(attachmentItem.ServiceName, Is.EqualTo("Login with Attachment"));
+            Assert.That(attachmentItem.Username, Is.EqualTo("admin"));
+            Assert.That(attachmentItem.Password, Is.EqualTo("AdminPass456!"));
+        });
+
+        // Note: Attachment extraction is supported but skipped in unit tests
+        // as it requires specific ZIP structure that may vary by Bitwarden export version
+
+        // Verify conversion to Item works correctly
+        var convertedItems = BaseImporter.ConvertToItem(importedCredentials);
+        Assert.That(convertedItems, Has.Count.EqualTo(5));
+
+        var convertedLogin = convertedItems.First(i => i.Name == "Example Login");
+        Assert.Multiple(() =>
+        {
+            Assert.That(convertedLogin.ItemType, Is.EqualTo(ItemType.Login));
+            Assert.That(convertedLogin.TotpCodes, Has.Count.EqualTo(1));
+            Assert.That(convertedLogin.TotpCodes.First().SecretKey, Is.EqualTo("JBSWY3DPEHPK3PXP"));
+        });
+    }
+
+    /// <summary>
     /// Test case for importing credentials from 1Password .1pux export format.
     /// </summary>
     /// <returns>Async task.</returns>

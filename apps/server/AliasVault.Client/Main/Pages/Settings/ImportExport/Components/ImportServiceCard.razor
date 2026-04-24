@@ -1030,9 +1030,12 @@
             return;
         }
 
-        if (e.File.Name.EndsWith(".zip"))
+        // Validate file extension against accepted extensions
+        var fileExtension = Path.GetExtension(e.File.Name);
+        if (!AcceptedFileExtensions.Any(ext => ext.Equals(fileExtension, StringComparison.OrdinalIgnoreCase)))
         {
-            ImportError = Localizer["ImportErrorZipFile"];
+            var supportedFormats = string.Join(", ", AcceptedFileExtensions);
+            ImportError = Localizer["ImportErrorUnsupportedFormat", supportedFormats];
             return;
         }
 
@@ -1120,65 +1123,14 @@
             .Where(x => !x.IsDeleted && x.DeletedAt == null)
             .ToListAsync();
 
-        var duplicates = ImportedCredentials.Where(imported =>
-            existingItems.Any(existing =>
-            {
-                // Title must match (case-insensitive)
-                if (existing.Name == null || !existing.Name.Equals(imported.ServiceName, StringComparison.OrdinalIgnoreCase))
-                {
-                    return false;
-                }
+        // Load all folders to build full hierarchical paths
+        var allFolders = await context.Folders
+            .Where(f => !f.IsDeleted)
+            .ToListAsync();
 
-                // Folder path must match (case-insensitive)
-                var existingFolderPath = existing.Folder?.Name ?? string.Empty;
-                var importedFolderPath = imported.FolderPath ?? string.Empty;
-                if (!existingFolderPath.Equals(importedFolderPath, StringComparison.OrdinalIgnoreCase))
-                {
-                    return false;
-                }
-
-                // Helper function to compare nullable fields
-                bool FieldsMatch(string? existingValue, string? importedValue)
-                {
-                    bool existingHasValue = !string.IsNullOrEmpty(existingValue);
-                    bool importedHasValue = !string.IsNullOrEmpty(importedValue);
-
-                    // If both have values, they must match (case-insensitive)
-                    if (existingHasValue && importedHasValue)
-                    {
-                        return existingValue!.Equals(importedValue, StringComparison.OrdinalIgnoreCase);
-                    }
-
-                    // If both are empty/null, they match
-                    if (!existingHasValue && !importedHasValue)
-                    {
-                        return true;
-                    }
-
-                    // If only one has a value, they don't match
-                    return false;
-                }
-
-                // Username must match
-                if (!FieldsMatch(ItemService.GetFieldValue(existing, FieldKey.LoginUsername), imported.Username))
-                {
-                    return false;
-                }
-
-                // Password must match
-                if (!FieldsMatch(ItemService.GetFieldValue(existing, FieldKey.LoginPassword), imported.Password))
-                {
-                    return false;
-                }
-
-                // Notes must match
-                if (!FieldsMatch(ItemService.GetFieldValue(existing, FieldKey.NotesContent), imported.Notes))
-                {
-                    return false;
-                }
-
-                return true;
-            })).ToList();
+        var duplicates = ImportedCredentials
+            .Where(imported => existingItems.Any(existing => IsDuplicateItem(existing, imported, allFolders)))
+            .ToList();
 
         DuplicateCredentialsCount = duplicates.Count;
 
@@ -1188,6 +1140,109 @@
         // Detect folders in the import (hierarchical)
         DetectedFolderPaths = CollectHierarchicalFolderPaths(ImportedCredentials);
         DetectedFolderCount = DetectedFolderPaths.Count;
+    }
+
+    /// <summary>
+    /// Determines if an imported credential is a duplicate of an existing item.
+    /// Compares title, folder path, username, password, and notes.
+    /// </summary>
+    /// <param name="existing">The existing item in the vault.</param>
+    /// <param name="imported">The imported credential to check.</param>
+    /// <param name="allFolders">All folders for building hierarchical paths.</param>
+    /// <returns>True if the items are duplicates, false otherwise.</returns>
+    private bool IsDuplicateItem(Item existing, ImportedCredential imported, List<Folder> allFolders)
+    {
+        // Title must match (case-insensitive)
+        if (existing.Name == null || !existing.Name.Equals(imported.ServiceName, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // Folder path must match (case-insensitive)
+        var existingFolderPath = existing.Folder != null ? GetFolderFullPath(existing.Folder, allFolders) : string.Empty;
+        var importedFolderPath = imported.FolderPath ?? string.Empty;
+        if (!existingFolderPath.Equals(importedFolderPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // Username must match
+        if (!FieldValuesMatch(ItemService.GetFieldValue(existing, FieldKey.LoginUsername), imported.Username))
+        {
+            return false;
+        }
+
+        // Password must match
+        if (!FieldValuesMatch(ItemService.GetFieldValue(existing, FieldKey.LoginPassword), imported.Password))
+        {
+            return false;
+        }
+
+        // Notes must match (using contains check for compatibility with possible appended custom fields)
+        if (!NotesFieldsMatch(ItemService.GetFieldValue(existing, FieldKey.NotesContent), imported.Notes))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Compares two field values for exact match (case-insensitive).
+    /// Both empty/null values are considered a match.
+    /// </summary>
+    /// <param name="existingValue">The existing field value.</param>
+    /// <param name="importedValue">The imported field value.</param>
+    /// <returns>True if the values match, false otherwise.</returns>
+    private static bool FieldValuesMatch(string? existingValue, string? importedValue)
+    {
+        bool existingHasValue = !string.IsNullOrEmpty(existingValue);
+        bool importedHasValue = !string.IsNullOrEmpty(importedValue);
+
+        // If both have values, they must match (case-insensitive)
+        if (existingHasValue && importedHasValue)
+        {
+            return existingValue!.Equals(importedValue, StringComparison.OrdinalIgnoreCase);
+        }
+
+        // If both are empty/null, they match
+        if (!existingHasValue && !importedHasValue)
+        {
+            return true;
+        }
+
+        // If only one has a value, they don't match
+        return false;
+    }
+
+    /// <summary>
+    /// Compares notes fields using a contains check for compatibility with appended custom fields.
+    /// Some importers append custom fields to notes, so we check if imported notes are contained
+    /// in existing notes rather than requiring an exact match.
+    /// </summary>
+    /// <param name="existingNotes">The existing notes value.</param>
+    /// <param name="importedNotes">The imported notes value.</param>
+    /// <returns>True if the notes match, false otherwise.</returns>
+    private static bool NotesFieldsMatch(string? existingNotes, string? importedNotes)
+    {
+        bool existingHasValue = !string.IsNullOrEmpty(existingNotes);
+        bool importedHasValue = !string.IsNullOrEmpty(importedNotes);
+
+        // If both are empty/null, they match
+        if (!existingHasValue && !importedHasValue)
+        {
+            return true;
+        }
+
+        // If only one has a value, they don't match
+        if (existingHasValue != importedHasValue)
+        {
+            return false;
+        }
+
+        // Both have values - check if imported notes are contained in existing notes
+        // This handles cases where importers append custom fields to notes
+        return existingNotes!.Contains(importedNotes!, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
