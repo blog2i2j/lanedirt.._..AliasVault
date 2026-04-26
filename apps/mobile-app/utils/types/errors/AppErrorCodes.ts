@@ -136,6 +136,20 @@ export function getAppErrorCode(error: unknown): AppErrorCode | null {
 }
 
 /**
+ * Detect a "vault locked" error — i.e. the in-memory database has been cleared
+ * (auto-lock timeout, vault evicted from memory).
+ */
+export function isVaultLockedError(error: unknown): boolean {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : '';
+  return message.includes('Database not initialized');
+}
+
+/**
  * Extract error code from a string (e.g., "Error occurred (Code: E-501)" -> "E-501")
  */
 export function extractErrorCode(message: string): AppErrorCode | null {

@@ -1,10 +1,11 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { StyleSheet, View, ScrollView, Dimensions, Text, Platform } from 'react-native';
 
 import { copyToClipboard } from '@/utils/ClipboardUtility';
+import { isVaultLockedError } from '@/utils/types/errors/AppErrorCodes';
 
 import { useColors } from '@/hooks/useColorScheme';
 import { useLogout } from '@/hooks/useLogout';
@@ -31,6 +32,18 @@ export default function VaultErrorScreen() : React.ReactNode {
   const [showDetails, setShowDetails] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  /*
+   * Central safety net: if the error indicates the in-memory vault was cleared
+   * (auto-lock timeout), redirect to the reinitialize flow instead of showing
+   * the fatal-error screen.
+   */
+  const shouldReinitialize = isVaultLockedError(errorMessage) && errorSource !== 'reinitialize';
+  useEffect(() => {
+    if (shouldReinitialize) {
+      router.replace('/reinitialize');
+    }
+  }, [shouldReinitialize]);
+
   /**
    * Copy the full error details to clipboard for sharing with support.
    */
@@ -55,6 +68,10 @@ export default function VaultErrorScreen() : React.ReactNode {
   const handleRetry = useCallback((): void => {
     router.replace('/initialize');
   }, []);
+
+  if (shouldReinitialize) {
+    return null;
+  }
 
   const styles = StyleSheet.create({
     appName: {
