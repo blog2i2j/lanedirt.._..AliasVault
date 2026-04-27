@@ -231,9 +231,15 @@ export function DialogProvider({ children }: DialogProviderProps): React.ReactNo
     // Wrap button onPress to auto-close dialog
     const wrappedButtons = buttons.map(btn => ({
       ...btn,
-      onPress: async (): Promise<void> => {
         await btn.onPress?.();
+      onPress: (): void => {
         setDialogConfig(null);
+        const result = btn.onPress?.();
+        if (result instanceof Promise) {
+          result.catch((error) => {
+            console.error('Dialog button action error:', error);
+          });
+        }
       },
     }));
 
