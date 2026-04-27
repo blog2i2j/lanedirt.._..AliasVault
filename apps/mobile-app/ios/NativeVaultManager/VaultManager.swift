@@ -492,6 +492,20 @@ public class VaultManager: NSObject {
         resolve(apiUrl)
     }
 
+    @objc
+    func setCustomProxyHeaders(_ headersJson: String,
+                               resolver resolve: @escaping RCTPromiseResolveBlock,
+                               rejecter reject: @escaping RCTPromiseRejectBlock) {
+        webApiService.setCustomProxyHeaders(headersJson)
+        resolve(nil)
+    }
+
+    @objc
+    func getCustomProxyHeaders(_ resolve: @escaping RCTPromiseResolveBlock,
+                               rejecter reject: @escaping RCTPromiseRejectBlock) {
+        resolve(webApiService.getCustomProxyHeadersJson())
+    }
+
     // MARK: - WebAPI Token Management
 
     @objc

@@ -11,6 +11,9 @@ export interface Spec extends TurboModule {
   getAccessToken(): Promise<string | null>;
   clearAuthTokens(): Promise<void>;
   revokeTokens(): Promise<void>;
+  // Custom proxy headers added to every outgoing API request
+  setCustomProxyHeaders(headersJson: string): Promise<void>;
+  getCustomProxyHeaders(): Promise<string>;
 
   // WebAPI request execution
   executeWebApiRequest(method: string, endpoint: string, body: string | null, headers: string, requiresAuth: boolean): Promise<string>;
@@ -22,18 +25,16 @@ export interface Spec extends TurboModule {
   clearSession(): Promise<void>;  // Clears session only, preserves vault for potential RPO recovery
   clearVault(): Promise<void>;    // Clears everything including vault data
 
-  // Vault sync - single method handles all sync logic including merge
-  // Returns detailed result about what action was taken
+  // Vault sync
   syncVaultWithServer(): Promise<{ success: boolean; action: 'uploaded' | 'downloaded' | 'merged' | 'already_in_sync' | 'error'; newRevision: number; wasOffline: boolean; error: string | null }>;
 
-  // Quick check if sync is needed without doing the actual sync
-  // Used to show appropriate UI indicator before starting sync
+  // Quick check if sync is needed
   checkSyncStatus(): Promise<{ success: boolean; hasNewerVault: boolean; hasDirtyChanges: boolean; isOffline: boolean; requiresLogout: boolean; errorKey: string | null }>;
 
-  // Sync state management (kept for local mutation tracking)
+  // Sync state management
   getSyncState(): Promise<{isDirty: boolean; mutationSequence: number; serverRevision: number; isSyncing: boolean}>;
   markVaultClean(mutationSeqAtStart: number, newServerRevision: number): Promise<boolean>;
-  clearEncryptedVaultForFreshDownload(): Promise<void>;  // Deletes corrupted vault and resets sync state to force fresh download
+  clearEncryptedVaultForFreshDownload(): Promise<void>;
 
   // Vault SQL operations
   executeQuery(query: string, params: (string | number | null)[]): Promise<string[]>;
@@ -42,8 +43,7 @@ export interface Spec extends TurboModule {
   beginTransaction(): Promise<void>;
   commitTransaction(): Promise<void>;
   rollbackTransaction(): Promise<void>;
-  // Persist the in-memory database to encrypted storage and mark as dirty.
-  // Used after migrations where SQL handles its own transactions but we need to persist and sync.
+  // Persist the in-memory database to encrypted storage and mark as dirty
   persistAndMarkDirty(): Promise<void>;
 
   // Cryptography operations

@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -35,6 +36,7 @@ class WebApiService(private val context: Context) {
         private const val ACCESS_TOKEN_KEY = "accessToken"
         private const val REFRESH_TOKEN_KEY = "refreshToken"
         private const val APP_INSTANCE_ID_KEY = "appInstanceId"
+        private const val CUSTOM_PROXY_HEADERS_KEY = "customProxyHeaders"
         private const val DEFAULT_API_URL = "https://app.aliasvault.net/api"
         private const val SHARED_PREFS_NAME = "aliasvault"
     }
@@ -71,6 +73,62 @@ class WebApiService(private val context: Context) {
      */
     fun getApiUrl(): String {
         return sharedPreferences.getString(API_URL_KEY, DEFAULT_API_URL) ?: DEFAULT_API_URL
+    }
+
+    /**
+     * Set the custom proxy headers (JSON-encoded array of {name, value} pairs).
+     */
+    fun setCustomProxyHeaders(json: String) {
+        sharedPreferences.edit().putString(CUSTOM_PROXY_HEADERS_KEY, json).apply()
+    }
+
+    /**
+     * Get the custom proxy headers as a raw JSON string. Returns "[]" when none configured.
+     */
+    fun getCustomProxyHeadersJson(): String {
+        return sharedPreferences.getString(CUSTOM_PROXY_HEADERS_KEY, "[]") ?: "[]"
+    }
+
+    /**
+     * Parse the stored custom proxy headers into a name->value map.
+     * Headers conflicting with built-in AliasVault headers are ignored.
+     */
+    private fun getCustomProxyHeaders(): Map<String, String> {
+        if (getApiUrl() == DEFAULT_API_URL) {
+            return emptyMap()
+        }
+        return try {
+            val array = JSONArray(getCustomProxyHeadersJson())
+            (0 until array.length())
+                .mapNotNull { parseProxyHeaderEntry(array.optJSONObject(it)) }
+                .toMap()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to parse custom proxy headers", e)
+            emptyMap()
+        }
+    }
+
+    /**
+     * Parse and validate a single proxy-header JSON entry. Returns null if the entry is missing,
+     * empty, or conflicts with a built-in AliasVault header.
+     */
+    private fun parseProxyHeaderEntry(entry: JSONObject?): Pair<String, String>? {
+        if (entry == null) {
+            return null
+        }
+
+        val name = entry.optString("name", "").trim()
+        val value = entry.optString("value", "").trim()
+        if (name.isEmpty() || value.isEmpty()) {
+            return null
+        }
+
+        val lower = name.lowercase()
+        if (lower == "authorization" || lower.startsWith("x-aliasvault-")) {
+            return null
+        }
+
+        return name to value
     }
 
     /**
@@ -202,8 +260,12 @@ class WebApiService(private val context: Context) {
             connection.readTimeout = 30000 // 30 seconds
             connection.doInput = true
 
+            // Add any custom proxy headers
+            val finalHeaders = getCustomProxyHeaders().toMutableMap()
+            finalHeaders.putAll(headers)
+
             // Set headers
-            for ((key, value) in headers) {
+            for ((key, value) in finalHeaders) {
                 connection.setRequestProperty(key, value)
             }
 

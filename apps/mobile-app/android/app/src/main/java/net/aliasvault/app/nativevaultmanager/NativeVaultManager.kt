@@ -937,6 +937,33 @@ class NativeVaultManager(reactContext: ReactApplicationContext) :
         }
     }
 
+    /**
+     * Set the custom proxy headers (JSON-encoded array of {name, value} pairs).
+     */
+    @ReactMethod
+    override fun setCustomProxyHeaders(headersJson: String, promise: Promise) {
+        try {
+            webApiService.setCustomProxyHeaders(headersJson)
+            promise.resolve(null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting custom proxy headers", e)
+            promise.reject("ERR_SET_CUSTOM_PROXY_HEADERS", "Failed to set custom proxy headers: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Get the custom proxy headers as a JSON string.
+     */
+    @ReactMethod
+    override fun getCustomProxyHeaders(promise: Promise) {
+        try {
+            promise.resolve(webApiService.getCustomProxyHeadersJson())
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting custom proxy headers", e)
+            promise.reject("ERR_GET_CUSTOM_PROXY_HEADERS", "Failed to get custom proxy headers: ${e.message}", e)
+        }
+    }
+
     // MARK: - WebAPI Token Management
 
     /**
