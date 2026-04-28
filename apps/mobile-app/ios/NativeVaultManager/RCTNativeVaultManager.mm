@@ -185,6 +185,14 @@
     [vaultManager getApiUrl:resolve rejecter:reject];
 }
 
+- (void)setCustomProxyHeaders:(NSString *)headersJson resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager setCustomProxyHeaders:headersJson resolver:resolve rejecter:reject];
+}
+
+- (void)getCustomProxyHeaders:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+    [vaultManager getCustomProxyHeaders:resolve rejecter:reject];
+}
+
 // MARK: - WebAPI Token Management
 
 - (void)setAuthTokens:(NSString *)accessToken refreshToken:(NSString *)refreshToken resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {

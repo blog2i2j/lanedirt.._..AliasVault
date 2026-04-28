@@ -11,6 +11,7 @@ public class WebApiService {
     private let apiUrlKey = "apiUrl"
     private let accessTokenKey = "accessToken"
     private let refreshTokenKey = "refreshToken"
+    private let customProxyHeadersKey = "customProxyHeaders"
 
     // Default API URL
     private let defaultApiUrl = "https://app.aliasvault.net/api"
@@ -36,6 +37,54 @@ public class WebApiService {
      */
     public func getApiUrl() -> String {
         return userDefaults.string(forKey: apiUrlKey) ?? defaultApiUrl
+    }
+
+    /**
+     * Set the custom proxy headers (JSON-encoded array of {name, value} pairs).
+     */
+    public func setCustomProxyHeaders(_ json: String) {
+        userDefaults.set(json, forKey: customProxyHeadersKey)
+        userDefaults.synchronize()
+    }
+
+    /**
+     * Get the custom proxy headers as a raw JSON string. Returns "[]" when none configured.
+     */
+    public func getCustomProxyHeadersJson() -> String {
+        return userDefaults.string(forKey: customProxyHeadersKey) ?? "[]"
+    }
+
+    /**
+     * Parse the stored custom proxy headers into a name->value dictionary.
+     * Headers whose name conflicts with built-in AliasVault headers are ignored.
+     */
+    private func getCustomProxyHeaders() -> [String: String] {
+        if getApiUrl() == defaultApiUrl {
+            return [:]
+        }
+        let json = getCustomProxyHeadersJson()
+        guard let data = json.data(using: .utf8),
+              let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return [:]
+        }
+        return array
+            .compactMap(parseProxyHeaderEntry)
+            .reduce(into: [String: String]()) { result, pair in result[pair.0] = pair.1 }
+    }
+
+    /**
+     * Parse and validate a single proxy-header entry. Returns nil if the entry is missing,
+     * empty, or conflicts with a built-in AliasVault header.
+     */
+    private func parseProxyHeaderEntry(_ entry: [String: Any]) -> (String, String)? {
+        guard let name = entry["name"] as? String,
+              let value = entry["value"] as? String else { return nil }
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        let trimmedValue = value.trimmingCharacters(in: .whitespaces)
+        if trimmedName.isEmpty || trimmedValue.isEmpty { return nil }
+        let lower = trimmedName.lowercased()
+        if lower == "authorization" || lower.hasPrefix("x-aliasvault-") { return nil }
+        return (trimmedName, trimmedValue)
     }
 
     /**
@@ -161,8 +210,14 @@ public class WebApiService {
         var request = URLRequest(url: url)
         request.httpMethod = method.uppercased()
 
-        // Set headers
+        // Add any custom proxy headers
+        var finalHeaders = getCustomProxyHeaders()
         for (key, value) in headers {
+            finalHeaders[key] = value
+        }
+
+        // Set headers
+        for (key, value) in finalHeaders {
             request.setValue(value, forHTTPHeaderField: key)
         }
 
